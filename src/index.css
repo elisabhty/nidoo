@@ -74,6 +74,7 @@ input[type='date'], input[type='time'] { -webkit-appearance: none; appearance: n
 @keyframes goutte { 0% { transform: translate(0, 0); opacity: 0; } 15% { opacity: 0.95; } 45% { transform: translate(calc(var(--gx) * 0.6), -260%); } 100% { transform: translate(var(--gx), 520%); opacity: 0; } }
 @keyframes luciole { 0%, 100% { transform: translate(0, 0); opacity: 0; } 20% { opacity: 1; } 50% { transform: translate(var(--lx), var(--ly)); opacity: 0.5; } 75% { opacity: 1; } 90% { transform: translate(calc(var(--lx) * -0.4), calc(var(--ly) * 0.5)); } }
 @keyframes neige { from { transform: translate(0, 0); } to { transform: translate(var(--nx), 340px); } }
+@keyframes sprite { from { transform: translateX(0); } to { transform: translateX(-100%); } }
 @keyframes derive { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(8px, -6px); } }
 
 .anim-monte { animation: monte 0.5s var(--ressort) both; }

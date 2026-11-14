@@ -30,11 +30,17 @@ const SPOTS: Record<string, Spot> = {
   lanterne: { left: 22, bottom: 14, w: 9, z: 5, anim: 'lueur 3.2s ease-in-out infinite' },
   boite: { left: 67, bottom: 12, w: 8.5, z: 6 },
   fleurs: { left: 28, bottom: 7, w: 15, z: 7, anim: 'balance 4.5s ease-in-out 0.6s infinite' },
-  chat: { left: 58, bottom: 7, w: 10, z: 7, anim: 'respire 3.4s ease-in-out infinite', roam: 'balade 16s ease-in-out 4s infinite' },
+  chat: { left: 57, bottom: 7, w: 12, z: 7, anim: 'respire 3.4s ease-in-out infinite', roam: 'balade 16s ease-in-out 4s infinite' },
   fontaine: { left: 2, bottom: 1, w: 18, z: 8, anim: 'respire 2.2s ease-in-out infinite' },
   potager: { left: 79, bottom: 0, w: 19, z: 8, anim: 'respire 5s ease-in-out 1s infinite' },
 }
 const ORDER = Object.keys(SPOTS)
+// Décorations qui ont une vraie boucle animée (bande de sprites deco-<clé>-anim.webp).
+const ANIM: Record<string, { frames: number; dur: number }> = {
+  chat: { frames: 10, dur: 1.5 },
+  balancoire: { frames: 8, dur: 2.2 },
+  fontaine: { frames: 6, dur: 0.85 },
+}
 const cover: CSSProperties = { position: 'absolute', inset: 0 }
 
 export default function House({
@@ -84,7 +90,13 @@ export default function House({
       >
         <span className="block" style={{ animation: `pousse 0.6s var(--ressort) ${fresh.includes(key) ? 0 : 0.15 + ORDER.indexOf(key) * 0.07}s both`, transformOrigin: '50% 100%' }}>
           <span key={poked ? poke.n : 0} className="block" style={{ animation: poked ? 'rebond 0.7s var(--ressort)' : undefined, transformOrigin: '50% 100%' }}>
-            <img src={`./art/deco-${key}.webp`} alt="" className="block w-full" style={{ animation: sp.anim, transformOrigin: '50% 100%', filter: glow ?? dim }} />
+            {ANIM[key] ? (
+              <span className="block aspect-square w-full overflow-hidden" style={{ filter: dim }}>
+                <img src={`./art/deco-${key}-anim.webp`} alt="" className="block h-full max-w-none" style={{ width: `${ANIM[key].frames * 100}%`, animation: `sprite ${ANIM[key].dur}s steps(${ANIM[key].frames}) infinite` }} />
+              </span>
+            ) : (
+              <img src={`./art/deco-${key}.webp`} alt="" className="block w-full" style={{ animation: sp.anim, transformOrigin: '50% 100%', filter: glow ?? dim }} />
+            )}
           </span>
         </span>
         {fresh.includes(key) && (
@@ -189,13 +201,6 @@ export default function House({
         ))}
 
       {!bare && ORDER.filter((k) => has(k) && SPOTS[k].z >= 4).map((k) => deco(k))}
-
-      {/* la fontaine éclabousse */}
-      {!bare &&
-        has('fontaine') &&
-        [0, 1, 2, 3, 4].map((i) => (
-          <span key={i} className="pointer-events-none absolute h-[1.6%] w-[1.1%] rounded-full bg-[#DFF3FF] opacity-0" style={{ left: '10.4%', bottom: '21%', zIndex: 9, animation: `goutte 1.5s ease-in ${i * 0.3}s infinite`, ['--gx' as string]: `${[-360, 300, -150, 420, 60][i]}%` }} />
-        ))}
 
       {/* vie du décor : lucioles la nuit, pollen le jour, neige sur le chalet */}
       {!bare && night &&
