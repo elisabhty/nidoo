@@ -3,7 +3,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import House from '../components/House'
 import { eventArt } from '../components/sheets'
 import { Art, Avatar, Btn, confirmer, Rond, Row, Screen, Section, Sheet } from '../components/ui'
-import { moodOf, PLAN_LIMITS } from '../lib/data'
+import { DECOS, moodOf, PLAN_LIMITS } from '../lib/data'
 import { select } from '../lib/haptic'
 import { copy, shareInvite } from '../lib/share'
 import { useHome } from '../lib/store'
@@ -124,6 +124,7 @@ export default function Family() {
   const [linked, setLinked] = useState<string | null>(null)
   const [period, setPeriod] = useState<'an' | 'mois'>('an')
   const limit = PLAN_LIMITS[family.plan]
+  const allDecos = state.houseItems.length >= DECOS.length
 
   useEffect(() => {
     api.accountEmail().then(setLinked).catch(() => undefined)
@@ -153,9 +154,19 @@ export default function Family() {
     <>
       <Screen title="Notre famille" trailing={<Rond label="Inviter un proche" tint onClick={invite}><Share size={18} strokeWidth={2.4} /></Rond>}>
         {api.mode === 'local' && (
-          <p className="mx-4 mb-3 mt-1 rounded-[16px] bg-peche-doux px-4 py-3 text-note">
-            <span className="font-semibold">Mode démo.</span> Cette maison vit uniquement sur cet appareil, avec trois proches fictifs pour essayer.
-          </p>
+          <div className="mx-4 mb-3 mt-1 rounded-[16px] bg-peche-doux px-4 py-3">
+            <p className="text-note">
+              <span className="font-semibold">Mode démo.</span> Cette maison vit uniquement sur cet appareil, avec trois proches fictifs pour essayer.
+            </p>
+            {api.demoDecos && (
+              <button
+                onClick={() => run((a) => a.demoDecos!(family.id, !allDecos), allDecos ? 'Maison remise à zéro' : 'Toutes les décorations sont installées')}
+                className="presse mt-2.5 h-9 rounded-full bg-white px-4 text-sous font-semibold text-peche-fonce"
+              >
+                {allDecos ? 'Remettre la maison à zéro' : 'Débloquer toutes les décorations'}
+              </button>
+            )}
+          </div>
         )}
 
         <div className="groupe mx-4 mt-1 shadow-carte">

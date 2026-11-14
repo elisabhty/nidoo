@@ -122,4 +122,6 @@ export interface Backend {
   /** Rattache une adresse e-mail au compte pour le retrouver sur un autre téléphone. */
   linkEmail(email: string): Promise<void>
   accountEmail(): Promise<string | null>
+  /** Mode démo uniquement : installe toutes les décorations, ou revient à la maison de départ. */
+  demoDecos?(familyId: string, all: boolean): Promise<void>
 }

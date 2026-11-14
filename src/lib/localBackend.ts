@@ -287,5 +287,9 @@ export function createLocalBackend(): Backend {
     async accountEmail() {
       return null
     },
+    async demoDecos(fid, all) {
+      fam(fid).houseItems = all ? DECOS.map((d) => d.key) : ['fleurs']
+      save()
+    },
   }
 }
