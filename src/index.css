@@ -60,6 +60,20 @@ input[type='date'], input[type='time'] { -webkit-appearance: none; appearance: n
 @keyframes rebond { 0% { transform: scale(1, 1); } 22% { transform: scale(1.1, 0.86); } 50% { transform: scale(0.94, 1.1) translateY(-4%); } 75% { transform: scale(1.03, 0.97); } 100% { transform: scale(1, 1); } }
 @keyframes jaillit { 0% { transform: translate(0, 40%) scale(0.3); opacity: 0; } 20% { opacity: 1; } 100% { transform: translate(var(--jx), -190%) scale(1); opacity: 0; } }
 @keyframes filante { 0%, 88% { transform: translate(0, 0) rotate(18deg); opacity: 0; } 90% { opacity: 1; } 100% { transform: translate(260%, 900%) rotate(18deg); opacity: 0; } }
+@keyframes traverse { 0% { transform: translate(-130%, 12%); } 50% { transform: translate(330%, -18%); } 100% { transform: translate(830%, 10%); } }
+@keyframes passe { from { transform: translateX(-130%); } to { transform: translateX(720%); } }
+@keyframes halo { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+@keyframes balade {
+  0%, 22% { transform: translate(0, 0); }
+  25% { transform: translate(-35%, -22%); } 28% { transform: translate(-70%, 0); }
+  31% { transform: translate(-105%, -22%); } 34%, 66% { transform: translate(-140%, 0); }
+  69% { transform: translate(-105%, -22%); } 72% { transform: translate(-70%, 0); }
+  75% { transform: translate(-35%, -22%); } 78%, 100% { transform: translate(0, 0); }
+}
+@keyframes chute { 0% { transform: translateY(0); opacity: 0; } 12% { opacity: 1; } 62% { transform: translateY(520%); } 76% { transform: translateY(440%); } 90%, 100% { transform: translateY(520%); opacity: 1; } 100% { opacity: 0; } }
+@keyframes goutte { 0% { transform: translate(0, 0); opacity: 0; } 15% { opacity: 0.95; } 45% { transform: translate(calc(var(--gx) * 0.6), -260%); } 100% { transform: translate(var(--gx), 520%); opacity: 0; } }
+@keyframes luciole { 0%, 100% { transform: translate(0, 0); opacity: 0; } 20% { opacity: 1; } 50% { transform: translate(var(--lx), var(--ly)); opacity: 0.5; } 75% { opacity: 1; } 90% { transform: translate(calc(var(--lx) * -0.4), calc(var(--ly) * 0.5)); } }
+@keyframes neige { from { transform: translate(0, 0); } to { transform: translate(var(--nx), 340px); } }
 @keyframes derive { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(8px, -6px); } }
 
 .anim-monte { animation: monte 0.5s var(--ressort) both; }

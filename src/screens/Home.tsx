@@ -74,7 +74,12 @@ export default function Home({ go }: { go: (t: Tab) => void }) {
           </div>
         </div>
 
-        <div className="no-bar h-full overflow-y-auto overscroll-contain pb-[120px]" style={{ paddingTop: 'calc(var(--sat) + 56px)' }} onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 60)}>
+        <div className="no-bar h-full overflow-y-auto overscroll-contain pb-[120px]" style={{ paddingTop: 'calc(var(--sat) + 56px)' }} onScroll={(e) => {
+            const y = e.currentTarget.scrollTop
+            setScrolled(y > 60)
+            e.currentTarget.style.setProperty('--par', String(Math.max(0, Math.min(y, 400))))
+          }}
+        >
           <div className="px-5">
             <p className="text-sous font-medium text-brume">{greeting()} {me.display_name}</p>
             <h1 className="break-words font-rond text-grand">Famille {family.name}</h1>
