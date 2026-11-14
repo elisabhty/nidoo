@@ -30,6 +30,9 @@ export default function Play() {
           </span>
         }
       >
+        <p className="-mt-1 mb-3 px-5 text-sous text-brume">
+          Chaque geste rapporte des étoiles à toute la famille : une météo (1), un câlin (1), une mission (1), la question du jour (2), une photo (3). Elles servent à décorer la maison.
+        </p>
         <div className="groupe mx-4 mt-2 p-4 shadow-carte">
           <div className="flex items-center gap-2.5">
             <Art name="picto-bulle" size={30} />

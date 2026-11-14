@@ -34,8 +34,11 @@ export type Moment = {
   image_url?: string | null
   body: string | null
   challenge: string | null
+  folder_id: string | null
   created_at: string
 }
+
+export type Folder = { id: string; family_id: string; owner_id: string; name: string; is_private: boolean; created_at: string }
 
 export type Reaction = { moment_id: string; member_id: string; emoji: string }
 
@@ -81,6 +84,7 @@ export type FamilyState = {
   me: Member
   members: Member[]
   moments: Moment[]
+  folders: Folder[]
   reactions: Reaction[]
   thoughts: Thought[]
   events: FamEvent[]
@@ -107,8 +111,12 @@ export interface Backend {
   updateMember(memberId: string, patch: Partial<Pick<Member, 'display_name' | 'avatar' | 'color'>>): Promise<void>
   updateFamily(familyId: string, patch: Partial<Pick<Family, 'name' | 'house_type'>>): Promise<void>
   leave(memberId: string): Promise<void>
-  postMoment(familyId: string, memberId: string, m: { blob?: Blob; body?: string; challenge?: string }): Promise<void>
+  postMoment(familyId: string, memberId: string, m: { blob?: Blob; body?: string; challenge?: string; folderId?: string | null }): Promise<void>
   deleteMoment(moment: Moment): Promise<void>
+  moveMoment(momentId: string, folderId: string | null): Promise<void>
+  createFolder(familyId: string, memberId: string, name: string, isPrivate: boolean): Promise<string>
+  updateFolder(id: string, patch: Partial<Pick<Folder, 'name' | 'is_private'>>): Promise<void>
+  deleteFolder(id: string): Promise<void>
   react(moment: Moment, memberId: string, emoji: string | null): Promise<void>
   sendThought(familyId: string, from: string, to: string, kind: ThoughtKind, message?: string): Promise<void>
   markSeen(ids: string[]): Promise<void>

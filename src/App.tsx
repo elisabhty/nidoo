@@ -1,5 +1,6 @@
 import { CalendarDays, Gamepad2, House as HouseIcon, Images, UsersRound } from 'lucide-react'
 import { useState } from 'react'
+import Guide from './components/Guide'
 import { Incoming } from './components/sheets'
 import { ActionSheetHost, Btn, Toasts } from './components/ui'
 import { select } from './lib/haptic'
@@ -10,6 +11,8 @@ import Moments from './screens/Moments'
 import Onboarding from './screens/Onboarding'
 import Organize from './screens/Organize'
 import Play from './screens/Play'
+
+const GUIDE = 'nidoo.guide.vu'
 
 export type Tab = 'maison' | 'moments' | 'jouer' | 'organiser' | 'famille'
 
@@ -33,6 +36,21 @@ function Splash({ children }: { children?: React.ReactNode }) {
 export default function App() {
   const { status, error, state, retry } = useStore()
   const [tab, setTab] = useState<Tab>('maison')
+  const [guide, setGuide] = useState(() => {
+    try {
+      return !localStorage.getItem(GUIDE)
+    } catch {
+      return false
+    }
+  })
+  const closeGuide = () => {
+    setGuide(false)
+    try {
+      localStorage.setItem(GUIDE, '1')
+    } catch {
+      /* le guide reviendra au prochain lancement, sans gravité */
+    }
+  }
   const unseen = state ? state.thoughts.filter((t) => t.to_member === state.me.id && !t.seen_at).length : 0
 
   return (
@@ -54,7 +72,7 @@ export default function App() {
               {tab === 'moments' && <Moments />}
               {tab === 'jouer' && <Play />}
               {tab === 'organiser' && <Organize />}
-              {tab === 'famille' && <Family />}
+              {tab === 'famille' && <Family onGuide={() => setGuide(true)} />}
             </div>
 
             {/* Barre d'onglets flottante en verre */}
@@ -79,7 +97,8 @@ export default function App() {
               })}
             </nav>
 
-            {tab === 'maison' && <Incoming />}
+            {tab === 'maison' && !guide && <Incoming />}
+            {guide && <Guide onClose={closeGuide} />}
           </>
         )}
         <ActionSheetHost />

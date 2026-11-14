@@ -97,3 +97,9 @@ export function errorText(e: unknown): string {
   if (/fetch|network/i.test(msg)) return 'Pas de connexion. Réessaie dans un instant.'
   return 'Petit souci, réessaie dans un instant.'
 }
+
+/** Moments que toute la famille voit : tout sauf le contenu des dossiers privés. */
+export function shared<M extends { folder_id: string | null }>(moments: M[], folders: { id: string; is_private: boolean }[]): M[] {
+  const secret = new Set(folders.filter((f) => f.is_private).map((f) => f.id))
+  return moments.filter((m) => !m.folder_id || !secret.has(m.folder_id))
+}

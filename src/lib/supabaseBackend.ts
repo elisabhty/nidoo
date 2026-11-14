@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { SUPABASE_KEY, SUPABASE_URL } from '../config'
-import type { Answer, Backend, Circle, FamEvent, Family, FamilyState, ListItem, Member, Moment, Reaction, StarEntry, Thought } from './types'
+import type { Answer, Backend, Circle, FamEvent, Family, FamilyState, Folder, ListItem, Member, Moment, Reaction, StarEntry, Thought } from './types'
 import { todayKey, uid } from './util'
 
 function check<T>(r: { data: T; error: { message: string } | null }): T {
@@ -63,10 +63,11 @@ export function createSupabaseBackend(): Backend {
 
     async load(fid) {
       const since = new Date(Date.now() - 14 * 86400000).toISOString()
-      const [family, members, moments, reactions, thoughts, events, items, answers, house, stars] = await Promise.all([
+      const [family, members, moments, folders, reactions, thoughts, events, items, answers, house, stars] = await Promise.all([
         sb.from('families').select('*').eq('id', fid).single(),
         sb.from('members').select('*').eq('family_id', fid).order('joined_at'),
-        sb.from('moments').select('*').eq('family_id', fid).order('created_at', { ascending: false }).limit(60),
+        sb.from('moments').select('*').eq('family_id', fid).order('created_at', { ascending: false }).limit(120),
+        sb.from('folders').select('*').eq('family_id', fid).order('created_at'),
         sb.from('reactions').select('moment_id, member_id, emoji').eq('family_id', fid),
         sb.from('thoughts').select('*').eq('family_id', fid).gte('created_at', since).order('created_at', { ascending: false }).limit(80),
         sb.from('events').select('*').eq('family_id', fid).order('starts_at'),
@@ -90,6 +91,7 @@ export function createSupabaseBackend(): Backend {
         me,
         members: mem,
         moments: moms,
+        folders: (check(folders) ?? []) as Folder[],
         reactions: (check(reactions) ?? []) as Reaction[],
         thoughts: (check(thoughts) ?? []) as Thought[],
         events: (check(events) ?? []) as FamEvent[],
@@ -103,7 +105,7 @@ export function createSupabaseBackend(): Backend {
 
     subscribe(fid, onChange) {
       const ch = sb.channel(`famille:${fid}`)
-      for (const table of ['members', 'moments', 'reactions', 'thoughts', 'events', 'list_items', 'daily_answers', 'house_items']) {
+      for (const table of ['members', 'moments', 'folders', 'reactions', 'thoughts', 'events', 'list_items', 'daily_answers', 'house_items']) {
         ch.on('postgres_changes', { event: '*', schema: 'public', table, filter: `family_id=eq.${fid}` }, onChange)
       }
       ch.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'families', filter: `id=eq.${fid}` }, onChange)
@@ -135,13 +137,34 @@ export function createSupabaseBackend(): Backend {
       }
       check(
         await sb.from('moments').insert({
-          family_id: fid, member_id: memberId, image_path, body: m.body?.trim() || null, challenge: m.challenge ?? null,
+          family_id: fid, member_id: memberId, image_path, body: m.body?.trim() || null, challenge: m.challenge ?? null, folder_id: m.folderId ?? null,
         }),
       )
     },
     async deleteMoment(moment) {
-      check(await sb.from('moments').delete().eq('id', moment.id))
+      // Le fichier d'abord : une fois le moment supprimé, on n'aurait plus le droit de le lire pour l'effacer.
       if (moment.image_path) await sb.storage.from('moments').remove([moment.image_path])
+      check(await sb.from('moments').delete().eq('id', moment.id))
+    },
+    async moveMoment(momentId, folderId) {
+      check(await sb.from('moments').update({ folder_id: folderId }).eq('id', momentId))
+    },
+    async createFolder(fid, memberId, name, isPrivate) {
+      const row = check(await sb.from('folders').insert({ family_id: fid, owner_id: memberId, name: name.trim(), is_private: isPrivate }).select('id').single()) as { id: string }
+      return row.id
+    },
+    async updateFolder(id, patch) {
+      check(await sb.from('folders').update(patch).eq('id', id))
+    },
+    async deleteFolder(id) {
+      // Les photos d'un dossier privé partent avec lui (la base supprime leurs moments).
+      const doomed = check(await sb.from('folders').select('is_private').eq('id', id).single()) as { is_private: boolean }
+      if (doomed.is_private) {
+        const rows = (check(await sb.from('moments').select('image_path').eq('folder_id', id)) ?? []) as { image_path: string | null }[]
+        const paths = rows.map((r) => r.image_path).filter((x): x is string => !!x)
+        if (paths.length) await sb.storage.from('moments').remove(paths)
+      }
+      check(await sb.from('folders').delete().eq('id', id))
     },
     async react(moment, memberId, emoji) {
       if (!emoji) {

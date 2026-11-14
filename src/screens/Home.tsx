@@ -3,14 +3,14 @@ import { useState } from 'react'
 import House from '../components/House'
 import { ComposeSheet, eventArt, MoodSheet, ThoughtSheet } from '../components/sheets'
 import { Art, Avatar, Lien, Section } from '../components/ui'
-import { DECOS, moodOf, questionOfDay } from '../lib/data'
+import { moodOf, questionOfDay } from '../lib/data'
 import { success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
 import type { Member } from '../lib/types'
-import { ago, dayLabel, greeting, isToday, nextOccurrence, timeLabel } from '../lib/util'
+import { ago, dayLabel, greeting, isToday, nextOccurrence, shared, timeLabel } from '../lib/util'
 import type { Tab } from '../App'
 
-type Open = null | { k: 'humeur' } | { k: 'photo' } | { k: 'mot' } | { k: 'pensee'; to?: Member }
+type Open = null | { k: 'humeur' } | { k: 'photo' } | { k: 'pensee'; to?: Member }
 
 export function upcoming(events: ReturnType<typeof useHome>['state']['events'], limit = 3) {
   const start = new Date()
@@ -30,7 +30,7 @@ export default function Home({ go }: { go: (t: Tab) => void }) {
   const others = members.filter((m) => m.id !== me.id)
   const myMood = isToday(me.mood_at) ? moodOf(me.mood) : null
   const next = upcoming(state.events)
-  const last = state.moments[0]
+  const last = shared(state.moments, state.folders)[0]
   const lastBy = last && members.find((m) => m.id === last.member_id)
   const missions = state.items.filter((i) => i.kind === 'tache' && !i.done && (!i.assigned_to || i.assigned_to === me.id)).slice(0, 3)
   const answered = state.answers.some((a) => a.member_id === me.id)
@@ -50,10 +50,14 @@ export default function Home({ go }: { go: (t: Tab) => void }) {
         : { title: 'La maison est paisible', text: 'Rien à signaler, profitez de la journée.' }
 
   const actions = [
-    { label: 'Photo', art: 'picto-photo', on: () => setSheet({ k: 'photo' }) },
-    { label: 'Pensée', art: 'geste-coeur', on: () => setSheet({ k: 'pensee' }) },
-    { label: myMood ? myMood.label : 'Météo', art: `humeur-${myMood ? myMood.key : 'heureux'}`, on: () => setSheet({ k: 'humeur' }) },
-    { label: 'Petit mot', art: 'geste-mot', on: () => setSheet({ k: 'mot' }) },
+    {
+      title: myMood ? `Ma météo : ${myMood.label}` : 'Dire comment je vais',
+      text: myMood ? 'Touche pour la changer' : 'Ta famille voit ton humeur du jour',
+      art: `humeur-${myMood ? myMood.key : 'heureux'}`,
+      on: () => setSheet({ k: 'humeur' }),
+    },
+    { title: 'Envoyer un câlin', text: 'Un proche reçoit une petite animation', art: 'geste-calin', on: () => setSheet({ k: 'pensee' }) },
+    { title: 'Partager une photo', text: 'Elle arrive chez toute la famille', art: 'picto-photo', on: () => setSheet({ k: 'photo' }) },
   ]
 
   return (
@@ -101,23 +105,31 @@ export default function Home({ go }: { go: (t: Tab) => void }) {
             {nidoo.act && <ChevronRight size={17} strokeWidth={2.6} className="shrink-0 text-pale" />}
           </button>
 
-          <div className="mt-4 grid grid-cols-4 gap-2.5 px-4">
-            {actions.map((a) => (
+          <p className="entete mt-6">Que veux-tu faire ?</p>
+          <div className="groupe mx-4 shadow-carte">
+            {actions.map((a, i) => (
               <button
-                key={a.art + a.label}
+                key={a.art}
                 onClick={() => {
                   tap()
                   a.on()
                 }}
-                className="presse groupe flex flex-col items-center gap-1 px-1 pb-2.5 pt-3 shadow-carte"
+                className="presse-ligne flex w-full items-center gap-3 pl-3 text-left"
               >
-                <Art name={a.art} size={42} />
-                <span className="w-full truncate text-center text-legende font-medium">{a.label}</span>
+                <Art name={a.art} size={44} />
+                <span className={`flex min-h-[62px] min-w-0 flex-1 items-center gap-2 py-2 pr-4 ${i < actions.length - 1 ? 'border-b border-trait' : ''}`}>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-corps font-semibold">{a.title}</span>
+                    <span className="block truncate text-note text-brume">{a.text}</span>
+                  </span>
+                  <ChevronRight size={17} strokeWidth={2.6} className="shrink-0 text-pale" />
+                </span>
               </button>
             ))}
           </div>
 
-          <div className="mx-4 mt-4 overflow-hidden rounded-[28px] bg-carte shadow-carte">
+          <p className="entete mt-6">Notre maison</p>
+          <div className="mx-4 overflow-hidden rounded-[28px] bg-carte shadow-carte">
             <House type={family.house_type} items={state.houseItems} />
             <div className="flex items-center gap-3 px-4 py-3">
               <div className="flex -space-x-2">
@@ -129,7 +141,7 @@ export default function Home({ go }: { go: (t: Tab) => void }) {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sous font-semibold">Niveau {level}</p>
-                <p className="truncate text-note text-brume">{state.houseItems.length} décoration{state.houseItems.length > 1 ? 's' : ''} sur {DECOS.length}</p>
+                <p className="truncate text-note text-brume">Décorez-la avec vos étoiles</p>
               </div>
               <button onClick={() => go('jouer')} className="presse h-9 shrink-0 rounded-full bg-teinte-doux px-4 text-sous font-semibold text-teinte-fonce">
                 Décorer
@@ -137,7 +149,7 @@ export default function Home({ go }: { go: (t: Tab) => void }) {
             </div>
           </div>
 
-          <Section title="Nos humeurs">
+          <Section title="Nos humeurs" hint="Touche un proche pour lui envoyer un câlin.">
             <div className="no-bar flex gap-2.5 overflow-x-auto px-4 pb-1">
               {members.map((m) => {
                 const md = isToday(m.mood_at) ? moodOf(m.mood) : null
@@ -162,7 +174,7 @@ export default function Home({ go }: { go: (t: Tab) => void }) {
           </Section>
 
           {last && lastBy && (
-            <Section title="Notre instant" action={<Lien onClick={() => go('moments')}>Tout voir</Lien>}>
+            <Section title="Dernier moment partagé" action={<Lien onClick={() => go('moments')}>Tout voir</Lien>}>
               <button onClick={() => go('moments')} className="presse groupe mx-4 block w-[calc(100%-2rem)] text-left shadow-carte">
                 {last.image_url && <img src={last.image_url} alt={last.body ?? `Photo de ${lastBy.display_name}`} className="aspect-[4/3] w-full object-cover" />}
                 <div className="flex items-center gap-3 p-3.5">
@@ -197,7 +209,7 @@ export default function Home({ go }: { go: (t: Tab) => void }) {
             </div>
           </Section>
 
-          <Section title="Nos missions" action={<Lien onClick={() => go('jouer')}>Jouer</Lien>}>
+          <Section title="À faire aujourd’hui" hint="Chaque mission terminée rapporte une étoile." action={<Lien onClick={() => go('organiser')}>Tout voir</Lien>}>
             <div className="groupe mx-4 shadow-carte">
               {!answered && (
                 <button onClick={() => go('jouer')} className="presse-ligne flex w-full items-center gap-3 pl-3.5 text-left">
@@ -232,7 +244,6 @@ export default function Home({ go }: { go: (t: Tab) => void }) {
 
       {sheet?.k === 'humeur' && <MoodSheet onClose={() => setSheet(null)} />}
       {sheet?.k === 'photo' && <ComposeSheet onClose={() => setSheet(null)} />}
-      {sheet?.k === 'mot' && <ComposeSheet startWith="mot" onClose={() => setSheet(null)} />}
       {sheet?.k === 'pensee' && <ThoughtSheet to={sheet.to} onClose={() => setSheet(null)} />}
     </>
   )

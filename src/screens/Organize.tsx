@@ -153,7 +153,10 @@ export default function Organize() {
   return (
     <>
       <Screen title="Organiser" trailing={seg === 'agenda' ? <Rond label="Nouvel événement" tint onClick={() => setAdding(true)}><Plus size={21} strokeWidth={2.4} /></Rond> : undefined}>
-        <div className="mx-4 mb-4 mt-1">
+        <p className="-mt-1 px-5 text-sous text-brume">
+          {seg === 'agenda' ? 'Les dates importantes, visibles par toute la famille.' : seg === 'course' ? 'Une liste commune : chacun ajoute et coche en direct.' : 'Les petites tâches de la maison. Assigne-les à quelqu’un ou à tout le monde.'}
+        </p>
+        <div className="mx-4 mb-4 mt-3">
           <Segments value={seg} onChange={setSeg} options={[{ key: 'agenda', label: 'Agenda' }, { key: 'course', label: 'Courses' }, { key: 'tache', label: 'Missions' }]} />
         </div>
 

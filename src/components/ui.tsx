@@ -148,13 +148,14 @@ export function Btn({
   )
 }
 
-export function Section({ title, action, children, className = '' }: { title: string; action?: ReactNode; children: ReactNode; className?: string }) {
+export function Section({ title, hint, action, children, className = '' }: { title: string; hint?: string; action?: ReactNode; children: ReactNode; className?: string }) {
   return (
     <section className={`mt-7 ${className}`}>
-      <div className="mb-2.5 flex items-baseline justify-between px-5">
+      <div className="flex items-baseline justify-between px-5">
         <h3 className="font-rond text-titre2">{title}</h3>
         {action}
       </div>
+      {hint ? <p className="mb-2.5 px-5 text-note text-brume">{hint}</p> : <div className="mb-2.5" />}
       {children}
     </section>
   )
@@ -268,18 +269,43 @@ export function Envol({ art = 'geste-coeur', count = 14 }: { art?: string; count
   )
 }
 
-// ───────── Feuille d'actions (confirmation) ─────────
+/** Interrupteur iOS. */
+export function Switch({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <button
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      onClick={() => {
+        select()
+        onChange(!on)
+      }}
+      className={`relative h-[31px] w-[51px] shrink-0 rounded-full transition-colors duration-200 ${on ? 'bg-vert' : 'bg-[rgba(120,120,128,0.24)]'}`}
+    >
+      <span className={`absolute left-[2px] top-[2px] h-[27px] w-[27px] rounded-full bg-white shadow-[0_3px_8px_rgba(0,0,0,0.15),0_1px_1px_rgba(0,0,0,0.06)] transition-transform duration-200 ${on ? 'translate-x-[20px]' : ''}`} />
+    </button>
+  )
+}
 
-type Ask = { title: string; message?: string; confirm: string; destructive?: boolean; resolve: (ok: boolean) => void }
+// ───────── Feuille d'actions (menu et confirmation) ─────────
+
+type Action = { label: string; destructive?: boolean }
+type Ask = { title?: string; message?: string; actions: Action[]; resolve: (index: number) => void }
 let push: ((a: Ask) => void) | null = null
 
-/** Demande une confirmation avec une feuille d'actions iOS. */
-export function confirmer(o: Omit<Ask, 'resolve'>): Promise<boolean> {
+/** Propose plusieurs actions dans une feuille iOS ; renvoie l'indice choisi, ou -1 si annulé. */
+export function choisir(o: Omit<Ask, 'resolve'>): Promise<number> {
   return new Promise((resolve) => {
-    if (!push) return resolve(window.confirm(o.title))
-    warn()
+    if (!push) return resolve(-1)
     push({ ...o, resolve })
   })
+}
+
+/** Demande une confirmation avec une feuille d'actions iOS. */
+export async function confirmer(o: { title: string; message?: string; confirm: string; destructive?: boolean }): Promise<boolean> {
+  if (!push) return window.confirm(o.title)
+  warn()
+  return (await choisir({ title: o.title, message: o.message, actions: [{ label: o.confirm, destructive: o.destructive }] })) === 0
 }
 
 export function ActionSheetHost() {
@@ -291,24 +317,28 @@ export function ActionSheetHost() {
     }
   }, [])
   if (!ask) return null
-  const done = (ok: boolean) => {
-    ask.resolve(ok)
+  const done = (i: number) => {
+    ask.resolve(i)
     setAsk(null)
   }
   return (
-    <div className="absolute inset-0 z-[60] flex flex-col justify-end px-2.5" style={{ paddingBottom: 'calc(var(--sab) + 10px)' }} role="alertdialog" aria-modal="true" aria-label={ask.title}>
-      <button className="anim-fondu absolute inset-0 bg-black/30" onClick={() => done(false)} aria-label="Annuler" />
+    <div className="absolute inset-0 z-[60] flex flex-col justify-end px-2.5" style={{ paddingBottom: 'calc(var(--sab) + 10px)' }} role="alertdialog" aria-modal="true" aria-label={ask.title ?? 'Actions'}>
+      <button className="anim-fondu absolute inset-0 bg-black/30" onClick={() => done(-1)} aria-label="Annuler" />
       <div className="anim-monte relative">
         <div className="verre overflow-hidden rounded-[26px] bg-white/85">
-          <div className="border-b border-trait px-5 py-3.5 text-center">
-            <p className="text-note font-semibold text-brume">{ask.title}</p>
-            {ask.message && <p className="mt-0.5 text-note text-brume">{ask.message}</p>}
-          </div>
-          <button onClick={() => done(true)} className={`presse-ligne h-[56px] w-full text-titre3 font-normal ${ask.destructive ? 'text-rouge' : 'text-teinte'}`}>
-            {ask.confirm}
-          </button>
+          {(ask.title || ask.message) && (
+            <div className="border-b border-trait px-5 py-3.5 text-center">
+              {ask.title && <p className="text-note font-semibold text-brume">{ask.title}</p>}
+              {ask.message && <p className="mt-0.5 text-note text-brume">{ask.message}</p>}
+            </div>
+          )}
+          {ask.actions.map((a, i) => (
+            <button key={a.label} onClick={() => done(i)} className={`presse-ligne h-[56px] w-full text-titre3 font-normal ${i > 0 ? 'border-t border-trait' : ''} ${a.destructive ? 'text-rouge' : 'text-teinte'}`}>
+              {a.label}
+            </button>
+          ))}
         </div>
-        <button onClick={() => done(false)} className="presse-ligne verre mt-2 h-[56px] w-full rounded-[26px] bg-white text-titre3 text-teinte">
+        <button onClick={() => done(-1)} className="presse-ligne verre mt-2 h-[56px] w-full rounded-[26px] bg-white text-titre3 font-semibold text-teinte">
           Annuler
         </button>
       </div>

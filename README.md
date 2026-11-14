@@ -6,8 +6,11 @@ App React + Tailwind + Capacitor (iOS), backend Supabase. Interface aux codes iO
 
 ## Ce que contient cette version
 
+Au premier lancement, un guide en 6 écrans explique chaque fonctionnalité (rejouable depuis Famille > Comment ça marche).
+
+
 - **Maison** : la maison de la famille (maison, appartement ou chalet), une fenêtre par membre qui s'allume quand il donne de ses nouvelles, ciel qui suit l'heure, Nidoo le panda roux qui signale le proche à qui envoyer une attention.
-- **Moments** : photos surprises et petits mots, réactions.
+- **Moments** : le fil de la famille (photos et petits mots, réactions) et des dossiers, partagés avec tous ou privés. Un dossier privé n'est visible que par son créateur, photos comprises (règles appliquées par la base).
 - **On pense à toi** : un cœur, un câlin, du courage, un petit mot, reçu en animation sans ouvrir de conversation.
 - **Météo des émotions** : son humeur du jour et un mot, visibles par la famille.
 - **Jouer** : question du jour, défi photo, étoiles et 12 décorations à débloquer pour la maison.
@@ -34,7 +37,7 @@ Sans clés Supabase, l'app démarre en **mode démo** : la maison vit sur l'appa
 
 ## Brancher Supabase
 
-1. Créer un projet Supabase et y exécuter `supabase/migrations/0001_nidoo.sql`.
+1. Créer un projet Supabase et y exécuter, dans l'ordre, `supabase/migrations/0001_nidoo.sql` puis `0002_dossiers.sql`.
 2. Dans Authentication > Sign In / Providers, activer **Allow anonymous sign-ins** (chaque téléphone reçoit un compte invisible, rattachable ensuite à un e-mail depuis « Notre famille »).
 3. Copier `.env.example` en `.env.production` (et `.env.local` pour le dev) avec l'URL du projet et la clé publishable.
 

@@ -1,4 +1,4 @@
-import { Check, Copy, Crown, House as HouseIcon, LogOut, Mail, Pencil, Plus, Share, UserRound } from 'lucide-react'
+import { Check, CircleHelp, Copy, Crown, House as HouseIcon, LogOut, Mail, Pencil, Plus, Share, UserRound } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import House from '../components/House'
 import { eventArt } from '../components/sheets'
@@ -8,7 +8,7 @@ import { select } from '../lib/haptic'
 import { copy, shareInvite } from '../lib/share'
 import { useHome } from '../lib/store'
 import type { HouseType } from '../lib/types'
-import { dayLabel, errorText, isToday } from '../lib/util'
+import { dayLabel, errorText, isToday, shared } from '../lib/util'
 import { upcoming } from './Home'
 import { HousePicker, ProfilePicker } from '../components/pickers'
 import Onboarding from './Onboarding'
@@ -35,8 +35,9 @@ function Widgets() {
   const { state } = useHome()
   const { family, members, me } = state
   const free = family.plan === 'free'
-  const photo = state.moments.find((m) => m.image_url)
-  const note = state.moments.find((m) => m.body)
+  const visible = shared(state.moments, state.folders)
+  const photo = visible.find((m) => m.image_url)
+  const note = visible.find((m) => m.body)
   const next = upcoming(state.events, 2)
   const todo = state.items.filter((i) => i.kind === 'tache' && !i.done).slice(0, 3)
   const word = state.thoughts.find((t) => t.to_member === me.id)
@@ -111,7 +112,7 @@ function Widgets() {
   )
 }
 
-export default function Family() {
+export default function Family({ onGuide }: { onGuide: () => void }) {
   const { state, run, api, circles, open, toast } = useHome()
   const { family, me, members } = state
   const [sheet, setSheet] = useState<Open>(null)
@@ -245,6 +246,7 @@ export default function Family() {
 
         <p className="entete mt-6">Réglages</p>
         <div className="groupe mx-4 shadow-carte">
+          <Row icon={<CircleHelp size={17} strokeWidth={2.4} />} tint="#F58B5C" label="Comment ça marche" onClick={onGuide} />
           <Row icon={<UserRound size={17} strokeWidth={2.4} />} label="Mon profil" value={me.display_name} onClick={() => setSheet('profil')} last={api.mode !== 'supabase'} />
           {api.mode === 'supabase' && <Row icon={<Mail size={16} strokeWidth={2.4} />} tint="#5AA3E0" label="Sauvegarder mon compte" value={linked ? 'Activé' : undefined} onClick={() => setSheet('compte')} last />}
         </div>
