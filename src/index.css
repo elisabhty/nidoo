@@ -1,4 +1,4 @@
-@import '@fontsource-variable/fraunces';
+@import '@fontsource-variable/inter';
 @import '@fontsource-variable/nunito';
 @tailwind base;
 @tailwind components;
@@ -7,51 +7,59 @@
 :root {
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
+  --ressort: cubic-bezier(0.32, 0.72, 0, 1); /* courbe des feuilles iOS */
 }
 html, body, #root { height: 100%; }
 body {
   margin: 0;
-  background: #f1e9f7;
-  color: #2f2a44;
-  font-family: 'Nunito Variable', system-ui, sans-serif;
-  font-weight: 500;
+  background: #e9e4f2;
+  color: #1d1a2b;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter Variable', system-ui, sans-serif;
+  font-size: 17px;
+  line-height: 22px;
+  letter-spacing: -0.2px;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
   overscroll-behavior: none;
 }
-button { -webkit-touch-callout: none; user-select: none; }
-input, textarea { font-size: 16px; } /* évite le zoom automatique d'iOS */
-.no-bar { scrollbar-width: none; }
+button { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; font: inherit; letter-spacing: inherit; color: inherit; }
+img { -webkit-user-drag: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea { font-size: 17px; letter-spacing: -0.2px; }
+input[type='date'], input[type='time'] { -webkit-appearance: none; appearance: none; min-height: 44px; }
+.no-bar { scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 .no-bar::-webkit-scrollbar { display: none; }
 
 @layer components {
-  .fond { background: linear-gradient(180deg, #ffe9d9 0%, #fbeef0 22%, #fff8f0 52%, #fff8f0 100%); }
-  .carte { @apply rounded-3xl bg-white shadow-carte; }
-  .titre { @apply font-titre font-semibold tracking-tight text-encre; }
-  .champ { @apply w-full rounded-2xl border border-lavande-100 bg-white px-4 py-3 text-encre outline-none placeholder:text-brume/60 focus:border-lavande-400; }
-  .appui { @apply transition-transform duration-150 active:scale-[0.96]; }
+  .verre { @apply border border-white/60 bg-white/70 shadow-verre backdrop-blur-2xl backdrop-saturate-150; }
+  .groupe { @apply overflow-hidden rounded-groupe bg-carte; }
+  .champ { @apply w-full rounded-[14px] bg-remplissage px-4 py-[13px] text-corps text-encre outline-none placeholder:text-pale focus:ring-2 focus:ring-teinte/40; }
+  .presse { @apply transition-[transform,opacity] duration-150 active:scale-[0.97] active:opacity-80; }
+  .presse-ligne { @apply transition-colors duration-100 active:bg-remplissage; }
+  .entete { @apply px-5 pb-1.5 text-note font-semibold uppercase tracking-[0.02em] text-brume; }
 }
 
 @keyframes monte { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @keyframes fondu { from { opacity: 0; } to { opacity: 1; } }
-@keyframes entre { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes pop { 0% { transform: scale(0.6); opacity: 0; } 60% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); } }
-@keyframes flotte { 0%, 100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-6px) rotate(2deg); } }
-@keyframes coeur {
+@keyframes entre { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pop { 0% { transform: scale(0.82); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes hud { 0% { transform: translateY(-140%) scale(0.9); opacity: 0; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
+@keyframes flotte { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@keyframes envol {
   0% { transform: translate(0, 0) scale(0.4) rotate(0deg); opacity: 0; }
   12% { opacity: 1; }
   100% { transform: translate(var(--dx), -105vh) scale(var(--s)) rotate(var(--r)); opacity: 0; }
 }
-@keyframes bat { 0%, 100% { transform: scale(1); } 15% { transform: scale(1.18); } 30% { transform: scale(1); } 45% { transform: scale(1.12); } }
-@keyframes fumee { 0% { transform: translate(0, 0) scale(0.6); opacity: 0; } 20% { opacity: 0.8; } 100% { transform: translate(8px, -34px) scale(1.5); opacity: 0; } }
-@keyframes scintille { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
-@keyframes balance { 0%, 100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
-@keyframes derive { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(10px, -6px); } }
+@keyframes bat { 0%, 100% { transform: scale(1); } 15% { transform: scale(1.12); } 30% { transform: scale(1); } 45% { transform: scale(1.08); } }
+@keyframes fumee { 0% { transform: translate(0, 0) scale(0.5); opacity: 0; } 25% { opacity: 0.85; } 100% { transform: translate(14px, -46px) scale(1.7); opacity: 0; } }
+@keyframes scintille { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+@keyframes derive { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(8px, -6px); } }
 
-.anim-monte { animation: monte 0.32s cubic-bezier(0.2, 0.9, 0.3, 1) both; }
-.anim-fondu { animation: fondu 0.25s ease both; }
-.anim-entre { animation: entre 0.4s ease both; }
-.anim-pop { animation: pop 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+.anim-monte { animation: monte 0.5s var(--ressort) both; }
+.anim-fondu { animation: fondu 0.3s ease both; }
+.anim-entre { animation: entre 0.45s var(--ressort) both; }
+.anim-pop { animation: pop 0.4s var(--ressort) both; }
+.anim-hud { animation: hud 0.5s var(--ressort) both; }
 .anim-flotte { animation: flotte 5s ease-in-out infinite; }
 .anim-bat { animation: bat 1.6s ease-in-out infinite; }
 

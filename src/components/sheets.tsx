@@ -1,10 +1,11 @@
-import { Camera, Images, Send, Trash2 } from 'lucide-react'
+import { Camera, Images, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { MOODS, THOUGHTS, thoughtOf } from '../lib/data'
+import { select, success } from '../lib/haptic'
 import { useHome } from '../lib/store'
 import type { EventKind, Member, ThoughtKind } from '../lib/types'
 import { compressImage, errorText, isToday } from '../lib/util'
-import { Avatar, Btn, Coeurs, Sheet } from './ui'
+import { Art, Avatar, Btn, Envol, Segments, Sheet } from './ui'
 
 // ───────── Météo des émotions ─────────
 
@@ -17,37 +18,37 @@ export function MoodSheet({ onClose }: { onClose: () => void }) {
 
   const save = async () => {
     setBusy(true)
-    const ok = await run((api) => api.setMood(state.me.id, mood, note.trim() || null), 'Ta météo est partagée')
+    const ok = await run((api) => api.setMood(state.me.id, mood, note.trim() || null), mood ? 'Ta météo est partagée' : 'Météo effacée')
     setBusy(false)
-    if (ok) onClose()
+    if (ok) {
+      success()
+      onClose()
+    }
   }
 
   return (
     <Sheet title="Ma météo du jour" onClose={onClose}>
-      <p className="text-[14px] text-brume">Ta famille la verra sur la maison. Aucune obligation, juste des nouvelles.</p>
-      <div className="mt-4 grid grid-cols-4 gap-2.5">
+      <p className="text-center text-sous text-brume">Ta famille la verra sur la maison. Aucune obligation, juste des nouvelles.</p>
+      <div className="mt-4 grid grid-cols-4 gap-2">
         {MOODS.map((m) => {
           const on = mood === m.key
           return (
             <button
               key={m.key}
-              onClick={() => setMood(on ? null : m.key)}
+              onClick={() => {
+                select()
+                setMood(on ? null : m.key)
+              }}
               aria-pressed={on}
-              className={`appui flex flex-col items-center gap-1 rounded-3xl border-2 py-3 ${on ? 'border-lavande-400 bg-lavande-100' : 'border-transparent bg-white shadow-carte'}`}
+              className={`presse flex flex-col items-center gap-1 rounded-[20px] pb-2.5 pt-2 ${on ? 'bg-teinte-doux ring-2 ring-teinte' : 'bg-carte'}`}
             >
-              <span className="text-[30px] leading-none">{m.emoji}</span>
-              <span className="text-[12px] font-bold text-encre">{m.label}</span>
+              <Art name={`humeur-${m.key}`} size={56} />
+              <span className={`text-legende ${on ? 'font-semibold text-teinte-fonce' : 'font-medium text-encre'}`}>{m.label}</span>
             </button>
           )
         })}
       </div>
-      <input
-        className="champ mt-4"
-        placeholder="Un petit mot pour aller avec ? (facultatif)"
-        maxLength={80}
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-      />
+      <input className="champ mt-4 !bg-carte" placeholder="Un petit mot pour aller avec (facultatif)" maxLength={80} value={note} onChange={(e) => setNote(e.target.value)} />
       <Btn className="mt-4" onClick={save} disabled={busy || (!mood && !current)}>
         {mood ? 'Partager ma météo' : current ? 'Effacer ma météo' : 'Choisis ta météo'}
       </Btn>
@@ -82,43 +83,51 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
       blob ? 'Photo partagée avec la famille' : 'Petit mot partagé',
     )
     setBusy(false)
-    if (ok) onClose()
+    if (ok) {
+      success()
+      onClose()
+    }
   }
 
   return (
     <Sheet title={challenge ? 'Défi photo' : startWith === 'mot' ? 'Petit mot' : 'Photo surprise'} onClose={onClose}>
-      {challenge && <p className="mb-3 rounded-2xl bg-peche-100 px-4 py-3 text-[15px] font-bold text-encre">📸 {challenge}</p>}
+      {challenge && (
+        <div className="mb-3 flex items-center gap-3 rounded-[18px] bg-peche-doux px-3.5 py-3">
+          <Art name="picto-photo" size={36} />
+          <p className="text-sous font-semibold">{challenge}</p>
+        </div>
+      )}
       <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={(e) => pick(e.target.files?.[0])} />
       <input ref={gallery} type="file" accept="image/*" hidden onChange={(e) => pick(e.target.files?.[0])} />
 
       {preview ? (
-        <div className="relative overflow-hidden rounded-3xl bg-lin">
-          <img src={preview} alt="Aperçu de la photo" className="max-h-[46vh] w-full object-cover" />
-          <button onClick={() => setBlob(null)} className="appui absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-encre shadow-carte" aria-label="Retirer la photo">
+        <div className="relative overflow-hidden rounded-groupe bg-remplissage">
+          <img src={preview} alt="Aperçu de la photo" className="max-h-[44vh] w-full object-cover" />
+          <button onClick={() => setBlob(null)} className="presse verre absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full text-encre" aria-label="Retirer la photo">
             <Trash2 size={17} />
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3">
-          <button onClick={() => camera.current?.click()} className="appui flex h-28 flex-col items-center justify-center gap-2 rounded-3xl bg-lavande-100 font-bold text-lavande-600">
-            <Camera size={26} /> Prendre une photo
+        <div className="groupe">
+          <button onClick={() => camera.current?.click()} className="presse-ligne flex h-[52px] w-full items-center gap-3 border-b border-trait px-4 text-corps text-teinte">
+            <Camera size={22} /> Prendre une photo
           </button>
-          <button onClick={() => gallery.current?.click()} className="appui flex h-28 flex-col items-center justify-center gap-2 rounded-3xl bg-peche-100 font-bold text-peche-500">
-            <Images size={26} /> Choisir une photo
+          <button onClick={() => gallery.current?.click()} className="presse-ligne flex h-[52px] w-full items-center gap-3 px-4 text-corps text-teinte">
+            <Images size={22} /> Choisir dans la photothèque
           </button>
         </div>
       )}
       <textarea
-        className="champ mt-3 resize-none"
+        className="champ mt-3 resize-none !bg-carte"
         rows={preview ? 2 : 3}
         maxLength={280}
-        placeholder={preview ? 'Une légende ? (facultatif)' : 'Ou écris juste un petit mot à toute la famille…'}
+        placeholder={preview ? 'Ajouter une légende' : 'Ou écris juste un petit mot à toute la famille'}
         value={body}
         onChange={(e) => setBody(e.target.value)}
         autoFocus={startWith === 'mot'}
       />
       <Btn className="mt-3" onClick={send} disabled={busy || (!blob && !body.trim())}>
-        <Send size={18} /> {busy ? 'Envoi…' : 'Envoyer à la famille'}
+        {busy ? 'Envoi…' : 'Envoyer à la famille'}
       </Btn>
     </Sheet>
   )
@@ -133,26 +142,30 @@ export function ThoughtSheet({ onClose, to }: { onClose: () => void; to?: Member
   const [kind, setKind] = useState<ThoughtKind>('coeur')
   const [message, setMessage] = useState('')
   const [sent, setSent] = useState(false)
+  const art = message.trim() ? 'geste-mot' : `geste-${kind}`
 
   const send = async () => {
     if (!target) return
     const k: ThoughtKind = message.trim() ? 'mot' : kind
     const ok = await run((api) => api.sendThought(state.family.id, state.me.id, target.id, k, message))
     if (ok) {
+      success()
       setSent(true)
-      window.setTimeout(onClose, 1700)
+      window.setTimeout(onClose, 1800)
     }
   }
 
   if (sent && target) {
     return (
       <>
-        <Coeurs emoji={message.trim() ? '💌' : thoughtOf(kind).emoji} />
-        <Sheet title="C’est parti" onClose={onClose}>
-          <div className="flex flex-col items-center py-6 text-center">
-            <span className="anim-bat"><Avatar m={target} size={84} /></span>
-            <p className="titre mt-4 text-[20px]">{target.display_name} va le recevoir</p>
-            <p className="mt-1 text-[14px] text-brume">Sans un mot de plus, juste une présence.</p>
+        <Envol art={art} />
+        <Sheet title="Envoyé" onClose={onClose}>
+          <div className="flex flex-col items-center pb-6 pt-3 text-center">
+            <span className="anim-bat">
+              <Avatar m={target} size={92} />
+            </span>
+            <p className="mt-4 font-rond text-titre2">{target.display_name} va le recevoir</p>
+            <p className="mt-1 text-sous text-brume">Sans un mot de plus, juste une présence.</p>
           </div>
         </Sheet>
       </>
@@ -162,41 +175,49 @@ export function ThoughtSheet({ onClose, to }: { onClose: () => void; to?: Member
   return (
     <Sheet title="On pense à toi" onClose={onClose}>
       {others.length === 0 ? (
-        <p className="py-6 text-center text-[15px] text-brume">Invite d’abord un proche dans la maison pour lui envoyer une attention.</p>
+        <p className="px-4 py-8 text-center text-sous text-brume">Invite d’abord un proche dans la maison pour lui envoyer une attention.</p>
       ) : (
         <>
-          <p className="text-[14px] text-brume">Un geste, sans avoir à lancer une conversation.</p>
-          <div className="no-bar -mx-5 mt-3 flex gap-3 overflow-x-auto px-5 pb-1">
+          <div className="no-bar -mx-5 flex gap-4 overflow-x-auto px-5 pb-1 pt-1.5">
             {others.map((m) => {
               const on = target?.id === m.id
               return (
-                <button key={m.id} onClick={() => setTarget(m)} aria-pressed={on} className="appui flex w-[68px] shrink-0 flex-col items-center gap-1.5">
-                  <Avatar m={m} size={58} ring={on} mood />
-                  <span className={`w-full truncate text-center text-[12.5px] ${on ? 'font-extrabold text-encre' : 'font-semibold text-brume'}`}>{m.display_name}</span>
+                <button
+                  key={m.id}
+                  onClick={() => {
+                    select()
+                    setTarget(m)
+                  }}
+                  aria-pressed={on}
+                  className="presse flex w-[66px] shrink-0 flex-col items-center gap-2"
+                >
+                  <Avatar m={m} size={60} ring={on} mood />
+                  <span className={`w-full truncate text-center text-legende ${on ? 'font-semibold text-encre' : 'text-brume'}`}>{m.display_name}</span>
                 </button>
               )
             })}
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-2.5">
+          <div className="mt-4 grid grid-cols-4 gap-2">
             {THOUGHTS.map((t) => {
               const on = kind === t.key && !message.trim()
               return (
                 <button
                   key={t.key}
                   onClick={() => {
+                    select()
                     setKind(t.key)
                     setMessage('')
                   }}
                   aria-pressed={on}
-                  className={`appui flex items-center gap-2.5 rounded-2xl border-2 px-3.5 py-3 text-left ${on ? 'border-lavande-400 bg-lavande-100' : 'border-transparent bg-white shadow-carte'}`}
+                  className={`presse flex flex-col items-center gap-1.5 rounded-[20px] px-1 pb-2.5 pt-3 ${on ? 'bg-teinte-doux ring-2 ring-teinte' : 'bg-carte'}`}
                 >
-                  <span className="text-[26px] leading-none">{t.emoji}</span>
-                  <span className="text-[14px] font-bold leading-tight">{t.label}</span>
+                  <Art name={`geste-${t.key}`} size={50} />
+                  <span className={`text-center text-mini leading-tight ${on ? 'font-semibold text-teinte-fonce' : 'font-medium'}`}>{t.label}</span>
                 </button>
               )
             })}
           </div>
-          <input className="champ mt-3" placeholder="Ou glisse-lui un petit mot…" maxLength={140} value={message} onChange={(e) => setMessage(e.target.value)} />
+          <input className="champ mt-3 !bg-carte" placeholder="Ou glisse-lui un petit mot" maxLength={140} value={message} onChange={(e) => setMessage(e.target.value)} />
           <Btn className="mt-4" onClick={send} disabled={!target}>
             {target ? `Envoyer à ${target.display_name}` : 'Choisis un proche'}
           </Btn>
@@ -212,10 +233,15 @@ export function Incoming() {
   const { state, run } = useHome()
   const unseen = state.thoughts.filter((t) => t.to_member === state.me.id && !t.seen_at)
   const t = unseen[unseen.length - 1] // la plus ancienne d'abord
+  const id = t?.id
+  useEffect(() => {
+    if (id) success()
+  }, [id])
   if (!t) return null
   const from = state.members.find((m) => m.id === t.from_member)
   if (!from) return null
   const th = thoughtOf(t.kind)
+  const art = `geste-${t.kind}`
   const seen = () => run((api) => api.markSeen([t.id]))
   const back = () =>
     run(async (api) => {
@@ -224,25 +250,24 @@ export function Incoming() {
     }, `Câlin envoyé à ${from.display_name}`)
 
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center px-8" role="dialog" aria-modal="true" aria-label="Attention reçue">
-      <div className="anim-fondu absolute inset-0 bg-encre/40 backdrop-blur-[3px]" />
-      <Coeurs emoji={th.emoji} />
-      <div className="anim-pop relative z-[60] w-full max-w-[320px] rounded-4xl bg-creme px-6 pb-6 pt-8 text-center shadow-doux">
-        <span className="anim-bat inline-block">
-          <Avatar m={from} size={88} />
-        </span>
-        <p className="titre mt-4 text-[23px] leading-tight">
+    <div className="absolute inset-0 z-40 flex items-center justify-center px-9" role="dialog" aria-modal="true" aria-label="Attention reçue">
+      <div className="anim-fondu absolute inset-0 bg-black/35 backdrop-blur-md" />
+      <Envol art={art} />
+      <div className="anim-pop relative z-[60] w-full max-w-[310px] rounded-[34px] bg-fond px-5 pb-5 pt-7 text-center shadow-[0_30px_80px_-20px_rgba(29,26,43,0.5)]">
+        <div className="relative mx-auto w-fit">
+          <span className="anim-bat inline-block">
+            <Avatar m={from} size={96} />
+          </span>
+          <Art name={art} size={46} className="absolute -bottom-2 -right-4 drop-shadow-md" />
+        </div>
+        <p className="mt-4 font-rond text-titre2">
           {from.display_name} {th.said}
         </p>
-        {t.message ? (
-          <p className="mt-3 rounded-2xl bg-white px-4 py-3 text-[16px] leading-snug shadow-carte">« {t.message} »</p>
-        ) : (
-          <p className="mt-2 text-[40px] leading-none">{th.emoji}</p>
-        )}
-        <Btn className="mt-5" onClick={back}>🤗 Renvoyer un câlin</Btn>
-        <button onClick={seen} className="mt-3 h-10 w-full text-[15px] font-bold text-brume">
+        {t.message && <p className="mt-3 rounded-[18px] bg-carte px-4 py-3 text-corps">« {t.message} »</p>}
+        <Btn className="mt-5" onClick={back}>Renvoyer un câlin</Btn>
+        <Btn kind="gris" className="mt-2" onClick={seen}>
           {unseen.length > 1 ? `Suivant (${unseen.length - 1} de plus)` : 'Merci'}
-        </button>
+        </Btn>
       </div>
     </div>
   )
@@ -250,12 +275,12 @@ export function Incoming() {
 
 // ───────── Nouvel événement ─────────
 
-const KINDS: { key: EventKind; label: string; emoji: string }[] = [
-  { key: 'evenement', label: 'Événement', emoji: '🎉' },
-  { key: 'rdv', label: 'Rendez-vous', emoji: '📍' },
-  { key: 'anniversaire', label: 'Anniversaire', emoji: '🎂' },
+const KINDS: { key: EventKind; label: string; art: string }[] = [
+  { key: 'evenement', label: 'Événement', art: 'picto-fete' },
+  { key: 'rdv', label: 'Rendez-vous', art: 'picto-lieu' },
+  { key: 'anniversaire', label: 'Anniversaire', art: 'picto-gateau' },
 ]
-export const eventEmoji = (k: string) => KINDS.find((x) => x.key === k)?.emoji ?? '🎉'
+export const eventArt = (k: string) => KINDS.find((x) => x.key === k)?.art ?? 'picto-fete'
 
 export function EventSheet({ onClose }: { onClose: () => void }) {
   const { state, run } = useHome()
@@ -273,40 +298,38 @@ export function EventSheet({ onClose }: { onClose: () => void }) {
     if (Number.isNaN(starts.getTime())) return
     const ok = await run(
       (api) => api.addEvent(state.family.id, state.me.id, { title: title.trim(), kind, starts_at: starts.toISOString(), all_day: allDay, yearly: birthday }),
-      'Ajouté à l’agenda de la famille',
+      'Ajouté à l’agenda',
     )
-    if (ok) onClose()
+    if (ok) {
+      success()
+      onClose()
+    }
   }
 
   return (
-    <Sheet title="Ajouter à l’agenda" onClose={onClose}>
-      <div className="flex gap-2">
-        {KINDS.map((k) => (
-          <button
-            key={k.key}
-            onClick={() => setKind(k.key)}
-            aria-pressed={kind === k.key}
-            className={`appui flex-1 rounded-2xl border-2 py-2.5 text-[13px] font-bold ${kind === k.key ? 'border-lavande-400 bg-lavande-100' : 'border-transparent bg-white shadow-carte'}`}
-          >
-            <span className="block text-[22px] leading-tight">{k.emoji}</span>
-            {k.label}
-          </button>
-        ))}
-      </div>
-      <input className="champ mt-3" placeholder={birthday ? 'Anniversaire de…' : 'Quoi de prévu ?'} maxLength={60} value={title} onChange={(e) => setTitle(e.target.value)} />
-      <div className="mt-3 flex gap-3">
-        <label className="flex-1 text-[13px] font-bold text-brume">
+    <Sheet title="Nouvel événement" onClose={onClose}>
+      <Segments value={kind} onChange={setKind} options={KINDS.map((k) => ({ key: k.key, label: k.label }))} />
+      <div className="groupe mt-4">
+        <div className="flex items-center gap-3 border-b border-trait pl-3 pr-4">
+          <Art name={eventArt(kind)} size={34} />
+          <input className="h-[52px] min-w-0 flex-1 bg-transparent text-corps outline-none placeholder:text-pale" placeholder={birthday ? 'Anniversaire de…' : 'Titre'} maxLength={60} value={title} onChange={(e) => setTitle(e.target.value)} />
+        </div>
+        <label className="flex h-[52px] items-center justify-between border-b border-trait px-4 text-corps">
           Date
-          <input type="date" className="champ mt-1" value={date} onChange={(e) => setDate(e.target.value)} />
+          <input type="date" className="rounded-[8px] bg-remplissage px-2.5 text-corps text-encre outline-none" value={date} onChange={(e) => setDate(e.target.value)} />
         </label>
-        {!birthday && (
-          <label className="w-[38%] text-[13px] font-bold text-brume">
+        {birthday ? (
+          <p className="flex h-[52px] items-center justify-between px-4 text-corps">
+            Répétition <span className="text-brume">Chaque année</span>
+          </p>
+        ) : (
+          <label className="flex h-[52px] items-center justify-between px-4 text-corps">
             Heure
-            <input type="time" className="champ mt-1" value={time} onChange={(e) => setTime(e.target.value)} />
+            <input type="time" className="rounded-[8px] bg-remplissage px-2.5 text-corps text-encre outline-none" value={time} onChange={(e) => setTime(e.target.value)} />
           </label>
         )}
       </div>
-      {birthday && <p className="mt-2 text-[13px] text-brume">Il reviendra tout seul chaque année.</p>}
+      {!birthday && <p className="px-4 pt-2 text-note text-brume">Sans heure, l’événement dure toute la journée.</p>}
       <Btn className="mt-4" onClick={save} disabled={!title.trim() || !date}>Ajouter</Btn>
     </Sheet>
   )

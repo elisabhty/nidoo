@@ -1,7 +1,8 @@
-import { CalendarHeart, Gamepad2, Home as HomeIcon, Images, Users } from 'lucide-react'
+import { CalendarDays, Gamepad2, House as HouseIcon, Images, UsersRound } from 'lucide-react'
 import { useState } from 'react'
 import { Incoming } from './components/sheets'
-import { Btn, Toasts } from './components/ui'
+import { ActionSheetHost, Btn, Toasts } from './components/ui'
+import { select } from './lib/haptic'
 import { useStore } from './lib/store'
 import Family from './screens/Family'
 import Home from './screens/Home'
@@ -12,19 +13,18 @@ import Play from './screens/Play'
 
 export type Tab = 'maison' | 'moments' | 'jouer' | 'organiser' | 'famille'
 
-const TABS: { key: Tab; label: string; icon: typeof HomeIcon }[] = [
-  { key: 'maison', label: 'Maison', icon: HomeIcon },
+const TABS: { key: Tab; label: string; icon: typeof HouseIcon }[] = [
+  { key: 'maison', label: 'Maison', icon: HouseIcon },
   { key: 'moments', label: 'Moments', icon: Images },
   { key: 'jouer', label: 'Jouer', icon: Gamepad2 },
-  { key: 'organiser', label: 'Organiser', icon: CalendarHeart },
-  { key: 'famille', label: 'Famille', icon: Users },
+  { key: 'organiser', label: 'Organiser', icon: CalendarDays },
+  { key: 'famille', label: 'Famille', icon: UsersRound },
 ]
 
 function Splash({ children }: { children?: React.ReactNode }) {
   return (
-    <div className="fond flex h-full flex-col items-center justify-center px-8 text-center">
-      <img src="./panda.webp" alt="" className="anim-flotte h-32 w-32 rounded-[2.2rem] shadow-doux" />
-      <p className="titre mt-5 text-[30px]">NIDOO</p>
+    <div className="flex h-full flex-col items-center justify-center bg-fond px-8 text-center">
+      <img src="./panda.webp" alt="" className="h-[120px] w-[120px] rounded-[28px] shadow-[0_24px_50px_-18px_rgba(102,70,204,0.55)]" />
       {children}
     </div>
   )
@@ -37,18 +37,19 @@ export default function App() {
 
   return (
     <div className="flex h-full items-center justify-center">
-      <div className="relative h-full w-full overflow-hidden bg-creme sm:h-[min(900px,96vh)] sm:max-w-[420px] sm:rounded-[2.6rem] sm:shadow-doux">
+      <div className="relative h-full w-full overflow-hidden bg-fond sm:h-[min(880px,96vh)] sm:max-w-[410px] sm:rounded-[48px] sm:shadow-[0_40px_100px_-30px_rgba(29,26,43,0.45)]">
         {status === 'loading' && <Splash />}
         {status === 'error' && (
           <Splash>
-            <p className="mt-2 max-w-[260px] text-[15px] text-brume">{error}</p>
+            <p className="mt-6 font-rond text-titre2">Connexion impossible</p>
+            <p className="mt-1 max-w-[270px] text-sous text-brume">{error}</p>
             <Btn className="mt-6 max-w-[220px]" onClick={retry}>Réessayer</Btn>
           </Splash>
         )}
         {status === 'ready' && !state && <Onboarding />}
         {status === 'ready' && state && (
           <>
-            <div className="fond h-full" key={state.family.id}>
+            <div className="h-full" key={state.family.id}>
               {tab === 'maison' && <Home go={setTab} />}
               {tab === 'moments' && <Moments />}
               {tab === 'jouer' && <Play />}
@@ -56,25 +57,23 @@ export default function App() {
               {tab === 'famille' && <Family />}
             </div>
 
-            <nav
-              className="absolute inset-x-3 z-30 flex items-center justify-between rounded-[2rem] bg-white/95 px-2 shadow-doux backdrop-blur"
-              style={{ bottom: 'calc(var(--sab) + 10px)', height: 66 }}
-              aria-label="Navigation principale"
-            >
+            {/* Barre d'onglets flottante en verre */}
+            <nav className="verre absolute inset-x-5 z-30 flex h-[62px] items-center rounded-full p-1" style={{ bottom: 'calc(var(--sab) + 8px)' }} aria-label="Navigation principale">
               {TABS.map((t) => {
                 const on = tab === t.key
                 return (
                   <button
                     key={t.key}
-                    onClick={() => setTab(t.key)}
+                    onClick={() => {
+                      select()
+                      setTab(t.key)
+                    }}
                     aria-current={on ? 'page' : undefined}
-                    className="appui relative flex h-full flex-1 flex-col items-center justify-center gap-0.5"
+                    className={`relative flex h-full flex-1 flex-col items-center justify-center gap-[3px] rounded-full transition-colors duration-200 ${on ? 'bg-encre/[0.07] text-teinte' : 'text-encre/70'}`}
                   >
-                    <span className={`flex h-8 w-12 items-center justify-center rounded-full transition-colors ${on ? 'bg-lavande-100 text-lavande-600' : 'text-brume'}`}>
-                      <t.icon size={21} strokeWidth={on ? 2.5 : 2} />
-                    </span>
-                    <span className={`text-[11px] ${on ? 'font-extrabold text-encre' : 'font-semibold text-brume'}`}>{t.label}</span>
-                    {t.key === 'maison' && unseen > 0 && !on && <span className="absolute right-[26%] top-2 h-2.5 w-2.5 rounded-full bg-peche-500 ring-2 ring-white" />}
+                    <t.icon size={23} strokeWidth={on ? 2.4 : 2} fill={on ? 'currentColor' : 'none'} fillOpacity={on ? 0.18 : 0} />
+                    <span className={`text-[10px] leading-none tracking-normal ${on ? 'font-semibold' : 'font-medium'}`}>{t.label}</span>
+                    {t.key === 'maison' && unseen > 0 && !on && <span className="absolute right-[24%] top-2 h-2.5 w-2.5 rounded-full bg-rouge ring-2 ring-white" />}
                   </button>
                 )
               })}
@@ -83,6 +82,7 @@ export default function App() {
             {tab === 'maison' && <Incoming />}
           </>
         )}
+        <ActionSheetHost />
         <Toasts />
       </div>
     </div>

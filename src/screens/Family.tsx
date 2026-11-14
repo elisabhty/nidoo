@@ -1,43 +1,32 @@
-import { Check, ChevronRight, Copy, Crown, Home as HomeIcon, LogOut, Mail, Pencil, Plus, Share2 } from 'lucide-react'
+import { Check, Copy, Crown, House as HouseIcon, LogOut, Mail, Pencil, Plus, Share, UserRound } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import House from '../components/House'
-import { eventEmoji } from '../components/sheets'
-import { Avatar, Btn, Section, Sheet } from '../components/ui'
-import { HOUSES, moodOf, PLAN_LIMITS } from '../lib/data'
+import { eventArt } from '../components/sheets'
+import { Art, Avatar, Btn, confirmer, Rond, Row, Screen, Section, Sheet } from '../components/ui'
+import { moodOf, PLAN_LIMITS } from '../lib/data'
+import { select } from '../lib/haptic'
 import { copy, shareInvite } from '../lib/share'
 import { useHome } from '../lib/store'
 import type { HouseType } from '../lib/types'
 import { dayLabel, errorText, isToday } from '../lib/util'
 import { upcoming } from './Home'
-import Onboarding, { ProfilePicker } from './Onboarding'
+import { HousePicker, ProfilePicker } from '../components/pickers'
+import Onboarding from './Onboarding'
 
 type Open = null | 'profil' | 'maison' | 'plus' | 'compte' | 'ajouter'
 
-function Ligne({ icon, label, hint, onClick, danger }: { icon: ReactNode; label: string; hint?: string; onClick: () => void; danger?: boolean }) {
-  return (
-    <button onClick={onClick} className="appui flex w-full items-center gap-3 px-4 py-3.5 text-left">
-      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${danger ? 'bg-peche-100 text-peche-500' : 'bg-lavande-100 text-lavande-600'}`}>{icon}</span>
-      <span className="min-w-0 flex-1">
-        <span className={`block text-[15.5px] font-bold ${danger ? 'text-peche-500' : ''}`}>{label}</span>
-        {hint && <span className="block truncate text-[13px] text-brume">{hint}</span>}
-      </span>
-      <ChevronRight size={18} className="text-brume/50" />
-    </button>
-  )
-}
-
 function Tuile({ title, locked, children }: { title: string; locked?: boolean; children: ReactNode }) {
   return (
-    <div className="w-[150px] shrink-0">
-      <div className="relative h-[150px] overflow-hidden rounded-[2rem] bg-white shadow-doux">
+    <div className="w-[158px] shrink-0">
+      <div className="relative h-[158px] overflow-hidden rounded-[30px] bg-carte shadow-carte">
         {children}
         {locked && (
-          <span className="absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full bg-encre/85 px-2 py-1 text-[10.5px] font-extrabold text-white">
-            <Crown size={11} /> Famille+
+          <span className="verre absolute right-2.5 top-2.5 flex h-6 items-center gap-1 rounded-full px-2 text-mini font-semibold text-encre">
+            <Crown size={11} strokeWidth={2.6} /> Famille+
           </span>
         )}
       </div>
-      <p className="mt-2 text-center text-[13.5px] font-extrabold">{title}</p>
+      <p className="mt-2 text-center text-note font-medium text-brume">{title}</p>
     </div>
   )
 }
@@ -54,63 +43,68 @@ function Widgets() {
   const from = word && members.find((m) => m.id === word.from_member)
 
   return (
-    <div className="no-bar flex gap-3.5 overflow-x-auto px-5 pb-2">
+    <div className="no-bar flex gap-3.5 overflow-x-auto px-4 pb-2">
       <Tuile title="Notre maison">
-        <House type={family.house_type} members={members} items={state.houseItems} className="-mx-[22%] mt-1 w-[144%] max-w-none" />
+        <House type={family.house_type} items={state.houseItems} className="h-full !aspect-auto" bare />
+        <p className="absolute inset-x-3 bottom-2.5 truncate text-note font-semibold text-white drop-shadow">Famille {family.name}</p>
       </Tuile>
       <Tuile title="Notre instant">
         {photo?.image_url ? (
           <img src={photo.image_url} alt="" className="h-full w-full object-cover" />
         ) : (
-          <div className="flex h-full flex-col justify-between bg-peche-100 p-3.5">
-            <span className="text-[26px]">📸</span>
-            <p className="line-clamp-4 font-titre text-[14.5px] font-medium leading-snug">{note?.body ?? 'La prochaine photo surprise apparaîtra ici.'}</p>
+          <div className="flex h-full flex-col justify-between bg-peche-doux p-3.5">
+            <Art name="picto-photo" size={38} />
+            <p className="line-clamp-4 text-sous font-medium">{note?.body ?? 'La prochaine photo surprise apparaîtra ici.'}</p>
           </div>
         )}
       </Tuile>
       <Tuile title="Nos humeurs">
-        <div className="grid h-full grid-cols-2 content-center gap-2 bg-lavande-50 p-3">
+        <div className="grid h-full grid-cols-2 content-center gap-x-1 gap-y-2.5 p-3">
           {members.slice(0, 4).map((m) => (
             <div key={m.id} className="flex flex-col items-center">
-              <Avatar m={m} size={40} mood />
-              <span className="mt-1 w-full truncate text-center text-[10.5px] font-bold text-brume">{(isToday(m.mood_at) && moodOf(m.mood)?.label) || m.display_name}</span>
+              <Avatar m={m} size={42} mood />
+              <span className="mt-1 w-full truncate text-center text-mini font-medium text-brume">{(isToday(m.mood_at) && moodOf(m.mood)?.label) || m.display_name}</span>
             </div>
           ))}
         </div>
       </Tuile>
       <Tuile title="À venir" locked={free}>
-        <div className="flex h-full flex-col justify-center gap-2 p-3.5">
-          <p className="text-[11px] font-extrabold uppercase tracking-wide text-peche-500">À venir</p>
+        <div className="flex h-full flex-col justify-end gap-2 p-3.5">
+          <p className="text-mini font-semibold uppercase tracking-wide text-rouge">À venir</p>
           {next.length ? (
             next.map(({ e, at }) => (
-              <div key={e.id}>
-                <p className="line-clamp-1 font-titre text-[14.5px] font-semibold">{eventEmoji(e.kind)} {e.title}</p>
-                <p className="text-[11.5px] text-brume">{dayLabel(at)}</p>
+              <div key={e.id} className="flex items-center gap-2">
+                <Art name={eventArt(e.kind)} size={24} />
+                <div className="min-w-0">
+                  <p className="truncate text-note font-semibold">{e.title}</p>
+                  <p className="text-mini text-brume">{dayLabel(at)}</p>
+                </div>
               </div>
             ))
           ) : (
-            <p className="text-[13px] text-brume">Rien de prévu</p>
+            <p className="text-note text-brume">Rien de prévu</p>
           )}
         </div>
       </Tuile>
       <Tuile title="Nos missions" locked={free}>
-        <div className="flex h-full flex-col justify-center gap-2 bg-lavande-50 p-3.5">
+        <div className="flex h-full flex-col justify-end gap-2 p-3.5">
+          <p className="text-mini font-semibold uppercase tracking-wide text-teinte">Missions</p>
           {todo.length ? (
             todo.map((i) => (
               <div key={i.id} className="flex items-center gap-2">
-                <span className="h-4 w-4 shrink-0 rounded-full border-2 border-lavande-300" />
-                <span className="truncate text-[12.5px] font-bold">{i.title}</span>
+                <span className="h-[15px] w-[15px] shrink-0 rounded-full border-[1.5px] border-pale" />
+                <span className="truncate text-note font-medium">{i.title}</span>
               </div>
             ))
           ) : (
-            <p className="text-center text-[13px] font-bold text-brume">Tout est fait 🎉</p>
+            <p className="text-note text-brume">Tout est fait</p>
           )}
         </div>
       </Tuile>
-      <Tuile title="Surprise !" locked={free}>
-        <div className="flex h-full flex-col items-center justify-center bg-gradient-to-b from-lavande-200 to-peche-100 p-3 text-center">
-          <span className="anim-bat text-[40px] leading-none">💜</span>
-          <p className="mt-2 text-[12.5px] font-extrabold leading-tight">{from ? `${from.display_name} pense à toi` : 'Une attention à découvrir'}</p>
+      <Tuile title="Surprise" locked={free}>
+        <div className="flex h-full flex-col items-center justify-center bg-gradient-to-b from-teinte-doux to-peche-doux p-3 text-center">
+          <Art name="geste-coeur" size={62} className="anim-bat" />
+          <p className="mt-2 text-note font-semibold leading-tight">{from ? `${from.display_name} pense à toi` : 'Une attention à découvrir'}</p>
         </div>
       </Tuile>
     </div>
@@ -128,13 +122,18 @@ export default function Family() {
   const [houseType, setHouseType] = useState<HouseType>(family.house_type)
   const [email, setEmail] = useState('')
   const [linked, setLinked] = useState<string | null>(null)
+  const [period, setPeriod] = useState<'an' | 'mois'>('an')
   const limit = PLAN_LIMITS[family.plan]
 
   useEffect(() => {
     api.accountEmail().then(setLinked).catch(() => undefined)
   }, [api])
   useEffect(() => {
-    setName(me.display_name); setAvatar(me.avatar); setColor(me.color); setFamName(family.name); setHouseType(family.house_type)
+    setName(me.display_name)
+    setAvatar(me.avatar)
+    setColor(me.color)
+    setFamName(family.name)
+    setHouseType(family.house_type)
   }, [me.id, me.display_name, me.avatar, me.color, family.name, family.house_type])
 
   const invite = async () => {
@@ -152,94 +151,106 @@ export default function Family() {
 
   return (
     <>
-      <div className="no-bar h-full overflow-y-auto pb-32" style={{ paddingTop: 'calc(var(--sat) + 14px)' }}>
-        <h1 className="titre px-5 text-[32px] leading-none">Notre famille</h1>
-
+      <Screen title="Notre famille" trailing={<Rond label="Inviter un proche" tint onClick={invite}><Share size={18} strokeWidth={2.4} /></Rond>}>
         {api.mode === 'local' && (
-          <p className="mx-5 mt-4 rounded-2xl bg-peche-100 px-4 py-3 text-[13.5px] leading-snug">
-            <b>Mode démo.</b> Cette maison vit uniquement sur cet appareil, avec trois proches fictifs pour essayer.
+          <p className="mx-4 mb-3 mt-1 rounded-[16px] bg-peche-doux px-4 py-3 text-note">
+            <span className="font-semibold">Mode démo.</span> Cette maison vit uniquement sur cet appareil, avec trois proches fictifs pour essayer.
           </p>
         )}
 
-        <div className="carte mx-5 mt-4 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="titre text-[21px] leading-tight">Famille {family.name}</p>
-              <p className="text-[13.5px] text-brume">{members.length} sur {limit} membres · {family.plan === 'plus' ? 'Famille+' : 'Gratuit'}</p>
+        <div className="groupe mx-4 mt-1 shadow-carte">
+          <div className="flex items-center gap-3 border-b border-trait p-3.5">
+            <div className="h-[58px] w-[76px] shrink-0 overflow-hidden rounded-[14px]">
+              <House type={family.house_type} items={[]} className="h-full !aspect-auto" bare />
             </div>
-            <button onClick={() => setSheet('maison')} className="appui flex h-10 w-10 items-center justify-center rounded-full bg-lavande-100 text-lavande-600" aria-label="Modifier la maison">
-              <Pencil size={17} />
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-rond text-titre3">Famille {family.name}</p>
+              <p className="text-note text-brume">{members.length} sur {limit} membres · {family.plan === 'plus' ? 'Famille+' : 'Gratuit'}</p>
+            </div>
+            <button onClick={() => setSheet('maison')} className="presse flex h-9 w-9 items-center justify-center rounded-full bg-remplissage text-teinte" aria-label="Modifier la maison">
+              <Pencil size={16} strokeWidth={2.4} />
             </button>
           </div>
-          <div className="mt-4 space-y-3">
-            {members.map((m) => (
-              <div key={m.id} className="flex items-center gap-3">
-                <Avatar m={m} size={44} mood />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[15.5px] font-extrabold">{m.display_name}{m.id === me.id && <span className="font-semibold text-brume"> · toi</span>}</p>
-                  <p className="truncate text-[13px] text-brume">
-                    {isToday(m.mood_at) && moodOf(m.mood) ? `${moodOf(m.mood)!.label}${m.mood_note ? ` · ${m.mood_note}` : ''}` : 'Pas encore de nouvelles aujourd’hui'}
-                  </p>
-                </div>
+          {members.map((m, i) => (
+            <div key={m.id} className="flex items-center gap-3 pl-3.5">
+              <Avatar m={m} size={42} mood />
+              <div className={`min-w-0 flex-1 py-2.5 pr-4 ${i < members.length - 1 ? 'border-b border-trait' : ''}`}>
+                <p className="truncate text-corps">
+                  {m.display_name}
+                  {m.id === me.id && <span className="text-brume"> (toi)</span>}
+                </p>
+                <p className="truncate text-note text-brume">
+                  {isToday(m.mood_at) && moodOf(m.mood) ? `${moodOf(m.mood)!.label}${m.mood_note ? ` · ${m.mood_note}` : ''}` : 'Pas encore de nouvelles aujourd’hui'}
+                </p>
               </div>
-            ))}
-          </div>
-          <div className="mt-4 flex gap-2">
-            <button
-              onClick={async () => (await copy(family.invite_code)) && toast('Code copié')}
-              className="appui flex h-[52px] items-center gap-2 rounded-full bg-lavande-100 px-4"
-              aria-label={`Copier le code ${family.invite_code}`}
-            >
-              <span className="font-titre text-[18px] font-semibold tracking-[0.14em]">{family.invite_code}</span>
-              <Copy size={15} className="text-lavande-600" />
-            </button>
-            <Btn onClick={invite} className="flex-1"><Share2 size={17} /> Inviter</Btn>
-          </div>
+            </div>
+          ))}
+        </div>
+
+        <p className="entete mt-6">Code d’invitation</p>
+        <div className="groupe mx-4 shadow-carte">
+          <button onClick={async () => (await copy(family.invite_code)) && toast('Code copié')} className="presse-ligne flex h-[56px] w-full items-center justify-between border-b border-trait px-4" aria-label={`Copier le code ${family.invite_code}`}>
+            <span className="font-rond text-titre2 tracking-[0.18em]">{family.invite_code}</span>
+            <Copy size={18} className="text-teinte" />
+          </button>
+          <button onClick={invite} className="presse-ligne flex h-[50px] w-full items-center px-4 text-corps text-teinte">
+            Partager le lien d’invitation
+          </button>
         </div>
 
         <Section title="Widgets">
-          <p className="-mt-1.5 mb-3 px-5 text-[13.5px] leading-snug text-brume">Aperçu en direct de ce que chacun verra sur son écran d’accueil.</p>
+          <p className="-mt-1.5 mb-3 px-5 text-sous text-brume">Aperçu en direct de ce que chacun verra sur son écran d’accueil.</p>
           <Widgets />
         </Section>
 
-        <button onClick={() => setSheet('plus')} className="appui mx-5 mt-6 flex w-[calc(100%-2.5rem)] items-center gap-3 rounded-4xl bg-encre p-4 text-left text-white shadow-doux">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/15"><Crown size={22} className="text-[#FFD98A]" /></span>
+        <button onClick={() => setSheet('plus')} className="presse mx-4 mt-6 flex w-[calc(100%-2rem)] items-center gap-3 overflow-hidden rounded-groupe p-3.5 text-left text-white shadow-flottant" style={{ background: 'linear-gradient(135deg, #8E6FF0 0%, #6646CC 100%)' }}>
+          <Art name="picto-couronne" size={50} />
           <span className="min-w-0 flex-1">
-            <span className="block font-titre text-[18px] font-semibold">NIDOO Famille+</span>
-            <span className="block text-[13.5px] text-white/75">Jusqu’à 15 membres, tous les widgets, plusieurs maisons</span>
+            <span className="block font-rond text-titre3">NIDOO Famille+</span>
+            <span className="block text-note text-white/80">15 membres, tous les widgets, plusieurs maisons</span>
           </span>
-          <ChevronRight size={18} className="text-white/60" />
+          <span className="flex h-8 shrink-0 items-center rounded-full bg-white px-3.5 text-sous font-semibold text-teinte-fonce">Voir</span>
         </button>
 
-        <Section title="Mes maisons">
-          <div className="carte mx-5 divide-y divide-lavande-50">
-            {circles.map((c) => (
-              <button key={c.family.id} onClick={() => c.family.id !== family.id && void open(c.family.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-peche-100 text-peche-500"><HomeIcon size={18} /></span>
-                <span className="min-w-0 flex-1 truncate text-[15.5px] font-bold">Famille {c.family.name}</span>
-                {c.family.id === family.id && <Check size={18} className="text-lavande-500" />}
-              </button>
-            ))}
-            <Ligne icon={<Plus size={18} />} label="Ajouter une maison" hint="Créer ou rejoindre un autre cercle" onClick={() => setSheet('ajouter')} />
-          </div>
-        </Section>
-
-        <Section title="Réglages">
-          <div className="carte mx-5 divide-y divide-lavande-50">
-            <Ligne icon={<span className="text-[18px]">🙂</span>} label="Mon profil" hint={me.display_name} onClick={() => setSheet('profil')} />
-            {api.mode === 'supabase' && (
-              <Ligne icon={<Mail size={18} />} label="Sauvegarder mon compte" hint={linked ?? 'Pour retrouver ta maison sur un autre téléphone'} onClick={() => setSheet('compte')} />
-            )}
-            <Ligne
-              icon={<LogOut size={18} />}
-              label="Quitter cette maison"
-              danger
-              onClick={() => window.confirm(`Quitter la maison de la famille ${family.name} ? Tes photos et messages y seront retirés.`) && run((a) => a.leave(me.id))}
+        <p className="entete mt-7">Mes maisons</p>
+        <div className="groupe mx-4 shadow-carte">
+          {circles.map((c) => (
+            <Row
+              key={c.family.id}
+              icon={<HouseIcon size={17} strokeWidth={2.4} />}
+              tint="#F58B5C"
+              label={`Famille ${c.family.name}`}
+              chevron={false}
+              value={c.family.id === family.id ? <Check size={19} strokeWidth={2.8} className="text-teinte" /> : undefined}
+              onClick={() => {
+                select()
+                if (c.family.id !== family.id) void open(c.family.id)
+              }}
             />
-          </div>
-        </Section>
-        <p className="mt-6 text-center text-[12px] text-brume/70">NIDOO · sans publicité, sans revente de données</p>
-      </div>
+          ))}
+          <Row icon={<Plus size={18} strokeWidth={2.6} />} tint="#34C759" label="Ajouter une maison" onClick={() => setSheet('ajouter')} last />
+        </div>
+        <p className="px-8 pt-2 text-note text-brume">Chaque maison garde ses photos et ses informations séparées.</p>
+
+        <p className="entete mt-6">Réglages</p>
+        <div className="groupe mx-4 shadow-carte">
+          <Row icon={<UserRound size={17} strokeWidth={2.4} />} label="Mon profil" value={me.display_name} onClick={() => setSheet('profil')} last={api.mode !== 'supabase'} />
+          {api.mode === 'supabase' && <Row icon={<Mail size={16} strokeWidth={2.4} />} tint="#5AA3E0" label="Sauvegarder mon compte" value={linked ? 'Activé' : undefined} onClick={() => setSheet('compte')} last />}
+        </div>
+        <div className="groupe mx-4 mt-5 shadow-carte">
+          <Row
+            icon={<LogOut size={16} strokeWidth={2.4} />}
+            danger
+            label="Quitter cette maison"
+            chevron={false}
+            last
+            onClick={async () =>
+              (await confirmer({ title: `Quitter la maison de la famille ${family.name} ?`, message: 'Tes photos et tes messages y seront retirés.', confirm: 'Quitter la maison', destructive: true })) && run((a) => a.leave(me.id))
+            }
+          />
+        </div>
+        <p className="mt-6 text-center text-legende text-pale">NIDOO · sans publicité, sans revente de données</p>
+      </Screen>
 
       {sheet === 'profil' && (
         <Sheet title="Mon profil" onClose={() => setSheet(null)}>
@@ -252,20 +263,11 @@ export default function Family() {
 
       {sheet === 'maison' && (
         <Sheet title="Notre maison" onClose={() => setSheet(null)}>
-          <label className="text-[13px] font-bold text-brume">
-            Nom de la famille
-            <input className="champ mt-1" maxLength={32} value={famName} onChange={(e) => setFamName(e.target.value)} />
-          </label>
-          <div className="mt-4 grid grid-cols-3 gap-2.5">
-            {HOUSES.map((h) => (
-              <button key={h.key} onClick={() => setHouseType(h.key)} aria-pressed={houseType === h.key} className={`appui overflow-hidden rounded-3xl border-2 bg-white pb-2 ${houseType === h.key ? 'border-lavande-400' : 'border-transparent shadow-carte'}`}>
-                <div className="h-[80px] overflow-hidden">
-                  <House type={h.key} members={[]} items={[]} phase="jour" className="-mx-[38%] -mt-3 w-[176%] max-w-none" />
-                </div>
-                <span className="mt-1 block text-[13.5px] font-extrabold">{h.label}</span>
-              </button>
-            ))}
+          <div className="groupe flex items-center gap-2 px-4">
+            <span className="text-corps text-brume">Famille</span>
+            <input className="h-[50px] min-w-0 flex-1 bg-transparent text-corps outline-none" maxLength={32} value={famName} onChange={(e) => setFamName(e.target.value)} aria-label="Nom de la famille" />
           </div>
+          <HousePicker value={houseType} onChange={setHouseType} />
           <Btn className="mt-5" disabled={!famName.trim()} onClick={async () => (await run((a) => a.updateFamily(family.id, { name: famName.trim(), house_type: houseType }), 'Maison mise à jour')) && setSheet(null)}>
             Enregistrer
           </Btn>
@@ -273,39 +275,49 @@ export default function Family() {
       )}
 
       {sheet === 'plus' && (
-        <Sheet title="NIDOO Famille+" onClose={() => setSheet(null)}>
-          <p className="text-[14.5px] text-brume">Un seul abonnement pour tout le foyer : une personne s’abonne, toute la maison en profite.</p>
-          <ul className="mt-4 space-y-2.5">
-            {['Jusqu’à 15 membres dans la maison', 'Tous les widgets et tous les thèmes', 'Albums et souvenirs enrichis', 'Mini-jeux et défis exclusifs', 'Décorations premium', 'Plusieurs maisons familiales'].map((f) => (
-              <li key={f} className="flex items-center gap-3 text-[15px] font-semibold">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-lavande-200 text-lavande-600"><Check size={14} strokeWidth={3} /></span>
-                {f}
-              </li>
-            ))}
-          </ul>
-          <div className="mt-5 grid grid-cols-2 gap-3">
-            <div className="rounded-3xl border-2 border-lavande-400 bg-lavande-50 p-4 text-center">
-              <p className="text-[12px] font-extrabold uppercase tracking-wide text-lavande-600">Annuel</p>
-              <p className="titre mt-1 text-[24px]">29,99 €</p>
-              <p className="text-[12.5px] text-brume">soit 2,50 € par mois</p>
-            </div>
-            <div className="rounded-3xl border-2 border-transparent bg-white p-4 text-center shadow-carte">
-              <p className="text-[12px] font-extrabold uppercase tracking-wide text-brume">Mensuel</p>
-              <p className="titre mt-1 text-[24px]">3,99 €</p>
-              <p className="text-[12.5px] text-brume">pour tout le foyer</p>
-            </div>
+        <Sheet title="Famille+" onClose={() => setSheet(null)}>
+          <div className="flex flex-col items-center text-center">
+            <Art name="picto-couronne" size={84} />
+            <p className="mt-2 font-rond text-titre1">NIDOO Famille+</p>
+            <p className="mt-1 max-w-[280px] text-sous text-brume">Une personne s’abonne, toute la maison en profite.</p>
           </div>
-          <Btn className="mt-5" disabled>Disponible à la sortie sur l’App Store</Btn>
-          <p className="mt-2.5 text-center text-[12.5px] text-brume">Sans publicité intrusive ni vente des données familiales.</p>
+          <div className="groupe mt-4">
+            {['Jusqu’à 15 membres dans la maison', 'Tous les widgets et tous les thèmes', 'Albums et souvenirs enrichis', 'Mini-jeux et défis exclusifs', 'Décorations premium', 'Plusieurs maisons familiales'].map((f, i, all) => (
+              <div key={f} className="flex items-center gap-3 pl-4">
+                <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-teinte text-white"><Check size={13} strokeWidth={3.4} /></span>
+                <span className={`flex-1 py-3 pr-4 text-appel ${i < all.length - 1 ? 'border-b border-trait' : ''}`}>{f}</span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2.5">
+            {([['an', 'Annuel', '29,99 €', 'soit 2,50 € par mois'], ['mois', 'Mensuel', '3,99 €', 'pour tout le foyer']] as const).map(([k, label, price, hint]) => (
+              <button
+                key={k}
+                onClick={() => {
+                  select()
+                  setPeriod(k)
+                }}
+                aria-pressed={period === k}
+                className={`presse relative rounded-groupe bg-carte px-3 py-3.5 text-center ${period === k ? 'ring-2 ring-teinte' : ''}`}
+              >
+                {k === 'an' && <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-teinte px-2.5 py-0.5 text-mini font-semibold text-white">Le plus avantageux</span>}
+                <p className="text-note font-medium text-brume">{label}</p>
+                <p className="font-rond text-titre2">{price}</p>
+                <p className="text-legende text-brume">{hint}</p>
+              </button>
+            ))}
+          </div>
+          <Btn className="mt-4" disabled>Bientôt disponible sur l’App Store</Btn>
+          <p className="mt-2.5 text-center text-legende text-brume">Sans publicité intrusive ni vente des données familiales.</p>
         </Sheet>
       )}
 
       {sheet === 'compte' && (
         <Sheet title="Sauvegarder mon compte" onClose={() => setSheet(null)}>
-          <p className="text-[14.5px] leading-snug text-brume">
+          <p className="text-center text-sous text-brume">
             {linked ? `Ton compte est rattaché à ${linked}.` : 'Ajoute ton e-mail pour retrouver ta maison si tu changes de téléphone. Tu recevras un lien de confirmation.'}
           </p>
-          <input className="champ mt-4" type="email" inputMode="email" autoCapitalize="none" placeholder="prenom@exemple.fr" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input className="champ mt-4 !bg-carte" type="email" inputMode="email" autoCapitalize="none" placeholder="prenom@exemple.fr" value={email} onChange={(e) => setEmail(e.target.value)} />
           <Btn
             className="mt-4"
             disabled={!/^\S+@\S+\.\S+$/.test(email)}

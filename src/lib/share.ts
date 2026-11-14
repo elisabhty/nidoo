@@ -10,7 +10,7 @@ export function inviteLink(code: string): string {
 /** Partage l'invitation ; renvoie 'copie' si on a dû se rabattre sur le presse-papiers. */
 export async function shareInvite(familyName: string, code: string): Promise<'partage' | 'copie' | 'annule'> {
   const url = inviteLink(code)
-  const text = `Rejoins la maison de la famille ${familyName} sur NIDOO 🏡 Code : ${code}`
+  const text = `Rejoins la maison de la famille ${familyName} sur NIDOO. Code : ${code}`
   try {
     if (Capacitor.isNativePlatform()) {
       await Share.share({ title: 'NIDOO', text, url })

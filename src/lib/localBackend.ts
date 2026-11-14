@@ -7,7 +7,7 @@ import { blobToDataUrl, todayKey, uid } from './util'
 
 type Raw = Omit<FamilyState, 'me'>
 type Db = { userId: string; families: Record<string, Raw> }
-const KEY = 'nidoo.demo.v1'
+const KEY = 'nidoo.demo.v2'
 
 const iso = (minsAgo: number) => new Date(Date.now() - minsAgo * 60000).toISOString()
 const inDays = (days: number, h = 9, m = 0) => {
@@ -77,7 +77,7 @@ export function createLocalBackend(): Backend {
       family: { id: fid, name, house_type: houseType, invite_code: 'DEMO42', plan: 'free', stars: 14, created_by: db.userId },
       members: [moi, mamie, papa, lea],
       moments: [
-        { id: uid(), family_id: fid, member_id: lea.id, image_path: null, body: 'Devinez qui rentre ce week-end avec un gâteau ? 🎂', challenge: null, created_at: iso(55) },
+        { id: uid(), family_id: fid, member_id: lea.id, image_path: null, body: 'Devinez qui rentre ce week-end avec un gâteau ?', challenge: null, created_at: iso(55) },
         { id: uid(), family_id: fid, member_id: mamie.id, image_path: null, body: 'Le jardin est tout blanc ce matin. Pensées pour vous tous.', challenge: null, created_at: iso(60 * 20) },
       ],
       reactions: [],
@@ -195,7 +195,7 @@ export function createLocalBackend(): Backend {
       const other = f.members.find((x) => x.user_id !== db.userId)
       if (other) {
         window.setTimeout(() => {
-          f.reactions.push({ moment_id: moment.id, member_id: other.id, emoji: '😍' })
+          f.reactions.push({ moment_id: moment.id, member_id: other.id, emoji: 'amour' })
           save()
         }, 3500)
       }

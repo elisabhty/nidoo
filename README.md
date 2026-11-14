@@ -2,7 +2,7 @@
 
 Le petit chez-nous qui tient dans un widget : une maison virtuelle par famille, qui vit au rythme des photos surprises, des humeurs et des attentions.
 
-App React + Tailwind + Capacitor (iOS), backend Supabase.
+App React + Tailwind + Capacitor (iOS), backend Supabase. Interface aux codes iOS (police système, grands titres, barres en verre, listes groupées, feuilles modales, haptique) et illustrations 3D sans aucun emoji.
 
 ## Ce que contient cette version
 
@@ -13,6 +13,14 @@ App React + Tailwind + Capacitor (iOS), backend Supabase.
 - **Jouer** : question du jour, défi photo, étoiles et 12 décorations à débloquer pour la maison.
 - **Organiser** : agenda (anniversaires annuels, rendez-vous, événements), liste de courses, missions assignables.
 - **Notre famille** : membres, invitation par code ou lien, plusieurs maisons, aperçu des 6 widgets, offre Famille+, profil.
+
+## Illustrations
+
+Les avatars, humeurs, attentions, pictos, décorations et maisons sont dans `public/art/` (WebP détourés). Ils viennent de planches générées en 3D dans le style de Nidoo, découpées par `scripts/decoupe_planche.py` :
+
+```bash
+python3 scripts/decoupe_planche.py planche.png 2 6 256 public/art avatar-panda,avatar-renard,...
+```
 
 ## Lancer
 

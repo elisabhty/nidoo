@@ -1,32 +1,31 @@
 import type { HouseType, ThoughtKind } from './types'
 
-export const MOODS: { key: string; emoji: string; label: string }[] = [
-  { key: 'heureux', emoji: '😊', label: 'Au top' },
-  { key: 'serein', emoji: '😌', label: 'Zen' },
-  { key: 'motive', emoji: '💪', label: 'À fond' },
-  { key: 'fete', emoji: '🥳', label: 'En fête' },
-  { key: 'fatigue', emoji: '😴', label: 'Fatigue' },
-  { key: 'stresse', emoji: '😣', label: 'Stress' },
-  { key: 'nostalgique', emoji: '🥹', label: 'Nostalgie' },
-  { key: 'triste', emoji: '😢', label: 'Coup de mou' },
+export const MOODS: { key: string; label: string }[] = [
+  { key: 'heureux', label: 'Au top' },
+  { key: 'serein', label: 'Zen' },
+  { key: 'motive', label: 'À fond' },
+  { key: 'fete', label: 'En fête' },
+  { key: 'fatigue', label: 'Fatigue' },
+  { key: 'stresse', label: 'Stress' },
+  { key: 'nostalgique', label: 'Nostalgie' },
+  { key: 'triste', label: 'Coup de mou' },
 ]
 export const moodOf = (key: string | null) => MOODS.find((m) => m.key === key) ?? null
 
-export const AVATARS: { key: string; emoji: string }[] = [
-  { key: 'panda', emoji: '🐼' }, { key: 'renard', emoji: '🦊' }, { key: 'ours', emoji: '🐻' },
-  { key: 'lapin', emoji: '🐰' }, { key: 'chat', emoji: '🐱' }, { key: 'chien', emoji: '🐶' },
-  { key: 'hibou', emoji: '🦉' }, { key: 'koala', emoji: '🐨' }, { key: 'lion', emoji: '🦁' },
-  { key: 'pingouin', emoji: '🐧' }, { key: 'grenouille', emoji: '🐸' }, { key: 'licorne', emoji: '🦄' },
+export const AVATARS: { key: string; label: string }[] = [
+  { key: 'panda', label: 'Panda' }, { key: 'renard', label: 'Renard' }, { key: 'ours', label: 'Ours' },
+  { key: 'lapin', label: 'Lapin' }, { key: 'chat', label: 'Chat' }, { key: 'chien', label: 'Chien' },
+  { key: 'hibou', label: 'Hibou' }, { key: 'koala', label: 'Koala' }, { key: 'lion', label: 'Lion' },
+  { key: 'pingouin', label: 'Pingouin' }, { key: 'grenouille', label: 'Grenouille' }, { key: 'licorne', label: 'Licorne' },
 ]
-export const avatarEmoji = (key: string) => AVATARS.find((a) => a.key === key)?.emoji ?? '🐼'
 
-export const COLORS: Record<string, { bg: string; ring: string }> = {
-  lavande: { bg: '#E4D8F8', ring: '#A88CE0' },
-  peche: { bg: '#FFDCC4', ring: '#F99263' },
-  mousse: { bg: '#D5EBD9', ring: '#7FB88E' },
-  ciel: { bg: '#D3E8F8', ring: '#74AEDD' },
-  rose: { bg: '#FBD6E1', ring: '#E888A6' },
-  soleil: { bg: '#FBEBB8', ring: '#E3B93F' },
+export const COLORS: Record<string, { bg: string; deep: string; ring: string }> = {
+  lavande: { bg: '#EFE8FD', deep: '#D5C6F7', ring: '#9B7FEA' },
+  peche: { bg: '#FFEEE2', deep: '#FFD0B3', ring: '#F58B5C' },
+  mousse: { bg: '#E6F5E9', deep: '#C3E6CB', ring: '#62B67A' },
+  ciel: { bg: '#E3F1FC', deep: '#BDDDF7', ring: '#5AA3E0' },
+  rose: { bg: '#FDE6EE', deep: '#F9C4D5', ring: '#E77BA0' },
+  soleil: { bg: '#FDF3D2', deep: '#F9E19B', ring: '#E0B02F' },
 }
 export const COLOR_KEYS = Object.keys(COLORS)
 
@@ -36,31 +35,37 @@ export const HOUSES: { key: HouseType; label: string; hint: string }[] = [
   { key: 'chalet', label: 'Chalet', hint: 'Au coin du feu' },
 ]
 
-export const THOUGHTS: { key: ThoughtKind; emoji: string; label: string; said: string }[] = [
-  { key: 'coeur', emoji: '💜', label: 'Je pense à toi', said: 'pense à toi' },
-  { key: 'calin', emoji: '🤗', label: 'Un gros câlin', said: 't’envoie un gros câlin' },
-  { key: 'courage', emoji: '💪', label: 'Courage !', said: 't’envoie du courage' },
-  { key: 'bisou', emoji: '😘', label: 'Bisous', said: 't’envoie des bisous' },
+export const THOUGHTS: { key: ThoughtKind; label: string; said: string }[] = [
+  { key: 'coeur', label: 'Je pense à toi', said: 'pense à toi' },
+  { key: 'calin', label: 'Un gros câlin', said: 't’envoie un gros câlin' },
+  { key: 'courage', label: 'Courage !', said: 't’envoie du courage' },
+  { key: 'bisou', label: 'Bisous', said: 't’envoie des bisous' },
 ]
-export const thoughtOf = (k: string) => THOUGHTS.find((t) => t.key === k) ?? { key: 'mot', emoji: '💌', label: 'Petit mot', said: 't’a écrit un petit mot' }
+export const thoughtOf = (k: string) => THOUGHTS.find((t) => t.key === k) ?? { key: 'mot' as ThoughtKind, label: 'Petit mot', said: 't’a écrit un petit mot' }
 
-export const REACTIONS = ['💜', '😂', '😍', '🥹', '👏']
+export const REACTIONS: { key: string; art: string; label: string }[] = [
+  { key: 'coeur', art: 'geste-coeur', label: 'J’aime' },
+  { key: 'rire', art: 'reaction-rire', label: 'Trop drôle' },
+  { key: 'amour', art: 'reaction-amour', label: 'J’adore' },
+  { key: 'emu', art: 'humeur-nostalgique', label: 'Touché' },
+  { key: 'bravo', art: 'reaction-bravo', label: 'Bravo' },
+]
 
-export type Deco = { key: string; name: string; emoji: string; cost: number }
+export type Deco = { key: string; name: string; cost: number }
 // Les coûts doivent rester alignés avec la table house_catalog côté Supabase.
 export const DECOS: Deco[] = [
-  { key: 'fleurs', name: 'Massif de fleurs', emoji: '🌷', cost: 5 },
-  { key: 'boite', name: 'Boîte aux lettres', emoji: '📮', cost: 8 },
-  { key: 'lanterne', name: 'Lanterne', emoji: '🏮', cost: 12 },
-  { key: 'arbre', name: 'Grand arbre', emoji: '🌳', cost: 18 },
-  { key: 'fumee', name: 'Feu de cheminée', emoji: '🔥', cost: 20 },
-  { key: 'guirlande', name: 'Guirlande lumineuse', emoji: '✨', cost: 25 },
-  { key: 'chat', name: 'Chat du quartier', emoji: '🐈', cost: 30 },
-  { key: 'balancoire', name: 'Balançoire', emoji: '🛝', cost: 40 },
-  { key: 'potager', name: 'Petit potager', emoji: '🥕', cost: 50 },
-  { key: 'cabane', name: 'Cabane à oiseaux', emoji: '🐦', cost: 70 },
-  { key: 'fontaine', name: 'Fontaine', emoji: '⛲', cost: 90 },
-  { key: 'montgolfiere', name: 'Montgolfière', emoji: '🎈', cost: 120 },
+  { key: 'fleurs', name: 'Massif de fleurs', cost: 5 },
+  { key: 'boite', name: 'Boîte aux lettres', cost: 8 },
+  { key: 'lanterne', name: 'Lanterne', cost: 12 },
+  { key: 'arbre', name: 'Grand arbre', cost: 18 },
+  { key: 'fumee', name: 'Feu de cheminée', cost: 20 },
+  { key: 'guirlande', name: 'Guirlande lumineuse', cost: 25 },
+  { key: 'chat', name: 'Chat du quartier', cost: 30 },
+  { key: 'balancoire', name: 'Balançoire', cost: 40 },
+  { key: 'potager', name: 'Petit potager', cost: 50 },
+  { key: 'cabane', name: 'Cabane à oiseaux', cost: 70 },
+  { key: 'fontaine', name: 'Fontaine', cost: 90 },
+  { key: 'montgolfiere', name: 'Montgolfière', cost: 120 },
 ]
 
 export const STAR_REASONS: Record<string, string> = {
