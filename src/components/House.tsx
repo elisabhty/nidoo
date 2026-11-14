@@ -37,9 +37,9 @@ const SPOTS: Record<string, Spot> = {
 const ORDER = Object.keys(SPOTS)
 // Décorations qui ont une vraie boucle animée (bande de sprites deco-<clé>-anim.webp).
 const ANIM: Record<string, { frames: number; dur: number }> = {
-  chat: { frames: 10, dur: 1.5 },
-  balancoire: { frames: 8, dur: 2.2 },
-  fontaine: { frames: 6, dur: 0.85 },
+  chat: { frames: 6, dur: 1.3 },
+  balancoire: { frames: 8, dur: 1.9 },
+  fontaine: { frames: 6, dur: 0.8 },
 }
 const cover: CSSProperties = { position: 'absolute', inset: 0 }
 
