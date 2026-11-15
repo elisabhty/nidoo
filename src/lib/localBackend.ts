@@ -8,7 +8,7 @@ import { challenge, nextReward, WEEKLY, weekIndex, weekKey, weekStart, type Week
 // Mode démo : toute la maison vit sur l'appareil, avec trois proches fictifs
 // qui répondent aux attentions. Même contrat que le backend Supabase.
 
-type Raw = Omit<FamilyState, 'me' | 'weekly'> & { dossiersDemo?: boolean; weeklyClaims?: Record<string, string> }
+type Raw = Omit<FamilyState, 'me' | 'weekly'> & { dossiersDemo?: boolean; enfantsDemo?: boolean; weeklyClaims?: Record<string, string> }
 type Pending = MyRequest & { profile: { displayName: string; avatar: string; color: string } }
 type Db = { userId: string; families: Record<string, Raw>; pending?: Pending[] }
 const KEY = 'nidoo.demo.v2'
@@ -107,6 +107,20 @@ function migrate(f: Raw, userId: string) {
   if (f.houseItems.includes('guirlande')) {
     f.houseItems = f.houseItems.filter((k) => k !== 'guirlande')
     f.family.stars += 25
+  }
+  // Les petits arrivent dans les maisons de démo déjà créées.
+  if (!f.enfantsDemo) {
+    f.enfantsDemo = true
+    const papa = f.members.find((m) => m.display_name === 'Papa' && m.user_id !== userId)
+    if (papa) {
+      const kid = (name: string, color: string): Member => ({
+        id: uid(), family_id: f.family.id, user_id: null, managed_by: papa.id, display_name: name, avatar: DEMO_LOOKS[name], color,
+        mood: null, mood_note: null, mood_at: null, joined_at: new Date().toISOString(), role: 'membre',
+      })
+      f.members.push(kid('Noé', 'soleil'), kid('Bébé Lou', 'rose'))
+      const lea = f.members.find((m) => m.display_name === 'Léa' && m.user_id !== userId)
+      if (lea) lea.avatar = DEMO_LOOKS['Léa']
+    }
   }
   // Rôles : le créateur est responsable ; une famille garde toujours au moins un responsable.
   for (const m of f.members) m.role ??= m.user_id === f.family.created_by ? 'responsable' : 'membre'
@@ -219,10 +233,14 @@ export function createLocalBackend(): Backend {
     const mamie = mk('Mamie Jo', DEMO_LOOKS['Mamie Jo'], 'peche', 'nostalgique', 'Je trie de vieilles photos')
     const papa = mk('Papa', DEMO_LOOKS.Papa, 'mousse', 'fatigue', 'Grosse semaine')
     const lea = mk('Léa', DEMO_LOOKS['Léa'], 'rose', 'heureux', 'Partiels terminés !')
+    // les petits, sans téléphone : ajoutés par Papa
+    const noe = { ...mk('Noé', DEMO_LOOKS['Noé'], 'soleil', 'fete', 'C’est mercredi !', null as unknown as string), user_id: null, managed_by: papa.id }
+    const lou = { ...mk('Bébé Lou', DEMO_LOOKS['Bébé Lou'], 'rose', 'serein', 'Grosse sieste', null as unknown as string), user_id: null, managed_by: papa.id }
     ;(joined ? papa : moi).role = 'responsable'
     db.families[fid] = {
-      family: { id: fid, name, house_type: houseType, invite_code: 'DEMO42', plan: 'free', stars: 14, created_by: joined ? papa.user_id : db.userId, invite_expires_at: inWeek() },
-      members: [moi, mamie, papa, lea],
+      family: { id: fid, name, house_type: houseType, invite_code: 'DEMO42', plan: 'free', stars: 14, created_by: joined ? papa.user_id! : db.userId, invite_expires_at: inWeek() },
+      members: [moi, mamie, papa, lea, noe, lou],
+      enfantsDemo: true,
       requests: joined ? [] : [demoRequest(fid)],
       moments: [
         { id: uid(), family_id: fid, member_id: lea.id, image_path: null, body: 'Devinez qui rentre ce week-end avec un gâteau ?', challenge: null, created_at: iso(55) },
@@ -271,7 +289,7 @@ export function createLocalBackend(): Backend {
         created_at: new Date().toISOString(), seen_at: null,
       })
       save()
-    }, 4500)
+    }, 7500)
   }
 
   // Démo : chaque matin, les proches fictifs donnent leur humeur du jour (toujours la même pour un jour donné).
@@ -357,7 +375,7 @@ export function createLocalBackend(): Backend {
     async joinFamily(i) {
       if (i.code.trim().toUpperCase() !== 'DEMO42') throw new Error('CODE_INCONNU')
       const existing = Object.values(db.families)[0]
-      if (existing && existing.members.length >= PLAN_LIMITS[existing.family.plan]) throw new Error('FAMILLE_PLEINE')
+      if (existing && existing.members.filter((m) => m.user_id).length >= PLAN_LIMITS[existing.family.plan]) throw new Error('FAMILLE_PLEINE')
       const req: Pending = {
         id: uid(), family_id: uid(), family_name: 'des Tilleuls', house_type: 'chalet', status: 'attente', created_at: new Date().toISOString(),
         profile: { displayName: i.displayName, avatar: i.avatar, color: i.color },
@@ -380,7 +398,7 @@ export function createLocalBackend(): Backend {
         if (!r) continue
         if (f.members.find((m) => m.user_id === db.userId)?.role !== 'responsable') throw new Error('PAS_RESPONSABLE')
         if (accept) {
-          if (f.members.length >= PLAN_LIMITS[f.family.plan]) throw new Error('FAMILLE_PLEINE')
+          if (f.members.filter((m) => m.user_id).length >= PLAN_LIMITS[f.family.plan]) throw new Error('FAMILLE_PLEINE')
           f.members.push({
             id: uid(), family_id: f.family.id, user_id: r.user_id, display_name: r.display_name, avatar: r.avatar, color: r.color,
             mood: null, mood_note: null, mood_at: null, joined_at: new Date().toISOString(), role: 'membre',
@@ -405,10 +423,22 @@ export function createLocalBackend(): Backend {
       m.role = role
       save()
     },
+    async addChild(fid, i) {
+      const f = fam(fid)
+      if (f.members.filter((m) => !m.user_id).length >= 10) throw new Error('TROP_D_ENFANTS')
+      const me = f.members.find((m) => m.user_id === db.userId)!
+      f.members.push({
+        id: uid(), family_id: fid, user_id: null, managed_by: me.id, display_name: i.displayName.trim(), avatar: i.avatar, color: i.color,
+        mood: null, mood_note: null, mood_at: null, joined_at: new Date().toISOString(), role: 'membre',
+      })
+      save()
+    },
     async removeMember(memberId) {
       const f = famOfMember(memberId)
       const m = f.members.find((x) => x.id === memberId)!
       if (m.user_id === db.userId) throw new Error('UTILISE_QUITTER')
+      const me = f.members.find((x) => x.user_id === db.userId)!
+      if (me.role !== 'responsable' && !(m.user_id === null && m.managed_by === me.id)) throw new Error('PAS_RESPONSABLE')
       f.members = f.members.filter((x) => x.id !== memberId)
       f.folderMembers = f.folderMembers.filter((x) => x.member_id !== memberId)
       save()

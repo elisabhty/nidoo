@@ -1,8 +1,8 @@
-import { Check, CircleHelp, Clock, Copy, Crown, House as HouseIcon, LogOut, Mail, Pencil, Plus, RefreshCw, Share, ShieldCheck, UserRound } from 'lucide-react'
+import { Baby, Check, CircleHelp, Clock, Copy, Crown, House as HouseIcon, LogOut, Mail, Pencil, Plus, RefreshCw, Share, ShieldCheck, UserRound } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import House from '../components/House'
 import { DrawingsSheet, DrawingWidget, DrawSheet } from '../components/drawing'
-import { eventArt } from '../components/sheets'
+import { eventArt, MoodSheet } from '../components/sheets'
 import { JoinRequests } from '../components/requests'
 import { Art, Avatar, Btn, choisir, confirmer, Rond, Row, Screen, Section, Sheet } from '../components/ui'
 import { DECOS, moodOf, PLAN_LIMITS } from '../lib/data'
@@ -10,6 +10,7 @@ import { select } from '../lib/haptic'
 import { copy, shareInvite } from '../lib/share'
 import { useHome } from '../lib/store'
 import type { Drawing, HouseType, Member } from '../lib/types'
+import { AGES, encodeLook, lookOf, randomLook } from '../lib/look'
 import { dayLabel, errorText, isToday } from '../lib/util'
 import { upcoming } from './Home'
 import { HousePicker, ProfilePicker } from '../components/pickers'
@@ -182,7 +183,34 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
     if (ok) void run((a) => a.renewInvite(family.id), 'Nouveau code créé')
   }
 
+  const [petit, setPetit] = useState<null | { m?: Member; name: string; avatar: string; color: string }>(null)
+  const [humeurDe, setHumeurDe] = useState<Member | null>(null)
+
+  // Un enfant ou un bébé sans téléphone : tout le monde peut donner son humeur ou changer son personnage.
+  const manageKid = async (m: Member) => {
+    const canRemove = admin || m.managed_by === me.id
+    const actions = [
+      { label: 'Donner son humeur du jour', go: () => setHumeurDe(m) },
+      { label: 'Modifier son personnage', go: () => setPetit({ m, name: m.display_name, avatar: m.avatar, color: m.color }) },
+      ...(canRemove
+        ? [
+            {
+              label: 'Retirer de la maison',
+              destructive: true,
+              go: async () => {
+                const ok = await confirmer({ title: `Retirer ${m.display_name} de la maison ?`, message: 'Son personnage quittera le jardin.', confirm: 'Retirer', destructive: true })
+                if (ok) void run((a) => a.removeMember(m.id), `${m.display_name} a quitté la maison`)
+              },
+            },
+          ]
+        : []),
+    ]
+    const i = await choisir({ title: m.display_name, message: 'Sans téléphone : la famille donne son humeur et lui fait des câlins.', actions })
+    if (i >= 0) void actions[i].go()
+  }
+
   const manage = async (m: Member) => {
+    if (!m.user_id) return manageKid(m)
     const boss = m.role === 'responsable'
     const i = await choisir({
       title: m.display_name,
@@ -242,7 +270,9 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate font-rond text-titre3">Famille {family.name}</p>
-              <p className="text-note text-brume">{members.length} sur {limit} membres · {family.plan === 'plus' ? 'Famille+' : 'Gratuit'}</p>
+              <p className="text-note text-brume">
+                {members.filter((m) => m.user_id).length} sur {limit} membres{members.some((m) => !m.user_id) ? ` + ${members.filter((m) => !m.user_id).length} sans téléphone` : ''} · {family.plan === 'plus' ? 'Famille+' : 'Gratuit'}
+              </p>
             </div>
             <button onClick={() => setSheet('maison')} className="presse flex h-9 w-9 items-center justify-center rounded-full bg-remplissage text-teinte" aria-label="Modifier la maison">
               <Pencil size={16} strokeWidth={2.4} />
@@ -251,22 +281,27 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
           {members.map((m, i) => (
             <button
               key={m.id}
-              disabled={!admin || m.id === me.id}
+              disabled={m.user_id ? !admin || m.id === me.id : false}
               onClick={() => {
                 select()
                 void manage(m)
               }}
-              className={`flex w-full items-center gap-3 pl-3.5 text-left ${admin && m.id !== me.id ? 'presse-ligne' : ''}`}
-              aria-label={admin && m.id !== me.id ? `Gérer ${m.display_name}` : undefined}
+              className={`flex w-full items-center gap-3 pl-3.5 text-left ${(admin && m.id !== me.id) || !m.user_id ? 'presse-ligne' : ''}`}
+              aria-label={(admin && m.id !== me.id) || !m.user_id ? `Gérer ${m.display_name}` : undefined}
             >
               <Avatar m={m} size={42} mood />
-              <div className={`min-w-0 flex-1 py-2.5 pr-4 ${i < members.length - 1 ? 'border-b border-trait' : ''}`}>
+              <div className="min-w-0 flex-1 border-b border-trait py-2.5 pr-4">
                 <p className="flex items-center gap-1.5 truncate text-corps">
                   <span className="truncate">
                     {m.display_name}
                     {m.id === me.id && <span className="text-brume"> (toi)</span>}
                   </span>
-                  {m.role === 'responsable' && (
+                  {!m.user_id && (
+                    <span className="flex h-5 shrink-0 items-center rounded-full bg-peche-doux px-1.5 text-mini font-semibold text-peche-fonce">
+                      {AGES[lookOf(m.avatar, m.id).a]} · sans téléphone
+                    </span>
+                  )}
+                  {m.role === 'responsable' && m.user_id && (
                     <span className="flex h-5 shrink-0 items-center gap-0.5 rounded-full bg-teinte-doux px-1.5 text-mini font-semibold text-teinte-fonce">
                       <ShieldCheck size={11} strokeWidth={2.6} /> Responsable
                     </span>
@@ -278,6 +313,21 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
               </div>
             </button>
           ))}
+          <button
+            onClick={() => {
+              select()
+              setPetit({ name: '', avatar: encodeLook({ ...randomLook(), a: 3, p: 1, h: 12, g: 0, b: 0, m: 0, l: 0 }), color: 'rose' })
+            }}
+            className="presse-ligne flex w-full items-center gap-3 pl-3.5 text-left"
+          >
+            <span className="flex h-[42px] w-[42px] items-center justify-center rounded-full bg-peche-doux text-peche-fonce">
+              <Baby size={21} strokeWidth={2.2} />
+            </span>
+            <span className="min-w-0 flex-1 py-3 pr-4">
+              <span className="block text-corps text-teinte">Ajouter un enfant ou un bébé</span>
+              <span className="block truncate text-note text-brume">Pour les petits qui n’ont pas de téléphone</span>
+            </span>
+          </button>
         </div>
 
         <p className="entete mt-6">Inviter un proche</p>
@@ -476,6 +526,33 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
           }}
         />
       )}
+      {petit && (
+        <Sheet title={petit.m ? petit.m.display_name : 'Un enfant ou un bébé'} onClose={() => setPetit(null)} tall>
+          {!petit.m && <p className="-mt-1 mb-3 text-center text-sous text-brume">Il ou elle vivra dans le jardin avec vous ; la famille donnera son humeur et lui enverra des câlins.</p>}
+          <ProfilePicker
+            name={petit.name}
+            setName={(v) => setPetit((x) => x && { ...x, name: v })}
+            avatar={petit.avatar}
+            setAvatar={(v) => setPetit((x) => x && { ...x, avatar: v })}
+            color={petit.color}
+            setColor={(v) => setPetit((x) => x && { ...x, color: v })}
+            placeholder="Son prénom"
+          />
+          <Btn
+            className="mt-5"
+            disabled={!petit.name.trim()}
+            onClick={async () => {
+              const ok = petit.m
+                ? await run((a) => a.updateMember(petit.m!.id, { display_name: petit.name.trim(), avatar: petit.avatar, color: petit.color }), 'Personnage mis à jour')
+                : await run((a) => a.addChild(family.id, { displayName: petit.name, avatar: petit.avatar, color: petit.color }), `${petit.name.trim()} arrive dans la maison`)
+              if (ok) setPetit(null)
+            }}
+          >
+            {petit.m ? 'Enregistrer' : 'Ajouter à la maison'}
+          </Btn>
+        </Sheet>
+      )}
+      {humeurDe && <MoodSheet member={humeurDe} onClose={() => setHumeurDe(null)} />}
     </>
   )
 }

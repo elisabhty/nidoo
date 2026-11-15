@@ -1,14 +1,14 @@
 import { ChevronRight } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { DoodleIcon, DrawingsSheet, DrawingWidget, DrawSheet } from '../components/drawing'
-import House from '../components/House'
+import House, { type HouseScene } from '../components/House'
 import { JoinRequests } from '../components/requests'
 import { ComposeSheet, eventArt, MoodSheet, ThoughtSheet } from '../components/sheets'
 import { StarsSheet } from '../components/stars'
 import { Art, Avatar, Lien, Section } from '../components/ui'
 import { WeeklyChallenge } from '../components/weekly'
 import { DECOS, moodOf, questionOfDay } from '../lib/data'
-import { success, tap } from '../lib/haptic'
+import { feel, success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
 import type { Drawing, Member } from '../lib/types'
 import { dayLabel, greeting, isToday, nextOccurrence, season, SEASON_LABEL, timeLabel } from '../lib/util'
@@ -33,11 +33,15 @@ export function upcoming(events: ReturnType<typeof useHome>['state']['events'], 
     .slice(0, limit)
 }
 
+const PLAYED = 'nidoo.scenes.jouees'
+
 type Ligne = { key: string; icon: ReactNode; title: string; text: string; act: () => void; tint?: string }
 
 export default function Home({ go }: { go: (t: Go) => void }) {
   const { state, run } = useHome()
   const [sheet, setSheet] = useState<Open>(null)
+  const [scene, setScene] = useState<HouseScene | null>(null)
+  const houseRef = useRef<HTMLDivElement>(null)
   const [scrolled, setScrolled] = useState(false)
   const { family, me, members, houseItems } = state
   const others = members.filter((m) => m.id !== me.id)
@@ -47,6 +51,31 @@ export default function Home({ go }: { go: (t: Go) => void }) {
   const toGo = nextDeco ? Math.max(0, nextDeco.cost - family.stars) : 0
   const photos = state.moments.filter((m) => m.image_url).slice(0, 6).map((m) => m.image_url!)
   const now = season()
+
+  // Un câlin envoyé ou reçu se joue dans le jardin : l'un va voir l'autre et le fait vraiment.
+  useEffect(() => {
+    if (scene || sheet) return
+    let played: string[] = []
+    try {
+      played = JSON.parse(localStorage.getItem(PLAYED) ?? '[]') as string[]
+    } catch {
+      /* rien de mémorisé */
+    }
+    const t = state.thoughts
+      .filter((x) => Date.now() - new Date(x.created_at).getTime() < 15 * 60000 && !played.includes(x.id) && (x.from_member === me.id || (x.to_member === me.id && x.seen_at)))
+      .sort((a, b) => a.created_at.localeCompare(b.created_at))[0]
+    if (!t) return
+    try {
+      localStorage.setItem(PLAYED, JSON.stringify([...played, t.id].slice(-60)))
+    } catch {
+      /* tant pis : la scène pourra se rejouer */
+    }
+    const r = houseRef.current?.getBoundingClientRect()
+    if (r && (r.top < 60 || r.bottom > window.innerHeight - 90)) houseRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setScene({ id: t.id, from: t.from_member, to: t.to_member, kind: t.kind })
+    const v = window.setTimeout(() => feel(t.kind), 1300)
+    return () => window.clearTimeout(v)
+  }, [state.thoughts, sheet, scene, me.id])
   const home = members.filter((m) => isToday(m.mood_at))
 
   // ── Aujourd'hui en famille : ce qui compte maintenant, dans une seule liste.
@@ -140,7 +169,7 @@ export default function Home({ go }: { go: (t: Go) => void }) {
                 <span className="rounded-full bg-teinte-doux px-2.5 py-1 text-legende font-semibold text-teinte-fonce">Niveau {level}</span>
               </span>
             </div>
-            <div className="overflow-hidden rounded-[22px]">
+            <div ref={houseRef} className="overflow-hidden rounded-[22px]">
               <House
                 type={family.house_type}
                 items={houseItems}
@@ -148,6 +177,8 @@ export default function Home({ go }: { go: (t: Go) => void }) {
                 season={now}
                 people={members.map((m) => ({ m, mood: isToday(m.mood_at) ? m.mood : null, label: m.id === me.id ? 'Moi' : m.display_name, me: m.id === me.id }))}
                 onPerson={(m) => setSheet(m.id === me.id ? { k: 'humeur' } : { k: 'pensee', to: m })}
+                scene={scene}
+                onSceneEnd={() => setScene(null)}
               />
             </div>
             <p className="px-1.5 pt-2 text-note text-brume">

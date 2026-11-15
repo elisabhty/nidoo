@@ -80,6 +80,9 @@ export function createSupabaseBackend(): Backend {
     async setRole(memberId, role) {
       check(await sb.rpc('set_member_role', { p_member: memberId, p_role: role }))
     },
+    async addChild(fid, i) {
+      check(await sb.rpc('add_child', { p_family: fid, p_name: i.displayName, p_avatar: i.avatar, p_color: i.color }))
+    },
     async removeMember(memberId) {
       check(await sb.rpc('remove_member', { p_member: memberId }))
     },

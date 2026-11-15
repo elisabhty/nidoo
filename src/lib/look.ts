@@ -31,7 +31,12 @@ export const HAIRSTYLES: { key: string; label: string }[] = [
   { key: 'afro', label: 'Afro' },
   { key: 'rase', label: 'Rasés' },
   { key: 'chauve', label: 'Sans cheveux' },
+  { key: 'meche', label: 'Petite mèche' },
 ]
+/** Taille : les grands, les moyens, les petits. */
+export const AGES = ['Adulte', 'Ado', 'Enfant', 'Bébé']
+/** Largeur relative dans la maison : un bébé est bien plus petit qu'un adulte. */
+export const AGE_SCALE = [1, 0.94, 0.82, 0.7]
 export const GLASSES = ['Sans', 'Rondes', 'Carrées', 'Soleil']
 export const BEARDS = ['Sans', 'Courte', 'Moustache', 'Longue']
 export const MOLES = ['Sans', 'Joue gauche', 'Joue droite', 'Au-dessus de la lèvre']
@@ -48,16 +53,19 @@ export type Look = {
   o: number // boucles d'oreilles
   l: number // rouge à lèvres
   t: number // haut
+  a: number // taille : adulte, ado, enfant, bébé
+  p: number // tétine (bébé)
 }
-const KEYS: (keyof Look)[] = ['s', 'h', 'c', 'e', 'g', 'b', 'm', 'f', 'o', 'l', 't']
-const MAX: Look = { s: SKINS.length, h: HAIRSTYLES.length, c: HAIR_COLORS.length, e: EYES.length, g: GLASSES.length, b: BEARDS.length, m: MOLES.length, f: 2, o: 2, l: 2, t: TOPS.length }
+const KEYS: (keyof Look)[] = ['s', 'h', 'c', 'e', 'g', 'b', 'm', 'f', 'o', 'l', 't', 'a', 'p']
+const MAX: Look = { s: SKINS.length, h: HAIRSTYLES.length, c: HAIR_COLORS.length, e: EYES.length, g: GLASSES.length, b: BEARDS.length, m: MOLES.length, f: 2, o: 2, l: 2, t: TOPS.length, a: AGES.length, p: 2 }
 
 export const encodeLook = (l: Look) => `perso:${KEYS.map((k) => `${k}${l[k]}`).join('.')}`
 
 /** Lit un personnage ; un ancien avatar (animal) devient un personnage stable tiré de son identifiant. */
 export function lookOf(avatar: string | undefined, seed = ''): Look {
   if (avatar?.startsWith('perso:')) {
-    const out = randomLook(avatar)
+    // les champs ajoutés plus tard (taille, tétine) valent « adulte, sans » par défaut
+    const out = { ...randomLook(avatar), a: 0, p: 0 }
     for (const part of avatar.slice(6).split('.')) {
       const k = part[0] as keyof Look
       const v = Number(part.slice(1))
@@ -88,13 +96,17 @@ export function randomLook(seed?: string): Look {
     o: r(3) === 0 ? 1 : 0,
     l: 0,
     t: r(TOPS.length - 1),
+    a: 0,
+    p: 0,
   }
 }
 
 /** Les proches fictifs du mode démo. */
 export const DEMO_LOOKS: Record<string, string> = {
-  'Mamie Jo': encodeLook({ s: 1, h: 6, c: 6, e: 3, g: 1, b: 0, m: 3, f: 0, o: 1, l: 1, t: 4 }),
-  Papa: encodeLook({ s: 2, h: 1, c: 1, e: 0, g: 0, b: 1, m: 0, f: 0, o: 0, l: 0, t: 3 }),
-  Léa: encodeLook({ s: 0, h: 4, c: 5, e: 2, g: 0, b: 0, m: 0, f: 1, o: 1, l: 0, t: 2 }),
-  'Cousin Hugo': encodeLook({ s: 5, h: 9, c: 0, e: 0, g: 2, b: 0, m: 0, f: 0, o: 0, l: 0, t: 1 }),
+  'Mamie Jo': encodeLook({ s: 1, h: 6, c: 6, e: 3, g: 1, b: 0, m: 3, f: 0, o: 1, l: 1, t: 4, a: 0, p: 0 }),
+  Papa: encodeLook({ s: 2, h: 1, c: 1, e: 0, g: 0, b: 1, m: 0, f: 0, o: 0, l: 0, t: 3, a: 0, p: 0 }),
+  Léa: encodeLook({ s: 0, h: 4, c: 5, e: 2, g: 0, b: 0, m: 0, f: 1, o: 1, l: 0, t: 2, a: 1, p: 0 }),
+  'Cousin Hugo': encodeLook({ s: 5, h: 9, c: 0, e: 0, g: 2, b: 0, m: 0, f: 0, o: 0, l: 0, t: 1, a: 0, p: 0 }),
+  Noé: encodeLook({ s: 2, h: 2, c: 2, e: 1, g: 0, b: 0, m: 0, f: 1, o: 0, l: 0, t: 5, a: 2, p: 0 }),
+  'Bébé Lou': encodeLook({ s: 1, h: 12, c: 3, e: 3, g: 0, b: 0, m: 0, f: 0, o: 0, l: 0, t: 4, a: 3, p: 1 }),
 }

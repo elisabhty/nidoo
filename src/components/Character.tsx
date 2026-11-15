@@ -100,6 +100,16 @@ function hair(style: string, H: string): { back: ReactNode; front: ReactNode } {
         ),
         front: p('M25 40 C24.5 26 36 19 50 19 C64 19 75.5 26 75 40 C71 31 62 27 50 27 C38 27 29 31 25 40 Z'),
       }
+    case 'meche':
+      return {
+        back: null,
+        front: (
+          <g fill="none" stroke={H} strokeLinecap="round">
+            <path d="M50 18 C46.5 12.5 49.5 8 54 9.6 C57.6 11 56 15.4 52.4 14.6" strokeWidth={2.6} />
+            <path d="M45.5 18.6 Q46.5 15.2 49 15.8" strokeWidth={1.8} />
+          </g>
+        ),
+      }
     case 'rase':
       return { back: null, front: p('M25.5 40 C24.5 23 36 15 50 15 C64 15 75.5 23 74.5 40 C71 30 62 25 50 25 C38 25 29 30 25.5 40 Z', { opacity: 0.55 }) }
     default:
@@ -107,8 +117,58 @@ function hair(style: string, H: string): { back: ReactNode; front: ReactNode } {
   }
 }
 
+/** Le corps selon la taille. pose « calin » : bras grands ouverts. */
+function body(age: number, top: string, skin: string, pose?: 'calin') {
+  const B = [
+    // épaule x, épaule y, main au repos, buste, jambes
+    { sx: 31.5, sy: 87, hand: [27, 111.5], torso: 'M28 113 C28 88 37 75.5 50 75.5 C63 75.5 72 88 72 113 Z', legs: { y: 107, h: 15, w: 8.5, shoe: 122.5 } },
+    { sx: 32, sy: 86, hand: [28, 106.5], torso: 'M29 108 C29 87 37.5 75.5 50 75.5 C62.5 75.5 71 87 71 108 Z', legs: { y: 103, h: 12, w: 8.2, shoe: 115.5 } },
+    { sx: 34, sy: 85, hand: [30.5, 100.5], torso: 'M32 102 C32 85 39.5 75.5 50 75.5 C60.5 75.5 68 85 68 102 Z', legs: { y: 98, h: 10, w: 7.5, shoe: 108.5 } },
+    { sx: 34, sy: 82, hand: [29.5, 93.5], torso: 'M32 94 C30 81 39 73.5 50 73.5 C61 73.5 70 81 68 94 C67 103 59 106 50 106 C41 106 33 103 32 94 Z', legs: null },
+  ][age] ?? null
+  if (!B) return null
+  const [hx, hy] = pose === 'calin' ? [B.sx - 16, B.sy - 10] : B.hand
+  const arm = (side: 1 | -1) => {
+    const sx = side === 1 ? B.sx : 100 - B.sx
+    const x = side === 1 ? hx : 100 - hx
+    const d = pose === 'calin' ? `M${sx} ${B.sy} C${sx - 7 * side} ${B.sy - 1} ${sx - 12 * side} ${B.sy - 5} ${x} ${hy}` : `M${sx} ${B.sy} C${sx - 5.5 * side} ${B.sy + 8} ${sx - 6.5 * side} ${(B.sy + hy) / 2 + 6} ${x} ${hy - 1}`
+    return (
+      <g key={side}>
+        <path d={d} fill="none" stroke={top} strokeWidth={age === 3 ? 7 : 8.5} strokeLinecap="round" />
+        <circle cx={x} cy={hy} r={age >= 2 ? 3.8 : 4.4} fill={skin} />
+      </g>
+    )
+  }
+  return (
+    <g>
+      {B.legs ? (
+        <>
+          <rect x={50 - 2.5 - B.legs.w} y={B.legs.y} width={B.legs.w} height={B.legs.h} rx={3.5} fill="#3B3355" />
+          <rect x={52.5} y={B.legs.y} width={B.legs.w} height={B.legs.h} rx={3.5} fill="#3B3355" />
+          <ellipse cx={50 - 2.5 - B.legs.w / 2} cy={B.legs.shoe} rx={B.legs.w * 0.73} ry={2.8} fill="#2B2540" />
+          <ellipse cx={52.5 + B.legs.w / 2} cy={B.legs.shoe} rx={B.legs.w * 0.73} ry={2.8} fill="#2B2540" />
+        </>
+      ) : (
+        <>
+          <ellipse cx={42.5} cy={106} rx={5.6} ry={4} fill={skin} />
+          <ellipse cx={57.5} cy={106} rx={5.6} ry={4} fill={skin} />
+        </>
+      )}
+      {arm(1)}
+      {arm(-1)}
+      <path d={B.torso} fill={top} />
+      {age === 3 && (
+        <>
+          <circle cx={50} cy={95} r={1.1} fill="#FFFFFF" opacity={0.8} />
+          <circle cx={50} cy={100} r={1.1} fill="#FFFFFF" opacity={0.8} />
+        </>
+      )}
+    </g>
+  )
+}
+
 export function Character({
-  look, mood = null, bust = false, extras = false, size, className = '', blinkDelay = 0, still = false,
+  look, mood = null, bust = false, extras = false, size, className = '', blinkDelay = 0, still = false, pose, blush = false,
 }: {
   look: Look
   mood?: string | null
@@ -121,6 +181,10 @@ export function Character({
   blinkDelay?: number
   /** sans clignement (petites pastilles) */
   still?: boolean
+  /** bras grands ouverts pour un câlin */
+  pose?: 'calin'
+  /** joues toutes roses (après un bisou) */
+  blush?: boolean
 }) {
   const id = useId().replace(/:/g, '')
   const skin = SKINS[look.s]
@@ -138,9 +202,10 @@ export function Character({
   const L = 40.5
   const R = 59.5
   const Y = 46
-  const openEye = (cx: number, dx = 0, dy = 0, ry = 4.3) => (
+  const baby = look.a === 3
+  const openEye = (cx: number, dx = 0, dy = 0, ry = baby ? 5 : 4.3) => (
     <g key={cx}>
-      <ellipse cx={cx} cy={Y} rx={3.6} ry={ry} fill={eye} />
+      <ellipse cx={cx} cy={Y} rx={baby ? 4.1 : 3.6} ry={ry} fill={eye} />
       <ellipse cx={cx + dx} cy={Y + 0.5 + dy} rx={2} ry={Math.min(2.5, ry * 0.6)} fill="#1D1A2B" />
       <circle cx={cx + 1.2 + dx * 0.5} cy={Y - 1.5 + dy * 0.5} r={1.05} fill="#FFFFFF" />
     </g>
@@ -264,8 +329,10 @@ export function Character({
   ][look.b]
   const mole = [null, [36.6, 57.2], [63.6, 56.2], [55.8, 57]][look.m] as number[] | null
 
-  const box = bust ? '10 6 80 80' : extras ? '8 -6 84 134' : '8 0 84 128'
-  const ratio = bust ? 1 : extras ? 134 / 84 : 128 / 84
+  const bottom = [128, 121, 114, 112][look.a] ?? 128
+  const y0 = extras ? -6 : 0
+  const box = bust ? '10 6 80 80' : `8 ${y0} 84 ${bottom - y0}`
+  const ratio = bust ? 1 : (bottom - y0) / 84
   return (
     <svg viewBox={box} width={size} height={size ? size * ratio : undefined} className={className} aria-hidden>
       <defs>
@@ -281,22 +348,13 @@ export function Character({
 
       {hs.back}
 
-      {/* corps */}
-      {!bust && (
-        <g>
-          <rect x={39} y={107} width={8.5} height={15} rx={3.5} fill="#3B3355" />
-          <rect x={52.5} y={107} width={8.5} height={15} rx={3.5} fill="#3B3355" />
-          <ellipse cx={42.6} cy={122.5} rx={6.2} ry={3} fill="#2B2540" />
-          <ellipse cx={57.4} cy={122.5} rx={6.2} ry={3} fill="#2B2540" />
-          <path d="M31.5 87 C26 95 25 103 27 110" fill="none" stroke={`url(#t${id})`} strokeWidth={8.5} strokeLinecap="round" />
-          <path d="M68.5 87 C74 95 75 103 73 110" fill="none" stroke={`url(#t${id})`} strokeWidth={8.5} strokeLinecap="round" />
-          <circle cx={27} cy={111.5} r={4.4} fill={skin} />
-          <circle cx={73} cy={111.5} r={4.4} fill={skin} />
-        </g>
-      )}
-      <path d={bust ? 'M18 94 C18 84 32 75.5 50 75.5 C68 75.5 82 84 82 94 Z' : 'M28 113 C28 88 37 75.5 50 75.5 C63 75.5 72 88 72 113 Z'} fill={`url(#t${id})`} />
-      <rect x={44.2} y={62} width={11.6} height={15} rx={5} fill={skinD} />
-      <path d="M44.4 75.8 Q50 81 55.6 75.8" fill={skinD} />
+      {/* corps : adulte, ado, enfant ou bébé */}
+      {!bust && body(look.a, `url(#t${id})`, skin, pose)}
+      {bust ? (
+        <path d="M18 94 C18 84 32 75.5 50 75.5 C68 75.5 82 84 82 94 Z" fill={`url(#t${id})`} />
+      ) : null}
+      <rect x={44.2} y={62} width={11.6} height={baby ? 13 : 15} rx={5} fill={skinD} />
+      {!baby && <path d="M44.4 75.8 Q50 81 55.6 75.8" fill={skinD} />}
 
       {/* tête */}
       <ellipse cx={26.4} cy={46.5} rx={4.1} ry={5.6} fill={skinD} />
@@ -310,8 +368,8 @@ export function Character({
       <path d="M26 43 C26 26 37 17 50 17 C63 17 74 26 74 43 C74 58 64 69.5 50 69.5 C36 69.5 26 58 26 43 Z" fill={`url(#p${id})`} />
 
       {/* visage */}
-      <ellipse cx={35.6} cy={55.2} rx={4.4} ry={2.7} fill="#FF8FA3" opacity={0.3} />
-      <ellipse cx={64.4} cy={55.2} rx={4.4} ry={2.7} fill="#FF8FA3" opacity={0.3} />
+      <ellipse cx={35.6} cy={55.2} rx={4.4} ry={2.7} fill="#FF8FA3" opacity={blush ? 0.8 : baby ? 0.45 : 0.3} />
+      <ellipse cx={64.4} cy={55.2} rx={4.4} ry={2.7} fill="#FF8FA3" opacity={blush ? 0.8 : baby ? 0.45 : 0.3} />
       {look.f === 1 &&
         [[41.8, 52.4], [44.4, 54.4], [40.6, 55.2], [58.2, 52.4], [55.6, 54.4], [59.4, 55.2], [43, 50.8], [57, 50.8]].map(([x, y]) => (
           <circle key={`${x}${y}`} cx={x} cy={y} r={0.6} fill={skinDD} opacity={0.75} />
@@ -325,6 +383,13 @@ export function Character({
       {beard}
       {mouth}
       {mole && <circle cx={mole[0]} cy={mole[1]} r={0.95} fill="#4A2E24" />}
+      {look.p === 1 && (
+        <g>
+          <ellipse cx={50} cy={60.6} rx={5.8} ry={3.7} fill="#8FD3FF" stroke="#5AA3E0" strokeWidth={0.6} />
+          <circle cx={50} cy={64} r={2.7} fill="none" stroke="#F2B33D" strokeWidth={1.5} />
+          <circle cx={50} cy={60.6} r={1.6} fill="#5AA3E0" />
+        </g>
+      )}
 
       {hs.front}
       {glasses}

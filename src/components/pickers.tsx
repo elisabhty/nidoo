@@ -2,7 +2,7 @@ import { Dices } from 'lucide-react'
 import { useState } from 'react'
 import { COLOR_KEYS, COLORS, HOUSES } from '../lib/data'
 import { select, tap } from '../lib/haptic'
-import { BEARDS, encodeLook, EYES, GLASSES, HAIR_COLORS, HAIRSTYLES, lookOf, MOLES, randomLook, SKINS, TOPS, type Look } from '../lib/look'
+import { AGE_SCALE, AGES, BEARDS, encodeLook, EYES, GLASSES, HAIR_COLORS, HAIRSTYLES, lookOf, MOLES, randomLook, SKINS, TOPS, type Look } from '../lib/look'
 import type { HouseType } from '../lib/types'
 import { Character } from './Character'
 import House from './House'
@@ -12,8 +12,8 @@ type Onglet = 'cheveux' | 'visage' | 'yeux' | 'details' | 'tenue'
 
 /** Le créateur de personnage : un même visage pour tous, et chacun choisit ce qui le rend unique. */
 export function ProfilePicker({
-  name, setName, avatar, setAvatar, color, setColor,
-}: { name: string; setName: (v: string) => void; avatar: string; setAvatar: (v: string) => void; color: string; setColor: (v: string) => void }) {
+  name, setName, avatar, setAvatar, color, setColor, placeholder = 'Ton prénom ou ton surnom',
+}: { name: string; setName: (v: string) => void; avatar: string; setAvatar: (v: string) => void; color: string; setColor: (v: string) => void; placeholder?: string }) {
   const look = lookOf(avatar)
   const [tab, setTab] = useState<Onglet>('cheveux')
   const [hop, setHop] = useState(0)
@@ -64,8 +64,8 @@ export function ProfilePicker({
             tap()
             setHop((n) => n + 1)
           }}
-          className="absolute bottom-[6%] left-1/2 w-[50%] -translate-x-1/2"
-          style={{ animation: hop ? 'rebond 0.7s var(--ressort)' : 'pousse 0.6s var(--ressort) both', transformOrigin: '50% 100%' }}
+          className="absolute bottom-[6%] left-1/2 -translate-x-1/2 transition-[width] duration-300"
+          style={{ width: `${50 * AGE_SCALE[look.a]}%`, animation: hop ? 'rebond 0.7s var(--ressort)' : 'pousse 0.6s var(--ressort) both', transformOrigin: '50% 100%' }}
           aria-label="Mon personnage"
         >
           <Character look={look} mood="heureux" className="block h-auto w-full" />
@@ -73,7 +73,7 @@ export function ProfilePicker({
         <button
           onClick={() => {
             select()
-            setAvatar(encodeLook(randomLook()))
+            setAvatar(encodeLook({ ...randomLook(), a: look.a, p: look.p }))
             setHop((n) => n + 1)
           }}
           className="presse verre absolute bottom-[12%] right-[-4px] flex h-11 w-11 items-center justify-center rounded-full text-teinte"
@@ -84,7 +84,27 @@ export function ProfilePicker({
         </button>
       </div>
 
-      <input className="champ mt-3 !bg-carte text-center font-rond text-titre3" placeholder="Ton prénom ou ton surnom" maxLength={24} value={name} onChange={(e) => setName(e.target.value)} />
+      <input className="champ mt-3 !bg-carte text-center font-rond text-titre3" placeholder={placeholder} maxLength={24} value={name} onChange={(e) => setName(e.target.value)} />
+
+      {/* les grands, les moyens, les petits */}
+      <div className="mt-3 grid grid-cols-4 gap-2">
+        {AGES.map((label, i) => {
+          const on = look.a === i
+          return (
+            <button
+              key={label}
+              onClick={() => set(i === 3 ? { a: i } : { a: i, p: 0 })}
+              aria-pressed={on}
+              className={`presse flex h-[104px] flex-col items-center justify-end rounded-[18px] pb-1.5 transition-colors ${on ? 'bg-teinte-doux ring-2 ring-teinte' : 'bg-carte'}`}
+            >
+              <span className="block" style={{ width: `${46 * AGE_SCALE[i]}px` }}>
+                <Character look={{ ...look, a: i, p: i === 3 ? look.p : 0 }} still className="block h-auto w-full" />
+              </span>
+              <span className={`mt-1 text-legende ${on ? 'font-semibold text-teinte-fonce' : 'text-brume'}`}>{label}</span>
+            </button>
+          )
+        })}
+      </div>
 
       <div className="mt-4">
         <Segments
@@ -134,8 +154,11 @@ export function ProfilePicker({
           <>
             {titre('Barbe')}
             <div className="grid grid-cols-4">{BEARDS.map((b, i) => choix(`b${i}`, b, look.b === i, { b: i }))}</div>
-            {titre('Bijoux')}
-            <div className="flex flex-wrap gap-2">{bascule('Boucles d’oreilles', look.o === 1, { o: look.o ? 0 : 1 })}</div>
+            {titre('Bijoux et accessoires')}
+            <div className="flex flex-wrap gap-2">
+              {bascule('Boucles d’oreilles', look.o === 1, { o: look.o ? 0 : 1 })}
+              {look.a === 3 && bascule('Tétine', look.p === 1, { p: look.p ? 0 : 1 })}
+            </div>
           </>
         )}
         {tab === 'tenue' && (

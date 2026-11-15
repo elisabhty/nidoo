@@ -20,7 +20,9 @@ export type Family = {
 export type Member = {
   id: string
   family_id: string
-  user_id: string
+  /** null : un enfant ou un bébé sans téléphone, ajouté par un proche */
+  user_id: string | null
+  managed_by?: string | null
   display_name: string
   avatar: string
   color: string
@@ -181,6 +183,8 @@ export interface Backend {
   renewInvite(familyId: string): Promise<void>
   setRole(memberId: string, role: Member['role']): Promise<void>
   removeMember(memberId: string): Promise<void>
+  /** Ajoute un enfant ou un bébé sans téléphone. */
+  addChild(familyId: string, i: { displayName: string; avatar: string; color: string }): Promise<void>
   load(familyId: string): Promise<FamilyState>
   subscribe(familyId: string, onChange: () => void): () => void
   setMood(memberId: string, mood: string | null, note: string | null): Promise<void>

@@ -1,7 +1,7 @@
 import { Camera, Images, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { moodOf, MOODS, THOUGHTS, thoughtOf } from '../lib/data'
-import { select, success } from '../lib/haptic'
+import { feel, select, success } from '../lib/haptic'
 import { useHome } from '../lib/store'
 import type { EventKind, Member, ThoughtKind } from '../lib/types'
 import { compressImage, errorText, isToday } from '../lib/util'
@@ -10,16 +10,18 @@ import { Art, Avatar, Btn, Envol, Segments, Sheet } from './ui'
 
 // ───────── Humeur du jour ─────────
 
-export function MoodSheet({ onClose }: { onClose: () => void }) {
+export function MoodSheet({ onClose, member }: { onClose: () => void; member?: Member }) {
   const { state, run } = useHome()
-  const current = isToday(state.me.mood_at) ? state.me.mood : null
+  const who = member ?? state.me
+  const mine = who.id === state.me.id
+  const current = isToday(who.mood_at) ? who.mood : null
   const [mood, setMood] = useState<string | null>(current)
-  const [note, setNote] = useState(current ? (state.me.mood_note ?? '') : '')
+  const [note, setNote] = useState(current ? (who.mood_note ?? '') : '')
   const [busy, setBusy] = useState(false)
 
   const save = async () => {
     setBusy(true)
-    const ok = await run((api) => api.setMood(state.me.id, mood, note.trim() || null), mood ? 'Ton humeur est partagée' : 'Humeur effacée')
+    const ok = await run((api) => api.setMood(who.id, mood, note.trim() || null), mood ? (mine ? 'Ton humeur est partagée' : `Humeur de ${who.display_name} partagée`) : 'Humeur effacée')
     setBusy(false)
     if (ok) {
       success()
@@ -28,8 +30,8 @@ export function MoodSheet({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Sheet title="Mon humeur du jour" onClose={onClose}>
-      <p className="text-center text-sous text-brume">Ta famille la verra sur la maison. Aucune obligation, juste des nouvelles.</p>
+    <Sheet title={mine ? 'Mon humeur du jour' : `Humeur de ${who.display_name}`} onClose={onClose}>
+      <p className="text-center text-sous text-brume">{mine ? 'Ta famille la verra sur la maison. Aucune obligation, juste des nouvelles.' : `${who.display_name} n’a pas de téléphone : dis à la famille comment il ou elle va aujourd’hui.`}</p>
       <div className="mt-4 grid grid-cols-4 gap-2">
         {MOODS.map((m) => {
           const on = mood === m.key
@@ -43,7 +45,7 @@ export function MoodSheet({ onClose }: { onClose: () => void }) {
               aria-pressed={on}
               className={`presse flex flex-col items-center gap-1 rounded-[20px] pb-2.5 pt-2 ${on ? 'bg-teinte-doux ring-2 ring-teinte' : 'bg-carte'}`}
             >
-              <Avatar m={{ ...state.me, mood: m.key, mood_at: new Date().toISOString() }} size={56} mood />
+              <Avatar m={{ ...who, mood: m.key, mood_at: new Date().toISOString() }} size={56} mood />
               <span className={`text-legende ${on ? 'font-semibold text-teinte-fonce' : 'font-medium text-encre'}`}>{m.label}</span>
             </button>
           )
@@ -51,7 +53,7 @@ export function MoodSheet({ onClose }: { onClose: () => void }) {
       </div>
       <input className="champ mt-4 !bg-carte" placeholder="Un petit mot pour aller avec (facultatif)" maxLength={80} value={note} onChange={(e) => setNote(e.target.value)} />
       <Btn className="mt-4" onClick={save} disabled={busy || (!mood && !current)}>
-        {mood ? 'Partager mon humeur' : current ? 'Effacer mon humeur' : 'Choisis ton humeur'}
+        {mood ? (mine ? 'Partager mon humeur' : 'Partager son humeur') : current ? 'Effacer l’humeur' : mine ? 'Choisis ton humeur' : 'Choisis son humeur'}
       </Btn>
     </Sheet>
   )
@@ -246,9 +248,10 @@ export function Incoming() {
   const unseen = state.thoughts.filter((t) => t.to_member === state.me.id && !t.seen_at)
   const t = unseen[unseen.length - 1] // la plus ancienne d'abord
   const id = t?.id
+  const kind = t?.kind
   useEffect(() => {
-    if (id) success()
-  }, [id])
+    if (id && kind) feel(kind)
+  }, [id, kind])
   const sheet = reply !== undefined && <DrawSheet to={reply} onClose={() => setReply(undefined)} />
   if (!t) {
     const d = drawings[0]
