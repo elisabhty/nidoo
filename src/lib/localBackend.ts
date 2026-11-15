@@ -1,11 +1,11 @@
 import { DECOS, PLAN_LIMITS, THOUGHTS } from './data'
-import type { Backend, Family, FamilyState, Member, Moment, ThoughtKind } from './types'
-import { blobToDataUrl, todayKey, uid } from './util'
+import type { Backend, Family, FamilyState, Folder, FolderItem, Member, Moment, ThoughtKind } from './types'
+import { blobToDataUrl, compressImage, todayKey, uid } from './util'
 
 // Mode démo : toute la maison vit sur l'appareil, avec trois proches fictifs
 // qui répondent aux attentions. Même contrat que le backend Supabase.
 
-type Raw = Omit<FamilyState, 'me'>
+type Raw = Omit<FamilyState, 'me'> & { dossiersDemo?: boolean }
 type Db = { userId: string; families: Record<string, Raw> }
 const KEY = 'nidoo.demo.v2'
 
@@ -18,15 +18,86 @@ const inDays = (days: number, h = 9, m = 0) => {
   return d.toISOString()
 }
 
+type OldFolder = { id: string; family_id: string; owner_id: string; name: string; is_private: boolean; created_at: string }
+
+// Dossiers d'exemple : chacun a ses membres, et un dossier dont Mamie est exclue (la surprise).
+function demoDossiers(f: Raw) {
+  const by = (name: string) => f.members.find((m) => m.display_name === name)?.id
+  const moi = f.members.find((m) => !['Mamie Jo', 'Papa', 'Léa'].includes(m.display_name))?.id ?? f.members[0].id
+  const mamie = by('Mamie Jo'), papa = by('Papa'), lea = by('Léa')
+  const fid = f.family.id
+  const folder = (name: string, owner: string | undefined, minsAgo: number, parent?: Folder): Folder => {
+    const id = uid()
+    const d: Folder = { id, family_id: fid, parent_id: parent?.id ?? null, root_id: parent?.root_id ?? id, owner_id: owner ?? moi, name, cover_path: null, created_at: iso(minsAgo), updated_at: iso(minsAgo) }
+    f.folders.push(d)
+    return d
+  }
+  const members = (d: Folder, ids: (string | undefined)[]) => {
+    for (const id of new Set(ids.filter((x): x is string => !!x))) f.folderMembers.push({ folder_id: d.id, member_id: id })
+  }
+  const item = (d: Folder, author: string | undefined, kind: FolderItem['kind'], body: string, minsAgo: number, title: string | null = null) => {
+    if (!author) return
+    f.folderItems.push({ id: uid(), folder_id: d.id, root_id: d.root_id, family_id: fid, author_id: author, kind, title, body, image_path: null, created_at: iso(minsAgo), updated_at: iso(minsAgo) })
+  }
+
+  const recettes = folder('Recettes de Mamie', mamie, 60 * 72)
+  members(recettes, [moi, mamie, papa, lea])
+  item(recettes, mamie, 'note', '250 g de farine\n3 œufs\n50 cl de lait\nUne pincée de sel\n\nLaisser reposer une heure avant de cuire.', 60 * 70, 'Pâte à crêpes')
+  item(recettes, mamie, 'note', '1 kg de pommes de terre\n50 cl de crème\nUne gousse d’ail\n\n1 h au four à 160 °C.', 60 * 69, 'Gratin dauphinois')
+  item(recettes, mamie, 'message', 'J’ai rangé mes recettes ici, servez-vous !', 60 * 68)
+  item(recettes, lea, 'message', 'Je teste les crêpes ce week-end', 60 * 30)
+  const desserts = folder('Desserts', mamie, 60 * 67, recettes)
+  item(desserts, mamie, 'note', '6 pommes\nUne pâte brisée\n50 g de sucre\n\n35 min à 180 °C.', 60 * 66, 'Tarte aux pommes')
+
+  if (mamie) {
+    const surprise = folder('Surprise pour Mamie', papa, 60 * 26)
+    members(surprise, [moi, papa, lea])
+    item(surprise, papa, 'message', 'On organise quelque chose pour ses 80 ans ? Elle ne voit pas ce dossier.', 60 * 26)
+    item(surprise, lea, 'message', 'Oui ! Je m’occupe du gâteau.', 60 * 25)
+    item(surprise, papa, 'note', 'Un album photo de famille\nUn week-end à la mer\nUn dîner chez Lucien', 60 * 24, 'Idées de cadeaux')
+    folder('Invitations', lea, 60 * 20, surprise)
+  }
+
+  const vacances = folder('Vacances en Bretagne', moi, 60 * 5)
+  members(vacances, [moi, lea])
+  item(vacances, lea, 'message', 'Juste toi et moi pour organiser, je te laisse choisir les dates', 60 * 4)
+  item(vacances, lea, 'note', 'Maillots\nCrème solaire\nCirés\nJeux de cartes', 60 * 3, 'À emporter')
+  f.dossiersDemo = true
+}
+
+// Mise à niveau des maisons créées avec l'ancienne version des dossiers.
+function migrate(f: Raw) {
+  f.folderMembers ??= []
+  f.folderItems ??= []
+  f.folders = ((f.folders ?? []) as (Folder | OldFolder)[]).map((d) => {
+    if (!('is_private' in d)) return d
+    for (const id of d.is_private ? [d.owner_id] : f.members.map((m) => m.id)) f.folderMembers.push({ folder_id: d.id, member_id: id })
+    return { id: d.id, family_id: d.family_id, parent_id: null, root_id: d.id, owner_id: d.owner_id, name: d.name, cover_path: null, created_at: d.created_at, updated_at: d.created_at }
+  })
+  // Les moments rangés dans un ancien dossier deviennent son contenu.
+  const keep: Moment[] = []
+  for (const m of f.moments as (Moment & { folder_id?: string | null })[]) {
+    const d = m.folder_id ? f.folders.find((x) => x.id === m.folder_id) : undefined
+    if (d) {
+      f.folderItems.push({
+        id: m.id, folder_id: d.id, root_id: d.root_id, family_id: d.family_id, author_id: m.member_id,
+        kind: m.image_path ? 'photo' : 'note', title: null, body: m.body, image_path: m.image_path, created_at: m.created_at, updated_at: m.created_at,
+      })
+    } else {
+      delete m.folder_id
+      keep.push(m)
+    }
+  }
+  f.moments = keep
+  if (!f.dossiersDemo) demoDossiers(f)
+}
+
 function read(): Db {
   try {
     const raw = localStorage.getItem(KEY)
     if (raw) {
       const db = JSON.parse(raw) as Db
-      for (const f of Object.values(db.families)) {
-        f.folders ??= [] // maisons créées avant l'arrivée des dossiers
-        for (const m of f.moments) m.folder_id ??= null
-      }
+      for (const f of Object.values(db.families)) migrate(f)
       return db
     }
   } catch {
@@ -38,19 +109,55 @@ function read(): Db {
 export function createLocalBackend(): Backend {
   let db = read()
   const listeners = new Set<() => void>()
-  const save = () => {
+  const save = (): boolean => {
+    let ok = true
     try {
       localStorage.setItem(KEY, JSON.stringify(db))
     } catch {
-      // Stockage plein : on allège en retirant les plus anciennes photos.
+      // Stockage plein : on allège en retirant les plus anciennes photos du fil.
       for (const f of Object.values(db.families)) f.moments = f.moments.slice(0, 6)
       try {
         localStorage.setItem(KEY, JSON.stringify(db))
       } catch {
-        /* tant pis, l'état reste en mémoire */
+        ok = false // l'état reste en mémoire
       }
     }
     listeners.forEach((l) => l())
+    return ok
+  }
+  const photo = async (blob: Blob) => blobToDataUrl(await compressImage(blob, 1024, 0.72))
+  const folderById = (id: string) => {
+    for (const f of Object.values(db.families)) {
+      const d = f.folders.find((x) => x.id === id)
+      if (d) return { f, d }
+    }
+    throw new Error('DOSSIER_INCONNU')
+  }
+  const myId = (f: Raw) => f.members.find((m) => m.user_id === db.userId)!.id
+  const subtree = (f: Raw, id: string) => {
+    const ids = new Set([id])
+    for (let grew = true; grew; ) {
+      grew = false
+      for (const d of f.folders) if (d.parent_id && ids.has(d.parent_id) && !ids.has(d.id)) ids.add(d.id), (grew = true)
+    }
+    return ids
+  }
+  // Un proche du dossier répond à un message, pour que la démo vive.
+  const replies = ['Trop bien !', 'Merci de l’avoir mis ici', 'Je regarde ça ce soir', 'Super idée', 'Ça me va !']
+  const answerIn = (f: Raw, d: Folder) => {
+    const me = myId(f)
+    const others = f.folderMembers.filter((x) => x.folder_id === d.root_id && x.member_id !== me).map((x) => x.member_id)
+    const recent = f.folderItems.some((i) => i.root_id === d.root_id && i.kind === 'message' && i.author_id !== me && Date.now() - new Date(i.created_at).getTime() < 120000)
+    if (!others.length || recent) return
+    window.setTimeout(() => {
+      if (!f.folders.some((x) => x.id === d.id)) return
+      const now = new Date().toISOString()
+      f.folderItems.push({
+        id: uid(), folder_id: d.id, root_id: d.root_id, family_id: d.family_id, author_id: others[Math.floor(Math.random() * others.length)],
+        kind: 'message', title: null, body: replies[Math.floor(Math.random() * replies.length)], image_path: null, created_at: now, updated_at: now,
+      })
+      save()
+    }, 3500)
   }
   const fam = (id: string) => {
     const f = db.families[id]
@@ -81,16 +188,16 @@ export function createLocalBackend(): Backend {
     const mamie = mk('Mamie Jo', 'hibou', 'peche', 'nostalgique', 'Je trie de vieilles photos', )
     const papa = mk('Papa', 'ours', 'mousse', 'fatigue', 'Grosse semaine')
     const lea = mk('Léa', 'renard', 'rose', 'heureux', 'Partiels terminés !')
-    const recettes = uid()
     db.families[fid] = {
       family: { id: fid, name, house_type: houseType, invite_code: 'DEMO42', plan: 'free', stars: 14, created_by: db.userId },
       members: [moi, mamie, papa, lea],
       moments: [
-        { id: uid(), family_id: fid, member_id: lea.id, image_path: null, body: 'Devinez qui rentre ce week-end avec un gâteau ?', challenge: null, folder_id: null, created_at: iso(55) },
-        { id: uid(), family_id: fid, member_id: mamie.id, image_path: null, body: 'Le jardin est tout blanc ce matin. Pensées pour vous tous.', challenge: null, folder_id: null, created_at: iso(60 * 20) },
-        { id: uid(), family_id: fid, member_id: mamie.id, image_path: null, body: 'Ma pâte à crêpes : 250 g de farine, 3 œufs, un demi-litre de lait.', challenge: null, folder_id: recettes, created_at: iso(60 * 50) },
+        { id: uid(), family_id: fid, member_id: lea.id, image_path: null, body: 'Devinez qui rentre ce week-end avec un gâteau ?', challenge: null, created_at: iso(55) },
+        { id: uid(), family_id: fid, member_id: mamie.id, image_path: null, body: 'Le jardin est tout blanc ce matin. Pensées pour vous tous.', challenge: null, created_at: iso(60 * 20) },
       ],
-      folders: [{ id: recettes, family_id: fid, owner_id: mamie.id, name: 'Recettes de Mamie', is_private: false, created_at: iso(60 * 60) }],
+      folders: [],
+      folderMembers: [],
+      folderItems: [],
       reactions: [],
       thoughts: [
         { id: uid(), family_id: fid, from_member: mamie.id, to_member: moi.id, kind: 'coeur', message: null, created_at: iso(3), seen_at: null },
@@ -113,6 +220,7 @@ export function createLocalBackend(): Backend {
         { id: uid(), member_id: mamie.id, reason: 'attention', amount: 1, created_at: iso(3) },
       ],
     }
+    demoDossiers(db.families[fid])
     return fid
   }
 
@@ -162,11 +270,16 @@ export function createLocalBackend(): Backend {
       const me = f.members.find((m) => m.user_id === db.userId)
       if (!me) throw new Error('PAS_MEMBRE')
       const day = todayKey()
+      const mine = new Set(f.folderMembers.filter((x) => x.member_id === me.id).map((x) => x.folder_id))
       return structuredClone({
         ...f,
         me,
         answers: f.answers.filter((a) => a.day === day),
         moments: f.moments.map((m) => ({ ...m, image_url: m.image_path })),
+        folders: f.folders.filter((d) => mine.has(d.root_id)).map((d) => ({ ...d, cover_url: d.cover_path })),
+        folderMembers: f.folderMembers.filter((x) => mine.has(x.folder_id)),
+        folderItems: f.folderItems.filter((i) => mine.has(i.root_id)).map((i) => ({ ...i, image_url: i.image_path })),
+        dossiersDemo: undefined,
       })
     },
     subscribe(_fid, onChange) {
@@ -198,14 +311,13 @@ export function createLocalBackend(): Backend {
       const f = fam(fid)
       const moment: Moment = {
         id: uid(), family_id: fid, member_id: memberId, image_path: m.blob ? await blobToDataUrl(m.blob) : null,
-        body: m.body?.trim() || null, challenge: m.challenge ?? null, folder_id: m.folderId ?? null, created_at: new Date().toISOString(),
+        body: m.body?.trim() || null, challenge: m.challenge ?? null, created_at: new Date().toISOString(),
       }
       f.moments.unshift(moment)
-      const secret = f.folders.some((d) => d.id === moment.folder_id && d.is_private)
-      if (!secret) award(f, memberId, 'moment', 3, 5)
+      award(f, memberId, 'moment', 3, 5)
       // Un proche réagit à la photo, comme dans une vraie famille.
       const other = f.members.find((x) => x.user_id !== db.userId)
-      if (other && !secret) {
+      if (other) {
         window.setTimeout(() => {
           f.reactions.push({ moment_id: moment.id, member_id: other.id, emoji: 'amour' })
           save()
@@ -219,33 +331,85 @@ export function createLocalBackend(): Backend {
       f.reactions = f.reactions.filter((r) => r.moment_id !== moment.id)
       save()
     },
-    async moveMoment(momentId, folderId) {
-      for (const f of Object.values(db.families)) for (const m of f.moments) if (m.id === momentId) m.folder_id = folderId
-      save()
-    },
-    async createFolder(fid, memberId, name, isPrivate) {
+    async createFolder(fid, x) {
+      const f = fam(fid)
+      const me = myId(f)
+      const parent = x.parentId ? f.folders.find((d) => d.id === x.parentId) : undefined
+      if (x.parentId && !parent) throw new Error('DOSSIER_INCONNU')
       const id = uid()
-      fam(fid).folders.push({ id, family_id: fid, owner_id: memberId, name: name.trim(), is_private: isPrivate, created_at: new Date().toISOString() })
+      const now = new Date().toISOString()
+      f.folders.push({ id, family_id: fid, parent_id: parent?.id ?? null, root_id: parent?.root_id ?? id, owner_id: me, name: x.name.trim(), cover_path: null, created_at: now, updated_at: now })
+      if (!parent) {
+        const ids = new Set([me, ...(x.memberIds ?? []).filter((m) => f.members.some((y) => y.id === m))])
+        for (const m of ids) f.folderMembers.push({ folder_id: id, member_id: m })
+      }
       save()
       return id
     },
-    async updateFolder(id, patch) {
+    async renameFolder(id, name) {
+      folderById(id).d.name = name.trim()
+      save()
+    },
+    async setFolderCover(folder, cover) {
+      const { d } = folderById(folder.id)
+      const before = d.cover_path
+      d.cover_path = cover === null ? null : 'blob' in cover ? await photo(cover.blob) : cover.path
+      if (!save()) {
+        d.cover_path = before
+        save()
+        throw new Error('STOCKAGE_PLEIN')
+      }
+    },
+    async setFolderMembers(rootId, memberIds) {
+      const { f, d } = folderById(rootId)
+      const keep = new Set([...memberIds.filter((m) => f.members.some((y) => y.id === m)), myId(f), ...(d.owner_id ? [d.owner_id] : [])])
+      f.folderMembers = [...f.folderMembers.filter((x) => x.folder_id !== rootId), ...[...keep].map((m) => ({ folder_id: rootId, member_id: m }))]
+      save()
+    },
+    async leaveFolder(rootId, memberId) {
+      const { f, d } = folderById(rootId)
+      if (d.owner_id === memberId) throw new Error('PAS_ADMIN')
+      f.folderMembers = f.folderMembers.filter((x) => !(x.folder_id === rootId && x.member_id === memberId))
+      save()
+    },
+    async deleteFolder(folder) {
+      const { f } = folderById(folder.id)
+      const ids = subtree(f, folder.id)
+      f.folders = f.folders.filter((d) => !ids.has(d.id))
+      f.folderItems = f.folderItems.filter((i) => !ids.has(i.folder_id))
+      f.folderMembers = f.folderMembers.filter((x) => !ids.has(x.folder_id))
+      save()
+    },
+    async addFolderItem(folder, memberId, x) {
+      const { f, d } = folderById(folder.id)
+      const now = new Date().toISOString()
+      const item: FolderItem = {
+        id: uid(), folder_id: d.id, root_id: d.root_id, family_id: d.family_id, author_id: memberId, kind: x.kind,
+        title: x.title?.trim() || null, body: x.body?.trim() || null, image_path: x.blob ? await photo(x.blob) : null, created_at: now, updated_at: now,
+      }
+      f.folderItems.push(item)
+      d.updated_at = now
+      if (!save()) {
+        f.folderItems = f.folderItems.filter((i) => i.id !== item.id)
+        save()
+        throw new Error('STOCKAGE_PLEIN')
+      }
+      if (x.kind === 'message') answerIn(f, d)
+    },
+    async updateFolderItem(id, patch) {
       for (const f of Object.values(db.families)) {
-        const d = f.folders.find((x) => x.id === id)
-        if (!d) continue
-        Object.assign(d, patch)
-        // Devenu privé : les moments des autres retournent dans le fil.
-        if (d.is_private) for (const m of f.moments) if (m.folder_id === id && m.member_id !== d.owner_id) m.folder_id = null
+        const i = f.folderItems.find((x) => x.id === id)
+        if (!i) continue
+        i.title = patch.title?.trim() || null
+        i.body = patch.body?.trim() || null
+        i.updated_at = new Date().toISOString()
       }
       save()
     },
-    async deleteFolder(id) {
+    async deleteFolderItem(item) {
       for (const f of Object.values(db.families)) {
-        const d = f.folders.find((x) => x.id === id)
-        if (!d) continue
-        if (d.is_private) f.moments = f.moments.filter((m) => m.folder_id !== id)
-        else for (const m of f.moments) if (m.folder_id === id) m.folder_id = null
-        f.folders = f.folders.filter((x) => x.id !== id)
+        f.folderItems = f.folderItems.filter((i) => i.id !== item.id)
+        if (item.image_path) for (const d of f.folders) if (d.cover_path === item.image_path) d.cover_path = null
       }
       save()
     },

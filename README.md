@@ -10,7 +10,7 @@ Au premier lancement, un guide en 6 écrans explique chaque fonctionnalité (rej
 
 
 - **Maison** : la maison de la famille (maison, appartement ou chalet), une fenêtre par membre qui s'allume quand il donne de ses nouvelles, ciel qui suit l'heure, Nidoo le panda roux qui signale le proche à qui envoyer une attention.
-- **Moments** : le fil de la famille (photos et petits mots, réactions) et des dossiers, partagés avec tous ou privés. Un dossier privé n'est visible que par son créateur, photos comprises (règles appliquées par la base).
+- **Dossiers** : des espaces créés avec les proches de son choix. Chacun a une couverture, des membres, des sous-dossiers, des photos, des notes modifiables par tous ses membres et une discussion. On ne voit que les dossiers dont on fait partie ; le créateur gère les membres, les autres peuvent quitter. Le fil de la famille (photos surprises et petits mots envoyés à tous) est dans le même onglet.
 - **On pense à toi** : un cœur, un câlin, du courage, un petit mot, reçu en animation sans ouvrir de conversation.
 - **Météo des émotions** : son humeur du jour et un mot, visibles par la famille.
 - **Jouer** : question du jour, défi photo, étoiles et 12 décorations à débloquer pour la maison.
@@ -41,7 +41,7 @@ Sans clés Supabase, l'app démarre en **mode démo** : la maison vit sur l'appa
 2. Dans Authentication > Sign In / Providers, activer **Allow anonymous sign-ins** (chaque téléphone reçoit un compte invisible, rattachable ensuite à un e-mail depuis « Notre famille »).
 3. Copier `.env.example` en `.env.production` (et `.env.local` pour le dev) avec l'URL du projet et la clé publishable.
 
-Toutes les tables sont protégées par RLS : on ne lit que les données des familles dont on est membre. Les étoiles sont attribuées par des triggers côté base, et les décorations achetées par la fonction `unlock_item`, pour que rien ne se triche depuis l'app. Les photos vont dans un bucket privé `moments`.
+Toutes les tables sont protégées par RLS : on ne lit que les données des familles dont on est membre. Les étoiles sont attribuées par des triggers côté base, et les décorations achetées par la fonction `unlock_item`, pour que rien ne se triche depuis l'app. Les photos du fil vont dans un bucket privé `moments`, celles des dossiers dans un bucket privé `dossiers` dont chaque fichier est rangé sous l'identifiant du dossier racine : la base et le stockage vérifient tous deux l'appartenance au dossier.
 
 ## Offres
 

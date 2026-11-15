@@ -8,7 +8,7 @@ import { select } from '../lib/haptic'
 import { copy, shareInvite } from '../lib/share'
 import { useHome } from '../lib/store'
 import type { HouseType } from '../lib/types'
-import { dayLabel, errorText, isToday, shared } from '../lib/util'
+import { dayLabel, errorText, isToday } from '../lib/util'
 import { upcoming } from './Home'
 import { HousePicker, ProfilePicker } from '../components/pickers'
 import Onboarding from './Onboarding'
@@ -35,7 +35,7 @@ function Widgets() {
   const { state } = useHome()
   const { family, members, me } = state
   const free = family.plan === 'free'
-  const visible = shared(state.moments, state.folders)
+  const visible = state.moments
   const photo = visible.find((m) => m.image_url)
   const note = visible.find((m) => m.body)
   const next = upcoming(state.events, 2)

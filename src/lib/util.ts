@@ -82,6 +82,9 @@ export const uid = () =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)
 
 const ERRORS: Record<string, string> = {
+  PAS_ADMIN: 'Seul le créateur du dossier peut faire ça.',
+  DOSSIER_INCONNU: 'Ce dossier n’existe plus ou tu n’y as plus accès.',
+  STOCKAGE_PLEIN: 'La mémoire de démo de ce téléphone est pleine. Supprime quelques photos.',
   CODE_INCONNU: 'Ce code ne correspond à aucune maison.',
   FAMILLE_PLEINE: 'Cette maison est complète. Avec Famille+, elle accueille jusqu’à 15 membres.',
   LIMITE_MAISONS: 'La version gratuite permet de créer une seule maison. Famille+ en débloque plusieurs.',
@@ -98,8 +101,3 @@ export function errorText(e: unknown): string {
   return 'Petit souci, réessaie dans un instant.'
 }
 
-/** Moments que toute la famille voit : tout sauf le contenu des dossiers privés. */
-export function shared<M extends { folder_id: string | null }>(moments: M[], folders: { id: string; is_private: boolean }[]): M[] {
-  const secret = new Set(folders.filter((f) => f.is_private).map((f) => f.id))
-  return moments.filter((m) => !m.folder_id || !secret.has(m.folder_id))
-}

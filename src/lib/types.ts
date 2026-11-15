@@ -34,11 +34,39 @@ export type Moment = {
   image_url?: string | null
   body: string | null
   challenge: string | null
-  folder_id: string | null
   created_at: string
 }
 
-export type Folder = { id: string; family_id: string; owner_id: string; name: string; is_private: boolean; created_at: string }
+/** Un dossier racine a ses membres ; un sous-dossier (parent_id) hérite des membres de sa racine. */
+export type Folder = {
+  id: string
+  family_id: string
+  parent_id: string | null
+  root_id: string
+  owner_id: string | null
+  name: string
+  cover_path: string | null
+  cover_url?: string | null
+  created_at: string
+  updated_at: string
+}
+export type FolderMember = { folder_id: string; member_id: string }
+export type ItemKind = 'photo' | 'note' | 'message'
+export type FolderItem = {
+  id: string
+  folder_id: string
+  root_id: string
+  family_id: string
+  author_id: string | null
+  kind: ItemKind
+  title: string | null
+  body: string | null
+  image_path: string | null
+  image_url?: string | null
+  created_at: string
+  updated_at: string
+}
+export type FolderCover = { blob: Blob } | { path: string } | null
 
 export type Reaction = { moment_id: string; member_id: string; emoji: string }
 
@@ -85,6 +113,8 @@ export type FamilyState = {
   members: Member[]
   moments: Moment[]
   folders: Folder[]
+  folderMembers: FolderMember[]
+  folderItems: FolderItem[]
   reactions: Reaction[]
   thoughts: Thought[]
   events: FamEvent[]
@@ -111,12 +141,18 @@ export interface Backend {
   updateMember(memberId: string, patch: Partial<Pick<Member, 'display_name' | 'avatar' | 'color'>>): Promise<void>
   updateFamily(familyId: string, patch: Partial<Pick<Family, 'name' | 'house_type'>>): Promise<void>
   leave(memberId: string): Promise<void>
-  postMoment(familyId: string, memberId: string, m: { blob?: Blob; body?: string; challenge?: string; folderId?: string | null }): Promise<void>
+  postMoment(familyId: string, memberId: string, m: { blob?: Blob; body?: string; challenge?: string }): Promise<void>
   deleteMoment(moment: Moment): Promise<void>
-  moveMoment(momentId: string, folderId: string | null): Promise<void>
-  createFolder(familyId: string, memberId: string, name: string, isPrivate: boolean): Promise<string>
-  updateFolder(id: string, patch: Partial<Pick<Folder, 'name' | 'is_private'>>): Promise<void>
-  deleteFolder(id: string): Promise<void>
+  // Dossiers
+  createFolder(familyId: string, f: { name: string; parentId?: string | null; memberIds?: string[] }): Promise<string>
+  renameFolder(id: string, name: string): Promise<void>
+  setFolderCover(folder: Folder, cover: FolderCover): Promise<void>
+  setFolderMembers(rootId: string, memberIds: string[]): Promise<void>
+  leaveFolder(rootId: string, memberId: string): Promise<void>
+  deleteFolder(folder: Folder): Promise<void>
+  addFolderItem(folder: Folder, memberId: string, i: { kind: ItemKind; title?: string; body?: string; blob?: Blob }): Promise<void>
+  updateFolderItem(id: string, patch: { title: string | null; body: string | null }): Promise<void>
+  deleteFolderItem(item: FolderItem): Promise<void>
   react(moment: Moment, memberId: string, emoji: string | null): Promise<void>
   sendThought(familyId: string, from: string, to: string, kind: ThoughtKind, message?: string): Promise<void>
   markSeen(ids: string[]): Promise<void>

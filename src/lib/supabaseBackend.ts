@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { SUPABASE_KEY, SUPABASE_URL } from '../config'
-import type { Answer, Backend, Circle, FamEvent, Family, FamilyState, Folder, ListItem, Member, Moment, Reaction, StarEntry, Thought } from './types'
+import type { Answer, Backend, Circle, FamEvent, Family, FamilyState, Folder, FolderItem, FolderMember, ListItem, Member, Moment, Reaction, StarEntry, Thought } from './types'
 import { todayKey, uid } from './util'
 
 function check<T>(r: { data: T; error: { message: string } | null }): T {
@@ -63,11 +63,13 @@ export function createSupabaseBackend(): Backend {
 
     async load(fid) {
       const since = new Date(Date.now() - 14 * 86400000).toISOString()
-      const [family, members, moments, folders, reactions, thoughts, events, items, answers, house, stars] = await Promise.all([
+      const [family, members, moments, folders, folderMembers, folderItems, reactions, thoughts, events, items, answers, house, stars] = await Promise.all([
         sb.from('families').select('*').eq('id', fid).single(),
         sb.from('members').select('*').eq('family_id', fid).order('joined_at'),
         sb.from('moments').select('*').eq('family_id', fid).order('created_at', { ascending: false }).limit(120),
         sb.from('folders').select('*').eq('family_id', fid).order('created_at'),
+        sb.from('folder_members').select('folder_id, member_id').eq('family_id', fid),
+        sb.from('folder_items').select('*').eq('family_id', fid).order('created_at').limit(2000),
         sb.from('reactions').select('moment_id, member_id, emoji').eq('family_id', fid),
         sb.from('thoughts').select('*').eq('family_id', fid).gte('created_at', since).order('created_at', { ascending: false }).limit(80),
         sb.from('events').select('*').eq('family_id', fid).order('starts_at'),
@@ -86,12 +88,24 @@ export function createSupabaseBackend(): Backend {
         const byPath = new Map((signed.data ?? []).map((s) => [s.path, s.signedUrl]))
         for (const m of moms) m.image_url = m.image_path ? (byPath.get(m.image_path) ?? null) : null
       }
+      // Photos et couvertures des dossiers : liens signés, lisibles par les seuls membres.
+      const dossiers = (check(folders) ?? []) as Folder[]
+      const contenus = (check(folderItems) ?? []) as FolderItem[]
+      const fichiers = [...new Set([...contenus.map((i) => i.image_path), ...dossiers.map((d) => d.cover_path)].filter((x): x is string => !!x))]
+      if (fichiers.length) {
+        const signed = await sb.storage.from('dossiers').createSignedUrls(fichiers, 3600)
+        const byPath = new Map((signed.data ?? []).map((s) => [s.path, s.signedUrl]))
+        for (const i of contenus) i.image_url = i.image_path ? (byPath.get(i.image_path) ?? null) : null
+        for (const d of dossiers) d.cover_url = d.cover_path ? (byPath.get(d.cover_path) ?? null) : null
+      }
       const state: FamilyState = {
         family: check(family) as Family,
         me,
         members: mem,
         moments: moms,
-        folders: (check(folders) ?? []) as Folder[],
+        folders: dossiers,
+        folderMembers: (check(folderMembers) ?? []) as FolderMember[],
+        folderItems: contenus,
         reactions: (check(reactions) ?? []) as Reaction[],
         thoughts: (check(thoughts) ?? []) as Thought[],
         events: (check(events) ?? []) as FamEvent[],
@@ -105,7 +119,7 @@ export function createSupabaseBackend(): Backend {
 
     subscribe(fid, onChange) {
       const ch = sb.channel(`famille:${fid}`)
-      for (const table of ['members', 'moments', 'folders', 'reactions', 'thoughts', 'events', 'list_items', 'daily_answers', 'house_items']) {
+      for (const table of ['members', 'moments', 'folders', 'folder_members', 'folder_items', 'reactions', 'thoughts', 'events', 'list_items', 'daily_answers', 'house_items']) {
         ch.on('postgres_changes', { event: '*', schema: 'public', table, filter: `family_id=eq.${fid}` }, onChange)
       }
       ch.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'families', filter: `id=eq.${fid}` }, onChange)
@@ -137,35 +151,79 @@ export function createSupabaseBackend(): Backend {
       }
       check(
         await sb.from('moments').insert({
-          family_id: fid, member_id: memberId, image_path, body: m.body?.trim() || null, challenge: m.challenge ?? null, folder_id: m.folderId ?? null,
+          family_id: fid, member_id: memberId, image_path, body: m.body?.trim() || null, challenge: m.challenge ?? null,
         }),
       )
     },
     async deleteMoment(moment) {
-      // Le fichier d'abord : une fois le moment supprimé, on n'aurait plus le droit de le lire pour l'effacer.
       if (moment.image_path) await sb.storage.from('moments').remove([moment.image_path])
       check(await sb.from('moments').delete().eq('id', moment.id))
     },
-    async moveMoment(momentId, folderId) {
-      check(await sb.from('moments').update({ folder_id: folderId }).eq('id', momentId))
+    // ───── Dossiers
+    async createFolder(fid, f) {
+      return check(
+        await sb.rpc('create_folder', { p_family: fid, p_name: f.name.trim(), p_parent: f.parentId ?? null, p_members: f.memberIds ?? [] }),
+      ) as string
     },
-    async createFolder(fid, memberId, name, isPrivate) {
-      const row = check(await sb.from('folders').insert({ family_id: fid, owner_id: memberId, name: name.trim(), is_private: isPrivate }).select('id').single()) as { id: string }
-      return row.id
+    async renameFolder(id, name) {
+      check(await sb.from('folders').update({ name: name.trim() }).eq('id', id))
     },
-    async updateFolder(id, patch) {
-      check(await sb.from('folders').update(patch).eq('id', id))
-    },
-    async deleteFolder(id) {
-      // Les photos d'un dossier privé partent avec lui (la base supprime leurs moments).
-      const doomed = check(await sb.from('folders').select('is_private').eq('id', id).single()) as { is_private: boolean }
-      if (doomed.is_private) {
-        const rows = (check(await sb.from('moments').select('image_path').eq('folder_id', id)) ?? []) as { image_path: string | null }[]
-        const paths = rows.map((r) => r.image_path).filter((x): x is string => !!x)
-        if (paths.length) await sb.storage.from('moments').remove(paths)
+    async setFolderCover(folder, cover) {
+      let path: string | null = null
+      if (cover && 'blob' in cover) {
+        path = `${folder.root_id}/couverture-${uid()}.jpg`
+        const up = await sb.storage.from('dossiers').upload(path, cover.blob, { contentType: 'image/jpeg' })
+        if (up.error) throw new Error(up.error.message)
+      } else if (cover) {
+        path = cover.path
       }
-      check(await sb.from('folders').delete().eq('id', id))
+      check(await sb.from('folders').update({ cover_path: path }).eq('id', folder.id))
+      // Une ancienne couverture envoyée exprès (pas une photo du dossier) n'a plus d'usage.
+      if (folder.cover_path && folder.cover_path !== path && folder.cover_path.includes('/couverture-')) {
+        await sb.storage.from('dossiers').remove([folder.cover_path])
+      }
     },
+    async setFolderMembers(rootId, memberIds) {
+      check(await sb.rpc('set_folder_members', { p_folder: rootId, p_members: memberIds }))
+    },
+    async leaveFolder(rootId, memberId) {
+      check(await sb.from('folder_members').delete().eq('folder_id', rootId).eq('member_id', memberId))
+    },
+    async deleteFolder(folder) {
+      // Le dossier, ses sous-dossiers et leur contenu partent en base ; on efface aussi leurs fichiers.
+      const all = (check(await sb.from('folders').select('id, parent_id, cover_path').eq('root_id', folder.root_id)) ?? []) as Pick<Folder, 'id' | 'parent_id' | 'cover_path'>[]
+      const ids = new Set([folder.id])
+      for (let grew = true; grew; ) {
+        grew = false
+        for (const d of all) if (d.parent_id && ids.has(d.parent_id) && !ids.has(d.id)) ids.add(d.id), (grew = true)
+      }
+      const rows = (check(await sb.from('folder_items').select('image_path').in('folder_id', [...ids]).not('image_path', 'is', null)) ?? []) as { image_path: string }[]
+      const covers = all.filter((d) => ids.has(d.id) && d.cover_path?.includes('/couverture-')).map((d) => d.cover_path!)
+      check(await sb.from('folders').delete().eq('id', folder.id))
+      const paths = [...rows.map((r) => r.image_path), ...covers]
+      if (paths.length) await sb.storage.from('dossiers').remove(paths)
+    },
+    async addFolderItem(folder, memberId, i) {
+      let image_path: string | null = null
+      if (i.blob) {
+        image_path = `${folder.root_id}/${uid()}.jpg`
+        const up = await sb.storage.from('dossiers').upload(image_path, i.blob, { contentType: 'image/jpeg' })
+        if (up.error) throw new Error(up.error.message)
+      }
+      check(
+        await sb.from('folder_items').insert({
+          folder_id: folder.id, author_id: memberId, kind: i.kind, title: i.title?.trim() || null, body: i.body?.trim() || null, image_path,
+        }),
+      )
+    },
+    async updateFolderItem(id, patch) {
+      check(await sb.from('folder_items').update({ title: patch.title?.trim() || null, body: patch.body?.trim() || null }).eq('id', id))
+    },
+    async deleteFolderItem(item) {
+      check(await sb.from('folder_items').delete().eq('id', item.id))
+      if (item.image_path) await sb.storage.from('dossiers').remove([item.image_path])
+    },
+
     async react(moment, memberId, emoji) {
       if (!emoji) {
         check(await sb.from('reactions').delete().eq('moment_id', moment.id).eq('member_id', memberId))

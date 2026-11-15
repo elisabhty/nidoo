@@ -1,11 +1,11 @@
-import { Camera, ChevronRight, Folder as FolderIcon, Images, Lock, Trash2 } from 'lucide-react'
+import { Camera, Images, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { MOODS, THOUGHTS, thoughtOf } from '../lib/data'
 import { select, success } from '../lib/haptic'
 import { useHome } from '../lib/store'
 import type { EventKind, Member, ThoughtKind } from '../lib/types'
 import { compressImage, errorText, isToday } from '../lib/util'
-import { Art, Avatar, Btn, choisir, Envol, Segments, Sheet } from './ui'
+import { Art, Avatar, Btn, Envol, Segments, Sheet } from './ui'
 
 // ───────── Météo des émotions ─────────
 
@@ -58,13 +58,11 @@ export function MoodSheet({ onClose }: { onClose: () => void }) {
 
 // ───────── Photo surprise / petit mot au mur ─────────
 
-export function ComposeSheet({ onClose, challenge, startWith = 'photo', folderId = null }: { onClose: () => void; challenge?: string; startWith?: 'photo' | 'mot'; folderId?: string | null }) {
+export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onClose: () => void; challenge?: string; startWith?: 'photo' | 'mot' }) {
   const { state, run, toast } = useHome()
   const [blob, setBlob] = useState<Blob | null>(null)
   const [body, setBody] = useState('')
   const [busy, setBusy] = useState(false)
-  const [folder, setFolder] = useState<string | null>(folderId)
-  const dest = state.folders.find((f) => f.id === folder)
   const camera = useRef<HTMLInputElement>(null)
   const gallery = useRef<HTMLInputElement>(null)
   const preview = useMemo(() => (blob ? URL.createObjectURL(blob) : null), [blob])
@@ -81,8 +79,8 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo', folderId
   const send = async () => {
     setBusy(true)
     const ok = await run(
-      (api) => api.postMoment(state.family.id, state.me.id, { blob: blob ?? undefined, body, challenge, folderId: folder }),
-      dest?.is_private ? 'Rangé dans ton dossier privé' : blob ? 'Photo partagée avec la famille' : 'Petit mot partagé',
+      (api) => api.postMoment(state.family.id, state.me.id, { blob: blob ?? undefined, body, challenge }),
+      blob ? 'Photo partagée avec la famille' : 'Petit mot partagé',
     )
     setBusy(false)
     if (ok) {
@@ -128,23 +126,8 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo', folderId
         onChange={(e) => setBody(e.target.value)}
         autoFocus={startWith === 'mot'}
       />
-      {state.folders.length > 0 && !challenge && (
-        <button
-          onClick={async () => {
-            const i = await choisir({ title: 'Ranger dans un dossier', actions: [{ label: 'Aucun dossier' }, ...state.folders.map((f) => ({ label: f.is_private ? `${f.name} (privé)` : f.name }))] })
-            if (i >= 0) setFolder(i === 0 ? null : state.folders[i - 1].id)
-          }}
-          className="presse-ligne groupe mt-3 flex h-[50px] w-full items-center gap-3 px-4 text-left"
-        >
-          {dest?.is_private ? <Lock size={19} className="text-teinte" /> : <FolderIcon size={19} className="text-teinte" />}
-          <span className="flex-1 text-corps">Dossier</span>
-          <span className="text-corps text-brume">{dest ? dest.name : 'Aucun'}</span>
-          <ChevronRight size={17} strokeWidth={2.6} className="text-pale" />
-        </button>
-      )}
-      {dest?.is_private && <p className="px-4 pt-2 text-note text-brume">Dossier privé : tu seras la seule personne à le voir.</p>}
       <Btn className="mt-3" onClick={send} disabled={busy || (!blob && !body.trim())}>
-        {busy ? 'Envoi…' : dest?.is_private ? 'Ranger dans mon dossier' : 'Envoyer à la famille'}
+        {busy ? 'Envoi…' : 'Envoyer à la famille'}
       </Btn>
     </Sheet>
   )

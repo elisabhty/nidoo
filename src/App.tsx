@@ -1,4 +1,4 @@
-import { CalendarDays, Gamepad2, House as HouseIcon, Images, UsersRound } from 'lucide-react'
+import { CalendarDays, Folder, Gamepad2, House as HouseIcon, UsersRound } from 'lucide-react'
 import { useState } from 'react'
 import Guide from './components/Guide'
 import { Incoming } from './components/sheets'
@@ -7,7 +7,7 @@ import { select } from './lib/haptic'
 import { useStore } from './lib/store'
 import Family from './screens/Family'
 import Home from './screens/Home'
-import Moments from './screens/Moments'
+import Dossiers, { type DossiersSeg } from './screens/Folders'
 import Onboarding from './screens/Onboarding'
 import Organize from './screens/Organize'
 import Play from './screens/Play'
@@ -15,10 +15,12 @@ import Play from './screens/Play'
 const GUIDE = 'nidoo.guide.vu'
 
 export type Tab = 'maison' | 'moments' | 'jouer' | 'organiser' | 'famille'
+/** « fil » ouvre l'onglet Dossiers directement sur le fil de la famille. */
+export type Go = Tab | 'fil'
 
 const TABS: { key: Tab; label: string; icon: typeof HouseIcon }[] = [
   { key: 'maison', label: 'Maison', icon: HouseIcon },
-  { key: 'moments', label: 'Moments', icon: Images },
+  { key: 'moments', label: 'Dossiers', icon: Folder },
   { key: 'jouer', label: 'Jouer', icon: Gamepad2 },
   { key: 'organiser', label: 'Organiser', icon: CalendarDays },
   { key: 'famille', label: 'Famille', icon: UsersRound },
@@ -36,6 +38,13 @@ function Splash({ children }: { children?: React.ReactNode }) {
 export default function App() {
   const { status, error, state, retry } = useStore()
   const [tab, setTab] = useState<Tab>('maison')
+  const [seg, setSeg] = useState<DossiersSeg>('dossiers')
+  const go = (g: Go) => {
+    if (g === 'fil') {
+      setSeg('fil')
+      setTab('moments')
+    } else setTab(g)
+  }
   const [guide, setGuide] = useState(() => {
     try {
       return !localStorage.getItem(GUIDE)
@@ -68,8 +77,8 @@ export default function App() {
         {status === 'ready' && state && (
           <>
             <div className="h-full" key={state.family.id}>
-              {tab === 'maison' && <Home go={setTab} />}
-              {tab === 'moments' && <Moments />}
+              {tab === 'maison' && <Home go={go} />}
+              {tab === 'moments' && <Dossiers seg={seg} setSeg={setSeg} />}
               {tab === 'jouer' && <Play />}
               {tab === 'organiser' && <Organize />}
               {tab === 'famille' && <Family onGuide={() => setGuide(true)} />}

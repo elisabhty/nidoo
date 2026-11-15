@@ -7,7 +7,7 @@ const STEPS: { art: string; title: string; text: string }[] = [
   { art: 'panda', title: 'Bienvenue chez vous', text: 'NIDOO, c’est la petite maison de ta famille. On s’y donne des nouvelles en un geste, sans avoir à lancer une conversation.' },
   { art: 'humeur-heureux', title: 'Dis comment tu vas', text: 'Choisis ta météo du jour en un toucher. Tes proches voient tout de suite comment tu te sens.' },
   { art: 'geste-calin', title: 'Envoie un câlin', text: 'Touche un proche : il reçoit une petite animation de ta part. Pas besoin d’écrire, c’est juste pour dire « je pense à toi ».' },
-  { art: 'picto-photo', title: 'Partage tes moments', text: 'Une photo ou un petit mot arrive chez toute la famille. Range-les dans des dossiers, partagés avec tous ou privés.' },
+  { art: 'picto-photo', title: 'Des dossiers rien qu’à vous', text: 'Crée un dossier avec les proches de ton choix : photos, notes et discussion. Seuls ses membres le voient, les autres ne savent même pas qu’il existe.' },
   { art: 'picto-etoile', title: 'Décorez la maison ensemble', text: 'Chaque geste rapporte des étoiles à toute la famille. Elles servent à installer des décorations dans votre maison.' },
   { art: 'picto-agenda', title: 'Organisez-vous', text: 'Anniversaires, rendez-vous, liste de courses et petites missions, au même endroit pour tout le monde.' },
 ]

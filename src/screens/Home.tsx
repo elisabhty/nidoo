@@ -7,8 +7,8 @@ import { moodOf, questionOfDay } from '../lib/data'
 import { success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
 import type { Member } from '../lib/types'
-import { ago, dayLabel, greeting, isToday, nextOccurrence, shared, timeLabel } from '../lib/util'
-import type { Tab } from '../App'
+import { ago, dayLabel, greeting, isToday, nextOccurrence, timeLabel } from '../lib/util'
+import type { Go } from '../App'
 
 type Open = null | { k: 'humeur' } | { k: 'photo' } | { k: 'pensee'; to?: Member }
 
@@ -22,7 +22,7 @@ export function upcoming(events: ReturnType<typeof useHome>['state']['events'], 
     .slice(0, limit)
 }
 
-export default function Home({ go }: { go: (t: Tab) => void }) {
+export default function Home({ go }: { go: (t: Go) => void }) {
   const { state, run } = useHome()
   const [sheet, setSheet] = useState<Open>(null)
   const [scrolled, setScrolled] = useState(false)
@@ -30,7 +30,7 @@ export default function Home({ go }: { go: (t: Tab) => void }) {
   const others = members.filter((m) => m.id !== me.id)
   const myMood = isToday(me.mood_at) ? moodOf(me.mood) : null
   const next = upcoming(state.events)
-  const last = shared(state.moments, state.folders)[0]
+  const last = state.moments[0]
   const lastBy = last && members.find((m) => m.id === last.member_id)
   const missions = state.items.filter((i) => i.kind === 'tache' && !i.done && (!i.assigned_to || i.assigned_to === me.id)).slice(0, 3)
   const answered = state.answers.some((a) => a.member_id === me.id)
@@ -174,8 +174,8 @@ export default function Home({ go }: { go: (t: Tab) => void }) {
           </Section>
 
           {last && lastBy && (
-            <Section title="Dernier moment partagé" action={<Lien onClick={() => go('moments')}>Tout voir</Lien>}>
-              <button onClick={() => go('moments')} className="presse groupe mx-4 block w-[calc(100%-2rem)] text-left shadow-carte">
+            <Section title="Dernier moment partagé" action={<Lien onClick={() => go('fil')}>Tout voir</Lien>}>
+              <button onClick={() => go('fil')} className="presse groupe mx-4 block w-[calc(100%-2rem)] text-left shadow-carte">
                 {last.image_url && <img src={last.image_url} alt={last.body ?? `Photo de ${lastBy.display_name}`} className="aspect-[4/3] w-full object-cover" />}
                 <div className="flex items-center gap-3 p-3.5">
                   <Avatar m={lastBy} size={40} />
