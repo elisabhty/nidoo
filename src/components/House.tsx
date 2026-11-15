@@ -343,7 +343,7 @@ export default function House({
               <span className="relative block w-full" style={{ animation: `marche ${8 + i * 1.7}s ease-in-out ${-i * 2}s infinite`, ['--mx' as string]: `${i % 2 ? -7 : 7}px` }}>
                 <span className="absolute bottom-[0.5%] left-1/2 h-[6%] w-[70%] -translate-x-1/2 rounded-[50%] bg-[#1d1a2b]/20 blur-[2px]" />
                 <span key={hop ? poke!.n : 0} className="block" style={{ animation: hop ? 'rebond 0.7s var(--ressort)' : undefined, transformOrigin: '50% 100%' }}>
-                  <span className={`block ${md || p.me ? '' : 'opacity-80 saturate-[0.6]'}`} style={{ animation: MOVES[p.mood ?? ''] ?? `respire ${3 + (i % 3) * 0.6}s ease-in-out infinite`, transformOrigin: '50% 100%' }}>
+                  <span className={`block transition-[filter,opacity] duration-500 ${p.me && !md ? 'opacity-60 grayscale' : ''}`} style={{ animation: MOVES[p.mood ?? ''] ?? `respire ${3 + (i % 3) * 0.6}s ease-in-out infinite`, transformOrigin: '50% 100%' }}>
                     <Character look={lookOf(p.m.avatar, p.m.user_id)} mood={p.mood} extras className="block h-auto w-full" blinkDelay={i * 1.3} />
                   </span>
                 </span>

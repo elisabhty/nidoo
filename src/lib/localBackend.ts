@@ -274,6 +274,27 @@ export function createLocalBackend(): Backend {
     }, 4500)
   }
 
+  // Démo : chaque matin, les proches fictifs donnent leur humeur du jour (toujours la même pour un jour donné).
+  const MOOD_NOTES: Record<string, string[]> = {
+    heureux: ['Belle journée !', 'Rien ne peut m’arrêter'], serein: ['Tranquille', 'Thé et plaid'], motive: ['Séance de sport ce matin', 'Plein de projets'],
+    fete: ['Ce soir on fête ça', 'Anniversaire d’une amie'], fatigue: ['Nuit trop courte', 'Grosse semaine'], stresse: ['Rendu à finir', 'Examen demain'],
+    nostalgique: ['Je trie de vieilles photos', 'Ça me rappelle l’été'], triste: ['Petit coup de mou', 'Journée grise'],
+  }
+  function dailyMoods(f: Raw) {
+    const day = todayKey()
+    const keys = Object.keys(MOOD_NOTES)
+    for (const m of f.members) {
+      if (m.user_id === db.userId || (m.mood_at && todayKey(new Date(m.mood_at)) === day)) continue
+      const h = [...(day + m.id)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7)
+      const mood = keys[h % keys.length]
+      const at = new Date()
+      at.setHours(7 + (h % 3), (h >> 3) % 60, 0, 0)
+      m.mood = mood
+      m.mood_note = MOOD_NOTES[mood][(h >> 5) % 2]
+      m.mood_at = (at.getTime() < Date.now() ? at : new Date()).toISOString()
+    }
+  }
+
   // Le proche répond par un dessin quelques secondes plus tard, pour voir la réception en direct.
   const arts: DemoArt[] = ['soleil', 'fleur', 'maison', 'coeurs']
   function drawBack(f: Raw, from: Member, to: Member | null) {
@@ -397,6 +418,7 @@ export function createLocalBackend(): Backend {
       const me = f.members.find((m) => m.user_id === db.userId)
       if (!me) throw new Error('PAS_MEMBRE')
       const day = todayKey()
+      dailyMoods(f)
       const mine = new Set(f.folderMembers.filter((x) => x.member_id === me.id).map((x) => x.folder_id))
       return structuredClone({
         ...f,
