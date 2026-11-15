@@ -79,6 +79,12 @@ input[type='date'], input[type='time'] { -webkit-appearance: none; appearance: n
 @keyframes papillon { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(34px, -18px); } 50% { transform: translate(64px, 4px); } 75% { transform: translate(28px, 16px); } }
 @keyframes aile { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(0.25); } }
 @keyframes ampoule { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes cligne { 0%, 93%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.12); } }
+@keyframes larme { 0% { transform: translateY(0); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(7px); opacity: 0; } }
+@keyframes zz { 0% { transform: translate(0, 4px); opacity: 0; } 30% { opacity: 1; } 100% { transform: translate(5px, -6px); opacity: 0; } }
+@keyframes marche { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(var(--mx, 8px)); } }
+@keyframes sautille { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-9%); } 55% { transform: translateY(0); } }
+@keyframes oscille { 0%, 100% { transform: rotate(-2.5deg); } 50% { transform: rotate(2.5deg); } }
 @keyframes derive { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(8px, -6px); } }
 
 .anim-monte { animation: monte 0.5s var(--ressort) both; }
@@ -92,3 +98,11 @@ input[type='date'], input[type='time'] { -webkit-appearance: none; appearance: n
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+/* Personnages : clignement des yeux et petits effets d'humeur */
+.perso-cligne { transform-box: fill-box; transform-origin: center; animation: cligne 4.8s ease-in-out infinite; }
+.perso-larme { animation: larme 2.2s ease-in infinite; }
+.perso-goutte { transform-box: fill-box; transform-origin: center; animation: flotte 2.4s ease-in-out infinite; }
+.perso-zz { animation: zz 2.8s ease-out infinite; }
+.perso-scintille { transform-box: fill-box; transform-origin: center; animation: scintille 1.6s ease-in-out infinite; }
+.perso-confetti { transform-box: fill-box; transform-origin: center; animation: oscille 1.2s ease-in-out infinite; }

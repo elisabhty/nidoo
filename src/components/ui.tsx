@@ -1,32 +1,31 @@
 import { Check, ChevronRight, CircleAlert, X } from 'lucide-react'
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { COLORS } from '../lib/data'
 import { select, tap, warn } from '../lib/haptic'
 import { useStore } from '../lib/store'
 import type { Member } from '../lib/types'
+import { lookOf } from '../lib/look'
 import { isToday } from '../lib/util'
+import { Character } from './Character'
 
 /** Illustration 3D de la bibliothèque NIDOO (public/art). */
 export function Art({ name, size, className = '', alt = '' }: { name: string; size?: number; className?: string; alt?: string }) {
   return <img src={`./art/${name}.webp`} alt={alt} width={size} height={size} draggable={false} className={`select-none object-contain ${className}`} style={size ? { width: size, height: size } : undefined} />
 }
 
+/** Le personnage d'un proche en pastille ronde ; avec mood, son visage prend son humeur du jour. */
 export function Avatar({ m, size = 44, mood = false, ring = false }: { m: Pick<Member, 'avatar' | 'color'> & Partial<Member>; size?: number; mood?: boolean; ring?: boolean }) {
   const c = COLORS[m.color] ?? COLORS.lavande
   const md = mood && isToday(m.mood_at ?? null) && m.mood ? m.mood : null
+  const look = useMemo(() => lookOf(m.avatar, m.user_id ?? m.id ?? ''), [m.avatar, m.user_id, m.id])
   return (
     <span className="relative inline-block shrink-0" style={{ width: size, height: size }}>
       <span
         className="block h-full w-full overflow-hidden rounded-full"
         style={{ background: `linear-gradient(160deg, ${c.bg}, ${c.deep})`, boxShadow: ring ? `0 0 0 2.5px #fff, 0 0 0 5px ${c.ring}` : 'inset 0 0 0 0.5px rgba(29,26,43,0.06)' }}
       >
-        <Art name={`avatar-${m.avatar}`} className="h-full w-full translate-y-[7%] scale-[1.08]" />
+        <Character look={look} mood={md} bust still={size < 44} className="block h-full w-full" blinkDelay={(size % 7) * 0.6} />
       </span>
-      {md && (
-        <span className="absolute -bottom-[6%] -right-[10%] rounded-full bg-white p-[3%] shadow-carte" style={{ width: size * 0.46, height: size * 0.46 }}>
-          <Art name={`humeur-${md}`} className="h-full w-full" />
-        </span>
-      )}
     </span>
   )
 }

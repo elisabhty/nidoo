@@ -47,6 +47,7 @@ export default function Home({ go }: { go: (t: Go) => void }) {
   const toGo = nextDeco ? Math.max(0, nextDeco.cost - family.stars) : 0
   const photos = state.moments.filter((m) => m.image_url).slice(0, 3).map((m) => m.image_url!)
   const now = season()
+  const home = members.filter((m) => isToday(m.mood_at))
 
   // ── Aujourd'hui en famille : ce qui compte maintenant, dans une seule liste.
   const cared = (m: Member) => state.thoughts.some((t) => t.from_member === me.id && t.to_member === m.id && isToday(t.created_at))
@@ -140,8 +141,19 @@ export default function Home({ go }: { go: (t: Go) => void }) {
               </span>
             </div>
             <div className="overflow-hidden rounded-[22px]">
-              <House type={family.house_type} items={houseItems} photos={photos} season={now} />
+              <House
+                type={family.house_type}
+                items={houseItems}
+                photos={photos}
+                season={now}
+                people={members.map((m) => ({ m, mood: isToday(m.mood_at) ? m.mood : null, label: m.id === me.id ? 'Moi' : m.display_name, me: m.id === me.id }))}
+                onPerson={(m) => setSheet(m.id === me.id ? { k: 'humeur' } : { k: 'pensee', to: m })}
+              />
             </div>
+            <p className="px-1.5 pt-2 text-note text-brume">
+              {home.length === members.length ? 'Tout le monde a partagé son humeur aujourd’hui. ' : home.length ? `${home.length} sur ${members.length} ont partagé leur humeur aujourd’hui. ` : ''}
+              Touche un proche pour lui envoyer un câlin{myMood ? '.' : ', ou toi pour partager ton humeur.'}
+            </p>
             <button
               onClick={() => {
                 tap()
@@ -211,32 +223,6 @@ export default function Home({ go }: { go: (t: Go) => void }) {
           </Section>
 
           <WeeklyChallenge className="mt-6" />
-
-          <Section title="Nos humeurs" hint="Touche un proche pour lui envoyer un câlin.">
-            <div className="no-bar flex gap-2.5 overflow-x-auto px-4 pb-1">
-              {members.map((m) => {
-                const md = isToday(m.mood_at) ? moodOf(m.mood) : null
-                const mine = m.id === me.id
-                return (
-                  <button
-                    key={m.id}
-                    onClick={() => {
-                      tap()
-                      setSheet(mine ? { k: 'humeur' } : { k: 'pensee', to: m })
-                    }}
-                    className="presse groupe flex w-[118px] shrink-0 flex-col items-center px-2.5 pb-3 pt-3.5 text-center shadow-carte"
-                  >
-                    <Avatar m={m} size={56} mood />
-                    <span className="mt-2 w-full truncate text-sous font-semibold">{mine ? 'Moi' : m.display_name}</span>
-                    <span className={`line-clamp-2 w-full text-note leading-tight ${md ? 'text-teinte' : 'text-pale'}`}>
-                      {md ? md.label : mine ? 'Partager mon humeur' : 'Pas encore d’humeur aujourd’hui'}
-                    </span>
-                    {md && m.mood_note && <span className="mt-1 line-clamp-2 text-legende text-brume">{m.mood_note}</span>}
-                  </button>
-                )
-              })}
-            </div>
-          </Section>
 
           <Section
             title="Dessin en direct"

@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { success, tap } from '../lib/haptic'
-import type { HouseType } from '../lib/types'
+import { moodOf } from '../lib/data'
+import type { HouseType, Member } from '../lib/types'
+import { lookOf } from '../lib/look'
+import { Character } from './Character'
 import { dayPhase, season as seasonOf, type Season } from '../lib/util'
 
 // La maison de la famille : un décor vivant qui suit l'heure, la maison en 3D
@@ -43,12 +46,35 @@ const ANIM: Record<string, { frames: number; dur: number }> = {
 }
 const cover: CSSProperties = { position: 'absolute', inset: 0 }
 
+/** Un proche dans le jardin, avec son humeur du jour (null : pas encore donnée). */
+export type HousePerson = { m: Member; mood: string | null; label: string; me: boolean }
+// Places dans le jardin : de chaque côté de la maison (devant, puis un peu plus loin) et devant la porte.
+const SLOTS = [
+  { x: 11, y: 2, k: 1 },
+  { x: 89, y: 2, k: 1 },
+  { x: 29, y: 15, k: 0.82 },
+  { x: 71, y: 15, k: 0.82 },
+  { x: 50, y: 0, k: 1 },
+]
+const ORDERS: Record<number, number[]> = { 1: [4], 2: [0, 1], 3: [0, 4, 1], 4: [0, 2, 3, 1], 5: [0, 2, 4, 3, 1] }
+// Chacun bouge selon son humeur.
+const MOVES: Record<string, string> = {
+  heureux: 'sautille 1.8s ease-in-out infinite',
+  fete: 'sautille 0.9s ease-in-out infinite',
+  motive: 'sautille 1.3s ease-in-out infinite',
+  serein: 'respire 4.5s ease-in-out infinite',
+  fatigue: 'oscille 4s ease-in-out infinite',
+  nostalgique: 'oscille 6s ease-in-out infinite',
+  stresse: 'oscille 0.9s ease-in-out infinite',
+  triste: 'respire 5s ease-in-out infinite',
+}
+
 const LEAVES = ['#E8833A', '#D9572B', '#F2B33D', '#B5532A', '#E9A23B']
 const PETALS = ['#F9C4D5', '#FDE6EE', '#F4A9C2', '#FFFFFF']
 const BULBS = ['#FF5A5F', '#FFC53D', '#46A758', '#3E9BE9', '#D6409F']
 
 export default function House({
-  type, items, className = '', phase = dayPhase(), bare = false, season = seasonOf(), photos = [],
+  type, items, className = '', phase = dayPhase(), bare = false, season = seasonOf(), photos = [], people = [], onPerson,
 }: {
   type: HouseType
   items: string[]
@@ -59,6 +85,9 @@ export default function House({
   season?: Season
   /** Les dernières photos partagées, accrochées comme des souvenirs. */
   photos?: string[]
+  /** La famille devant la maison, chacun avec son humeur. */
+  people?: HousePerson[]
+  onPerson?: (m: Member) => void
 }) {
   const night = phase === 'nuit'
   const base = HOUSE[type]
@@ -133,7 +162,12 @@ export default function House({
   }
 
   return (
-    <div className={`relative aspect-[16/11] overflow-hidden ${className}`} style={{ background: SKY[phase] }} role="img" aria-label="La maison de la famille">
+    <div
+      className={`relative aspect-[16/11] overflow-hidden ${className}`}
+      style={{ background: SKY[phase] }}
+      role={people.length ? 'group' : 'img'}
+      aria-label={people.length ? 'La maison de la famille et l’humeur de chacun' : 'La maison de la famille'}
+    >
       {/* ciel : se décale moins vite que le reste au défilement */}
       <div style={{ ...cover, transform: 'translateY(calc(var(--par, 0) * 0.14px))' }}>
         {night ? (
@@ -285,6 +319,54 @@ export default function House({
             )
           })}
         </div>
+      )}
+
+      {/* la famille dans le jardin : chacun son personnage, son humeur sur le visage et dans une bulle */}
+      {!bare &&
+        people.slice(0, people.length > 5 ? 4 : 5).map((p, i, shown) => {
+          const md = moodOf(p.mood)
+          const slot = SLOTS[(ORDERS[shown.length] ?? ORDERS[5])[i]]
+          const hop = poke?.key === p.m.id
+          return (
+            <button
+              key={p.m.id}
+              onClick={() => {
+                touch(p.m.id)
+                onPerson?.(p.m)
+              }}
+              className="absolute flex -translate-x-1/2 flex-col items-center"
+              style={{ left: `${slot.x}%`, bottom: `${slot.y}%`, width: `${14 * slot.k}%`, zIndex: slot.k < 1 ? 7 : 8 }}
+              aria-label={p.me ? (md ? `Moi : ${md.label}. Changer mon humeur` : 'Partager mon humeur') : `${p.label} : ${md ? md.label : 'pas encore d’humeur aujourd’hui'}. Lui envoyer un câlin`}
+            >
+              {/* la bulle d'humeur */}
+              {md ? (
+                <span className="relative mb-[2px] flex items-center gap-[3px] whitespace-nowrap rounded-full bg-white py-[2px] pl-[5px] pr-[7px] text-[10px] font-semibold leading-[14px] text-encre shadow-[0_3px_8px_rgba(29,26,43,0.2)]" style={{ animation: `flotte ${3.6 + i * 0.5}s ease-in-out infinite` }}>
+                  <span className="h-[7px] w-[7px] shrink-0 rounded-full" style={{ background: md.color }} />
+                  {md.label}
+                  <span className="absolute -bottom-[3px] left-1/2 h-[7px] w-[7px] -translate-x-1/2 rotate-45 bg-white" />
+                </span>
+              ) : p.me ? (
+                <span className="relative mb-[2px] whitespace-nowrap rounded-full bg-teinte px-[7px] py-[2px] text-[10px] font-semibold leading-[14px] text-white shadow-[0_3px_8px_rgba(102,70,204,0.35)]" style={{ animation: 'flotte 3.6s ease-in-out infinite' }}>
+                  + Mon humeur
+                  <span className="absolute -bottom-[3px] left-1/2 h-[7px] w-[7px] -translate-x-1/2 rotate-45 bg-teinte" />
+                </span>
+              ) : null}
+              {/* le personnage : il se promène un peu, respire, cligne des yeux, saute quand on le touche */}
+              <span className="relative block w-full" style={{ animation: `marche ${8 + i * 1.7}s ease-in-out ${-i * 2}s infinite`, ['--mx' as string]: `${i % 2 ? -7 : 7}px` }}>
+                <span className="absolute bottom-[0.5%] left-1/2 h-[6%] w-[70%] -translate-x-1/2 rounded-[50%] bg-[#1d1a2b]/20 blur-[2px]" />
+                <span key={hop ? poke!.n : 0} className="block" style={{ animation: hop ? 'rebond 0.7s var(--ressort)' : undefined, transformOrigin: '50% 100%' }}>
+                  <span className={`block ${md || p.me ? '' : 'opacity-80 saturate-[0.6]'}`} style={{ animation: MOVES[p.mood ?? ''] ?? `respire ${3 + (i % 3) * 0.6}s ease-in-out infinite`, transformOrigin: '50% 100%' }}>
+                    <Character look={lookOf(p.m.avatar, p.m.user_id)} mood={p.mood} extras className="block h-auto w-full" blinkDelay={i * 1.3} />
+                  </span>
+                </span>
+              </span>
+            </button>
+          )
+        })}
+      {!bare && people.length > 5 && (
+        <span className="absolute bottom-[4%] left-1/2 flex h-[30px] w-[30px] -translate-x-1/2 items-center justify-center rounded-full bg-white/90 text-[12px] font-semibold text-encre shadow-[0_2px_8px_rgba(29,26,43,0.2)]" style={{ zIndex: 8 }}>
+          +{people.length - 4}
+        </span>
       )}
 
       {!bare && type === 'chalet' &&

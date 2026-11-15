@@ -7,6 +7,7 @@ import { success } from '../lib/haptic'
 import { copy, shareInvite } from '../lib/share'
 import { useStore } from '../lib/store'
 import type { HouseType } from '../lib/types'
+import { encodeLook, randomLook } from '../lib/look'
 import { errorText } from '../lib/util'
 
 type Step = 'accueil' | 'maison' | 'code' | 'profil' | 'invite'
@@ -22,7 +23,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
   const [preview, setPreview] = useState<{ name: string; house_type: HouseType; member_count: number } | null>(null)
   const [lookup, setLookup] = useState<'idle' | 'loading' | 'none' | string>('idle')
   const [name, setName] = useState('')
-  const [avatar, setAvatar] = useState('panda')
+  const [avatar, setAvatar] = useState(() => encodeLook(randomLook()))
   const [color, setColor] = useState('lavande')
   const [busy, setBusy] = useState(false)
   const [created, setCreated] = useState<{ id: string; code: string } | null>(null)

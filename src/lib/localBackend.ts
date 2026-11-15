@@ -1,5 +1,6 @@
 import { DECOS, PLAN_LIMITS, THOUGHTS } from './data'
 import { demoDrawing, type DemoArt } from './drawing'
+import { DEMO_LOOKS } from './look'
 import type { Backend, Drawing, Family, FamilyState, Folder, FolderItem, JoinRequest, Member, Moment, MyRequest, ThoughtKind } from './types'
 import { blobToDataUrl, compressImage, todayKey, uid } from './util'
 import { challenge, nextReward, WEEKLY, weekIndex, weekKey, weekStart, type WeeklyCounts, type WeeklyKey } from './weekly'
@@ -18,7 +19,7 @@ const inWeek = () => new Date(Date.now() + 7 * 86400000).toISOString()
 const newCode = () => Array.from({ length: 6 }, () => 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 31)]).join('')
 // Un cousin qui a tapé le code et attend qu'on lui ouvre : pour voir l'acceptation en mode démo.
 const demoRequest = (fid: string): JoinRequest => ({
-  id: uid(), family_id: fid, user_id: uid(), display_name: 'Cousin Hugo', avatar: 'lion', color: 'ciel', status: 'attente', created_at: iso(8),
+  id: uid(), family_id: fid, user_id: uid(), display_name: 'Cousin Hugo', avatar: DEMO_LOOKS['Cousin Hugo'], color: 'ciel', status: 'attente', created_at: iso(8),
 })
 const inDays = (days: number, h = 9, m = 0) => {
   const d = new Date()
@@ -75,7 +76,7 @@ function demoDossiers(f: Raw) {
 }
 
 // Mise à niveau des maisons créées avec l'ancienne version des dossiers.
-function migrate(f: Raw) {
+function migrate(f: Raw, userId: string) {
   f.folderMembers ??= []
   f.folderItems ??= []
   f.folders = ((f.folders ?? []) as (Folder | OldFolder)[]).map((d) => {
@@ -99,6 +100,9 @@ function migrate(f: Raw) {
   }
   f.moments = keep
   if (!f.dossiersDemo) demoDossiers(f)
+  // Les proches fictifs passent des animaux aux personnages.
+  for (const m of f.members) if (!m.avatar.startsWith('perso:') && DEMO_LOOKS[m.display_name] && m.user_id !== userId) m.avatar = DEMO_LOOKS[m.display_name]
+  for (const r of f.requests ?? []) if (!r.avatar.startsWith('perso:') && DEMO_LOOKS[r.display_name]) r.avatar = DEMO_LOOKS[r.display_name]
   // Rôles : le créateur est responsable ; une famille garde toujours au moins un responsable.
   for (const m of f.members) m.role ??= m.user_id === f.family.created_by ? 'responsable' : 'membre'
   if (f.members.length && !f.members.some((m) => m.role === 'responsable')) f.members[0].role = 'responsable'
@@ -116,7 +120,7 @@ function read(): Db {
     const raw = localStorage.getItem(KEY)
     if (raw) {
       const db = JSON.parse(raw) as Db
-      for (const f of Object.values(db.families)) migrate(f)
+      for (const f of Object.values(db.families)) migrate(f, db.userId)
       return db
     }
   } catch {
@@ -207,9 +211,9 @@ export function createLocalBackend(): Backend {
       mood_at: mood ? iso(90) : null, joined_at: new Date().toISOString(), role: 'membre',
     })
     const moi = mk(me.displayName, me.avatar, me.color, null, null, db.userId)
-    const mamie = mk('Mamie Jo', 'hibou', 'peche', 'nostalgique', 'Je trie de vieilles photos', )
-    const papa = mk('Papa', 'ours', 'mousse', 'fatigue', 'Grosse semaine')
-    const lea = mk('Léa', 'renard', 'rose', 'heureux', 'Partiels terminés !')
+    const mamie = mk('Mamie Jo', DEMO_LOOKS['Mamie Jo'], 'peche', 'nostalgique', 'Je trie de vieilles photos')
+    const papa = mk('Papa', DEMO_LOOKS.Papa, 'mousse', 'fatigue', 'Grosse semaine')
+    const lea = mk('Léa', DEMO_LOOKS['Léa'], 'rose', 'heureux', 'Partiels terminés !')
     ;(joined ? papa : moi).role = 'responsable'
     db.families[fid] = {
       family: { id: fid, name, house_type: houseType, invite_code: 'DEMO42', plan: 'free', stars: 14, created_by: joined ? papa.user_id : db.userId, invite_expires_at: inWeek() },

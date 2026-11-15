@@ -363,7 +363,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
         <p className="entete mt-6">Réglages</p>
         <div className="groupe mx-4 shadow-carte">
           <Row icon={<CircleHelp size={17} strokeWidth={2.4} />} tint="#F58B5C" label="Comment ça marche" onClick={onGuide} />
-          <Row icon={<UserRound size={17} strokeWidth={2.4} />} label="Mon profil" value={me.display_name} onClick={() => setSheet('profil')} last={api.mode !== 'supabase'} />
+          <Row icon={<UserRound size={17} strokeWidth={2.4} />} label="Mon personnage" value={me.display_name} onClick={() => setSheet('profil')} last={api.mode !== 'supabase'} />
           {api.mode === 'supabase' && <Row icon={<Mail size={16} strokeWidth={2.4} />} tint="#5AA3E0" label="Sauvegarder mon compte" value={linked ? 'Activé' : undefined} onClick={() => setSheet('compte')} last />}
         </div>
         <div className="groupe mx-4 mt-5 shadow-carte">
@@ -382,7 +382,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
       </Screen>
 
       {sheet === 'profil' && (
-        <Sheet title="Mon profil" onClose={() => setSheet(null)}>
+        <Sheet title="Mon personnage" onClose={() => setSheet(null)} tall>
           <ProfilePicker name={name} setName={setName} avatar={avatar} setAvatar={setAvatar} color={color} setColor={setColor} />
           <Btn className="mt-5" disabled={!name.trim()} onClick={async () => (await run((a) => a.updateMember(me.id, { display_name: name.trim(), avatar, color }), 'Profil mis à jour')) && setSheet(null)}>
             Enregistrer

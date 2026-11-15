@@ -9,7 +9,8 @@ App React + Tailwind + Capacitor (iOS), backend Supabase. Interface aux codes iO
 Au premier lancement, un guide en 6 écrans explique chaque fonctionnalité (rejouable depuis Famille > Comment ça marche).
 
 
-- **Maison** : « Notre petit monde » (la maison animée, son niveau et les étoiles qui manquent avant la prochaine surprise), trois gestes rapides (un câlin, une photo, un dessin), « Aujourd'hui en famille » (le proche qui a une petite mine, son humeur, les rendez-vous du jour et du lendemain, les missions, la question du jour), le défi de la semaine, les humeurs et le dessin en direct. La maison suit l'heure et les saisons (feuilles d'automne, neige, guirlande de Noël, pétales, papillons) et les dernières photos partagées y sont accrochées à un fil.
+- **Maison** : « Notre petit monde » (la maison animée, son niveau et les étoiles qui manquent avant la prochaine surprise), trois gestes rapides (un câlin, une photo, un dessin), « Aujourd'hui en famille » (le proche qui a une petite mine, son humeur, les rendez-vous du jour et du lendemain, les missions, la question du jour), le défi de la semaine, les humeurs et le dessin en direct. La maison suit l'heure et les saisons (feuilles d'automne, neige, guirlande de Noël, pétales, papillons) et les dernières photos partagées y sont accrochées à un fil. La famille vit dans le jardin : chacun son personnage, qui respire, cligne des yeux, se promène et bouge selon son humeur (il sautille quand il est au top, se balance quand il est fatigué…), avec une bulle qui dit son humeur du jour ; toucher un proche ouvre le câlin, se toucher soi-même ouvre « Mon humeur du jour ».
+- **Personnages** : à l'inscription, chacun crée son personnage, à la manière des Mii : un même visage pour tous et ce qui rend chacun unique (teint, 12 coupes, 10 couleurs de cheveux, couleur des yeux, lunettes, barbe, grain de beauté, taches de rousseur, rouge à lèvres, boucles d'oreilles, couleur du haut). Son visage prend son humeur du jour partout dans l'app (sourire, yeux fermés, sourcils froncés, larme, goutte de stress, chapeau de fête dans la maison). Modifiable dans Famille > Mon personnage.
 - **Souvenirs** : des dossiers créés avec les proches de son choix. Chacun a une couverture, des membres, des sous-dossiers, des photos, des notes modifiables par tous ses membres et une discussion. On ne voit que les dossiers dont on fait partie ; le créateur gère les membres, les autres peuvent quitter. Le fil de la famille (photos surprises et petits mots envoyés à tous) est dans le même onglet.
 - **On pense à toi** : un cœur, un câlin, du courage, un petit mot, reçu en animation sans ouvrir de conversation.
 - **Humeur du jour** : son humeur et un mot, visibles par la famille.
@@ -40,7 +41,7 @@ Sans clés Supabase, l'app démarre en **mode démo** : la maison vit sur l'appa
 
 ## Brancher Supabase
 
-1. Créer un projet Supabase et y exécuter, dans l'ordre, `supabase/migrations/0001_nidoo.sql`, `0002_dossiers.sql`, `0003_dessins.sql`, `0004_invitations.sql` puis `0005_defis.sql`.
+1. Créer un projet Supabase et y exécuter, dans l'ordre, `supabase/migrations/0001_nidoo.sql`, `0002_dossiers.sql`, `0003_dessins.sql`, `0004_invitations.sql`, `0005_defis.sql` puis `0006_personnages.sql`.
 2. Dans Authentication > Sign In / Providers, activer **Allow anonymous sign-ins** (chaque téléphone reçoit un compte invisible, rattachable ensuite à un e-mail depuis « Notre famille »).
 3. Copier `.env.example` en `.env.production` (et `.env.local` pour le dev) avec l'URL du projet et la clé publishable.
 

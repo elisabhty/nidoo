@@ -1,0 +1,334 @@
+import { useId, type ReactNode } from 'react'
+import { EYES, HAIR_COLORS, HAIRSTYLES, SKINS, TOPS, type Look } from '../lib/look'
+
+// Un personnage de la famille, dessiné en SVG : un même visage pour tous, et ce qui rend chacun unique.
+// Son visage change avec son humeur du jour (sourire, yeux fermés, sourcils froncés, larme…).
+
+function shade(hex: string, k: number): string {
+  const n = parseInt(hex.slice(1), 16)
+  const f = (c: number) => Math.max(0, Math.min(255, Math.round(k < 0 ? c * (1 + k) : c + (255 - c) * k)))
+  return `#${[(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) => f(c).toString(16).padStart(2, '0')).join('')}`
+}
+
+type Circ = [number, number, number]
+const curls = (cs: Circ[], fill: string, stroke: string) => cs.map(([x, y, r], i) => <circle key={i} cx={x} cy={y} r={r} fill={fill} stroke={stroke} strokeWidth={0.6} strokeOpacity={0.35} />)
+
+/** Cheveux de derrière (sous la tête) et de devant (sur le front). */
+function hair(style: string, H: string): { back: ReactNode; front: ReactNode } {
+  const Hd = shade(H, -0.28)
+  const p = (d: string, extra: Record<string, unknown> = {}) => <path d={d} fill={H} {...extra} />
+  switch (style) {
+    case 'court':
+      return { back: null, front: p('M24.5 41 C23 22 35 12 50 12 C65 12 77 22 75.5 41 C73 33 69 27 62 25 C55 28.5 44 29 35 27 C30 30 26 35 24.5 41 Z') }
+    case 'raie':
+      return {
+        back: null,
+        front: (
+          <>
+            {p('M24 43 C21.5 21 35 10.5 51 10.5 C67 10.5 79 21 76 43 C74.5 34 71 27.5 64 24.5 C58 30 44 33.5 31 31.5 C27.5 34.5 25 38.5 24 43 Z')}
+            <path d="M58 12.5 Q56.5 19 64 24.5" fill="none" stroke={Hd} strokeWidth={1} strokeLinecap="round" opacity={0.6} />
+          </>
+        ),
+      }
+    case 'boucles':
+      return {
+        back: null,
+        front: <g>{curls([[27, 38, 6.5], [28, 30, 7], [33, 22.5, 7.5], [41, 17.5, 8], [50, 15.5, 8.5], [59, 17.5, 8], [67, 22.5, 7.5], [72, 30, 7], [73, 38, 6.5], [38, 26.5, 6.5], [50, 24, 6.5], [62, 26.5, 6.5]], H, Hd)}</g>,
+      }
+    case 'longs':
+      return {
+        back: p('M22.5 40 C21 19 35 9.5 50 9.5 C65 9.5 79 19 77.5 40 L79.5 88 Q66 93 50 91 Q34 93 20.5 88 Z'),
+        front: p('M24 45 C22 21 35 11.5 50 11.5 C65 11.5 78 21 76 45 C75.5 33 70 26 61 23.5 C55 28 42 30.5 30 32 C27 35.5 25 40 24 45 Z'),
+      }
+    case 'bouclesLongs':
+      return {
+        back: <g>{curls([[50, 14, 13], [34, 18, 11], [66, 18, 11], [25, 30, 10], [75, 30, 10], [22, 44, 10], [78, 44, 10], [22, 58, 10], [78, 58, 10], [24, 72, 10], [76, 72, 10], [28, 84, 9], [72, 84, 9]], H, Hd)}</g>,
+        front: <g>{curls([[28, 35, 6], [33, 26, 7], [41, 20, 7.5], [50, 18, 8], [59, 20, 7.5], [67, 26, 7], [72, 35, 6], [44, 27, 5.5], [56, 27, 5.5]], H, Hd)}</g>,
+      }
+    case 'carre':
+      return {
+        back: p('M21.5 42 C20 18 35 9.5 50 9.5 C65 9.5 80 18 78.5 42 L79.5 66 Q73 71 65 68.5 L35 68.5 Q27 71 20.5 66 Z'),
+        front: p('M23.5 38 C23 19 36 11.5 50 11.5 C64 11.5 77 19 76.5 38 C70 34.5 30 34.5 23.5 38 Z'),
+      }
+    case 'chignon':
+      return {
+        back: <circle cx={50} cy={10.5} r={10} fill={H} />,
+        front: (
+          <>
+            {p('M25 41 C24 23 36 14.5 50 14.5 C64 14.5 76 23 75 41 C71 31 62 24.5 50 24.5 C38 24.5 29 31 25 41 Z')}
+            <path d="M40 16.5 Q44 21 46 24.5 M60 16.5 Q56 21 54 24.5" fill="none" stroke={Hd} strokeWidth={0.9} strokeLinecap="round" opacity={0.55} />
+          </>
+        ),
+      }
+    case 'queue':
+      return {
+        back: p('M65 17 C82 18 87 40 81 63 C79 71 72 73 74 61 C77 47 74 33 63 26 Z'),
+        front: p('M24.5 42 C23 22 35 12.5 50 12.5 C65 12.5 77 22 75.5 42 C73 32 66 26 58 24 C50 27.5 38 29 30 30 C27.5 33.5 25.5 37.5 24.5 42 Z'),
+      }
+    case 'tresses': {
+      const braid = (x: number) => (
+        <g>
+          {[52, 61, 70, 79].map((y) => (
+            <ellipse key={y} cx={x} cy={y} rx={4.8} ry={5.6} fill={H} stroke={Hd} strokeWidth={0.6} strokeOpacity={0.4} />
+          ))}
+          <rect x={x - 3} y={84} width={6} height={2.6} rx={1.2} fill="#E77BA0" />
+          <path d={`M${x - 3} 86.5 L${x} 93 L${x + 3} 86.5 Z`} fill={H} />
+        </g>
+      )
+      return {
+        back: (
+          <>
+            {braid(24)}
+            {braid(76)}
+          </>
+        ),
+        front: (
+          <>
+            {p('M24.5 43 C23 22 35 12.5 50 12.5 C65 12.5 77 22 75.5 43 C73 31 63 23 50 21 C37 23 27 31 24.5 43 Z')}
+            <path d="M50 12.5 L50 21" stroke={Hd} strokeWidth={1} strokeLinecap="round" opacity={0.6} />
+          </>
+        ),
+      }
+    }
+    case 'afro':
+      return {
+        back: (
+          <g>
+            <circle cx={50} cy={32} r={30} fill={H} />
+            {curls([[24, 22, 9], [33, 10, 9], [50, 5, 9], [67, 10, 9], [76, 22, 9], [80, 37, 8], [20, 37, 8], [22, 50, 8], [78, 50, 8]], H, Hd)}
+          </g>
+        ),
+        front: p('M25 40 C24.5 26 36 19 50 19 C64 19 75.5 26 75 40 C71 31 62 27 50 27 C38 27 29 31 25 40 Z'),
+      }
+    case 'rase':
+      return { back: null, front: p('M25.5 40 C24.5 23 36 15 50 15 C64 15 75.5 23 74.5 40 C71 30 62 25 50 25 C38 25 29 30 25.5 40 Z', { opacity: 0.55 }) }
+    default:
+      return { back: null, front: <ellipse cx={42} cy={22} rx={6} ry={3} fill="#FFFFFF" opacity={0.25} transform="rotate(-20 42 22)" /> }
+  }
+}
+
+export function Character({
+  look, mood = null, bust = false, extras = false, size, className = '', blinkDelay = 0, still = false,
+}: {
+  look: Look
+  mood?: string | null
+  /** buste : la tête et les épaules, pour les pastilles rondes */
+  bust?: boolean
+  /** chapeau de fête, larme, goutte, « z » : seulement dans la maison */
+  extras?: boolean
+  size?: number
+  className?: string
+  blinkDelay?: number
+  /** sans clignement (petites pastilles) */
+  still?: boolean
+}) {
+  const id = useId().replace(/:/g, '')
+  const skin = SKINS[look.s]
+  const skinD = shade(skin, -0.16)
+  const skinDD = shade(skin, -0.32)
+  const H = HAIR_COLORS[look.c].hex
+  const brow = look.h === HAIRSTYLES.findIndex((x) => x.key === 'chauve') ? shade(skin, -0.45) : shade(H, -0.3)
+  const eye = EYES[look.e]
+  const top = TOPS[look.t]
+  const hs = hair(HAIRSTYLES[look.h].key, H)
+  const ink = '#2B2540'
+  const lip = look.l ? '#D2384F' : '#8E3B46'
+
+  // ── yeux, sourcils et bouche selon l'humeur
+  const L = 40.5
+  const R = 59.5
+  const Y = 46
+  const openEye = (cx: number, dx = 0, dy = 0, ry = 4.3) => (
+    <g key={cx}>
+      <ellipse cx={cx} cy={Y} rx={3.6} ry={ry} fill={eye} />
+      <ellipse cx={cx + dx} cy={Y + 0.5 + dy} rx={2} ry={Math.min(2.5, ry * 0.6)} fill="#1D1A2B" />
+      <circle cx={cx + 1.2 + dx * 0.5} cy={Y - 1.5 + dy * 0.5} r={1.05} fill="#FFFFFF" />
+    </g>
+  )
+  const arcEye = (cx: number, up: boolean) => <path key={cx} d={up ? `M${cx - 3.6} ${Y + 1.6} Q${cx} ${Y - 2.6} ${cx + 3.6} ${Y + 1.6}` : `M${cx - 3.6} ${Y} Q${cx} ${Y + 3} ${cx + 3.6} ${Y}`} fill="none" stroke={ink} strokeWidth={1.8} strokeLinecap="round" />
+  const sleepy = (cx: number) => (
+    <g key={cx}>
+      <ellipse cx={cx} cy={Y + 1.2} rx={3.6} ry={2.4} fill={eye} />
+      <ellipse cx={cx} cy={Y + 1.6} rx={1.8} ry={1.5} fill="#1D1A2B" />
+      <path d={`M${cx - 4.2} ${Y - 0.2} Q${cx} ${Y - 1.4} ${cx + 4.2} ${Y - 0.2}`} fill="none" stroke={ink} strokeWidth={1.5} strokeLinecap="round" />
+    </g>
+  )
+  const brows = {
+    neutre: ['M35.5 39.5 Q40.5 36.8 45.5 39.2', 'M54.5 39.2 Q59.5 36.8 64.5 39.5'],
+    fronce: ['M35.5 38 Q40.5 38.4 45.5 40.6', 'M54.5 40.6 Q59.5 38.4 64.5 38'],
+    inquiet: ['M35.5 40 Q40 39 45 36.6', 'M55 36.6 Q60 39 64.5 40'],
+    haut: ['M35.5 38 Q40.5 35 45.5 37.6', 'M54.5 37.6 Q59.5 35 64.5 38'],
+  }
+  let eyes: ReactNode = [openEye(L), openEye(R)]
+  let br = brows.neutre
+  let mouth: ReactNode = <path d="M45 59.5 Q50 63.6 55 59.5" fill="none" stroke={lip} strokeWidth={look.l ? 2.4 : 1.8} strokeLinecap="round" />
+  let extra: ReactNode = null
+  let blink = true
+  const open = (d: string) => (
+    <>
+      <path d={d} fill={lip} />
+      <path d="M46.6 59.6 Q50 61 53.4 59.6 L53.4 58.9 L46.6 58.9 Z" fill="#FFFFFF" opacity={0.9} />
+    </>
+  )
+  switch (mood) {
+    case 'heureux':
+      mouth = open('M44.2 58.6 Q50 66.4 55.8 58.6 Q50 60 44.2 58.6 Z')
+      break
+    case 'serein':
+      eyes = [arcEye(L, false), arcEye(R, false)]
+      blink = false
+      mouth = <path d="M45.5 59.6 Q50 62.6 54.5 59.6" fill="none" stroke={lip} strokeWidth={1.8} strokeLinecap="round" />
+      break
+    case 'motive':
+      br = brows.fronce
+      mouth = open('M44 58.4 Q50 65 56 58.4 Q50 59.6 44 58.4 Z')
+      if (extras) extra = <path d="M76 14 l1.3 3.2 3.2 1.3 -3.2 1.3 -1.3 3.2 -1.3 -3.2 -3.2 -1.3 3.2 -1.3 Z" fill="#F2B33D" className="perso-scintille" />
+      break
+    case 'fete':
+      eyes = [arcEye(L, true), arcEye(R, true)]
+      blink = false
+      br = brows.haut
+      mouth = open('M43.6 57.8 Q50 68 56.4 57.8 Q50 59.4 43.6 57.8 Z')
+      if (extras)
+        extra = (
+          <g>
+            <path d="M50 -1 L40.5 17.5 Q50 21 59.5 17.5 Z" fill="#F2B33D" />
+            <path d="M45.5 7.5 L54 8.8 M43 12.8 L57 14.4" stroke="#E5484D" strokeWidth={2} strokeLinecap="round" />
+            <circle cx={50} cy={-1} r={2.8} fill="#E77BA0" />
+            {[[18, 22, '#8E6FF0'], [82, 26, '#5FB277'], [14, 40, '#F58B5C'], [86, 44, '#5AA3E0']].map(([x, y, c]) => (
+              <rect key={`${x}`} x={x as number} y={y as number} width={2.6} height={4} rx={0.8} fill={c as string} className="perso-confetti" />
+            ))}
+          </g>
+        )
+      break
+    case 'fatigue':
+      eyes = [sleepy(L), sleepy(R)]
+      blink = false
+      br = ['M35.5 40 Q40.5 38.6 45.5 40', 'M54.5 40 Q59.5 38.6 64.5 40']
+      mouth = <path d="M46.6 60.6 Q50 59.6 53.4 60.6" fill="none" stroke={lip} strokeWidth={1.8} strokeLinecap="round" />
+      if (extras)
+        extra = (
+          <g fill="#8E8AA6" fontWeight={800} fontFamily="ui-rounded, Nunito, sans-serif" className="perso-zz">
+            <text x={72} y={22} fontSize={7}>z</text>
+            <text x={78} y={14} fontSize={9.5}>z</text>
+          </g>
+        )
+      break
+    case 'stresse':
+      br = brows.inquiet
+      mouth = <path d="M44.6 60.4 q1.8 -1.7 3.6 0 q1.8 1.7 3.6 0 q1.8 -1.7 3.6 0" fill="none" stroke={lip} strokeWidth={1.7} strokeLinecap="round" />
+      extra = <path d="M71 25 Q74.6 31 71 33.4 Q67.4 31 71 25 Z" fill="#8FD3FF" stroke="#5AA3E0" strokeWidth={0.6} className={extras ? 'perso-goutte' : undefined} />
+      break
+    case 'nostalgique':
+      eyes = [openEye(L, -0.7, -1.4), openEye(R, -0.7, -1.4)]
+      br = brows.haut
+      mouth = <path d="M46.4 60 Q50 62 53.6 60" fill="none" stroke={lip} strokeWidth={1.8} strokeLinecap="round" />
+      break
+    case 'triste':
+      br = brows.inquiet
+      eyes = [openEye(L, 0, 0.6, 3.9), openEye(R, 0, 0.6, 3.9)]
+      mouth = <path d="M45.4 61.8 Q50 58 54.6 61.8" fill="none" stroke={lip} strokeWidth={1.8} strokeLinecap="round" />
+      extra = <path d="M37.6 50.5 Q40 55 37.6 56.8 Q35.2 55 37.6 50.5 Z" fill="#8FD3FF" stroke="#5AA3E0" strokeWidth={0.5} className={extras ? 'perso-larme' : undefined} />
+      break
+  }
+
+  const glasses = [
+    null,
+    <g key="r" fill="#FFFFFF" fillOpacity={0.14} stroke={ink} strokeWidth={1.5}>
+      <circle cx={L} cy={46.5} r={6.6} />
+      <circle cx={R} cy={46.5} r={6.6} />
+      <path d="M47.1 46 Q50 44.4 52.9 46 M33.9 45.6 L26.8 44.2 M66.1 45.6 L73.2 44.2" fill="none" />
+    </g>,
+    <g key="c" fill="#FFFFFF" fillOpacity={0.14} stroke={ink} strokeWidth={1.5}>
+      <rect x={33.4} y={40.8} width={14.2} height={10.6} rx={3} />
+      <rect x={52.4} y={40.8} width={14.2} height={10.6} rx={3} />
+      <path d="M47.6 45.6 Q50 44.2 52.4 45.6 M33.4 44.6 L26.8 43.8 M66.6 44.6 L73.2 43.8" fill="none" />
+    </g>,
+    <g key="s">
+      <path d="M33 41.6 H47.8 V46.5 Q47.8 52 41.6 52 Q33 52 33 46.5 Z M52.2 41.6 H67 V46.5 Q67 52 58.4 52 Q52.2 52 52.2 46.5 Z" fill="#2B2540" />
+      <path d="M47.8 43.4 Q50 42.2 52.2 43.4 M33 43 L26.8 42.4 M67 43 L73.2 42.4" stroke="#2B2540" strokeWidth={1.4} fill="none" />
+      <path d="M36 43.8 L39.5 43.8 M55.2 43.8 L58.7 43.8" stroke="#FFFFFF" strokeWidth={1.2} strokeLinecap="round" opacity={0.5} />
+    </g>,
+  ][look.g]
+  const beard = [
+    null,
+    <g key="c" fill={H}>
+      <path d="M27 47 C27.5 62 38 71 50 71 C62 71 72.5 62 73 47 C71 57 64 63.5 56 64 Q50 66.6 44 64 C36 63.5 29 57 27 47 Z" />
+      <path d="M43 57.6 Q50 54.4 57 57.6 Q50 59.1 43 57.6 Z" />
+    </g>,
+    <path key="m" d="M42.5 57.8 Q46 54.4 50 56.1 Q54 54.4 57.5 57.8 Q54 59.4 50 57.9 Q46 59.4 42.5 57.8 Z" fill={H} />,
+    <g key="l" fill={H}>
+      <path d="M27 46 C27 66 37 80 50 81.5 C63 80 73 66 73 46 C71 57 64 63.5 56 64 Q50 66.6 44 64 C36 63.5 29 57 27 46 Z" />
+      <path d="M43 57.6 Q50 54.4 57 57.6 Q50 59.1 43 57.6 Z" />
+    </g>,
+  ][look.b]
+  const mole = [null, [36.6, 57.2], [63.6, 56.2], [55.8, 57]][look.m] as number[] | null
+
+  const box = bust ? '10 6 80 80' : extras ? '8 -6 84 134' : '8 0 84 128'
+  const ratio = bust ? 1 : extras ? 134 / 84 : 128 / 84
+  return (
+    <svg viewBox={box} width={size} height={size ? size * ratio : undefined} className={className} aria-hidden>
+      <defs>
+        <linearGradient id={`p${id}`} x1="0.3" y1="0" x2="0.7" y2="1">
+          <stop offset="0" stopColor={shade(skin, 0.1)} />
+          <stop offset="1" stopColor={skinD} />
+        </linearGradient>
+        <linearGradient id={`t${id}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={shade(top, 0.12)} />
+          <stop offset="1" stopColor={shade(top, -0.12)} />
+        </linearGradient>
+      </defs>
+
+      {hs.back}
+
+      {/* corps */}
+      {!bust && (
+        <g>
+          <rect x={39} y={107} width={8.5} height={15} rx={3.5} fill="#3B3355" />
+          <rect x={52.5} y={107} width={8.5} height={15} rx={3.5} fill="#3B3355" />
+          <ellipse cx={42.6} cy={122.5} rx={6.2} ry={3} fill="#2B2540" />
+          <ellipse cx={57.4} cy={122.5} rx={6.2} ry={3} fill="#2B2540" />
+          <path d="M31.5 87 C26 95 25 103 27 110" fill="none" stroke={`url(#t${id})`} strokeWidth={8.5} strokeLinecap="round" />
+          <path d="M68.5 87 C74 95 75 103 73 110" fill="none" stroke={`url(#t${id})`} strokeWidth={8.5} strokeLinecap="round" />
+          <circle cx={27} cy={111.5} r={4.4} fill={skin} />
+          <circle cx={73} cy={111.5} r={4.4} fill={skin} />
+        </g>
+      )}
+      <path d={bust ? 'M18 94 C18 84 32 75.5 50 75.5 C68 75.5 82 84 82 94 Z' : 'M28 113 C28 88 37 75.5 50 75.5 C63 75.5 72 88 72 113 Z'} fill={`url(#t${id})`} />
+      <rect x={44.2} y={62} width={11.6} height={15} rx={5} fill={skinD} />
+      <path d="M44.4 75.8 Q50 81 55.6 75.8" fill={skinD} />
+
+      {/* tête */}
+      <ellipse cx={26.4} cy={46.5} rx={4.1} ry={5.6} fill={skinD} />
+      <ellipse cx={73.6} cy={46.5} rx={4.1} ry={5.6} fill={skinD} />
+      {look.o === 1 && (
+        <>
+          <circle cx={26.2} cy={53.2} r={1.8} fill="#F2C14E" stroke="#C99A2E" strokeWidth={0.5} />
+          <circle cx={73.8} cy={53.2} r={1.8} fill="#F2C14E" stroke="#C99A2E" strokeWidth={0.5} />
+        </>
+      )}
+      <path d="M26 43 C26 26 37 17 50 17 C63 17 74 26 74 43 C74 58 64 69.5 50 69.5 C36 69.5 26 58 26 43 Z" fill={`url(#p${id})`} />
+
+      {/* visage */}
+      <ellipse cx={35.6} cy={55.2} rx={4.4} ry={2.7} fill="#FF8FA3" opacity={0.3} />
+      <ellipse cx={64.4} cy={55.2} rx={4.4} ry={2.7} fill="#FF8FA3" opacity={0.3} />
+      {look.f === 1 &&
+        [[41.8, 52.4], [44.4, 54.4], [40.6, 55.2], [58.2, 52.4], [55.6, 54.4], [59.4, 55.2], [43, 50.8], [57, 50.8]].map(([x, y]) => (
+          <circle key={`${x}${y}`} cx={x} cy={y} r={0.6} fill={skinDD} opacity={0.75} />
+        ))}
+      <g className={blink && !still ? 'perso-cligne' : undefined} style={{ animationDelay: `${blinkDelay}s` }}>
+        {eyes}
+      </g>
+      <path d={br[0]} fill="none" stroke={brow} strokeWidth={1.9} strokeLinecap="round" />
+      <path d={br[1]} fill="none" stroke={brow} strokeWidth={1.9} strokeLinecap="round" />
+      <path d="M50.2 50.4 Q52.3 53.6 49.8 54.6" fill="none" stroke={skinDD} strokeWidth={1.3} strokeLinecap="round" opacity={0.7} />
+      {beard}
+      {mouth}
+      {mole && <circle cx={mole[0]} cy={mole[1]} r={0.95} fill="#4A2E24" />}
+
+      {hs.front}
+      {glasses}
+      {(extras || mood === 'triste' || mood === 'stresse') && extra}
+    </svg>
+  )
+}

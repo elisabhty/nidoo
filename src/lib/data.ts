@@ -1,14 +1,15 @@
 import type { HouseType, ThoughtKind } from './types'
 
-export const MOODS: { key: string; label: string }[] = [
-  { key: 'heureux', label: 'Au top' },
-  { key: 'serein', label: 'Zen' },
-  { key: 'motive', label: 'À fond' },
-  { key: 'fete', label: 'En fête' },
-  { key: 'fatigue', label: 'Fatigue' },
-  { key: 'stresse', label: 'Stress' },
-  { key: 'nostalgique', label: 'Nostalgie' },
-  { key: 'triste', label: 'Coup de mou' },
+/** color : la pastille de l'humeur dans la bulle au-dessus de chacun, devant la maison. */
+export const MOODS: { key: string; label: string; color: string }[] = [
+  { key: 'heureux', label: 'Au top', color: '#F5B700' },
+  { key: 'serein', label: 'Zen', color: '#12A594' },
+  { key: 'motive', label: 'À fond', color: '#F76B15' },
+  { key: 'fete', label: 'En fête', color: '#D6409F' },
+  { key: 'fatigue', label: 'Fatigue', color: '#8E8AA6' },
+  { key: 'stresse', label: 'Stress', color: '#E5484D' },
+  { key: 'nostalgique', label: 'Nostalgie', color: '#6E56CF' },
+  { key: 'triste', label: 'Coup de mou', color: '#3E9BE9' },
 ]
 export const moodOf = (key: string | null) => MOODS.find((m) => m.key === key) ?? null
 

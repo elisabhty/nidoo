@@ -1,6 +1,6 @@
 import { Camera, Images, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { MOODS, THOUGHTS, thoughtOf } from '../lib/data'
+import { moodOf, MOODS, THOUGHTS, thoughtOf } from '../lib/data'
 import { select, success } from '../lib/haptic'
 import { useHome } from '../lib/store'
 import type { EventKind, Member, ThoughtKind } from '../lib/types'
@@ -43,7 +43,7 @@ export function MoodSheet({ onClose }: { onClose: () => void }) {
               aria-pressed={on}
               className={`presse flex flex-col items-center gap-1 rounded-[20px] pb-2.5 pt-2 ${on ? 'bg-teinte-doux ring-2 ring-teinte' : 'bg-carte'}`}
             >
-              <Art name={`humeur-${m.key}`} size={56} />
+              <Avatar m={{ ...state.me, mood: m.key, mood_at: new Date().toISOString() }} size={56} mood />
               <span className={`text-legende ${on ? 'font-semibold text-teinte-fonce' : 'font-medium text-encre'}`}>{m.label}</span>
             </button>
           )
@@ -198,6 +198,15 @@ export function ThoughtSheet({ onClose, to }: { onClose: () => void; to?: Member
               )
             })}
           </div>
+          {target && isToday(target.mood_at) && moodOf(target.mood) && (
+            <div className="anim-entre mt-3 flex items-center gap-3 rounded-[18px] bg-carte px-3.5 py-2.5 shadow-carte">
+              <Avatar m={target} size={42} mood />
+              <p className="min-w-0 flex-1 text-sous">
+                Humeur de {target.display_name} aujourd’hui : <span className="font-semibold">{moodOf(target.mood)!.label}</span>
+                {target.mood_note && <span className="block truncate text-note text-brume">« {target.mood_note} »</span>}
+              </p>
+            </div>
+          )}
           <div className="mt-4 grid grid-cols-4 gap-2">
             {THOUGHTS.map((t) => {
               const on = kind === t.key && !message.trim()
