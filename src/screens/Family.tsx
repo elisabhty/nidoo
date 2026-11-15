@@ -1,13 +1,14 @@
 import { Check, CircleHelp, Copy, Crown, House as HouseIcon, LogOut, Mail, Pencil, Plus, Share, UserRound } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import House from '../components/House'
+import { DrawingsSheet, DrawingWidget, DrawSheet } from '../components/drawing'
 import { eventArt } from '../components/sheets'
 import { Art, Avatar, Btn, confirmer, Rond, Row, Screen, Section, Sheet } from '../components/ui'
 import { DECOS, moodOf, PLAN_LIMITS } from '../lib/data'
 import { select } from '../lib/haptic'
 import { copy, shareInvite } from '../lib/share'
 import { useHome } from '../lib/store'
-import type { HouseType } from '../lib/types'
+import type { Drawing, HouseType } from '../lib/types'
 import { dayLabel, errorText, isToday } from '../lib/util'
 import { upcoming } from './Home'
 import { HousePicker, ProfilePicker } from '../components/pickers'
@@ -15,10 +16,10 @@ import Onboarding from './Onboarding'
 
 type Open = null | 'profil' | 'maison' | 'plus' | 'compte' | 'ajouter'
 
-function Tuile({ title, locked, children }: { title: string; locked?: boolean; children: ReactNode }) {
+function Tuile({ title, locked, wide, children }: { title: string; locked?: boolean; wide?: boolean; children: ReactNode }) {
   return (
-    <div className="w-[158px] shrink-0">
-      <div className="relative h-[158px] overflow-hidden rounded-[30px] bg-carte shadow-carte">
+    <div className={`${wide ? 'w-[338px]' : 'w-[158px]'} shrink-0`}>
+      <div className="relative h-[158px] overflow-hidden rounded-[26px] bg-carte shadow-carte">
         {children}
         {locked && (
           <span className="verre absolute right-2.5 top-2.5 flex h-6 items-center gap-1 rounded-full px-2 text-mini font-semibold text-encre">
@@ -31,7 +32,7 @@ function Tuile({ title, locked, children }: { title: string; locked?: boolean; c
   )
 }
 
-function Widgets() {
+function Widgets({ onDraw, onOpen }: { onDraw: () => void; onOpen: (d: Drawing) => void }) {
   const { state } = useHome()
   const { family, members, me } = state
   const free = family.plan === 'free'
@@ -48,6 +49,9 @@ function Widgets() {
       <Tuile title="Notre maison">
         <House type={family.house_type} items={state.houseItems} className="h-full !aspect-auto" bare />
         <p className="absolute inset-x-3 bottom-2.5 truncate text-note font-semibold text-white drop-shadow">Famille {family.name}</p>
+      </Tuile>
+      <Tuile title="Dessin en direct" wide>
+        <DrawingWidget compact onOpen={onOpen} onDraw={onDraw} />
       </Tuile>
       <Tuile title="Notre instant">
         {photo?.image_url ? (
@@ -116,6 +120,8 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
   const { state, run, api, circles, open, toast } = useHome()
   const { family, me, members } = state
   const [sheet, setSheet] = useState<Open>(null)
+  const [dessin, setDessin] = useState<{ to: string | null } | null>(null)
+  const [dessins, setDessins] = useState<Drawing | null>(null)
   const [name, setName] = useState(me.display_name)
   const [avatar, setAvatar] = useState(me.avatar)
   const [color, setColor] = useState(me.color)
@@ -212,7 +218,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
 
         <Section title="Widgets">
           <p className="-mt-1.5 mb-3 px-5 text-sous text-brume">Aperçu en direct de ce que chacun verra sur son écran d’accueil.</p>
-          <Widgets />
+          <Widgets onDraw={() => setDessin({ to: null })} onOpen={(d) => setDessins(d)} />
         </Section>
 
         <button onClick={() => setSheet('plus')} className="presse mx-4 mt-6 flex w-[calc(100%-2rem)] items-center gap-3 overflow-hidden rounded-groupe p-3.5 text-left text-white shadow-flottant" style={{ background: 'linear-gradient(135deg, #8E6FF0 0%, #6646CC 100%)' }}>
@@ -348,6 +354,17 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
             Envoyer le lien
           </Btn>
         </Sheet>
+      )}
+      {dessin && <DrawSheet to={dessin.to} onClose={() => setDessin(null)} />}
+      {dessins && (
+        <DrawingsSheet
+          start={dessins}
+          onClose={() => setDessins(null)}
+          onDraw={(to) => {
+            setDessins(null)
+            setDessin({ to })
+          }}
+        />
       )}
     </>
   )

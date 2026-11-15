@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { SUPABASE_KEY, SUPABASE_URL } from '../config'
-import type { Answer, Backend, Circle, FamEvent, Family, FamilyState, Folder, FolderItem, FolderMember, ListItem, Member, Moment, Reaction, StarEntry, Thought } from './types'
+import type { Answer, Backend, Circle, Drawing, DrawingData, FamEvent, Family, FamilyState, Folder, FolderItem, FolderMember, ListItem, Member, Moment, Reaction, StarEntry, Thought } from './types'
 import { todayKey, uid } from './util'
 
 function check<T>(r: { data: T; error: { message: string } | null }): T {
@@ -13,6 +13,7 @@ export function createSupabaseBackend(): Backend {
     auth: { persistSession: true, autoRefreshToken: true, storageKey: 'nidoo.auth' },
   })
   let userId = ''
+  const traits = new Map<string, DrawingData>()
 
   return {
     mode: 'supabase',
@@ -63,7 +64,7 @@ export function createSupabaseBackend(): Backend {
 
     async load(fid) {
       const since = new Date(Date.now() - 14 * 86400000).toISOString()
-      const [family, members, moments, folders, folderMembers, folderItems, reactions, thoughts, events, items, answers, house, stars] = await Promise.all([
+      const [family, members, moments, folders, folderMembers, folderItems, reactions, thoughts, drawings, events, items, answers, house, stars] = await Promise.all([
         sb.from('families').select('*').eq('id', fid).single(),
         sb.from('members').select('*').eq('family_id', fid).order('joined_at'),
         sb.from('moments').select('*').eq('family_id', fid).order('created_at', { ascending: false }).limit(120),
@@ -72,6 +73,7 @@ export function createSupabaseBackend(): Backend {
         sb.from('folder_items').select('*').eq('family_id', fid).order('created_at').limit(2000),
         sb.from('reactions').select('moment_id, member_id, emoji').eq('family_id', fid),
         sb.from('thoughts').select('*').eq('family_id', fid).gte('created_at', since).order('created_at', { ascending: false }).limit(80),
+        sb.from('drawings').select('id, family_id, from_member, to_member, created_at').eq('family_id', fid).order('created_at', { ascending: false }).limit(30),
         sb.from('events').select('*').eq('family_id', fid).order('starts_at'),
         sb.from('list_items').select('*').eq('family_id', fid).order('created_at'),
         sb.from('daily_answers').select('id, member_id, day, question_key, answer').eq('family_id', fid).eq('day', todayKey()),
@@ -98,6 +100,12 @@ export function createSupabaseBackend(): Backend {
         for (const i of contenus) i.image_url = i.image_path ? (byPath.get(i.image_path) ?? null) : null
         for (const d of dossiers) d.cover_url = d.cover_path ? (byPath.get(d.cover_path) ?? null) : null
       }
+      // Dessins : les traits ne sont téléchargés qu'une fois, puis gardés en mémoire.
+      const dessins = (check(drawings) ?? []) as Omit<Drawing, 'data'>[]
+      const manquants = dessins.filter((d) => !traits.has(d.id)).map((d) => d.id)
+      if (manquants.length) {
+        for (const r of check(await sb.from('drawings').select('id, data').in('id', manquants)) as { id: string; data: DrawingData }[]) traits.set(r.id, r.data)
+      }
       const state: FamilyState = {
         family: check(family) as Family,
         me,
@@ -108,6 +116,7 @@ export function createSupabaseBackend(): Backend {
         folderItems: contenus,
         reactions: (check(reactions) ?? []) as Reaction[],
         thoughts: (check(thoughts) ?? []) as Thought[],
+        drawings: dessins.filter((d) => traits.has(d.id)).map((d) => ({ ...d, data: traits.get(d.id)! })),
         events: (check(events) ?? []) as FamEvent[],
         items: (check(items) ?? []) as ListItem[],
         answers: (check(answers) ?? []) as Answer[],
@@ -119,7 +128,7 @@ export function createSupabaseBackend(): Backend {
 
     subscribe(fid, onChange) {
       const ch = sb.channel(`famille:${fid}`)
-      for (const table of ['members', 'moments', 'folders', 'folder_members', 'folder_items', 'reactions', 'thoughts', 'events', 'list_items', 'daily_answers', 'house_items']) {
+      for (const table of ['members', 'moments', 'folders', 'folder_members', 'folder_items', 'reactions', 'thoughts', 'drawings', 'events', 'list_items', 'daily_answers', 'house_items']) {
         ch.on('postgres_changes', { event: '*', schema: 'public', table, filter: `family_id=eq.${fid}` }, onChange)
       }
       ch.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'families', filter: `id=eq.${fid}` }, onChange)
@@ -242,6 +251,13 @@ export function createSupabaseBackend(): Backend {
     },
     async markSeen(ids) {
       if (ids.length) check(await sb.from('thoughts').update({ seen_at: new Date().toISOString() }).in('id', ids))
+    },
+    async sendDrawing(fid, from, to, data) {
+      check(await sb.from('drawings').insert({ family_id: fid, from_member: from, to_member: to, data }))
+    },
+    async deleteDrawing(id) {
+      check(await sb.from('drawings').delete().eq('id', id))
+      traits.delete(id)
     },
 
     async addEvent(fid, memberId, e) {

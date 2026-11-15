@@ -70,6 +70,20 @@ export type FolderCover = { blob: Blob } | { path: string } | null
 
 export type Reaction = { moment_id: string; member_id: string; emoji: string }
 
+/** Dessins : enregistrés trait par trait sur une feuille de 1000 × DRAW_H (forme d'un widget moyen). */
+export type DrawTool = 'crayon' | 'feutre' | 'gomme'
+export type Stroke = { o: DrawTool; c: string; w: number; p: number[] }
+export type DrawingData = { v: 1; bg: string; s: Stroke[] }
+export type Drawing = {
+  id: string
+  family_id: string
+  from_member: string
+  /** null : envoyé à toute la famille */
+  to_member: string | null
+  data: DrawingData
+  created_at: string
+}
+
 export type Thought = {
   id: string
   family_id: string
@@ -117,6 +131,7 @@ export type FamilyState = {
   folderItems: FolderItem[]
   reactions: Reaction[]
   thoughts: Thought[]
+  drawings: Drawing[]
   events: FamEvent[]
   items: ListItem[]
   answers: Answer[]
@@ -156,6 +171,9 @@ export interface Backend {
   react(moment: Moment, memberId: string, emoji: string | null): Promise<void>
   sendThought(familyId: string, from: string, to: string, kind: ThoughtKind, message?: string): Promise<void>
   markSeen(ids: string[]): Promise<void>
+  /** to = null : pour toute la famille */
+  sendDrawing(familyId: string, from: string, to: string | null, data: DrawingData): Promise<void>
+  deleteDrawing(id: string): Promise<void>
   addEvent(familyId: string, memberId: string, e: NewEvent): Promise<void>
   deleteEvent(id: string): Promise<void>
   addItem(familyId: string, memberId: string, kind: ListKind, title: string, assignedTo?: string | null): Promise<void>

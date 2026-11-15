@@ -15,7 +15,8 @@ Au premier lancement, un guide en 6 écrans explique chaque fonctionnalité (rej
 - **Météo des émotions** : son humeur du jour et un mot, visibles par la famille.
 - **Jouer** : question du jour, défi photo, étoiles et 12 décorations à débloquer pour la maison.
 - **Organiser** : agenda (anniversaires annuels, rendez-vous, événements), liste de courses, missions assignables.
-- **Notre famille** : membres, invitation par code ou lien, plusieurs maisons, aperçu des 6 widgets, offre Famille+, profil.
+- **Dessin en direct** : un widget moyen sur l'accueil. On dessine (crayon de couleur, feutre, gomme, 11 couleurs, 5 fonds) pour un proche ou pour toute la famille ; le dessin arrive tout de suite et se redessine trait par trait chez celui qui le reçoit, qui peut répondre par un dessin. Les dessins sont enregistrés en traits (vectoriels, quelques Ko), pas en images.
+- **Notre famille** : membres, invitation par code ou lien, plusieurs maisons, aperçu des widgets, offre Famille+, profil.
 
 ## Illustrations
 
@@ -37,7 +38,7 @@ Sans clés Supabase, l'app démarre en **mode démo** : la maison vit sur l'appa
 
 ## Brancher Supabase
 
-1. Créer un projet Supabase et y exécuter, dans l'ordre, `supabase/migrations/0001_nidoo.sql` puis `0002_dossiers.sql`.
+1. Créer un projet Supabase et y exécuter, dans l'ordre, `supabase/migrations/0001_nidoo.sql`, `0002_dossiers.sql` puis `0003_dessins.sql`.
 2. Dans Authentication > Sign In / Providers, activer **Allow anonymous sign-ins** (chaque téléphone reçoit un compte invisible, rattachable ensuite à un e-mail depuis « Notre famille »).
 3. Copier `.env.example` en `.env.production` (et `.env.local` pour le dev) avec l'URL du projet et la clé publishable.
 

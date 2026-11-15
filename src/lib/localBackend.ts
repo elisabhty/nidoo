@@ -1,5 +1,6 @@
 import { DECOS, PLAN_LIMITS, THOUGHTS } from './data'
-import type { Backend, Family, FamilyState, Folder, FolderItem, Member, Moment, ThoughtKind } from './types'
+import { demoDrawing, type DemoArt } from './drawing'
+import type { Backend, Drawing, Family, FamilyState, Folder, FolderItem, Member, Moment, ThoughtKind } from './types'
 import { blobToDataUrl, compressImage, todayKey, uid } from './util'
 
 // Mode démo : toute la maison vit sur l'appareil, avec trois proches fictifs
@@ -90,6 +91,11 @@ function migrate(f: Raw) {
   }
   f.moments = keep
   if (!f.dossiersDemo) demoDossiers(f)
+  if (!f.drawings) {
+    // Un premier dessin de Léa pour toute la famille, pour voir le widget rempli.
+    const lea = f.members.find((m) => m.display_name === 'Léa') ?? f.members[f.members.length - 1]
+    f.drawings = [{ id: uid(), family_id: f.family.id, from_member: lea.id, to_member: null, data: demoDrawing('coeurs', 3), created_at: iso(150) }]
+  }
 }
 
 function read(): Db {
@@ -115,7 +121,10 @@ export function createLocalBackend(): Backend {
       localStorage.setItem(KEY, JSON.stringify(db))
     } catch {
       // Stockage plein : on allège en retirant les plus anciennes photos du fil.
-      for (const f of Object.values(db.families)) f.moments = f.moments.slice(0, 6)
+      for (const f of Object.values(db.families)) {
+        f.moments = f.moments.slice(0, 6)
+        f.drawings = f.drawings.slice(0, 8)
+      }
       try {
         localStorage.setItem(KEY, JSON.stringify(db))
       } catch {
@@ -202,6 +211,7 @@ export function createLocalBackend(): Backend {
       thoughts: [
         { id: uid(), family_id: fid, from_member: mamie.id, to_member: moi.id, kind: 'coeur', message: null, created_at: iso(3), seen_at: null },
       ],
+      drawings: [{ id: uid(), family_id: fid, from_member: lea.id, to_member: null, data: demoDrawing('coeurs', 3), created_at: iso(150) }],
       events: [
         { id: uid(), family_id: fid, title: 'Anniversaire de Mamie Jo', kind: 'anniversaire', starts_at: inDays(4), all_day: true, yearly: true, created_by: papa.id },
         { id: uid(), family_id: fid, title: 'Dîner tous ensemble', kind: 'evenement', starts_at: inDays(1, 19, 30), all_day: false, yearly: false, created_by: lea.id },
@@ -240,6 +250,19 @@ export function createLocalBackend(): Backend {
     }, 4500)
   }
 
+  // Le proche répond par un dessin quelques secondes plus tard, pour voir la réception en direct.
+  const arts: DemoArt[] = ['soleil', 'fleur', 'maison', 'coeurs']
+  function drawBack(f: Raw, from: Member, to: Member | null) {
+    const others = f.members.filter((m) => m.user_id !== db.userId)
+    const who = to && to.user_id !== db.userId ? to : others[Math.floor(Math.random() * others.length)]
+    if (!who || f.drawings.some((d) => d.from_member === who.id && Date.now() - new Date(d.created_at).getTime() < 90000)) return
+    window.setTimeout(() => {
+      const art = arts[Math.floor(Math.random() * arts.length)]
+      f.drawings.unshift({ id: uid(), family_id: f.family.id, from_member: who.id, to_member: from.id, data: demoDrawing(art, Date.now() % 997), created_at: new Date().toISOString() })
+      save()
+    }, 4000)
+  }
+
   return {
     mode: 'local',
     async start() {
@@ -276,6 +299,7 @@ export function createLocalBackend(): Backend {
         me,
         answers: f.answers.filter((a) => a.day === day),
         moments: f.moments.map((m) => ({ ...m, image_url: m.image_path })),
+        drawings: f.drawings.filter((d) => !d.to_member || d.to_member === me.id || d.from_member === me.id).slice(0, 30),
         folders: f.folders.filter((d) => mine.has(d.root_id)).map((d) => ({ ...d, cover_url: d.cover_path })),
         folderMembers: f.folderMembers.filter((x) => mine.has(x.folder_id)),
         folderItems: f.folderItems.filter((i) => mine.has(i.root_id)).map((i) => ({ ...i, image_url: i.image_path })),
@@ -427,6 +451,21 @@ export function createLocalBackend(): Backend {
       })
       award(f, from, 'attention', 1, 5)
       echo(f, f.members.find((m) => m.id === from)!, f.members.find((m) => m.id === to)!)
+      save()
+    },
+    async sendDrawing(fid, from, to, data) {
+      const f = fam(fid)
+      const d: Drawing = { id: uid(), family_id: fid, from_member: from, to_member: to, data: structuredClone(data), created_at: new Date().toISOString() }
+      f.drawings.unshift(d)
+      award(f, from, 'dessin', 1, 5)
+      if (!save()) {
+        f.drawings.shift()
+        throw new Error('STOCKAGE_PLEIN')
+      }
+      drawBack(f, f.members.find((m) => m.id === from)!, to ? (f.members.find((m) => m.id === to) ?? null) : null)
+    },
+    async deleteDrawing(id) {
+      for (const f of Object.values(db.families)) f.drawings = f.drawings.filter((d) => d.id !== id)
       save()
     },
     async markSeen(ids) {

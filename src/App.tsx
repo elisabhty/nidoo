@@ -1,5 +1,6 @@
 import { CalendarDays, Folder, Gamepad2, House as HouseIcon, UsersRound } from 'lucide-react'
 import { useState } from 'react'
+import { DrawingBanner, useUnseenDrawings } from './components/drawing'
 import Guide from './components/Guide'
 import { Incoming } from './components/sheets'
 import { ActionSheetHost, Btn, Toasts } from './components/ui'
@@ -60,7 +61,8 @@ export default function App() {
       /* le guide reviendra au prochain lancement, sans gravité */
     }
   }
-  const unseen = state ? state.thoughts.filter((t) => t.to_member === state.me.id && !t.seen_at).length : 0
+  const drawingsUnseen = useUnseenDrawings(state).length
+  const unseen = (state ? state.thoughts.filter((t) => t.to_member === state.me.id && !t.seen_at).length : 0) + drawingsUnseen
 
   return (
     <div className="flex h-full items-center justify-center">
@@ -107,6 +109,7 @@ export default function App() {
             </nav>
 
             {tab === 'maison' && !guide && <Incoming />}
+            {tab !== 'maison' && !guide && <DrawingBanner onOpen={() => setTab('maison')} />}
             {guide && <Guide onClose={closeGuide} />}
           </>
         )}

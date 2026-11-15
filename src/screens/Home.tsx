@@ -1,16 +1,17 @@
 import { ChevronRight } from 'lucide-react'
 import { useState } from 'react'
+import { DrawingsSheet, DrawingWidget, DrawSheet } from '../components/drawing'
 import House from '../components/House'
 import { ComposeSheet, eventArt, MoodSheet, ThoughtSheet } from '../components/sheets'
 import { Art, Avatar, Lien, Section } from '../components/ui'
 import { moodOf, questionOfDay } from '../lib/data'
 import { success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
-import type { Member } from '../lib/types'
+import type { Drawing, Member } from '../lib/types'
 import { ago, dayLabel, greeting, isToday, nextOccurrence, timeLabel } from '../lib/util'
 import type { Go } from '../App'
 
-type Open = null | { k: 'humeur' } | { k: 'photo' } | { k: 'pensee'; to?: Member }
+type Open = null | { k: 'humeur' } | { k: 'photo' } | { k: 'pensee'; to?: Member } | { k: 'dessin'; to?: string | null } | { k: 'dessins'; start?: Drawing }
 
 export function upcoming(events: ReturnType<typeof useHome>['state']['events'], limit = 3) {
   const start = new Date()
@@ -104,6 +105,16 @@ export default function Home({ go }: { go: (t: Go) => void }) {
             </span>
             {nidoo.act && <ChevronRight size={17} strokeWidth={2.6} className="shrink-0 text-pale" />}
           </button>
+
+          <Section
+            title="Dessin en direct"
+            hint="Dessine pour un proche ou toute la famille : il le voit se dessiner sur son écran."
+            action={state.drawings.length ? <Lien onClick={() => setSheet({ k: 'dessins' })}>Tout voir</Lien> : undefined}
+          >
+            <div className="px-4">
+              <DrawingWidget onOpen={(d) => setSheet({ k: 'dessins', start: d })} onDraw={() => setSheet({ k: 'dessin' })} />
+            </div>
+          </Section>
 
           <p className="entete mt-6">Que veux-tu faire ?</p>
           <div className="groupe mx-4 shadow-carte">
@@ -245,6 +256,8 @@ export default function Home({ go }: { go: (t: Go) => void }) {
       {sheet?.k === 'humeur' && <MoodSheet onClose={() => setSheet(null)} />}
       {sheet?.k === 'photo' && <ComposeSheet onClose={() => setSheet(null)} />}
       {sheet?.k === 'pensee' && <ThoughtSheet to={sheet.to} onClose={() => setSheet(null)} />}
+      {sheet?.k === 'dessin' && <DrawSheet to={sheet.to} onClose={() => setSheet(null)} />}
+      {sheet?.k === 'dessins' && <DrawingsSheet start={sheet.start} onClose={() => setSheet(null)} onDraw={(to) => setSheet({ k: 'dessin', to })} />}
     </>
   )
 }

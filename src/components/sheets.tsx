@@ -5,6 +5,7 @@ import { select, success } from '../lib/haptic'
 import { useHome } from '../lib/store'
 import type { EventKind, Member, ThoughtKind } from '../lib/types'
 import { compressImage, errorText, isToday } from '../lib/util'
+import { DrawSheet, IncomingDrawing, markDrawingsSeen, useUnseenDrawings } from './drawing'
 import { Art, Avatar, Btn, Envol, Segments, Sheet } from './ui'
 
 // ───────── Météo des émotions ─────────
@@ -231,13 +232,30 @@ export function ThoughtSheet({ onClose, to }: { onClose: () => void; to?: Member
 
 export function Incoming() {
   const { state, run } = useHome()
+  const [reply, setReply] = useState<string | null | undefined>(undefined)
+  const drawings = useUnseenDrawings(state)
   const unseen = state.thoughts.filter((t) => t.to_member === state.me.id && !t.seen_at)
   const t = unseen[unseen.length - 1] // la plus ancienne d'abord
   const id = t?.id
   useEffect(() => {
     if (id) success()
   }, [id])
-  if (!t) return null
+  const sheet = reply !== undefined && <DrawSheet to={reply} onClose={() => setReply(undefined)} />
+  if (!t) {
+    const d = drawings[0]
+    if (!d || reply !== undefined) return sheet || null
+    return (
+      <IncomingDrawing
+        d={d}
+        more={drawings.length - 1}
+        onSeen={() => markDrawingsSeen([d.id])}
+        onReply={() => {
+          markDrawingsSeen([d.id])
+          setReply(d.to_member ? d.from_member : null)
+        }}
+      />
+    )
+  }
   const from = state.members.find((m) => m.id === t.from_member)
   if (!from) return null
   const th = thoughtOf(t.kind)
@@ -249,6 +267,7 @@ export function Incoming() {
       await api.sendThought(state.family.id, state.me.id, from.id, 'calin')
     }, `Câlin envoyé à ${from.display_name}`)
 
+  if (reply !== undefined) return sheet || null
   return (
     <div className="absolute inset-0 z-40 flex items-center justify-center px-9" role="dialog" aria-modal="true" aria-label="Attention reçue">
       <div className="anim-fondu absolute inset-0 bg-black/35 backdrop-blur-md" />
