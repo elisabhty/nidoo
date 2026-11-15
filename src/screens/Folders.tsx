@@ -71,7 +71,7 @@ function Accueil({ seg, setSeg, onOpen }: { seg: DossiersSeg; setSeg: (s: Dossie
           ) : (
             <>
               <Rond label="Écrire un petit mot" onClick={() => setCompose('mot')}><PenLine size={19} /></Rond>
-              <Rond label="Photo ou dessin" tint onClick={() => setCompose('instant')}>
+              <Rond label="Créer une attention" tint onClick={() => setCompose('instant')}>
                 <Camera size={18} />
                 <Pencil size={16} />
               </Rond>

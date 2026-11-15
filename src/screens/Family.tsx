@@ -49,7 +49,7 @@ function Widgets({ onDraw, onOpen }: { onDraw: () => void; onOpen: (d: Drawing) 
         <House type={family.house_type} items={state.houseItems} className="h-full !aspect-auto" bare />
         <p className="absolute inset-x-3 bottom-2.5 truncate text-note font-semibold text-white drop-shadow">Famille {family.name}</p>
       </Tuile>
-      <Tuile title="Photo ou dessin" wide>
+      <Tuile title="Créer une attention" wide>
         <DrawingWidget compact onOpen={onOpen} onDraw={onDraw} />
       </Tuile>
       <Tuile title="Nos humeurs">

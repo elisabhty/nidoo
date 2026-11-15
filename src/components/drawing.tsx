@@ -182,8 +182,8 @@ export function DrawingWidget({ onOpen, onDraw, compact = false }: { onOpen: (d:
             <Camera size={24} strokeWidth={2} />
             <Pencil size={22} strokeWidth={2} />
           </span>
-          <span className="text-appel font-semibold">Une photo ou un dessin</span>
-          <span className="text-note text-brume">Il arrive en direct chez un proche</span>
+          <span className="text-appel font-semibold">Créer une attention</span>
+          <span className="text-note text-brume">Une photo, un dessin, en direct chez un proche</span>
         </span>
       </button>
     )
@@ -215,7 +215,7 @@ export function DrawingWidget({ onOpen, onDraw, compact = false }: { onOpen: (d:
           onDraw()
         }}
         className="presse absolute right-2 top-2 flex h-9 items-center gap-1 rounded-full bg-teinte px-2.5 text-white shadow-flottant"
-        aria-label="Photo ou dessin"
+        aria-label="Créer une attention"
       >
         <Camera size={16} strokeWidth={2.4} />
         <Pencil size={15} strokeWidth={2.4} />
@@ -329,7 +329,7 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
   }
 
   return (
-    <Sheet title="Photo ou dessin" onClose={onClose} tall>
+    <Sheet title="Créer une attention" onClose={onClose} tall>
       <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={(e) => void pick(e.target.files?.[0]).then(() => (e.target.value = ''))} />
       <input ref={gallery} type="file" accept="image/*" hidden onChange={(e) => void pick(e.target.files?.[0]).then(() => (e.target.value = ''))} />
       {/* pour qui */}
@@ -578,7 +578,7 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
         {busy ? 'Envoi…' : recipient ? `Envoyer à ${recipient.display_name}` : 'Envoyer à toute la famille'}
       </Btn>
       <p className="px-2 pt-2 text-center text-note text-brume">
-        {recipient ? `Il apparaît tout de suite chez ${recipient.display_name} et se redessine sous ses yeux.` : 'Il apparaît tout de suite chez chacun et se redessine sous leurs yeux.'}
+        {recipient ? `Elle arrive tout de suite chez ${recipient.display_name}, et ton dessin se refait sous ses yeux.` : 'Elle arrive tout de suite chez chacun, et ton dessin se refait sous leurs yeux.'}
       </p>
     </Sheet>
   )
@@ -598,7 +598,7 @@ export function DrawingsSheet({ start, onClose, onDraw }: { start?: Drawing; onC
   const mine = d.from_member === me.id
 
   return (
-    <Sheet title="Photos et dessins" onClose={onClose} tall>
+    <Sheet title="Nos attentions" onClose={onClose} tall>
       <div className="-mx-1.5 overflow-hidden rounded-[26px] shadow-carte ring-1 ring-black/5" style={{ aspectRatio: RATIO, background: d.data.bg }}>
         <DrawingCanvas data={d.data} id={d.id} play={play} photo={d.photo_url} label={`${whatOf(d)} de ${fromName}`} />
       </div>
@@ -620,22 +620,22 @@ export function DrawingsSheet({ start, onClose, onDraw }: { start?: Drawing; onC
         {mine && (
           <button
             onClick={async () => {
-              if (!(await confirmer({ title: 'Supprimer ce dessin ?', message: 'Il disparaîtra aussi chez ceux qui l’ont reçu.', confirm: 'Supprimer', destructive: true }))) return
+              if (!(await confirmer({ title: 'Supprimer cette attention ?', message: 'Elle disparaîtra aussi chez ceux qui l’ont reçue.', confirm: 'Supprimer', destructive: true }))) return
               const next = drawings.find((x) => x.id !== d.id)
-              if (await run((api) => api.deleteDrawing(d.id), 'Dessin supprimé')) {
+              if (await run((api) => api.deleteDrawing(d.id), 'Attention supprimée')) {
                 if (next) setId(next.id)
                 else onClose()
               }
             }}
             className="presse flex h-10 w-10 items-center justify-center rounded-full bg-carte text-rouge shadow-carte"
-            aria-label="Supprimer ce dessin"
+            aria-label="Supprimer cette attention"
           >
             <Trash2 size={16} strokeWidth={2.4} />
           </button>
         )}
       </div>
       <Btn className="mt-4" onClick={() => onDraw(mine ? d.to_member : d.to_member === null ? null : d.from_member)}>
-        <Pencil size={17} strokeWidth={2.4} /> {mine ? 'Envoyer une autre photo ou un dessin' : d.to_member === null ? 'Répondre à la famille' : `Répondre à ${fromName}`}
+        <Pencil size={17} strokeWidth={2.4} /> {mine ? 'Créer une autre attention' : d.to_member === null ? 'Répondre à la famille' : `Répondre à ${fromName}`}
       </Btn>
 
       {drawings.length > 1 && (
@@ -678,7 +678,7 @@ export function IncomingDrawing({ d, more, onReply, onSeen }: { d: Drawing; more
   const { from, fromName } = forWhom(d, state.me, state.members)
   useEffect(() => success(), [d.id])
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center px-5" role="dialog" aria-modal="true" aria-label="Dessin reçu">
+    <div className="absolute inset-0 z-40 flex items-center justify-center px-5" role="dialog" aria-modal="true" aria-label="Attention reçue">
       <div className="anim-fondu absolute inset-0 bg-black/40 backdrop-blur-md" />
       <div className="anim-pop relative w-full max-w-[380px] rounded-[34px] bg-fond px-4 pb-4 pt-5 text-center shadow-[0_30px_80px_-20px_rgba(29,26,43,0.5)]">
         <div className="flex items-center justify-center gap-2.5">

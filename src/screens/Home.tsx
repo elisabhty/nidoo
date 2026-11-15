@@ -122,7 +122,7 @@ export default function Home({ go }: { go: (t: Go) => void }) {
   const tiles = [
     { label: 'Un câlin', icon: <Art name="geste-calin" size={52} />, on: () => setSheet({ k: 'pensee' }) },
     {
-      label: 'Photo ou dessin',
+      label: 'Créer une attention',
       icon: (
         <span className="relative block h-[52px] w-[64px]">
           <Art name="picto-photo" size={50} className="absolute left-0 top-0" />
@@ -272,8 +272,8 @@ export default function Home({ go }: { go: (t: Go) => void }) {
           <WeeklyChallenge className="mt-6" />
 
           <Section
-            title="Photo ou dessin"
-            hint="Pour un proche ou toute la famille : il apparaît en direct sur son écran."
+            title="Créer une attention"
+            hint="Une photo, un dessin, ou les deux : elle apparaît en direct chez un proche ou toute la famille."
             action={state.drawings.length ? <Lien onClick={() => setSheet({ k: 'dessins' })}>Tout voir</Lien> : undefined}
           >
             <div className="px-4">

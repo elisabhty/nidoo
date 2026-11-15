@@ -73,7 +73,7 @@ function Carte({ mo }: { mo: Moment }) {
   )
 }
 
-/** Une photo ou un dessin envoyé à toute la famille : il se refait sous les yeux quand on le touche. */
+/** Une attention (photo et/ou dessin) envoyée à toute la famille : il se refait sous les yeux quand on le touche. */
 function Instant({ d }: { d: Drawing }) {
   const { state, run } = useHome()
   const { me, members } = state
@@ -131,7 +131,7 @@ export default function Fil({ onCompose }: { onCompose: () => void }) {
   if (items.length === 0) {
     return (
       <Vide art="picto-photo" title="Le fil est encore vide" text="Une photo de ton café, de ta vue, un petit dessin : c’est souvent ce qui fait le plus plaisir.">
-        <Btn onClick={onCompose}>Photo ou dessin</Btn>
+        <Btn onClick={onCompose}>Créer une attention</Btn>
       </Vide>
     )
   }

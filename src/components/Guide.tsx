@@ -6,7 +6,7 @@ import { Art, Btn } from './ui'
 const STEPS: { art: string; title: string; text: string }[] = [
   { art: 'panda', title: 'Bienvenue chez vous', text: 'NIDOO, c’est la petite maison de ta famille. On s’y donne des nouvelles en un geste, sans avoir à lancer une conversation.' },
   { art: 'humeur-heureux', title: 'Dis comment tu vas', text: 'Partage ton humeur du jour en un toucher. Tes proches voient tout de suite comment tu te sens.' },
-  { art: 'geste-calin', title: 'Un câlin, une photo, un dessin', text: 'Touche un proche pour lui faire un câlin dans le jardin. Ou envoie-lui une photo, sur laquelle tu peux dessiner avec tes crayons : elle apparaît en direct sur son écran.' },
+  { art: 'geste-calin', title: 'Un câlin, une attention', text: 'Touche un proche pour lui faire un câlin dans le jardin. Ou crée-lui une attention : une photo sur laquelle tu dessines avec tes crayons, ou juste un dessin. Elle apparaît en direct sur son écran.' },
   { art: 'picto-photo', title: 'Vos souvenirs, bien rangés', text: 'Crée un dossier avec les proches de ton choix : photos, notes et discussion. Seuls ses membres le voient, les autres ne savent même pas qu’il existe.' },
   { art: 'picto-etoile', title: 'Faites grandir votre maison', text: 'Chaque petit geste rapporte des étoiles à toute la famille. Relevez ensemble le défi de la semaine : la maison s’embellit et change avec les saisons.' },
   { art: 'picto-agenda', title: 'Organisez-vous', text: 'Anniversaires, rendez-vous, liste de courses et petites missions, au même endroit pour tout le monde.' },
