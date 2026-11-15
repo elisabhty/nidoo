@@ -11,6 +11,8 @@ export type Family = {
   plan: 'free' | 'plus'
   stars: number
   created_by: string
+  /** Le code d'invitation ne marche plus après cette date. */
+  invite_expires_at: string
 }
 
 export type Member = {
@@ -24,7 +26,23 @@ export type Member = {
   mood_note: string | null
   mood_at: string | null
   joined_at: string
+  /** Les responsables acceptent les nouveaux venus et gèrent le code d'invitation. */
+  role: 'responsable' | 'membre'
 }
+
+/** Quelqu'un qui a tapé le code et attend qu'un responsable l'accepte (vu par les responsables). */
+export type JoinRequest = {
+  id: string
+  family_id: string
+  user_id: string
+  display_name: string
+  avatar: string
+  color: string
+  status: 'attente' | 'refusee'
+  created_at: string
+}
+/** Mes propres demandes : la famille n'est pas encore lisible, on n'en connaît que le nom. */
+export type MyRequest = { id: string; family_id: string; family_name: string; house_type: HouseType; status: 'attente' | 'refusee'; created_at: string }
 
 export type Moment = {
   id: string
@@ -125,6 +143,8 @@ export type FamilyState = {
   family: Family
   me: Member
   members: Member[]
+  /** Demandes d'entrée en attente (vides si je ne suis pas responsable). */
+  requests: JoinRequest[]
   moments: Moment[]
   folders: Folder[]
   folderMembers: FolderMember[]
@@ -149,7 +169,14 @@ export interface Backend {
   circles(): Promise<Circle[]>
   createFamily(i: { name: string; houseType: HouseType; displayName: string; avatar: string; color: string }): Promise<string>
   previewFamily(code: string): Promise<{ name: string; house_type: HouseType; member_count: number } | null>
+  /** Envoie une demande d'entrée (ou renvoie la famille si on en fait déjà partie). */
   joinFamily(i: { code: string; displayName: string; avatar: string; color: string }): Promise<string>
+  myRequests(): Promise<MyRequest[]>
+  cancelRequest(id: string): Promise<void>
+  answerRequest(id: string, accept: boolean): Promise<void>
+  renewInvite(familyId: string): Promise<void>
+  setRole(memberId: string, role: Member['role']): Promise<void>
+  removeMember(memberId: string): Promise<void>
   load(familyId: string): Promise<FamilyState>
   subscribe(familyId: string, onChange: () => void): () => void
   setMood(memberId: string, mood: string | null, note: string | null): Promise<void>

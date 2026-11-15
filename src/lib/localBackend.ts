@@ -1,17 +1,24 @@
 import { DECOS, PLAN_LIMITS, THOUGHTS } from './data'
 import { demoDrawing, type DemoArt } from './drawing'
-import type { Backend, Drawing, Family, FamilyState, Folder, FolderItem, Member, Moment, ThoughtKind } from './types'
+import type { Backend, Drawing, Family, FamilyState, Folder, FolderItem, JoinRequest, Member, Moment, MyRequest, ThoughtKind } from './types'
 import { blobToDataUrl, compressImage, todayKey, uid } from './util'
 
 // Mode démo : toute la maison vit sur l'appareil, avec trois proches fictifs
 // qui répondent aux attentions. Même contrat que le backend Supabase.
 
 type Raw = Omit<FamilyState, 'me'> & { dossiersDemo?: boolean }
-type Db = { userId: string; families: Record<string, Raw> }
+type Pending = MyRequest & { profile: { displayName: string; avatar: string; color: string } }
+type Db = { userId: string; families: Record<string, Raw>; pending?: Pending[] }
 const KEY = 'nidoo.demo.v2'
 
 
 const iso = (minsAgo: number) => new Date(Date.now() - minsAgo * 60000).toISOString()
+const inWeek = () => new Date(Date.now() + 7 * 86400000).toISOString()
+const newCode = () => Array.from({ length: 6 }, () => 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 31)]).join('')
+// Un cousin qui a tapé le code et attend qu'on lui ouvre : pour voir l'acceptation en mode démo.
+const demoRequest = (fid: string): JoinRequest => ({
+  id: uid(), family_id: fid, user_id: uid(), display_name: 'Cousin Hugo', avatar: 'lion', color: 'ciel', status: 'attente', created_at: iso(8),
+})
 const inDays = (days: number, h = 9, m = 0) => {
   const d = new Date()
   d.setDate(d.getDate() + days)
@@ -91,6 +98,11 @@ function migrate(f: Raw) {
   }
   f.moments = keep
   if (!f.dossiersDemo) demoDossiers(f)
+  // Rôles : le créateur est responsable ; une famille garde toujours au moins un responsable.
+  for (const m of f.members) m.role ??= m.user_id === f.family.created_by ? 'responsable' : 'membre'
+  if (f.members.length && !f.members.some((m) => m.role === 'responsable')) f.members[0].role = 'responsable'
+  f.family.invite_expires_at ??= inWeek()
+  f.requests ??= [demoRequest(f.family.id)]
   if (!f.drawings) {
     // Un premier dessin de Léa pour toute la famille, pour voir le widget rempli.
     const lea = f.members.find((m) => m.display_name === 'Léa') ?? f.members[f.members.length - 1]
@@ -187,19 +199,21 @@ export function createLocalBackend(): Backend {
     f.family.stars += amount
   }
 
-  function seed(name: string, houseType: Family['house_type'], me: { displayName: string; avatar: string; color: string }): string {
-    const fid = uid()
+  /** joined : on arrive dans une famille existante (Papa en est le responsable), sinon on la crée. */
+  function seed(name: string, houseType: Family['house_type'], me: { displayName: string; avatar: string; color: string }, joined = false, fid = uid()): string {
     const mk = (display_name: string, avatar: string, color: string, mood: string | null, note: string | null, user = uid()): Member => ({
       id: uid(), family_id: fid, user_id: user, display_name, avatar, color, mood, mood_note: note,
-      mood_at: mood ? iso(90) : null, joined_at: new Date().toISOString(),
+      mood_at: mood ? iso(90) : null, joined_at: new Date().toISOString(), role: 'membre',
     })
     const moi = mk(me.displayName, me.avatar, me.color, null, null, db.userId)
     const mamie = mk('Mamie Jo', 'hibou', 'peche', 'nostalgique', 'Je trie de vieilles photos', )
     const papa = mk('Papa', 'ours', 'mousse', 'fatigue', 'Grosse semaine')
     const lea = mk('Léa', 'renard', 'rose', 'heureux', 'Partiels terminés !')
+    ;(joined ? papa : moi).role = 'responsable'
     db.families[fid] = {
-      family: { id: fid, name, house_type: houseType, invite_code: 'DEMO42', plan: 'free', stars: 14, created_by: db.userId },
+      family: { id: fid, name, house_type: houseType, invite_code: 'DEMO42', plan: 'free', stars: 14, created_by: joined ? papa.user_id : db.userId, invite_expires_at: inWeek() },
       members: [moi, mamie, papa, lea],
+      requests: joined ? [] : [demoRequest(fid)],
       moments: [
         { id: uid(), family_id: fid, member_id: lea.id, image_path: null, body: 'Devinez qui rentre ce week-end avec un gâteau ?', challenge: null, created_at: iso(55) },
         { id: uid(), family_id: fid, member_id: mamie.id, image_path: null, body: 'Le jardin est tout blanc ce matin. Pensées pour vous tous.', challenge: null, created_at: iso(60 * 20) },
@@ -263,6 +277,17 @@ export function createLocalBackend(): Backend {
     }, 4000)
   }
 
+  function acceptLater(req: Pending) {
+    window.setTimeout(() => {
+      if (!db.pending?.some((r) => r.id === req.id)) return // demande annulée entre-temps
+      db.pending = db.pending.filter((r) => r.id !== req.id)
+      seed(req.family_name, req.house_type, req.profile, true, req.family_id)
+      save()
+    }, 3500)
+  }
+  // Une demande restée en attente (application fermée) est acceptée à la réouverture.
+  for (const r of db.pending ?? []) acceptLater(r)
+
   return {
     mode: 'local',
     async start() {
@@ -280,13 +305,65 @@ export function createLocalBackend(): Backend {
     async previewFamily(code) {
       return code.trim().toUpperCase() === 'DEMO42' ? { name: 'des Tilleuls', house_type: 'chalet', member_count: 3 } : null
     },
+    // Démo : la demande part, puis Papa (responsable fictif) l'accepte quelques secondes plus tard.
     async joinFamily(i) {
       if (i.code.trim().toUpperCase() !== 'DEMO42') throw new Error('CODE_INCONNU')
       const existing = Object.values(db.families)[0]
       if (existing && existing.members.length >= PLAN_LIMITS[existing.family.plan]) throw new Error('FAMILLE_PLEINE')
-      const id = seed('des Tilleuls', 'chalet', i)
+      const req: Pending = {
+        id: uid(), family_id: uid(), family_name: 'des Tilleuls', house_type: 'chalet', status: 'attente', created_at: new Date().toISOString(),
+        profile: { displayName: i.displayName, avatar: i.avatar, color: i.color },
+      }
+      db.pending = [...(db.pending ?? []), req]
       save()
-      return id
+      acceptLater(req)
+      return req.family_id
+    },
+    async myRequests() {
+      return (db.pending ?? []).map(({ profile: _p, ...r }) => r)
+    },
+    async cancelRequest(id) {
+      db.pending = (db.pending ?? []).filter((r) => r.id !== id)
+      save()
+    },
+    async answerRequest(id, accept) {
+      for (const f of Object.values(db.families)) {
+        const r = f.requests.find((x) => x.id === id)
+        if (!r) continue
+        if (f.members.find((m) => m.user_id === db.userId)?.role !== 'responsable') throw new Error('PAS_RESPONSABLE')
+        if (accept) {
+          if (f.members.length >= PLAN_LIMITS[f.family.plan]) throw new Error('FAMILLE_PLEINE')
+          f.members.push({
+            id: uid(), family_id: f.family.id, user_id: r.user_id, display_name: r.display_name, avatar: r.avatar, color: r.color,
+            mood: null, mood_note: null, mood_at: null, joined_at: new Date().toISOString(), role: 'membre',
+          })
+        }
+        f.requests = f.requests.filter((x) => x.id !== id)
+        save()
+        return
+      }
+      throw new Error('DEMANDE_INCONNUE')
+    },
+    async renewInvite(fid) {
+      const f = fam(fid)
+      f.family.invite_code = newCode()
+      f.family.invite_expires_at = inWeek()
+      save()
+    },
+    async setRole(memberId, role) {
+      const f = famOfMember(memberId)
+      const m = f.members.find((x) => x.id === memberId)!
+      if (role === 'membre' && m.role === 'responsable' && f.members.filter((x) => x.role === 'responsable').length <= 1) throw new Error('DERNIER_RESPONSABLE')
+      m.role = role
+      save()
+    },
+    async removeMember(memberId) {
+      const f = famOfMember(memberId)
+      const m = f.members.find((x) => x.id === memberId)!
+      if (m.user_id === db.userId) throw new Error('UTILISE_QUITTER')
+      f.members = f.members.filter((x) => x.id !== memberId)
+      f.folderMembers = f.folderMembers.filter((x) => x.member_id !== memberId)
+      save()
     },
     async load(fid) {
       const f = fam(fid)
@@ -297,6 +374,7 @@ export function createLocalBackend(): Backend {
       return structuredClone({
         ...f,
         me,
+        requests: me.role === 'responsable' ? f.requests.filter((r) => r.status === 'attente') : [],
         answers: f.answers.filter((a) => a.day === day),
         moments: f.moments.map((m) => ({ ...m, image_url: m.image_path })),
         drawings: f.drawings.filter((d) => !d.to_member || d.to_member === me.id || d.from_member === me.id).slice(0, 30),

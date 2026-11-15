@@ -12,6 +12,7 @@ import Dossiers, { type DossiersSeg } from './screens/Folders'
 import Onboarding from './screens/Onboarding'
 import Organize from './screens/Organize'
 import Play from './screens/Play'
+import Waiting from './screens/Waiting'
 
 const GUIDE = 'nidoo.guide.vu'
 
@@ -37,7 +38,7 @@ function Splash({ children }: { children?: React.ReactNode }) {
 }
 
 export default function App() {
-  const { status, error, state, retry } = useStore()
+  const { status, error, state, retry, requests } = useStore()
   const [tab, setTab] = useState<Tab>('maison')
   const [seg, setSeg] = useState<DossiersSeg>('dossiers')
   const go = (g: Go) => {
@@ -75,7 +76,7 @@ export default function App() {
             <Btn className="mt-6 max-w-[220px]" onClick={retry}>Réessayer</Btn>
           </Splash>
         )}
-        {status === 'ready' && !state && <Onboarding />}
+        {status === 'ready' && !state && (requests.length ? <Waiting /> : <Onboarding />)}
         {status === 'ready' && state && (
           <>
             <div className="h-full" key={state.family.id}>
@@ -102,7 +103,9 @@ export default function App() {
                   >
                     <t.icon size={23} strokeWidth={on ? 2.4 : 2} fill={on ? 'currentColor' : 'none'} fillOpacity={on ? 0.18 : 0} />
                     <span className={`text-[10px] leading-none tracking-normal ${on ? 'font-semibold' : 'font-medium'}`}>{t.label}</span>
-                    {t.key === 'maison' && unseen > 0 && !on && <span className="absolute right-[24%] top-2 h-2.5 w-2.5 rounded-full bg-rouge ring-2 ring-white" />}
+                    {((t.key === 'maison' && unseen > 0) || (t.key === 'famille' && state.requests.length > 0)) && !on && (
+                      <span className="absolute right-[24%] top-2 h-2.5 w-2.5 rounded-full bg-rouge ring-2 ring-white" />
+                    )}
                   </button>
                 )
               })}

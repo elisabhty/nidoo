@@ -17,6 +17,7 @@ Au premier lancement, un guide en 6 écrans explique chaque fonctionnalité (rej
 - **Organiser** : agenda (anniversaires annuels, rendez-vous, événements), liste de courses, missions assignables.
 - **Dessin en direct** : un widget moyen sur l'accueil. On dessine (crayon de couleur, feutre, gomme, 11 couleurs, 5 fonds) pour un proche ou pour toute la famille ; le dessin arrive tout de suite et se redessine trait par trait chez celui qui le reçoit, qui peut répondre par un dessin. Les dessins sont enregistrés en traits (vectoriels, quelques Ko), pas en images.
 - **Notre famille** : membres, invitation par code ou lien, plusieurs maisons, aperçu des widgets, offre Famille+, profil.
+- **Entrée sur acceptation** : le code d'invitation ne fait pas entrer, il envoie une demande. Un responsable de la famille (le créateur, et ceux qu'il nomme) accepte ou refuse ; tant que ce n'est pas fait, la personne ne voit rien. Le code expire au bout de 7 jours, un responsable peut le changer à tout moment et retirer quelqu'un de la famille. Les essais de code sont limités à 15 par heure pour qu'on ne puisse pas les deviner.
 
 ## Illustrations
 
@@ -38,7 +39,7 @@ Sans clés Supabase, l'app démarre en **mode démo** : la maison vit sur l'appa
 
 ## Brancher Supabase
 
-1. Créer un projet Supabase et y exécuter, dans l'ordre, `supabase/migrations/0001_nidoo.sql`, `0002_dossiers.sql` puis `0003_dessins.sql`.
+1. Créer un projet Supabase et y exécuter, dans l'ordre, `supabase/migrations/0001_nidoo.sql`, `0002_dossiers.sql`, `0003_dessins.sql` puis `0004_invitations.sql`.
 2. Dans Authentication > Sign In / Providers, activer **Allow anonymous sign-ins** (chaque téléphone reçoit un compte invisible, rattachable ensuite à un e-mail depuis « Notre famille »).
 3. Copier `.env.example` en `.env.production` (et `.env.local` pour le dev) avec l'URL du projet et la clé publishable.
 

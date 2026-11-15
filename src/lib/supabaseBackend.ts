@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { SUPABASE_KEY, SUPABASE_URL } from '../config'
-import type { Answer, Backend, Circle, Drawing, DrawingData, FamEvent, Family, FamilyState, Folder, FolderItem, FolderMember, ListItem, Member, Moment, Reaction, StarEntry, Thought } from './types'
+import type { Answer, Backend, Circle, Drawing, DrawingData, FamEvent, Family, FamilyState, Folder, JoinRequest, MyRequest, FolderItem, FolderMember, ListItem, Member, Moment, Reaction, StarEntry, Thought } from './types'
 import { todayKey, uid } from './util'
 
 function check<T>(r: { data: T; error: { message: string } | null }): T {
@@ -57,16 +57,36 @@ export function createSupabaseBackend(): Backend {
     },
 
     async joinFamily(i) {
-      return check(
-        await sb.rpc('join_family', { p_code: i.code, p_display_name: i.displayName, p_avatar: i.avatar, p_color: i.color }),
-      ) as string
+      const id = check(await sb.rpc('join_family', { p_code: i.code, p_display_name: i.displayName, p_avatar: i.avatar, p_color: i.color })) as string | null
+      if (!id) throw new Error('CODE_INCONNU')
+      return id
+    },
+    async myRequests() {
+      return (check(await sb.rpc('my_requests')) ?? []) as MyRequest[]
+    },
+    async cancelRequest(id) {
+      check(await sb.from('join_requests').delete().eq('id', id))
+    },
+    async answerRequest(id, accept) {
+      check(await sb.rpc('answer_request', { p_request: id, p_accept: accept }))
+    },
+    async renewInvite(fid) {
+      check(await sb.rpc('renew_invite', { p_family: fid }))
+    },
+    async setRole(memberId, role) {
+      check(await sb.rpc('set_member_role', { p_member: memberId, p_role: role }))
+    },
+    async removeMember(memberId) {
+      check(await sb.rpc('remove_member', { p_member: memberId }))
     },
 
     async load(fid) {
       const since = new Date(Date.now() - 14 * 86400000).toISOString()
-      const [family, members, moments, folders, folderMembers, folderItems, reactions, thoughts, drawings, events, items, answers, house, stars] = await Promise.all([
+      const [family, members, requests, moments, folders, folderMembers, folderItems, reactions, thoughts, drawings, events, items, answers, house, stars] = await Promise.all([
         sb.from('families').select('*').eq('id', fid).single(),
         sb.from('members').select('*').eq('family_id', fid).order('joined_at'),
+        // Lisibles seulement par les responsables (RLS) : vide pour les autres.
+        sb.from('join_requests').select('*').eq('family_id', fid).eq('status', 'attente').order('created_at'),
         sb.from('moments').select('*').eq('family_id', fid).order('created_at', { ascending: false }).limit(120),
         sb.from('folders').select('*').eq('family_id', fid).order('created_at'),
         sb.from('folder_members').select('folder_id, member_id').eq('family_id', fid),
@@ -110,6 +130,7 @@ export function createSupabaseBackend(): Backend {
         family: check(family) as Family,
         me,
         members: mem,
+        requests: (check(requests) ?? []) as JoinRequest[],
         moments: moms,
         folders: dossiers,
         folderMembers: (check(folderMembers) ?? []) as FolderMember[],
@@ -128,7 +149,7 @@ export function createSupabaseBackend(): Backend {
 
     subscribe(fid, onChange) {
       const ch = sb.channel(`famille:${fid}`)
-      for (const table of ['members', 'moments', 'folders', 'folder_members', 'folder_items', 'reactions', 'thoughts', 'drawings', 'events', 'list_items', 'daily_answers', 'house_items']) {
+      for (const table of ['members', 'join_requests', 'moments', 'folders', 'folder_members', 'folder_items', 'reactions', 'thoughts', 'drawings', 'events', 'list_items', 'daily_answers', 'house_items']) {
         ch.on('postgres_changes', { event: '*', schema: 'public', table, filter: `family_id=eq.${fid}` }, onChange)
       }
       ch.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'families', filter: `id=eq.${fid}` }, onChange)

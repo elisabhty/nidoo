@@ -92,6 +92,14 @@ const ERRORS: Record<string, string> = {
   NON_CONNECTE: 'Connexion impossible pour le moment.',
   IMAGE_ILLISIBLE: 'Cette photo n’a pas pu être lue.',
   ANONYME_DESACTIVE: 'La connexion sans compte n’est pas encore activée sur le serveur.',
+  CODE_EXPIRE: 'Ce code a expiré. Demande à un responsable de la famille de t’en envoyer un nouveau.',
+  TROP_D_ESSAIS: 'Trop de codes essayés. Réessaie dans une heure.',
+  TROP_DE_DEMANDES: 'Trop de demandes en attente pour le moment.',
+  PAS_RESPONSABLE: 'Seul un responsable de la famille peut faire ça.',
+  DEMANDE_INCONNUE: 'Cette demande n’existe plus.',
+  DERNIER_RESPONSABLE: 'La famille doit garder au moins un responsable. Nommes-en un autre d’abord.',
+  UTILISE_QUITTER: 'Pour partir toi-même, utilise « Quitter cette maison ».',
+  MEMBRE_INCONNU: 'Ce membre n’est plus dans la famille.',
 }
 export function errorText(e: unknown): string {
   const msg = e instanceof Error ? e.message : typeof e === 'object' && e && 'message' in e ? String((e as { message: unknown }).message) : String(e)

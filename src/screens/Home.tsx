@@ -2,6 +2,7 @@ import { ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 import { DrawingsSheet, DrawingWidget, DrawSheet } from '../components/drawing'
 import House from '../components/House'
+import { JoinRequests } from '../components/requests'
 import { ComposeSheet, eventArt, MoodSheet, ThoughtSheet } from '../components/sheets'
 import { Art, Avatar, Lien, Section } from '../components/ui'
 import { moodOf, questionOfDay } from '../lib/data'
@@ -105,6 +106,8 @@ export default function Home({ go }: { go: (t: Go) => void }) {
             </span>
             {nidoo.act && <ChevronRight size={17} strokeWidth={2.6} className="shrink-0 text-pale" />}
           </button>
+
+          <JoinRequests className="mt-3" />
 
           <Section
             title="Dessin en direct"

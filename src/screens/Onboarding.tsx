@@ -12,7 +12,7 @@ import { errorText } from '../lib/util'
 type Step = 'accueil' | 'maison' | 'code' | 'profil' | 'invite'
 
 export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
-  const { api, open, toast } = useStore()
+  const { api, open, toast, reload } = useStore()
   const urlCode = new URLSearchParams(location.search).get('code')?.toUpperCase() ?? ''
   const [step, setStep] = useState<Step>(urlCode && !onCancel ? 'code' : 'accueil')
   const [path, setPath] = useState<'creer' | 'rejoindre'>(urlCode ? 'rejoindre' : 'creer')
@@ -20,6 +20,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
   const [houseType, setHouseType] = useState<HouseType>('maison')
   const [code, setCode] = useState(urlCode)
   const [preview, setPreview] = useState<{ name: string; house_type: HouseType; member_count: number } | null>(null)
+  const [lookup, setLookup] = useState<'idle' | 'loading' | 'none' | string>('idle')
   const [name, setName] = useState('')
   const [avatar, setAvatar] = useState('panda')
   const [color, setColor] = useState('lavande')
@@ -29,9 +30,20 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
   // Dès que le code est complet, on montre la maison qu'il ouvre.
   useEffect(() => {
     setPreview(null)
-    if (code.length !== 6) return
+    if (code.length !== 6) {
+      setLookup('idle')
+      return
+    }
     let alive = true
-    api.previewFamily(code).then((p) => alive && setPreview(p)).catch(() => undefined)
+    setLookup('loading')
+    api
+      .previewFamily(code)
+      .then((p) => {
+        if (!alive) return
+        setPreview(p)
+        setLookup(p ? 'idle' : 'none')
+      })
+      .catch((e) => alive && setLookup(errorText(e)))
     return () => {
       alive = false
     }
@@ -47,11 +59,20 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
         setCreated({ id, code: cs.find((c) => c.family.id === id)?.family.invite_code ?? '' })
         setStep('invite')
       } else {
+        // Le code ne fait pas entrer : il envoie une demande à la famille.
         const id = await api.joinFamily({ code, displayName: name.trim(), avatar, color })
         history.replaceState(null, '', location.pathname)
         success()
-        await open(id)
-        onCancel?.()
+        if ((await api.circles()).some((c) => c.family.id === id)) {
+          await open(id)
+          onCancel?.()
+        } else {
+          await reload()
+          if (onCancel) {
+            toast(`Demande envoyée à la famille ${preview?.name ?? ''}`.trim())
+            onCancel()
+          }
+        }
       }
     } catch (e) {
       toast(errorText(e), 'err')
@@ -105,7 +126,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
       {step === 'code' && (
         <div className="anim-entre flex flex-1 flex-col">
           <h1 className="font-rond text-grand">Ton code</h1>
-          <p className="mt-1 text-sous text-brume">Six caractères, envoyés par un proche déjà installé dans la maison.</p>
+          <p className="mt-1 text-sous text-brume">Six caractères, envoyés par un proche. Un responsable de la famille acceptera ta demande avant que tu entres.</p>
           <input
             className="mt-5 h-[68px] w-full rounded-groupe bg-carte text-center font-rond text-[30px] font-semibold uppercase tracking-[0.3em] outline-none placeholder:text-pale focus:ring-2 focus:ring-teinte/40"
             placeholder="······"
@@ -123,11 +144,13 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
               </div>
               <div>
                 <p className="font-rond text-titre3">Famille {preview.name}</p>
-                <p className="text-note text-brume">{preview.member_count} {preview.member_count > 1 ? 'membres t’attendent' : 'membre t’attend'}</p>
+                <p className="text-note text-brume">{preview.member_count} {preview.member_count > 1 ? 'membres' : 'membre'} · entrée sur acceptation</p>
               </div>
             </div>
           )}
-          {code.length === 6 && !preview && <p className="mt-3 text-center text-sous text-brume">Recherche de la maison…</p>}
+          {lookup === 'loading' && <p className="mt-3 text-center text-sous text-brume">Recherche de la maison…</p>}
+          {lookup === 'none' && <p className="mt-3 text-center text-sous text-rouge">Aucune maison avec ce code. Vérifie-le avec la personne qui te l’a envoyé.</p>}
+          {lookup !== 'idle' && lookup !== 'loading' && lookup !== 'none' && <p className="mt-3 text-center text-sous text-rouge">{lookup}</p>}
           <div className="flex-1" />
           <Btn className="mt-6" onClick={() => setStep('profil')} disabled={!preview}>C’est bien ma famille</Btn>
         </div>
@@ -140,7 +163,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
           <ProfilePicker name={name} setName={setName} avatar={avatar} setAvatar={setAvatar} color={color} setColor={setColor} />
           <div className="flex-1" />
           <Btn className="mt-6" onClick={finish} disabled={busy || !name.trim()}>
-            {busy ? 'Un instant…' : path === 'creer' ? 'Construire la maison' : 'Entrer dans la maison'}
+            {busy ? 'Un instant…' : path === 'creer' ? 'Construire la maison' : 'Demander à entrer'}
           </Btn>
         </div>
       )}
@@ -151,7 +174,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
             <House type={houseType} items={[]} />
           </div>
           <h1 className="mt-6 font-rond text-titre1">La maison est prête</h1>
-          <p className="mx-auto mt-1.5 max-w-[290px] text-sous text-brume">Elle s’animera à chaque proche qui arrive. Envoie-leur ce code.</p>
+          <p className="mx-auto mt-1.5 max-w-[300px] text-sous text-brume">Envoie ce code à tes proches. Chaque personne qui le tape t’envoie une demande : c’est toi qui acceptes. Il reste valable 7 jours.</p>
           <button
             onClick={async () => (await copy(created.code)) && toast('Code copié')}
             className="presse groupe mx-auto mt-5 flex h-[64px] items-center gap-3 px-6"

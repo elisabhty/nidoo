@@ -1,14 +1,15 @@
-import { Check, CircleHelp, Copy, Crown, House as HouseIcon, LogOut, Mail, Pencil, Plus, Share, UserRound } from 'lucide-react'
+import { Check, CircleHelp, Clock, Copy, Crown, House as HouseIcon, LogOut, Mail, Pencil, Plus, RefreshCw, Share, ShieldCheck, UserRound } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import House from '../components/House'
 import { DrawingsSheet, DrawingWidget, DrawSheet } from '../components/drawing'
 import { eventArt } from '../components/sheets'
-import { Art, Avatar, Btn, confirmer, Rond, Row, Screen, Section, Sheet } from '../components/ui'
+import { JoinRequests } from '../components/requests'
+import { Art, Avatar, Btn, choisir, confirmer, Rond, Row, Screen, Section, Sheet } from '../components/ui'
 import { DECOS, moodOf, PLAN_LIMITS } from '../lib/data'
 import { select } from '../lib/haptic'
 import { copy, shareInvite } from '../lib/share'
 import { useHome } from '../lib/store'
-import type { Drawing, HouseType } from '../lib/types'
+import type { Drawing, HouseType, Member } from '../lib/types'
 import { dayLabel, errorText, isToday } from '../lib/util'
 import { upcoming } from './Home'
 import { HousePicker, ProfilePicker } from '../components/pickers'
@@ -117,7 +118,7 @@ function Widgets({ onDraw, onOpen }: { onDraw: () => void; onOpen: (d: Drawing) 
 }
 
 export default function Family({ onGuide }: { onGuide: () => void }) {
-  const { state, run, api, circles, open, toast } = useHome()
+  const { state, run, api, circles, open, toast, requests, reload } = useHome()
   const { family, me, members } = state
   const [sheet, setSheet] = useState<Open>(null)
   const [dessin, setDessin] = useState<{ to: string | null } | null>(null)
@@ -144,9 +145,60 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
     setHouseType(family.house_type)
   }, [me.id, me.display_name, me.avatar, me.color, family.name, family.house_type])
 
+  const admin = me.role === 'responsable'
+  const admins = members.filter((m) => m.role === 'responsable')
+  const expired = new Date(family.invite_expires_at).getTime() < Date.now()
+  const until = new Date(family.invite_expires_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
+  const whoAccepts =
+    admins.length === 1
+      ? admins[0].id === me.id
+        ? 'C’est toi qui acceptes chaque nouvelle personne.'
+        : `${admins[0].display_name} accepte chaque nouvelle personne.`
+      : `Les responsables (${admins.map((m) => (m.id === me.id ? 'toi' : m.display_name)).join(', ')}) acceptent chaque nouvelle personne.`
+
   const invite = async () => {
-    const r = await shareInvite(family.name, family.invite_code)
+    let code = family.invite_code
+    if (expired) {
+      if (!admin) {
+        toast('Le code a expiré : demande à un responsable d’en créer un nouveau.', 'err')
+        return
+      }
+      // Code expiré : on en crée un neuf avant de le partager.
+      try {
+        await api.renewInvite(family.id)
+        code = (await api.circles()).find((c) => c.family.id === family.id)?.family.invite_code ?? code
+        await reload()
+      } catch (e) {
+        toast(errorText(e), 'err')
+        return
+      }
+    }
+    const r = await shareInvite(family.name, code)
     if (r === 'copie') toast('Invitation copiée')
+  }
+
+  const renew = async () => {
+    const ok = await confirmer({ title: 'Créer un nouveau code ?', message: 'L’ancien code ne marchera plus. Le nouveau reste valable 7 jours.', confirm: 'Nouveau code' })
+    if (ok) void run((a) => a.renewInvite(family.id), 'Nouveau code créé')
+  }
+
+  const manage = async (m: Member) => {
+    const boss = m.role === 'responsable'
+    const i = await choisir({
+      title: m.display_name,
+      message: boss ? 'Responsable : accepte les nouveaux venus et gère le code d’invitation.' : 'Membre de la famille.',
+      actions: [{ label: boss ? 'Retirer le rôle de responsable' : 'Nommer responsable' }, { label: 'Retirer de la famille', destructive: true }],
+    })
+    if (i === 0) void run((a) => a.setRole(m.id, boss ? 'membre' : 'responsable'), boss ? `${m.display_name} n’est plus responsable` : `${m.display_name} est maintenant responsable`)
+    if (i === 1) {
+      const ok = await confirmer({
+        title: `Retirer ${m.display_name} de la famille ?`,
+        message: 'Cette personne ne verra plus rien de la maison, et ses photos et messages seront retirés. Pour revenir, elle devra refaire une demande.',
+        confirm: 'Retirer',
+        destructive: true,
+      })
+      if (ok) void run((a) => a.removeMember(m.id), `${m.display_name} a été retiré de la famille`)
+    }
   }
 
   if (sheet === 'ajouter') {
@@ -176,6 +228,13 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
           </div>
         )}
 
+        {state.requests.length > 0 && (
+          <>
+            <p className="entete mt-2">{state.requests.length > 1 ? `${state.requests.length} demandes pour entrer` : 'Une demande pour entrer'}</p>
+            <JoinRequests className="mb-6" />
+          </>
+        )}
+
         <div className="groupe mx-4 mt-1 shadow-carte">
           <div className="flex items-center gap-3 border-b border-trait p-3.5">
             <div className="h-[58px] w-[76px] shrink-0 overflow-hidden rounded-[14px]">
@@ -190,31 +249,64 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
             </button>
           </div>
           {members.map((m, i) => (
-            <div key={m.id} className="flex items-center gap-3 pl-3.5">
+            <button
+              key={m.id}
+              disabled={!admin || m.id === me.id}
+              onClick={() => {
+                select()
+                void manage(m)
+              }}
+              className={`flex w-full items-center gap-3 pl-3.5 text-left ${admin && m.id !== me.id ? 'presse-ligne' : ''}`}
+              aria-label={admin && m.id !== me.id ? `Gérer ${m.display_name}` : undefined}
+            >
               <Avatar m={m} size={42} mood />
               <div className={`min-w-0 flex-1 py-2.5 pr-4 ${i < members.length - 1 ? 'border-b border-trait' : ''}`}>
-                <p className="truncate text-corps">
-                  {m.display_name}
-                  {m.id === me.id && <span className="text-brume"> (toi)</span>}
+                <p className="flex items-center gap-1.5 truncate text-corps">
+                  <span className="truncate">
+                    {m.display_name}
+                    {m.id === me.id && <span className="text-brume"> (toi)</span>}
+                  </span>
+                  {m.role === 'responsable' && (
+                    <span className="flex h-5 shrink-0 items-center gap-0.5 rounded-full bg-teinte-doux px-1.5 text-mini font-semibold text-teinte-fonce">
+                      <ShieldCheck size={11} strokeWidth={2.6} /> Responsable
+                    </span>
+                  )}
                 </p>
                 <p className="truncate text-note text-brume">
                   {isToday(m.mood_at) && moodOf(m.mood) ? `${moodOf(m.mood)!.label}${m.mood_note ? ` · ${m.mood_note}` : ''}` : 'Pas encore de nouvelles aujourd’hui'}
                 </p>
               </div>
-            </div>
+            </button>
           ))}
         </div>
 
-        <p className="entete mt-6">Code d’invitation</p>
+        <p className="entete mt-6">Inviter un proche</p>
         <div className="groupe mx-4 shadow-carte">
-          <button onClick={async () => (await copy(family.invite_code)) && toast('Code copié')} className="presse-ligne flex h-[56px] w-full items-center justify-between border-b border-trait px-4" aria-label={`Copier le code ${family.invite_code}`}>
-            <span className="font-rond text-titre2 tracking-[0.18em]">{family.invite_code}</span>
-            <Copy size={18} className="text-teinte" />
+          <button
+            disabled={expired}
+            onClick={async () => (await copy(family.invite_code)) && toast('Code copié')}
+            className="presse-ligne flex min-h-[64px] w-full items-center justify-between border-b border-trait px-4 py-2 text-left"
+            aria-label={`Copier le code ${family.invite_code}`}
+          >
+            <span>
+              <span className={`block font-rond text-titre2 tracking-[0.18em] ${expired ? 'text-pale line-through' : ''}`}>{family.invite_code}</span>
+              <span className={`block text-note ${expired ? 'font-semibold text-rouge' : 'text-brume'}`}>{expired ? 'Code expiré' : `Valable jusqu’au ${until}`}</span>
+            </span>
+            {!expired && <Copy size={18} className="text-teinte" />}
           </button>
-          <button onClick={invite} className="presse-ligne flex h-[50px] w-full items-center px-4 text-corps text-teinte">
-            Partager le lien d’invitation
+          <button onClick={invite} className={`presse-ligne flex h-[50px] w-full items-center px-4 text-corps text-teinte ${admin ? 'border-b border-trait' : ''}`}>
+            {expired && admin ? 'Créer un code et partager' : 'Partager le lien d’invitation'}
           </button>
+          {admin && (
+            <button onClick={renew} className="presse-ligne flex h-[50px] w-full items-center gap-2 px-4 text-corps text-encre">
+              <RefreshCw size={16} strokeWidth={2.4} className="text-brume" /> Changer le code
+            </button>
+          )}
         </div>
+        <p className="flex gap-1.5 px-8 pt-2 text-note text-brume">
+          <ShieldCheck size={15} strokeWidth={2.4} className="mt-[1px] shrink-0 text-teinte" />
+          <span>Le code permet seulement de demander à entrer. {whoAccepts}{admin ? ' Touche un membre pour nommer un autre responsable ou le retirer.' : ''}</span>
+        </p>
 
         <Section title="Widgets">
           <p className="-mt-1.5 mb-3 px-5 text-sous text-brume">Aperçu en direct de ce que chacun verra sur son écran d’accueil.</p>
@@ -243,6 +335,24 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
               onClick={() => {
                 select()
                 if (c.family.id !== family.id) void open(c.family.id)
+              }}
+            />
+          ))}
+          {requests.map((r) => (
+            <Row
+              key={r.id}
+              icon={<Clock size={17} strokeWidth={2.4} />}
+              tint={r.status === 'refusee' ? '#FF3B30' : '#8E8E93'}
+              label={`Famille ${r.family_name}`}
+              value={r.status === 'refusee' ? 'Refusée' : 'En attente'}
+              chevron={false}
+              onClick={async () => {
+                const ok = await confirmer(
+                  r.status === 'refusee'
+                    ? { title: `La famille ${r.family_name} n’a pas accepté ta demande.`, confirm: 'Effacer' }
+                    : { title: `Annuler ta demande pour la famille ${r.family_name} ?`, confirm: 'Annuler la demande', destructive: true },
+                )
+                if (ok) void run((a) => a.cancelRequest(r.id))
               }}
             />
           ))}
