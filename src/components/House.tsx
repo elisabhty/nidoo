@@ -20,6 +20,14 @@ const SKY = {
 type Phase = keyof typeof SKY
 
 // Positions en % du décor (largeur de référence : celle du cadre).
+// Les fenêtres du bas et la porte de chaque maison, mesurées sur l'image (carrée) : x au centre, rebord, largeur du carreau.
+// box : largeur minimale du cadre dans le décor (en %), pour qu'on voie bien le visage ; frame : couleur du cadre.
+// L'immeuble n'a personne sur le pas de la porte : sa porte est trop près des fenêtres.
+const OPENINGS: Record<HouseType, { win: { x: number; sill: number; w: number }[]; door: { x: number; y: number } | null; box: number; frame: string }> = {
+  maison: { win: [{ x: 0.261, sill: 0.8, w: 0.169 }, { x: 0.712, sill: 0.8, w: 0.169 }], door: { x: 0.487, y: 0.885 }, box: 10, frame: '#E9A882' },
+  appartement: { win: [{ x: 0.399, sill: 0.585, w: 0.112 }, { x: 0.676, sill: 0.585, w: 0.1 }], door: null, box: 8.5, frame: '#9C86D9' },
+  chalet: { win: [{ x: 0.667, sill: 0.744, w: 0.118 }], door: { x: 0.433, y: 0.856 }, box: 9.5, frame: '#C98F55' },
+}
 const HOUSE: Record<HouseType, { w: number; bottom: number; smoke: [number, number] }> = {
   maison: { w: 47, bottom: 15, smoke: [62, 64] },
   appartement: { w: 33, bottom: 15, smoke: [44, 64] },
@@ -65,7 +73,6 @@ const SLOTS = [
   { x: 64, y: 1, k: 0.95 },
 ]
 const ORDERS: Record<number, number[]> = { 1: [4], 2: [0, 1], 3: [0, 4, 1], 4: [0, 2, 3, 1], 5: [0, 2, 4, 3, 1], 6: [0, 2, 5, 6, 3, 1], 7: [0, 2, 5, 4, 6, 3, 1] }
-const MAX_PEOPLE = 7
 
 /** Un geste envoyé à un proche, joué pour de vrai dans le jardin : on va le voir et on le fait. */
 export type HouseScene = { id: string; from: string; to: string; kind: string }
@@ -121,6 +128,16 @@ export default function House({
   const s = ratio ? Math.min(1, BASE / ratio) : 1
   // En vignette, la maison occupe presque tout le cadre.
   const h = bare ? { ...base, w: base.w * 1.5, bottom: 11 } : { ...base, w: base.w * s, smoke: [50 + (base.smoke[0] - 50) * s, base.smoke[1]] as [number, number] }
+  // Les fenêtres et la porte, placées dans le décor : une partie de la famille s'y installe.
+  const R = ratio ?? BASE
+  const op0 = OPENINGS[type]
+  const openings: Openings = {
+    win: op0.win.map((w) => ({ x: 50 + (w.x - 0.5) * h.w, y: h.bottom + (1 - w.sill) * h.w * R, w: Math.max(w.w * h.w, op0.box * s) })),
+    door: op0.door && { x: 50 + (op0.door.x - 0.5) * h.w, y: h.bottom + (1 - op0.door.y) * h.w * R },
+    frame: op0.frame,
+    ground: Math.max(0, h.bottom - 10),
+    R,
+  }
   const has = (k: string) => items.includes(k)
   const dim = night ? 'brightness(0.72) saturate(0.9)' : undefined
   const [bounce, setBounce] = useState(0)
@@ -538,7 +555,7 @@ export default function House({
       )}
 
       {/* la famille dans le jardin : chacun son personnage, sa taille, son humeur sur le visage et dans une bulle */}
-      {!bare && people.length > 0 && <Jardin people={people} onTouch={touch} onPerson={onPerson} poke={poke} scene={act ? scene : null} act={act} s={s} />}
+      {!bare && people.length > 0 && <Jardin people={people} onTouch={touch} onPerson={onPerson} poke={poke} scene={act ? scene : null} act={act} s={s} op={openings} />}
 
       {/* les soins du jour, par-dessus tout le monde */}
       {!bare && cares && Object.keys(CARE).filter(has).map(careLayer)}
@@ -551,10 +568,56 @@ export default function House({
   )
 }
 
-type Placed = { p: HousePerson; slot: (typeof SLOTS)[number]; i: number; scale: number }
+// Où se tient chacun : dans le jardin, devant la porte d'entrée, ou à une fenêtre du bas.
+type Where = 'jardin' | 'porte' | 'fenetre'
+/** x, y : position dans le décor (en %) ; pour une fenêtre, y est le rebord et w la largeur du cadre. */
+type At = { x: number; y: number; k: number; where: Where; w?: number }
+type Placed = { p: HousePerson; at: At; i: number; scale: number }
+/** Les ouvertures de la maison, déjà placées dans le décor. */
+export type Openings = { win: { x: number; y: number; w: number }[]; door: { x: number; y: number } | null; frame: string; ground: number; R: number }
+
+// Quand la porte et les fenêtres sont occupées, le jardin garde les côtés (le milieu reste dégagé).
+const SIDES = [
+  { x: 11, y: 2, k: 1 },
+  { x: 89, y: 2, k: 1 },
+  { x: 24, y: 9, k: 0.88 },
+  { x: 76, y: 9, k: 0.88 },
+]
+const SIDE_ORDERS: Record<number, number[]> = { 1: [0], 2: [0, 1], 3: [0, 2, 1], 4: [0, 2, 3, 1] }
+
+/** Répartit la famille : jusqu'à 3, tout le monde au jardin ; au-delà, deux restent au moins dehors,
+ *  les autres vont aux fenêtres du bas et sur le pas de la porte. Moi et les petits restent au jardin. */
+function arrange(people: HousePerson[], op: Openings): { placed: Placed[]; extra: number } {
+  const age = (p: HousePerson) => lookOf(p.m.avatar, p.m.user_id ?? p.m.id).a
+  const rank = (p: HousePerson) => (p.me ? 0 : age(p) >= 2 ? 1 : 2)
+  const ordered = [...people].sort((a, b) => rank(a) - rank(b))
+  const cap = 4 + (op.door ? 1 : 0) + op.win.length
+  const shown = ordered.length > cap ? ordered.slice(0, cap - 1) : ordered
+  const n = shown.length
+  const scale = (p: HousePerson) => AGE_SCALE[age(p)] ?? 1
+  if (n <= 3) {
+    const order = ORDERS[n] ?? []
+    return { placed: shown.map((p, i) => ({ p, i, scale: scale(p), at: { ...SLOTS[order[i]], where: 'jardin' as const } })), extra: 0 }
+  }
+  const wins = Math.min(op.win.length, n - 2)
+  const rest = n - wins
+  const door = op.door && rest >= 3 ? 1 : 0
+  const garden = rest - door
+  const placed = shown.map((p, i): Placed => {
+    let at: At
+    if (i < garden) at = { ...SIDES[SIDE_ORDERS[garden][i]], where: 'jardin' }
+    else if (i < garden + door && op.door) at = { x: op.door.x, y: op.door.y - 1, k: 0.8, where: 'porte' }
+    else {
+      const w = op.win[i - garden - door]
+      at = { x: w.x, y: w.y, k: 1, w: w.w, where: 'fenetre' }
+    }
+    return { p, i, scale: scale(p), at }
+  })
+  return { placed, extra: people.length - shown.length }
+}
 
 function Jardin({
-  people, onTouch, onPerson, poke, scene, act, s = 1,
+  people, onTouch, onPerson, poke, scene, act, s = 1, op,
 }: {
   people: HousePerson[]
   onTouch: (key: string) => void
@@ -563,67 +626,112 @@ function Jardin({
   scene: HouseScene | null
   act: null | 'aller' | 'geste' | 'retour'
   s?: number
+  op: Openings
 }) {
-  const shown = people.slice(0, people.length > MAX_PEOPLE ? MAX_PEOPLE - 1 : MAX_PEOPLE)
-  const order = ORDERS[shown.length] ?? ORDERS[MAX_PEOPLE]
-  const placed: Placed[] = shown.map((p, i) => ({ p, slot: SLOTS[order[i]], i, scale: AGE_SCALE[lookOf(p.m.avatar, p.m.user_id ?? p.m.id).a] ?? 1 }))
+  const { placed, extra } = arrange(people, op)
   const from = scene && placed.find((x) => x.p.m.id === scene.from)
   const to = scene && placed.find((x) => x.p.m.id === scene.to)
-  const live = from && to && from !== to ? { from, to, side: from.slot.x <= to.slot.x ? -1 : 1 } : null
+  const live = from && to && from !== to ? { from, to, side: from.at.x <= to.at.x ? -1 : 1 } : null
+  // Vers quelqu'un à sa fenêtre : on va sous la fenêtre et on lui envoie le geste vers le haut.
+  // Depuis une fenêtre : on l'envoie de là-haut. Sinon, on va le voir et on le fait pour de vrai.
+  const fromWin = live?.from.at.where === 'fenetre'
+  const toWin = live?.to.at.where === 'fenetre'
+  const thrown = live && (fromWin || toWin)
   const doing = live && act === 'geste' ? scene!.kind : null
+  const R = op.R
+  const height = (x: Placed, k = x.at.k) => (x.at.where === 'fenetre' ? (x.at.w ?? 10) * R * 1.08 : 14 * k * x.scale * s * 1.6 * R)
+  // où va celui qui envoie (s'il bouge)
+  const dest: At | null = !live || fromWin ? null : toWin ? { x: live.to.at.x, y: op.ground, k: 1, where: 'jardin' } : { ...live.to.at, x: live.to.at.x + live.side * 8 * live.to.at.k * s, where: 'jardin' }
+  // le trajet du geste lancé (bas → fenêtre, ou fenêtre → bas)
+  const flight =
+    thrown && doing
+      ? {
+          x0: fromWin ? live.from.at.x : dest!.x,
+          y0: fromWin ? live.from.at.y + height(live.from) * 0.5 : dest!.y + height(live.from, 1) * 0.72,
+          x1: live.to.at.x,
+          y1: toWin ? live.to.at.y + height(live.to) * 0.45 : live.to.at.y + height(live.to) * 0.7,
+        }
+      : null
 
   return (
     <>
-      {placed.map(({ p, slot, i, scale }) => {
+      {placed.map((x) => {
+        const { p, at, i, scale } = x
         const md = moodOf(p.mood)
         const hop = poke?.key === p.m.id
         const isFrom = live?.from.p.m.id === p.m.id
         const isTo = live?.to.p.m.id === p.m.id
-        const away = isFrom && (act === 'aller' || act === 'geste')
-        const x = away ? live!.to.slot.x + live!.side * 8 * live!.to.slot.k * s : slot.x
-        const y = away ? live!.to.slot.y : slot.y
-        const k = away ? live!.to.slot.k : slot.k
-        const hug = doing === 'calin' && (isFrom || isTo)
-        const lean = doing && (isFrom || (isTo && doing === 'calin')) ? (isFrom ? -live!.side : live!.side) * (doing === 'bisou' ? 11 : 7) : 0
-        const walking = isFrom && act !== 'geste'
+        const label = p.me ? (md ? `Moi : ${md.label}. Changer mon humeur` : 'Partager mon humeur') : `${p.label}${at.where === 'fenetre' ? ', à la fenêtre' : at.where === 'porte' ? ', sur le pas de la porte' : ''} : ${md ? md.label : 'pas encore d’humeur aujourd’hui'}. Lui envoyer un câlin`
+        const bubble = md ? (
+          <span className="relative mb-[3px] flex rounded-full bg-white p-[2px] shadow-[0_3px_8px_rgba(29,26,43,0.2)]" style={{ animation: `flotte ${3.6 + i * 0.5}s ease-in-out infinite` }}>
+            <Smiley mood={md.key} size={Math.round(20 * Math.max(0.8, s))} />
+            <span className="absolute -bottom-[3px] left-1/2 -z-10 h-[7px] w-[7px] -translate-x-1/2 rotate-45 bg-white" />
+          </span>
+        ) : p.me ? (
+          <span className="relative mb-[3px] whitespace-nowrap rounded-full bg-teinte px-[7px] py-[2px] text-[10px] font-semibold leading-[14px] text-white shadow-[0_3px_8px_rgba(102,70,204,0.35)]" style={{ animation: 'flotte 3.6s ease-in-out infinite' }}>
+            + Mon humeur
+            <span className="absolute -bottom-[3px] left-1/2 h-[7px] w-[7px] -translate-x-1/2 rotate-45 bg-teinte" />
+          </span>
+        ) : null
+        const click = () => {
+          onTouch(p.m.id)
+          onPerson?.(p.m)
+        }
+
+        // ── à la fenêtre : le buste derrière le rebord, dans la lumière de la maison
+        if (at.where === 'fenetre') {
+          const busy = (isFrom || isTo) && doing
+          return (
+            <button key={p.m.id} onClick={click} className="absolute flex -translate-x-1/2 flex-col items-center" style={{ left: `${at.x}%`, bottom: `${at.y}%`, width: `${at.w}%`, zIndex: 5 }} aria-label={label}>
+              {bubble}
+              <span className="relative block w-full overflow-hidden" style={{ aspectRatio: '1 / 1.08', borderRadius: '44% 44% 9% 9% / 36% 36% 7% 7%', background: 'radial-gradient(circle at 50% 30%, #FFF4D2 0%, #FFDB8F 52%, #F0B661 100%)' }}>
+                <span key={hop ? poke!.n : 0} className="absolute -bottom-[16%] left-[-5%] block w-[110%]" style={{ animation: hop || (isTo && doing) ? 'rebond 0.7s var(--ressort)' : undefined, transformOrigin: '50% 100%' }}>
+                  <span className="block" style={{ animation: busy && isFrom ? 'sautille 0.5s ease-in-out infinite' : MOVES[p.mood ?? ''] ?? `respire ${3 + (i % 3) * 0.6}s ease-in-out infinite`, transformOrigin: '50% 100%' }}>
+                    <Character look={lookOf(p.m.avatar, p.m.user_id ?? p.m.id)} mood={p.mood} bust blush={doing === 'bisou' && isTo} className="block h-auto w-full" blinkDelay={i * 1.3} />
+                  </span>
+                </span>
+                {/* le cadre de la fenêtre, par-dessus */}
+                <span className="pointer-events-none absolute inset-0" style={{ borderRadius: 'inherit', boxShadow: `inset 0 0 0 ${Math.max(1.5, 2.6 * s)}px ${op.frame}, inset 0 6px 10px rgba(255,255,255,0.35)` }} />
+              </span>
+              {/* le rebord */}
+              <span className="block h-[4px] w-[118%] rounded-full shadow-[0_2px_3px_rgba(29,26,43,0.18)]" style={{ background: op.frame }} />
+            </button>
+          )
+        }
+
+        // ── au jardin ou sur le pas de la porte
+        const away = isFrom && !!dest && (act === 'aller' || act === 'geste')
+        const pos = away ? dest! : at
+        const hug = !thrown && doing === 'calin' && (isFrom || isTo)
+        const lean = !thrown && doing && (isFrom || (isTo && doing === 'calin')) ? (isFrom ? -live!.side : live!.side) * (doing === 'bisou' ? 11 : 7) : 0
+        const walking = isFrom && !!dest && act !== 'geste'
+        // sous une fenêtre, on lève la tête et on envoie le geste vers le haut
+        const lookUp = isFrom && toWin && doing
         return (
           <button
             key={p.m.id}
-            onClick={() => {
-              onTouch(p.m.id)
-              onPerson?.(p.m)
-            }}
+            onClick={click}
             className="absolute flex -translate-x-1/2 flex-col items-center"
             style={{
-              left: `${x}%`,
-              bottom: `${y}%`,
-              width: `${14 * k * scale * s}%`,
-              zIndex: isFrom ? 9 : k < 1 ? 7 : 8,
+              left: `${pos.x}%`,
+              bottom: `${pos.y}%`,
+              width: `${14 * pos.k * scale * s}%`,
+              zIndex: isFrom ? 9 : at.where === 'porte' ? 6 : pos.k < 1 ? 7 : 8,
               transition: 'left 1.3s ease-in-out, bottom 1.3s ease-in-out, width 1.3s ease-in-out',
             }}
-            aria-label={p.me ? (md ? `Moi : ${md.label}. Changer mon humeur` : 'Partager mon humeur') : `${p.label} : ${md ? md.label : 'pas encore d’humeur aujourd’hui'}. Lui envoyer un câlin`}
+            aria-label={label}
           >
-            {/* la bulle d'humeur : un smiley */}
-            {md ? (
-              <span className="relative mb-[3px] flex rounded-full bg-white p-[2px] shadow-[0_3px_8px_rgba(29,26,43,0.2)]" style={{ animation: `flotte ${3.6 + i * 0.5}s ease-in-out infinite` }}>
-                <Smiley mood={md.key} size={20} />
-                <span className="absolute -bottom-[3px] left-1/2 -z-10 h-[7px] w-[7px] -translate-x-1/2 rotate-45 bg-white" />
-              </span>
-            ) : p.me ? (
-              <span className="relative mb-[3px] whitespace-nowrap rounded-full bg-teinte px-[7px] py-[2px] text-[10px] font-semibold leading-[14px] text-white shadow-[0_3px_8px_rgba(102,70,204,0.35)]" style={{ animation: 'flotte 3.6s ease-in-out infinite' }}>
-                + Mon humeur
-                <span className="absolute -bottom-[3px] left-1/2 h-[7px] w-[7px] -translate-x-1/2 rotate-45 bg-teinte" />
-              </span>
-            ) : null}
+            {/* la bulle reste discrète pendant qu'on va voir quelqu'un */}
+            {away && !md ? null : bubble}
             {/* le personnage : il se promène, respire, cligne des yeux, saute quand on le touche */}
-            <span className="relative block w-full" style={{ animation: away || isTo ? undefined : `marche ${8 + i * 1.7}s ease-in-out ${-i * 2}s infinite`, ['--mx' as string]: `${i % 2 ? -7 : 7}px` }}>
+            <span className="relative block w-full" style={{ animation: away || isTo || at.where === 'porte' ? undefined : `marche ${8 + i * 1.7}s ease-in-out ${-i * 2}s infinite`, ['--mx' as string]: `${i % 2 ? -7 : 7}px` }}>
               <span className="absolute bottom-[0.5%] left-1/2 h-[6%] w-[70%] -translate-x-1/2 rounded-[50%] bg-[#1d1a2b]/20 blur-[2px]" />
-              <span key={hop ? poke!.n : 0} className="block" style={{ animation: hop ? 'rebond 0.7s var(--ressort)' : undefined, transformOrigin: '50% 100%' }}>
+              <span key={hop || (isTo && thrown && doing) ? `${poke?.n ?? 0}${doing ?? ''}` : 0} className="block" style={{ animation: hop || (isTo && thrown && doing) ? 'rebond 0.7s var(--ressort)' : undefined, transformOrigin: '50% 100%' }}>
                 <span
                   className={`block transition-[filter,opacity,transform] duration-500 ${p.me && !md && !isFrom && !isTo ? 'opacity-60 grayscale' : ''}`}
                   style={{
-                    animation: walking ? 'sautille 0.42s ease-in-out infinite' : doing === 'courage' && isFrom ? 'sautille 0.5s ease-in-out infinite' : MOVES[p.mood ?? ''] ?? `respire ${3 + (i % 3) * 0.6}s ease-in-out infinite`,
-                    transform: lean ? `rotate(${lean}deg)` : undefined,
+                    animation: walking ? 'sautille 0.42s ease-in-out infinite' : lookUp || (doing === 'courage' && isFrom) ? 'sautille 0.5s ease-in-out infinite' : MOVES[p.mood ?? ''] ?? `respire ${3 + (i % 3) * 0.6}s ease-in-out infinite`,
+                    transform: lookUp ? `rotate(${live!.side * 6}deg)` : lean ? `rotate(${lean}deg)` : undefined,
                     transformOrigin: '50% 100%',
                   }}
                 >
@@ -635,9 +743,9 @@ function Jardin({
         )
       })}
 
-      {/* le geste lui-même, entre les deux */}
-      {doing && live && (
-        <span className="pointer-events-none absolute" style={{ left: `${live.to.slot.x + live.side * 4 * live.to.slot.k - 6 * s}%`, bottom: `${live.to.slot.y + 30}%`, width: `${12 * s}%`, zIndex: 10 }}>
+      {/* le geste lui-même : entre les deux, ou lancé vers la fenêtre (et depuis la fenêtre) */}
+      {doing && live && !flight && (
+        <span className="pointer-events-none absolute" style={{ left: `${live.to.at.x + live.side * 4 * live.to.at.k - 6 * s}%`, bottom: `${live.to.at.y + 30}%`, width: `${12 * s}%`, zIndex: 10 }}>
           {[0, 1, 2].map((n) => (
             <img
               key={`${scene!.id}${n}`}
@@ -649,10 +757,28 @@ function Jardin({
           ))}
         </span>
       )}
+      {doing && flight &&
+        [0, 1, 2].map((n) => (
+          <img
+            key={`${scene!.id}v${n}`}
+            src={`./art/${SCENE_ART[doing] ?? 'geste-coeur'}.webp`}
+            alt=""
+            className="pointer-events-none absolute"
+            style={{
+              width: `${(n === 1 ? 11 : 8) * s}%`,
+              zIndex: 10,
+              animation: `envoi 1.5s ease-in-out ${n * 0.4}s both`,
+              ['--x0' as string]: `${flight.x0 + (n - 1) * 2}%`,
+              ['--y0' as string]: `${flight.y0}%`,
+              ['--x1' as string]: `${flight.x1 + (n - 1) * 3}%`,
+              ['--y1' as string]: `${flight.y1 + (n - 1) * 1.5}%`,
+            }}
+          />
+        ))}
 
-      {people.length > MAX_PEOPLE && (
+      {extra > 0 && (
         <span className="absolute bottom-[4%] left-1/2 flex h-[30px] w-[30px] -translate-x-1/2 items-center justify-center rounded-full bg-white/90 text-[12px] font-semibold text-encre shadow-[0_2px_8px_rgba(29,26,43,0.2)]" style={{ zIndex: 8 }}>
-          +{people.length - (MAX_PEOPLE - 1)}
+          +{extra}
         </span>
       )}
     </>
