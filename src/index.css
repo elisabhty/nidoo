@@ -75,6 +75,10 @@ input[type='date'], input[type='time'] { -webkit-appearance: none; appearance: n
 @keyframes luciole { 0%, 100% { transform: translate(0, 0); opacity: 0; } 20% { opacity: 1; } 50% { transform: translate(var(--lx), var(--ly)); opacity: 0.5; } 75% { opacity: 1; } 90% { transform: translate(calc(var(--lx) * -0.4), calc(var(--ly) * 0.5)); } }
 @keyframes neige { from { transform: translate(0, 0); } to { transform: translate(var(--nx), 340px); } }
 @keyframes sprite { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+@keyframes feuille { 0% { transform: translate(0, 0) rotate(0deg); opacity: 0; } 8% { opacity: 1; } 100% { transform: translate(var(--fx), 330px) rotate(var(--fr)); opacity: 0.9; } }
+@keyframes papillon { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(34px, -18px); } 50% { transform: translate(64px, 4px); } 75% { transform: translate(28px, 16px); } }
+@keyframes aile { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(0.25); } }
+@keyframes ampoule { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 @keyframes derive { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(8px, -6px); } }
 
 .anim-monte { animation: monte 0.5s var(--ressort) both; }

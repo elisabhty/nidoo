@@ -72,7 +72,8 @@ export const STAR_REASONS: Record<string, string> = {
   moment: 'a partagé un instant',
   attention: 'a envoyé une attention',
   dessin: 'a envoyé un dessin',
-  humeur: 'a donné sa météo',
+  humeur: 'a partagé son humeur',
+  defi: 'a relevé le défi de la semaine',
   question: 'a répondu à la question du jour',
   mission: 'a terminé une mission',
 }

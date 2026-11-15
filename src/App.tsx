@@ -1,4 +1,4 @@
-import { CalendarDays, Folder, Gamepad2, House as HouseIcon, UsersRound } from 'lucide-react'
+import { BookHeart, CalendarDays, House as HouseIcon, Sparkles, UsersRound } from 'lucide-react'
 import { useState } from 'react'
 import { DrawingBanner, useUnseenDrawings } from './components/drawing'
 import Guide from './components/Guide'
@@ -22,8 +22,8 @@ export type Go = Tab | 'fil'
 
 const TABS: { key: Tab; label: string; icon: typeof HouseIcon }[] = [
   { key: 'maison', label: 'Maison', icon: HouseIcon },
-  { key: 'moments', label: 'Dossiers', icon: Folder },
-  { key: 'jouer', label: 'Jouer', icon: Gamepad2 },
+  { key: 'moments', label: 'Souvenirs', icon: BookHeart },
+  { key: 'jouer', label: 'Moments', icon: Sparkles },
   { key: 'organiser', label: 'Organiser', icon: CalendarDays },
   { key: 'famille', label: 'Famille', icon: UsersRound },
 ]

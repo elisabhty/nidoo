@@ -2,11 +2,12 @@ import { DECOS, PLAN_LIMITS, THOUGHTS } from './data'
 import { demoDrawing, type DemoArt } from './drawing'
 import type { Backend, Drawing, Family, FamilyState, Folder, FolderItem, JoinRequest, Member, Moment, MyRequest, ThoughtKind } from './types'
 import { blobToDataUrl, compressImage, todayKey, uid } from './util'
+import { challenge, nextReward, WEEKLY, weekIndex, weekKey, weekStart, type WeeklyCounts, type WeeklyKey } from './weekly'
 
 // Mode démo : toute la maison vit sur l'appareil, avec trois proches fictifs
 // qui répondent aux attentions. Même contrat que le backend Supabase.
 
-type Raw = Omit<FamilyState, 'me'> & { dossiersDemo?: boolean }
+type Raw = Omit<FamilyState, 'me' | 'weekly'> & { dossiersDemo?: boolean; weeklyClaims?: Record<string, string> }
 type Pending = MyRequest & { profile: { displayName: string; avatar: string; color: string } }
 type Db = { userId: string; families: Record<string, Raw>; pending?: Pending[] }
 const KEY = 'nidoo.demo.v2'
@@ -288,6 +289,23 @@ export function createLocalBackend(): Backend {
   // Une demande restée en attente (application fermée) est acceptée à la réouverture.
   for (const r of db.pending ?? []) acceptLater(r)
 
+  // Défi de la semaine : ce que la famille a fait depuis lundi. En démo, les proches fictifs ont déjà fait une partie du chemin.
+  const weeklyCounts = (f: Raw): WeeklyCounts => {
+    const since = weekStart()
+    const after = (iso: string) => new Date(iso).getTime() >= since
+    const logged = (reason: string) => f.starLog.filter((x) => x.reason === reason && after(x.created_at)).length
+    const c: WeeklyCounts = {
+      photos: f.moments.filter((m) => m.image_path && after(m.created_at)).length + f.folderItems.filter((i) => i.kind === 'photo' && after(i.created_at)).length,
+      calins: f.thoughts.filter((t) => after(t.created_at)).length,
+      dessins: f.drawings.filter((d) => after(d.created_at)).length,
+      missions: logged('mission'),
+      humeurs: logged('humeur'),
+      questions: logged('question'),
+    }
+    for (const [k, n] of Object.entries(WEEKLY[weekIndex()].goals) as [WeeklyKey, number][]) c[k] += Math.max(0, n - 1)
+    return c
+  }
+
   return {
     mode: 'local',
     async start() {
@@ -375,6 +393,8 @@ export function createLocalBackend(): Backend {
         ...f,
         me,
         requests: me.role === 'responsable' ? f.requests.filter((r) => r.status === 'attente') : [],
+        weekly: { counts: weeklyCounts(f), claimed: f.weeklyClaims?.[weekKey()] ?? null },
+        weeklyClaims: undefined,
         answers: f.answers.filter((a) => a.day === day),
         moments: f.moments.map((m) => ({ ...m, image_url: m.image_path })),
         drawings: f.drawings.filter((d) => !d.to_member || d.to_member === me.id || d.from_member === me.id).slice(0, 30),
@@ -603,6 +623,21 @@ export function createLocalBackend(): Backend {
       const me = f.members.find((m) => m.user_id === db.userId)!
       f.starLog.unshift({ id: uid(), member_id: me.id, reason: `deco:${key}`, amount: -deco.cost, created_at: new Date().toISOString() })
       save()
+    },
+    async claimWeekly(fid) {
+      const f = fam(fid)
+      const wk = weekKey()
+      if (f.weeklyClaims?.[wk]) throw new Error('DEFI_DEJA_RECU')
+      if (!challenge(weeklyCounts(f)).complete) throw new Error('DEFI_INCOMPLET')
+      const me = f.members.find((m) => m.user_id === db.userId)!
+      const deco = nextReward(f.houseItems)
+      if (deco) {
+        f.houseItems.push(deco.key)
+        f.starLog.unshift({ id: uid(), member_id: me.id, reason: 'defi', amount: 0, created_at: new Date().toISOString() })
+      } else award(f, me.id, 'defi', 20)
+      f.weeklyClaims = { ...f.weeklyClaims, [wk]: deco?.key ?? 'etoiles' }
+      save()
+      return deco?.key ?? 'etoiles'
     },
     async linkEmail() {
       throw new Error('DEMO')

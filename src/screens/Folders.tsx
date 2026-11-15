@@ -33,7 +33,7 @@ export default function Dossiers({ seg, setSeg }: { seg: DossiersSeg; setSeg: (s
       <FolderView
         key={current}
         id={current}
-        backLabel={parent?.name ?? 'Dossiers'}
+        backLabel={parent?.name ?? 'Souvenirs'}
         onBack={() => setPath(live.slice(0, -1))}
         onOpen={(id) => setPath([...live, id])}
       />
@@ -63,7 +63,7 @@ function Accueil({ seg, setSeg, onOpen }: { seg: DossiersSeg; setSeg: (s: Dossie
   return (
     <>
       <Screen
-        title="Dossiers"
+        title="Souvenirs"
         trailing={
           seg === 'dossiers' ? (
             <Rond label="Nouveau dossier" tint onClick={() => setCreating(true)}><FolderPlus size={19} /></Rond>
@@ -76,7 +76,7 @@ function Accueil({ seg, setSeg, onOpen }: { seg: DossiersSeg; setSeg: (s: Dossie
         }
       >
         <p className="-mt-1 px-5 text-sous text-brume">
-          {seg === 'dossiers' ? 'Tu ne vois que les dossiers dont tu fais partie.' : 'Les photos surprises et petits mots envoyés à toute la famille.'}
+          {seg === 'dossiers' ? 'Vos souvenirs et projets, bien rangés.' : 'Les photos surprises et petits mots envoyés à toute la famille.'}
         </p>
         <div className="mx-4 mb-4 mt-3">
           <Segments value={seg} onChange={setSeg} options={[{ key: 'dossiers', label: 'Mes dossiers' }, { key: 'fil', label: 'Fil de la famille' }]} />
@@ -138,7 +138,7 @@ function FolderCard({ folder, cover, line, last, onOpen }: { folder: Folder; cov
       className="presse relative aspect-square overflow-hidden rounded-[24px] text-left shadow-carte"
     >
       <FolderCover folder={folder} url={cover} />
-      <span className="absolute inset-x-0 bottom-0 h-[62%] bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+      {cover && <span className="absolute inset-x-0 bottom-0 h-[62%] bg-gradient-to-t from-black/60 via-black/20 to-transparent" />}
       <span className="absolute left-2.5 top-2.5">
         {solo ? (
           <span className="verre flex h-7 items-center gap-1 rounded-full px-2.5 text-legende font-semibold text-encre">
@@ -150,10 +150,10 @@ function FolderCard({ folder, cover, line, last, onOpen }: { folder: Folder; cov
           </span>
         )}
       </span>
-      <span className="absolute inset-x-3 bottom-2.5 text-white">
-        <span className="line-clamp-2 text-appel font-semibold leading-[21px]" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.25)' }}>{folder.name}</span>
-        <span className="block truncate text-legende text-white/85">{line}</span>
-        <span className="block truncate text-mini text-white/70">{ago(new Date(last).toISOString())}</span>
+      <span className={`absolute inset-x-3 bottom-2.5 ${cover ? 'text-white' : 'text-encre'}`}>
+        <span className="line-clamp-2 text-appel font-semibold leading-[21px]" style={cover ? { textShadow: '0 1px 8px rgba(0,0,0,0.25)' } : undefined}>{folder.name}</span>
+        <span className={`block truncate text-legende ${cover ? 'text-white/85' : 'text-encre/65'}`}>{line}</span>
+        <span className={`block truncate text-mini ${cover ? 'text-white/70' : 'text-encre/50'}`}>{ago(new Date(last).toISOString())}</span>
       </span>
     </button>
   )
@@ -322,11 +322,11 @@ function FolderView({ id, backLabel, onBack, onOpen }: { id: string; backLabel: 
           {/* couverture */}
           <div className="relative w-full overflow-hidden" style={{ height: 'calc(var(--sat) + 260px)' }}>
             <FolderCover folder={folder} url={stats.cover} size="lg" />
-            <span className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/5 to-black/25" />
-            <div ref={heroText} className="absolute inset-x-5 bottom-9 text-white">
-              {crumbs.length > 0 && <p className="mb-0.5 truncate text-note font-medium text-white/80">{crumbs.map((c) => c.name).join(' / ')}</p>}
-              <h1 className="break-words font-rond text-grand" style={{ textShadow: '0 2px 16px rgba(0,0,0,0.25)' }}>{folder.name}</h1>
-              <p className="mt-0.5 text-sous text-white/85">{contentLine(stats)}</p>
+            {stats.cover && <span className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/5 to-black/25" />}
+            <div ref={heroText} className={`absolute bottom-9 left-5 ${stats.cover ? 'right-5 text-white' : 'right-[40%] text-encre'}`}>
+              {crumbs.length > 0 && <p className={`mb-0.5 truncate text-note font-medium ${stats.cover ? 'text-white/80' : 'text-encre/60'}`}>{crumbs.map((c) => c.name).join(' / ')}</p>}
+              <h1 className="break-words font-rond text-grand" style={stats.cover ? { textShadow: '0 2px 16px rgba(0,0,0,0.25)' } : undefined}>{folder.name}</h1>
+              <p className={`mt-0.5 text-sous ${stats.cover ? 'text-white/85' : 'text-encre/65'}`}>{contentLine(stats)}</p>
             </div>
           </div>
 

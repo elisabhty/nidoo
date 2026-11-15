@@ -9,11 +9,12 @@ App React + Tailwind + Capacitor (iOS), backend Supabase. Interface aux codes iO
 Au premier lancement, un guide en 6 écrans explique chaque fonctionnalité (rejouable depuis Famille > Comment ça marche).
 
 
-- **Maison** : la maison de la famille (maison, appartement ou chalet), une fenêtre par membre qui s'allume quand il donne de ses nouvelles, ciel qui suit l'heure, Nidoo le panda roux qui signale le proche à qui envoyer une attention.
-- **Dossiers** : des espaces créés avec les proches de son choix. Chacun a une couverture, des membres, des sous-dossiers, des photos, des notes modifiables par tous ses membres et une discussion. On ne voit que les dossiers dont on fait partie ; le créateur gère les membres, les autres peuvent quitter. Le fil de la famille (photos surprises et petits mots envoyés à tous) est dans le même onglet.
+- **Maison** : « Notre petit monde » (la maison animée, son niveau et les étoiles qui manquent avant la prochaine surprise), trois gestes rapides (un câlin, une photo, un dessin), « Aujourd'hui en famille » (le proche qui a une petite mine, son humeur, les rendez-vous du jour et du lendemain, les missions, la question du jour), le défi de la semaine, les humeurs et le dessin en direct. La maison suit l'heure et les saisons (feuilles d'automne, neige, guirlande de Noël, pétales, papillons) et les dernières photos partagées y sont accrochées à un fil.
+- **Souvenirs** : des dossiers créés avec les proches de son choix. Chacun a une couverture, des membres, des sous-dossiers, des photos, des notes modifiables par tous ses membres et une discussion. On ne voit que les dossiers dont on fait partie ; le créateur gère les membres, les autres peuvent quitter. Le fil de la famille (photos surprises et petits mots envoyés à tous) est dans le même onglet.
 - **On pense à toi** : un cœur, un câlin, du courage, un petit mot, reçu en animation sans ouvrir de conversation.
-- **Météo des émotions** : son humeur du jour et un mot, visibles par la famille.
-- **Jouer** : question du jour, défi photo, étoiles et 12 décorations à débloquer pour la maison.
+- **Humeur du jour** : son humeur et un mot, visibles par la famille.
+- **Moments** : question du jour, défi photo, défi de la semaine, étoiles (expliquées dans une fiche dédiée) et 12 décorations à débloquer pour la maison.
+- **Défi de la semaine** : un objectif commun qui change chaque lundi (par exemple 6 câlins, 10 humeurs et 2 photos). Relevé ensemble, il offre une décoration à toute la famille. La progression est comptée par la base et la récompense ne peut être reçue qu'une fois.
 - **Organiser** : agenda (anniversaires annuels, rendez-vous, événements), liste de courses, missions assignables.
 - **Dessin en direct** : un widget moyen sur l'accueil. On dessine (crayon de couleur, feutre, gomme, 11 couleurs, 5 fonds) pour un proche ou pour toute la famille ; le dessin arrive tout de suite et se redessine trait par trait chez celui qui le reçoit, qui peut répondre par un dessin. Les dessins sont enregistrés en traits (vectoriels, quelques Ko), pas en images.
 - **Notre famille** : membres, invitation par code ou lien, plusieurs maisons, aperçu des widgets, offre Famille+, profil.
@@ -39,7 +40,7 @@ Sans clés Supabase, l'app démarre en **mode démo** : la maison vit sur l'appa
 
 ## Brancher Supabase
 
-1. Créer un projet Supabase et y exécuter, dans l'ordre, `supabase/migrations/0001_nidoo.sql`, `0002_dossiers.sql`, `0003_dessins.sql` puis `0004_invitations.sql`.
+1. Créer un projet Supabase et y exécuter, dans l'ordre, `supabase/migrations/0001_nidoo.sql`, `0002_dossiers.sql`, `0003_dessins.sql`, `0004_invitations.sql` puis `0005_defis.sql`.
 2. Dans Authentication > Sign In / Providers, activer **Allow anonymous sign-ins** (chaque téléphone reçoit un compte invisible, rattachable ensuite à un e-mail depuis « Notre famille »).
 3. Copier `.env.example` en `.env.production` (et `.env.local` pour le dev) avec l'URL du projet et la clé publishable.
 

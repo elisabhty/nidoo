@@ -1,3 +1,5 @@
+import type { WeeklyState } from './weekly'
+
 export type HouseType = 'maison' | 'appartement' | 'chalet'
 export type ThoughtKind = 'coeur' | 'calin' | 'courage' | 'bisou' | 'mot'
 export type ListKind = 'course' | 'tache'
@@ -157,6 +159,8 @@ export type FamilyState = {
   answers: Answer[]
   houseItems: string[]
   starLog: StarEntry[]
+  /** Défi de la semaine : progression de toute la famille, et récompense déjà reçue. */
+  weekly: WeeklyState
 }
 
 export type Circle = { family: Family; me: Member }
@@ -208,6 +212,8 @@ export interface Backend {
   deleteItem(id: string): Promise<void>
   answer(familyId: string, memberId: string, questionKey: string, answer: string): Promise<void>
   unlock(familyId: string, key: string): Promise<void>
+  /** Réclame la récompense du défi de la semaine ; renvoie la décoration offerte (ou « etoiles »). */
+  claimWeekly(familyId: string): Promise<string>
   /** Rattache une adresse e-mail au compte pour le retrouver sur un autre téléphone. */
   linkEmail(email: string): Promise<void>
   accountEmail(): Promise<string | null>

@@ -1,6 +1,6 @@
 import { Brush, Eraser, Pencil, RotateCcw, Trash2, Undo2, UsersRound } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { DRAW_H, DRAW_W, fit, INKS, MAX_POINTS, paint, PAPERS, pointCount, replayMs, strokePath, WIDTHS } from '../lib/drawing'
+import { demoDrawing, DRAW_H, DRAW_W, fit, INKS, MAX_POINTS, paint, PAPERS, pointCount, replayMs, strokePath, WIDTHS } from '../lib/drawing'
 import { select, success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
 import type { Drawing, DrawingData, DrawTool, FamilyState, Member, Stroke } from '../lib/types'
@@ -117,6 +117,29 @@ export function DrawingCanvas({ data, id, play = 0, className = '', label }: { d
     }
   }, [id ?? data, play]) // eslint-disable-line react-hooks/exhaustive-deps
   return <canvas ref={ref} className={`block h-full w-full ${className}`} role="img" aria-label={label ?? 'Dessin'} />
+}
+
+/** Petit cœur dessiné au crayon, sur un pense-bête : l'icône du dessin en direct. */
+export function DoodleIcon({ size = 46 }: { size?: number }) {
+  const ref = useRef<HTMLCanvasElement>(null)
+  useEffect(() => {
+    const c = ref.current
+    if (!c) return
+    const inner = size * 0.78
+    const dpr = Math.min(window.devicePixelRatio || 1, 3)
+    c.width = c.height = Math.round(inner * dpr)
+    const ctx = c.getContext('2d')!
+    const k = (inner * dpr) / 330
+    ctx.setTransform(k, 0, 0, k, -335 * k, -85 * k)
+    const d = demoDrawing('coeurs', 3)
+    strokePath(ctx, { ...d.s[0], w: 30 }, d.bg)
+    strokePath(ctx, { ...d.s[1], w: 22 }, d.bg)
+  }, [size])
+  return (
+    <span className="flex items-center justify-center rounded-[13px] bg-[#FFF6E5] shadow-[0_6px_14px_-6px_rgba(29,26,43,0.35)]" style={{ width: size, height: size, transform: 'rotate(-6deg)' }} aria-hidden>
+      <canvas ref={ref} style={{ width: size * 0.78, height: size * 0.78 }} />
+    </span>
+  )
 }
 
 // ═════════════════════════ Le widget moyen ═════════════════════════

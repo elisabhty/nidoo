@@ -42,6 +42,19 @@ export function greeting(d = new Date()): string {
   if (h < 18) return 'Coucou'
   return 'Bonsoir'
 }
+export type Season = 'printemps' | 'ete' | 'automne' | 'hiver' | 'noel'
+/** La saison de la maison : Noël du 1er décembre au 6 janvier. */
+export function season(d = new Date()): Season {
+  const m = d.getMonth() + 1
+  const day = d.getDate()
+  if (m === 12 || (m === 1 && day <= 6)) return 'noel'
+  if (m <= 2) return 'hiver'
+  if (m < 6 || (m === 6 && day < 21)) return m === 3 && day < 20 ? 'hiver' : 'printemps'
+  if (m < 9 || (m === 9 && day < 22)) return 'ete'
+  return 'automne'
+}
+export const SEASON_LABEL: Record<Season, string> = { printemps: 'Printemps', ete: 'Été', automne: 'Automne', hiver: 'Hiver', noel: 'Noël' }
+
 export function dayPhase(d = new Date()): 'matin' | 'jour' | 'soir' | 'nuit' {
   const h = d.getHours()
   if (h >= 6 && h < 10) return 'matin'
@@ -100,6 +113,8 @@ const ERRORS: Record<string, string> = {
   DERNIER_RESPONSABLE: 'La famille doit garder au moins un responsable. Nommes-en un autre d’abord.',
   UTILISE_QUITTER: 'Pour partir toi-même, utilise « Quitter cette maison ».',
   MEMBRE_INCONNU: 'Ce membre n’est plus dans la famille.',
+  DEFI_INCOMPLET: 'Le défi n’est pas encore relevé : encore un petit effort !',
+  DEFI_DEJA_RECU: 'La récompense de cette semaine a déjà été reçue.',
 }
 export function errorText(e: unknown): string {
   const msg = e instanceof Error ? e.message : typeof e === 'object' && e && 'message' in e ? String((e as { message: unknown }).message) : String(e)

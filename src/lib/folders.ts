@@ -55,16 +55,28 @@ export function whoText(ids: string[], me: string, members: Member[]): string {
   return `Toi, ${others[0]} et ${others.length - 1} autres`
 }
 
+// Couvertures sans photo : les mêmes tons pastel que les avatars, et une illustration 3D qui dit ce que contient le dossier.
 const GRADIENTS = [
-  'linear-gradient(140deg, #C7B1FA 0%, #7A5AE0 100%)',
-  'linear-gradient(140deg, #FFCDB0 0%, #F07E4F 100%)',
-  'linear-gradient(140deg, #B5E3C1 0%, #4AA368 100%)',
-  'linear-gradient(140deg, #B9DDFA 0%, #4A8CD8 100%)',
-  'linear-gradient(140deg, #F9C3D6 0%, #D35E8B 100%)',
-  'linear-gradient(140deg, #FBE3A2 0%, #DDA02A 100%)',
+  'linear-gradient(155deg, #F3EEFE 0%, #D9CBF8 100%)',
+  'linear-gradient(155deg, #FFF2E8 0%, #FFD3B8 100%)',
+  'linear-gradient(155deg, #EAF7ED 0%, #C3E6CB 100%)',
+  'linear-gradient(155deg, #E8F3FD 0%, #BFDDF6 100%)',
+  'linear-gradient(155deg, #FEEBF1 0%, #F7C6D6 100%)',
 ]
 export function gradientOf(id: string): string {
   let h = 0
   for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0
   return GRADIENTS[h % GRADIENTS.length]
 }
+
+const ARTS: [RegExp, string][] = [
+  [/recett|cuisin|repas|gâteau|gateau|dessert|dîner|diner|resto/i, 'picto-gateau'],
+  [/vacance|voyage|week-?end|plage|séjour|sejour|bretagne|montagne|road|trip|ski/i, 'picto-lieu'],
+  [/surprise|cadeau|noël|noel|liste de souhaits/i, 'picto-cadeau'],
+  [/anniv|fête|fete|soirée|soiree|mariage|baptême|bapteme/i, 'picto-fete'],
+  [/course|achat|liste|magasin/i, 'picto-courses'],
+  [/école|ecole|devoir|agenda|rdv|rendez|planning|santé|sante|médecin|medecin/i, 'picto-agenda'],
+  [/idée|idee|projet|bricol|travaux|mission|maison/i, 'picto-missions'],
+  [/souvenir|bébé|bebe|enfant|famille|naissance/i, 'geste-coeur'],
+]
+export const folderArt = (name: string) => ARTS.find(([re]) => re.test(name))?.[1] ?? 'picto-photo'

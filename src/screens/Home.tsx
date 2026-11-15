@@ -1,18 +1,27 @@
 import { ChevronRight } from 'lucide-react'
-import { useState } from 'react'
-import { DrawingsSheet, DrawingWidget, DrawSheet } from '../components/drawing'
+import { useState, type ReactNode } from 'react'
+import { DoodleIcon, DrawingsSheet, DrawingWidget, DrawSheet } from '../components/drawing'
 import House from '../components/House'
 import { JoinRequests } from '../components/requests'
 import { ComposeSheet, eventArt, MoodSheet, ThoughtSheet } from '../components/sheets'
+import { StarsSheet } from '../components/stars'
 import { Art, Avatar, Lien, Section } from '../components/ui'
-import { moodOf, questionOfDay } from '../lib/data'
+import { WeeklyChallenge } from '../components/weekly'
+import { DECOS, moodOf, questionOfDay } from '../lib/data'
 import { success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
 import type { Drawing, Member } from '../lib/types'
-import { ago, dayLabel, greeting, isToday, nextOccurrence, timeLabel } from '../lib/util'
+import { dayLabel, greeting, isToday, nextOccurrence, season, SEASON_LABEL, timeLabel } from '../lib/util'
 import type { Go } from '../App'
 
-type Open = null | { k: 'humeur' } | { k: 'photo' } | { k: 'pensee'; to?: Member } | { k: 'dessin'; to?: string | null } | { k: 'dessins'; start?: Drawing }
+type Open =
+  | null
+  | { k: 'humeur' }
+  | { k: 'photo' }
+  | { k: 'pensee'; to?: Member }
+  | { k: 'dessin'; to?: string | null }
+  | { k: 'dessins'; start?: Drawing }
+  | { k: 'etoiles' }
 
 export function upcoming(events: ReturnType<typeof useHome>['state']['events'], limit = 3) {
   const start = new Date()
@@ -24,42 +33,60 @@ export function upcoming(events: ReturnType<typeof useHome>['state']['events'], 
     .slice(0, limit)
 }
 
+type Ligne = { key: string; icon: ReactNode; title: string; text: string; act: () => void; tint?: string }
+
 export default function Home({ go }: { go: (t: Go) => void }) {
   const { state, run } = useHome()
   const [sheet, setSheet] = useState<Open>(null)
   const [scrolled, setScrolled] = useState(false)
-  const { family, me, members } = state
+  const { family, me, members, houseItems } = state
   const others = members.filter((m) => m.id !== me.id)
   const myMood = isToday(me.mood_at) ? moodOf(me.mood) : null
-  const next = upcoming(state.events)
-  const last = state.moments[0]
-  const lastBy = last && members.find((m) => m.id === last.member_id)
-  const missions = state.items.filter((i) => i.kind === 'tache' && !i.done && (!i.assigned_to || i.assigned_to === me.id)).slice(0, 3)
-  const answered = state.answers.some((a) => a.member_id === me.id)
-  const level = state.houseItems.length + 1
-  const home = members.filter((m) => isToday(m.mood_at))
+  const level = houseItems.length + 1
+  const nextDeco = DECOS.find((d) => !houseItems.includes(d.key))
+  const toGo = nextDeco ? Math.max(0, nextDeco.cost - family.stars) : 0
+  const photos = state.moments.filter((m) => m.image_url).slice(0, 3).map((m) => m.image_url!)
+  const now = season()
 
-  // Ce que dit Nidoo : un proche qui a besoin d'une attention passe avant le reste.
+  // ── Aujourd'hui en famille : ce qui compte maintenant, dans une seule liste.
   const cared = (m: Member) => state.thoughts.some((t) => t.from_member === me.id && t.to_member === m.id && isToday(t.created_at))
   const low = others.find((m) => isToday(m.mood_at) && ['triste', 'stresse', 'fatigue'].includes(m.mood ?? '') && !cared(m))
-  const soon = next.find((x) => (x.at.getTime() - Date.now()) / 3600000 < 36)
-  const nidoo: { title: string; text: string; act?: () => void } = low
-    ? { title: `${low.display_name} a une petite mine`, text: 'Envoie-lui un câlin, ça prend une seconde.', act: () => setSheet({ k: 'pensee', to: low }) }
-    : !myMood
-      ? { title: 'Quelle est ta météo ?', text: 'Dis à ta famille comment tu vas aujourd’hui.', act: () => setSheet({ k: 'humeur' }) }
-      : soon
-        ? { title: soon.e.title, text: `${dayLabel(soon.at)}${soon.e.all_day ? '' : ` à ${timeLabel(soon.at)}`}`, act: () => go('organiser') }
-        : { title: 'La maison est paisible', text: 'Rien à signaler, profitez de la journée.' }
+  const tomorrow = new Date()
+  tomorrow.setHours(0, 0, 0, 0)
+  tomorrow.setDate(tomorrow.getDate() + 2)
+  const soon = upcoming(state.events, 4).filter((x) => x.at < tomorrow).slice(0, 2)
+  const missions = state.items.filter((i) => i.kind === 'tache' && !i.done && (!i.assigned_to || i.assigned_to === me.id)).slice(0, 3)
+  const answered = state.answers.some((a) => a.member_id === me.id)
+  const today: Ligne[] = [
+    ...(low
+      ? [{ key: 'low', icon: <img src="./panda.webp" alt="" className="h-10 w-10 rounded-[12px]" />, title: `${low.display_name} a une petite mine`, text: 'Envoie-lui un câlin, ça prend une seconde', act: () => setSheet({ k: 'pensee', to: low }) }]
+      : []),
+    ...(!myMood ? [{ key: 'humeur', icon: <Art name="humeur-heureux" size={40} />, title: 'Partager mon humeur', text: 'Ta famille voit comment tu te sens', act: () => setSheet({ k: 'humeur' }) }] : []),
+    ...soon.map(({ e, at }) => ({
+      key: e.id,
+      icon: <Art name={eventArt(e.kind)} size={40} />,
+      title: e.title,
+      text: `${dayLabel(at)}${e.all_day ? '' : ` · ${timeLabel(at)}`} · toute la famille`,
+      act: () => go('organiser'),
+      tint: dayLabel(at) === 'Aujourd’hui' ? 'text-peche-fonce' : undefined,
+    })),
+    ...missions.map((i) => ({
+      key: i.id,
+      icon: <span className="mx-[7px] block h-[26px] w-[26px] rounded-full border-[1.5px] border-pale" />,
+      title: i.title,
+      text: 'Mission du jour · +1 étoile',
+      act: () => {
+        success()
+        void run((api) => api.toggleItem(i, me.id), 'Mission accomplie, 1 étoile gagnée')
+      },
+    })),
+    ...(!answered ? [{ key: 'question', icon: <Art name="picto-bulle" size={40} />, title: questionOfDay().text, text: 'Question du jour · +2 étoiles', act: () => go('jouer') }] : []),
+  ]
 
-  const actions = [
-    {
-      title: myMood ? `Ma météo : ${myMood.label}` : 'Dire comment je vais',
-      text: myMood ? 'Touche pour la changer' : 'Ta famille voit ton humeur du jour',
-      art: `humeur-${myMood ? myMood.key : 'heureux'}`,
-      on: () => setSheet({ k: 'humeur' }),
-    },
-    { title: 'Envoyer un câlin', text: 'Un proche reçoit une petite animation', art: 'geste-calin', on: () => setSheet({ k: 'pensee' }) },
-    { title: 'Partager une photo', text: 'Elle arrive chez toute la famille', art: 'picto-photo', on: () => setSheet({ k: 'photo' }) },
+  const tiles = [
+    { label: 'Un câlin', icon: <Art name="geste-calin" size={50} />, on: () => setSheet({ k: 'pensee' }) },
+    { label: 'Une photo', icon: <Art name="picto-photo" size={50} />, on: () => setSheet({ k: 'photo' }) },
+    { label: 'Un dessin', icon: <DoodleIcon size={44} />, on: () => setSheet({ k: 'dessin' }) },
   ]
 
   return (
@@ -70,17 +97,27 @@ export default function Home({ go }: { go: (t: Go) => void }) {
           style={{ paddingTop: 'var(--sat)' }}
         >
           <div className="relative flex h-[52px] items-center justify-between px-4">
-            <button onClick={() => setSheet({ k: 'humeur' })} className="presse pointer-events-auto" aria-label="Ma météo du jour">
+            <button onClick={() => setSheet({ k: 'humeur' })} className="presse pointer-events-auto" aria-label="Mon humeur du jour">
               <Avatar m={me} size={38} mood />
             </button>
             <p className={`absolute inset-x-24 truncate text-center text-corps font-semibold transition-opacity duration-200 ${scrolled ? 'opacity-100' : 'opacity-0'}`}>Famille {family.name}</p>
-            <button onClick={() => go('jouer')} className="presse verre pointer-events-auto flex h-10 items-center gap-1.5 rounded-full pl-2 pr-3.5 text-appel font-semibold" aria-label={`${family.stars} étoiles`}>
+            <button
+              onClick={() => {
+                tap()
+                setSheet({ k: 'etoiles' })
+              }}
+              className="presse verre pointer-events-auto flex h-10 items-center gap-1.5 rounded-full pl-2 pr-3.5 text-appel font-semibold"
+              aria-label={`${family.stars} étoiles : comment en gagner`}
+            >
               <Art name="picto-etoile" size={24} /> {family.stars}
             </button>
           </div>
         </div>
 
-        <div className="no-bar h-full overflow-y-auto overscroll-contain pb-[120px]" style={{ paddingTop: 'calc(var(--sat) + 56px)' }} onScroll={(e) => {
+        <div
+          className="no-bar h-full overflow-y-auto overscroll-contain pb-[120px]"
+          style={{ paddingTop: 'calc(var(--sat) + 56px)' }}
+          onScroll={(e) => {
             const y = e.currentTarget.scrollTop
             setScrolled(y > 60)
             e.currentTarget.style.setProperty('--par', String(Math.max(0, Math.min(y, 400))))
@@ -91,77 +128,89 @@ export default function Home({ go }: { go: (t: Go) => void }) {
             <h1 className="break-words font-rond text-grand">Famille {family.name}</h1>
           </div>
 
-          <button
-            onClick={() => {
-              tap()
-              nidoo.act?.()
-            }}
-            disabled={!nidoo.act}
-            className="presse groupe mx-4 mt-3 flex w-[calc(100%-2rem)] items-center gap-3 p-2.5 pr-3.5 text-left shadow-carte"
-          >
-            <img src="./panda.webp" alt="" className="h-[52px] w-[52px] rounded-[15px]" />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-appel font-semibold">{nidoo.title}</span>
-              <span className="block truncate text-note text-brume">{nidoo.text}</span>
-            </span>
-            {nidoo.act && <ChevronRight size={17} strokeWidth={2.6} className="shrink-0 text-pale" />}
-          </button>
-
           <JoinRequests className="mt-3" />
 
-          <Section
-            title="Dessin en direct"
-            hint="Dessine pour un proche ou toute la famille : il le voit se dessiner sur son écran."
-            action={state.drawings.length ? <Lien onClick={() => setSheet({ k: 'dessins' })}>Tout voir</Lien> : undefined}
-          >
-            <div className="px-4">
-              <DrawingWidget onOpen={(d) => setSheet({ k: 'dessins', start: d })} onDraw={() => setSheet({ k: 'dessin' })} />
+          {/* Notre petit monde : la maison, son niveau et la prochaine surprise */}
+          <div className="groupe mx-4 mt-4 p-3 shadow-carte">
+            <div className="flex items-center justify-between px-1.5 pb-2.5 pt-0.5">
+              <p className="font-rond text-titre3">Notre petit monde</p>
+              <span className="flex items-center gap-1.5">
+                <span className="rounded-full bg-remplissage px-2.5 py-1 text-legende font-semibold text-brume">{SEASON_LABEL[now]}</span>
+                <span className="rounded-full bg-teinte-doux px-2.5 py-1 text-legende font-semibold text-teinte-fonce">Niveau {level}</span>
+              </span>
             </div>
-          </Section>
+            <div className="overflow-hidden rounded-[22px]">
+              <House type={family.house_type} items={houseItems} photos={photos} season={now} />
+            </div>
+            <button
+              onClick={() => {
+                tap()
+                go('jouer')
+              }}
+              className="presse block w-full px-1.5 pb-1 pt-3 text-left"
+            >
+              <span className="flex items-center justify-between gap-2 text-sous font-medium">
+                <span className="min-w-0 flex-1">
+                  {!nextDeco
+                    ? 'Votre maison est complète, bravo à toute la famille !'
+                    : toGo > 0
+                      ? `Plus que ${toGo} étoile${toGo > 1 ? 's' : ''} avant la prochaine surprise`
+                      : `De quoi installer une nouvelle décoration : ${nextDeco.name}`}
+                </span>
+                <ChevronRight size={17} strokeWidth={2.6} className="shrink-0 text-pale" />
+              </span>
+              {nextDeco && (
+                <span className="mt-2 block h-[7px] overflow-hidden rounded-full bg-remplissage">
+                  <span className="block h-full rounded-full bg-teinte transition-[width] duration-700" style={{ width: `${Math.min(100, (family.stars / nextDeco.cost) * 100)}%` }} />
+                </span>
+              )}
+              <span className="mt-1.5 block text-note text-brume">Chaque petit geste embellit votre maison.</span>
+            </button>
+          </div>
 
-          <p className="entete mt-6">Que veux-tu faire ?</p>
-          <div className="groupe mx-4 shadow-carte">
-            {actions.map((a, i) => (
+          {/* les trois gestes du quotidien */}
+          <div className="mx-4 mt-3 grid grid-cols-3 gap-2.5">
+            {tiles.map((t) => (
               <button
-                key={a.art}
+                key={t.label}
                 onClick={() => {
                   tap()
-                  a.on()
+                  t.on()
                 }}
-                className="presse-ligne flex w-full items-center gap-3 pl-3 text-left"
+                className="presse groupe flex h-[104px] flex-col items-center justify-center gap-1.5 shadow-carte"
               >
-                <Art name={a.art} size={44} />
-                <span className={`flex min-h-[62px] min-w-0 flex-1 items-center gap-2 py-2 pr-4 ${i < actions.length - 1 ? 'border-b border-trait' : ''}`}>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-corps font-semibold">{a.title}</span>
-                    <span className="block truncate text-note text-brume">{a.text}</span>
-                  </span>
-                  <ChevronRight size={17} strokeWidth={2.6} className="shrink-0 text-pale" />
-                </span>
+                <span className="flex h-[52px] items-center">{t.icon}</span>
+                <span className="text-sous font-semibold">{t.label}</span>
               </button>
             ))}
           </div>
 
-          <p className="entete mt-6">Notre maison</p>
-          <div className="mx-4 overflow-hidden rounded-[28px] bg-carte shadow-carte">
-            <House type={family.house_type} items={state.houseItems} />
-            <div className="flex items-center gap-3 px-4 py-3">
-              <div className="flex -space-x-2">
-                {(home.length ? home : members).slice(0, 4).map((m) => (
-                  <span key={m.id} className={`rounded-full ring-2 ring-white ${home.length ? '' : 'opacity-45'}`}>
-                    <Avatar m={m} size={30} />
+          <Section title="Aujourd’hui en famille" action={<Lien onClick={() => go('organiser')}>Voir tout</Lien>}>
+            <div className="groupe mx-4 shadow-carte">
+              {today.length === 0 && <p className="px-4 py-4 text-sous text-brume">Rien de prévu aujourd’hui. Profitez-en !</p>}
+              {today.map((l, i) => (
+                <button
+                  key={l.key}
+                  onClick={() => {
+                    tap()
+                    l.act()
+                  }}
+                  className="presse-ligne flex w-full items-center gap-3 pl-3.5 text-left"
+                >
+                  <span className="flex w-10 shrink-0 justify-center">{l.icon}</span>
+                  <span className={`flex min-h-[62px] min-w-0 flex-1 items-center gap-2 py-2.5 pr-4 ${i < today.length - 1 ? 'border-b border-trait' : ''}`}>
+                    <span className="min-w-0 flex-1">
+                      <span className="line-clamp-2 text-corps font-semibold">{l.title}</span>
+                      <span className={`block truncate text-note ${l.tint ?? 'text-brume'}`}>{l.text}</span>
+                    </span>
+                    <ChevronRight size={17} strokeWidth={2.6} className="shrink-0 text-pale" />
                   </span>
-                ))}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sous font-semibold">Niveau {level}</p>
-                <p className="truncate text-note text-brume">Décorez-la avec vos étoiles</p>
-              </div>
-              <button onClick={() => go('jouer')} className="presse h-9 shrink-0 rounded-full bg-teinte-doux px-4 text-sous font-semibold text-teinte-fonce">
-                Décorer
-              </button>
+                </button>
+              ))}
             </div>
-          </div>
+          </Section>
+
+          <WeeklyChallenge className="mt-6" />
 
           <Section title="Nos humeurs" hint="Touche un proche pour lui envoyer un câlin.">
             <div className="no-bar flex gap-2.5 overflow-x-auto px-4 pb-1">
@@ -179,7 +228,9 @@ export default function Home({ go }: { go: (t: Go) => void }) {
                   >
                     <Avatar m={m} size={56} mood />
                     <span className="mt-2 w-full truncate text-sous font-semibold">{mine ? 'Moi' : m.display_name}</span>
-                    <span className={`w-full truncate text-note ${md ? 'text-teinte' : 'text-pale'}`}>{md ? md.label : mine ? 'Dire ma météo' : 'Pas de nouvelles'}</span>
+                    <span className={`line-clamp-2 w-full text-note leading-tight ${md ? 'text-teinte' : 'text-pale'}`}>
+                      {md ? md.label : mine ? 'Partager mon humeur' : 'Pas encore d’humeur aujourd’hui'}
+                    </span>
                     {md && m.mood_note && <span className="mt-1 line-clamp-2 text-legende text-brume">{m.mood_note}</span>}
                   </button>
                 )
@@ -187,70 +238,13 @@ export default function Home({ go }: { go: (t: Go) => void }) {
             </div>
           </Section>
 
-          {last && lastBy && (
-            <Section title="Dernier moment partagé" action={<Lien onClick={() => go('fil')}>Tout voir</Lien>}>
-              <button onClick={() => go('fil')} className="presse groupe mx-4 block w-[calc(100%-2rem)] text-left shadow-carte">
-                {last.image_url && <img src={last.image_url} alt={last.body ?? `Photo de ${lastBy.display_name}`} className="aspect-[4/3] w-full object-cover" />}
-                <div className="flex items-center gap-3 p-3.5">
-                  <Avatar m={lastBy} size={40} />
-                  <div className="min-w-0">
-                    {last.body && <p className="line-clamp-2 text-appel">{last.body}</p>}
-                    <p className="text-note text-brume">{lastBy.display_name} · {ago(last.created_at)}</p>
-                  </div>
-                </div>
-              </button>
-            </Section>
-          )}
-
-          <Section title="À venir" action={<Lien onClick={() => go('organiser')}>Agenda</Lien>}>
-            <div className="groupe mx-4 shadow-carte">
-              {next.length === 0 && (
-                <button onClick={() => go('organiser')} className="presse-ligne w-full px-4 py-4 text-left text-sous text-brume">
-                  Rien de prévu. Ajoute un anniversaire ou un dîner de famille.
-                </button>
-              )}
-              {next.map(({ e, at }, i) => (
-                <div key={e.id} className="flex items-center gap-3 pl-3.5">
-                  <Art name={eventArt(e.kind)} size={36} />
-                  <div className={`min-w-0 flex-1 py-2.5 pr-4 ${i < next.length - 1 ? 'border-b border-trait' : ''}`}>
-                    <p className="truncate text-corps">{e.title}</p>
-                    <p className={`text-note ${dayLabel(at) === 'Aujourd’hui' ? 'font-semibold text-peche-fonce' : 'text-brume'}`}>
-                      {dayLabel(at)}{e.all_day ? '' : ` · ${timeLabel(at)}`}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Section>
-
-          <Section title="À faire aujourd’hui" hint="Chaque mission terminée rapporte une étoile." action={<Lien onClick={() => go('organiser')}>Tout voir</Lien>}>
-            <div className="groupe mx-4 shadow-carte">
-              {!answered && (
-                <button onClick={() => go('jouer')} className="presse-ligne flex w-full items-center gap-3 pl-3.5 text-left">
-                  <Art name="picto-bulle" size={36} />
-                  <span className={`flex min-w-0 flex-1 items-center gap-2 py-2.5 pr-4 ${missions.length ? 'border-b border-trait' : ''}`}>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-corps">{questionOfDay().text}</span>
-                      <span className="block text-note text-teinte">Question du jour · 2 étoiles</span>
-                    </span>
-                    <ChevronRight size={17} strokeWidth={2.6} className="shrink-0 text-pale" />
-                  </span>
-                </button>
-              )}
-              {missions.map((i, k) => (
-                <button
-                  key={i.id}
-                  onClick={() => {
-                    success()
-                    void run((api) => api.toggleItem(i, me.id), 'Mission accomplie, 1 étoile gagnée')
-                  }}
-                  className="presse-ligne flex w-full items-center gap-3 pl-4 text-left"
-                >
-                  <span className="h-[24px] w-[24px] shrink-0 rounded-full border-[1.5px] border-pale" />
-                  <span className={`min-w-0 flex-1 truncate py-3.5 pr-4 text-corps ${k < missions.length - 1 ? 'border-b border-trait' : ''}`}>{i.title}</span>
-                </button>
-              ))}
-              {answered && missions.length === 0 && <p className="px-4 py-4 text-sous text-brume">Tout est fait pour aujourd’hui.</p>}
+          <Section
+            title="Dessin en direct"
+            hint="Il arrive chez un proche et se dessine sous ses yeux."
+            action={state.drawings.length ? <Lien onClick={() => setSheet({ k: 'dessins' })}>Tout voir</Lien> : undefined}
+          >
+            <div className="px-4">
+              <DrawingWidget onOpen={(d) => setSheet({ k: 'dessins', start: d })} onDraw={() => setSheet({ k: 'dessin' })} />
             </div>
           </Section>
         </div>
@@ -261,6 +255,15 @@ export default function Home({ go }: { go: (t: Go) => void }) {
       {sheet?.k === 'pensee' && <ThoughtSheet to={sheet.to} onClose={() => setSheet(null)} />}
       {sheet?.k === 'dessin' && <DrawSheet to={sheet.to} onClose={() => setSheet(null)} />}
       {sheet?.k === 'dessins' && <DrawingsSheet start={sheet.start} onClose={() => setSheet(null)} onDraw={(to) => setSheet({ k: 'dessin', to })} />}
+      {sheet?.k === 'etoiles' && (
+        <StarsSheet
+          onClose={() => setSheet(null)}
+          onDecorate={() => {
+            setSheet(null)
+            go('jouer')
+          }}
+        />
+      )}
     </>
   )
 }

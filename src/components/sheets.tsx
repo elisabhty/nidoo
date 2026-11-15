@@ -8,7 +8,7 @@ import { compressImage, errorText, isToday } from '../lib/util'
 import { DrawSheet, IncomingDrawing, markDrawingsSeen, useUnseenDrawings } from './drawing'
 import { Art, Avatar, Btn, Envol, Segments, Sheet } from './ui'
 
-// ───────── Météo des émotions ─────────
+// ───────── Humeur du jour ─────────
 
 export function MoodSheet({ onClose }: { onClose: () => void }) {
   const { state, run } = useHome()
@@ -19,7 +19,7 @@ export function MoodSheet({ onClose }: { onClose: () => void }) {
 
   const save = async () => {
     setBusy(true)
-    const ok = await run((api) => api.setMood(state.me.id, mood, note.trim() || null), mood ? 'Ta météo est partagée' : 'Météo effacée')
+    const ok = await run((api) => api.setMood(state.me.id, mood, note.trim() || null), mood ? 'Ton humeur est partagée' : 'Humeur effacée')
     setBusy(false)
     if (ok) {
       success()
@@ -28,7 +28,7 @@ export function MoodSheet({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Sheet title="Ma météo du jour" onClose={onClose}>
+    <Sheet title="Mon humeur du jour" onClose={onClose}>
       <p className="text-center text-sous text-brume">Ta famille la verra sur la maison. Aucune obligation, juste des nouvelles.</p>
       <div className="mt-4 grid grid-cols-4 gap-2">
         {MOODS.map((m) => {
@@ -51,7 +51,7 @@ export function MoodSheet({ onClose }: { onClose: () => void }) {
       </div>
       <input className="champ mt-4 !bg-carte" placeholder="Un petit mot pour aller avec (facultatif)" maxLength={80} value={note} onChange={(e) => setNote(e.target.value)} />
       <Btn className="mt-4" onClick={save} disabled={busy || (!mood && !current)}>
-        {mood ? 'Partager ma météo' : current ? 'Effacer ma météo' : 'Choisis ta météo'}
+        {mood ? 'Partager mon humeur' : current ? 'Effacer mon humeur' : 'Choisis ton humeur'}
       </Btn>
     </Sheet>
   )

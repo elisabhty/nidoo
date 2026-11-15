@@ -2,7 +2,9 @@ import { Check, Lock } from 'lucide-react'
 import { useState } from 'react'
 import House from '../components/House'
 import { ComposeSheet } from '../components/sheets'
-import { Art, Avatar, Btn, Screen, Section } from '../components/ui'
+import { StarsSheet } from '../components/stars'
+import { Art, Avatar, Btn, Lien, Screen, Section } from '../components/ui'
+import { WeeklyChallenge } from '../components/weekly'
 import { challengeOfDay, DECOS, questionOfDay, STAR_REASONS } from '../lib/data'
 import { success } from '../lib/haptic'
 import { useHome } from '../lib/store'
@@ -15,6 +17,7 @@ export default function Play() {
   const challenge = challengeOfDay()
   const [text, setText] = useState('')
   const [photo, setPhoto] = useState(false)
+  const [stars, setStars] = useState(false)
   const mine = answers.find((a) => a.member_id === me.id)
   const challengeDone = state.moments.some((m) => m.member_id === me.id && m.challenge === challenge && todayKey(new Date(m.created_at)) === todayKey())
   const nextDeco = DECOS.find((d) => !houseItems.includes(d.key))
@@ -23,16 +26,17 @@ export default function Play() {
   return (
     <>
       <Screen
-        title="Jouer"
+        title="Moments"
         trailing={
-          <span className="verre flex h-10 items-center gap-1.5 rounded-full pl-2 pr-3.5 text-appel font-semibold" aria-label={`${family.stars} étoiles`}>
+          <button onClick={() => setStars(true)} className="presse verre flex h-10 items-center gap-1.5 rounded-full pl-2 pr-3.5 text-appel font-semibold" aria-label={`${family.stars} étoiles : comment en gagner`}>
             <Art name="picto-etoile" size={24} /> {family.stars}
-          </span>
+          </button>
         }
       >
-        <p className="-mt-1 mb-3 px-5 text-sous text-brume">
-          Chaque geste rapporte des étoiles à toute la famille : une météo (1), un câlin (1), une mission (1), la question du jour (2), une photo (3). Elles servent à décorer la maison.
-        </p>
+        <p className="-mt-1 px-5 text-sous text-brume">Partagez des moments, relevez des défis et faites grandir votre maison.</p>
+        <div className="mb-3 px-5 pt-1">
+          <Lien onClick={() => setStars(true)}>Comment gagner des étoiles ?</Lien>
+        </div>
         <div className="groupe mx-4 mt-2 p-4 shadow-carte">
           <div className="flex items-center gap-2.5">
             <Art name="picto-bulle" size={30} />
@@ -91,7 +95,9 @@ export default function Play() {
           )}
         </div>
 
-        <Section title="Décorer la maison">
+        <WeeklyChallenge className="mt-3" />
+
+        <Section title="Décorer la maison" hint="Chaque petit geste embellit votre maison.">
           <div className="mx-4 overflow-hidden rounded-[28px] bg-carte shadow-carte">
             <House type={family.house_type} items={houseItems} />
             {nextDeco && (
@@ -151,7 +157,7 @@ export default function Play() {
                     <div className={`flex min-w-0 flex-1 items-center gap-2 py-2.5 pr-4 ${i < log.length - 1 ? 'border-b border-trait' : ''}`}>
                       <p className="min-w-0 flex-1 text-sous">
                         <span className="font-semibold">{m ? (m.id === me.id ? 'Tu' : m.display_name) : 'Un proche'}</span>{' '}
-                        {m?.id === me.id ? what.replace(/^a /, 'as ').replace('sa météo', 'ta météo') : what}
+                        {m?.id === me.id ? what.replace(/^a /, 'as ').replace('son humeur', 'ton humeur') : what}
                         <span className="block text-note text-brume">{ago(s.created_at)}</span>
                       </p>
                       <span className="flex items-center gap-1 text-sous font-semibold text-brume">+{s.amount} <Art name="picto-etoile" size={16} /></span>
@@ -164,6 +170,7 @@ export default function Play() {
         )}
       </Screen>
       {photo && <ComposeSheet challenge={challenge} onClose={() => setPhoto(false)} />}
+      {stars && <StarsSheet onClose={() => setStars(false)} />}
     </>
   )
 }

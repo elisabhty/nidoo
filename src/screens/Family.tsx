@@ -273,7 +273,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
                   )}
                 </p>
                 <p className="truncate text-note text-brume">
-                  {isToday(m.mood_at) && moodOf(m.mood) ? `${moodOf(m.mood)!.label}${m.mood_note ? ` · ${m.mood_note}` : ''}` : 'Pas encore de nouvelles aujourd’hui'}
+                  {isToday(m.mood_at) && moodOf(m.mood) ? `${moodOf(m.mood)!.label}${m.mood_note ? ` · ${m.mood_note}` : ''}` : 'Pas encore d’humeur aujourd’hui'}
                 </p>
               </div>
             </button>

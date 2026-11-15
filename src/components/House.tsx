@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { success, tap } from '../lib/haptic'
 import type { HouseType } from '../lib/types'
-import { dayPhase } from '../lib/util'
+import { dayPhase, season as seasonOf, type Season } from '../lib/util'
 
 // La maison de la famille : un décor vivant qui suit l'heure, la maison en 3D
 // et les décorations débloquées avec les étoiles. Tout réagit au toucher.
@@ -43,9 +43,23 @@ const ANIM: Record<string, { frames: number; dur: number }> = {
 }
 const cover: CSSProperties = { position: 'absolute', inset: 0 }
 
+const LEAVES = ['#E8833A', '#D9572B', '#F2B33D', '#B5532A', '#E9A23B']
+const PETALS = ['#F9C4D5', '#FDE6EE', '#F4A9C2', '#FFFFFF']
+const BULBS = ['#FF5A5F', '#FFC53D', '#46A758', '#3E9BE9', '#D6409F']
+
 export default function House({
-  type, items, className = '', phase = dayPhase(), bare = false,
-}: { type: HouseType; items: string[]; className?: string; phase?: Phase; bare?: boolean }) {
+  type, items, className = '', phase = dayPhase(), bare = false, season = seasonOf(), photos = [],
+}: {
+  type: HouseType
+  items: string[]
+  className?: string
+  phase?: Phase
+  bare?: boolean
+  /** La maison suit les saisons : feuilles, neige, guirlande de Noël, pétales, papillons. */
+  season?: Season
+  /** Les dernières photos partagées, accrochées comme des souvenirs. */
+  photos?: string[]
+}) {
   const night = phase === 'nuit'
   const base = HOUSE[type]
   // En vignette, la maison occupe presque tout le cadre.
@@ -211,6 +225,68 @@ export default function House({
         [[12, 20], [36, 34], [58, 16], [74, 30], [90, 22]].map(([x, y], i) => (
           <span key={i} className="pointer-events-none absolute h-[3px] w-[3px] rounded-full bg-white opacity-0" style={{ left: `${x}%`, bottom: `${y}%`, zIndex: 9, animation: `luciole ${9 + i * 1.5}s ease-in-out ${i * 1.3}s infinite`, ['--lx' as string]: `${i % 2 ? 30 : -24}px`, ['--ly' as string]: '-46px' }} />
         ))}
+      {/* la saison */}
+      {!bare && season === 'automne' &&
+        Array.from({ length: 11 }).map((_, i) => (
+          <span key={`f${i}`} className="pointer-events-none absolute -top-[6%]" style={{ left: `${(i * 29 + 7) % 96}%`, zIndex: 9, animation: `feuille ${8 + (i % 4) * 1.7}s linear ${-i * 1.3}s infinite`, ['--fx' as string]: `${i % 2 ? 46 : -38}px`, ['--fr' as string]: `${i % 2 ? 520 : -460}deg` }}>
+            <span className="block h-[9px] w-[9px]" style={{ background: LEAVES[i % LEAVES.length], borderRadius: '0 80% 0 80%' }} />
+          </span>
+        ))}
+      {!bare && season === 'printemps' &&
+        Array.from({ length: 10 }).map((_, i) => (
+          <span key={`p${i}`} className="pointer-events-none absolute -top-[6%]" style={{ left: `${(i * 31 + 3) % 96}%`, zIndex: 9, animation: `feuille ${9 + (i % 4) * 1.5}s linear ${-i * 1.4}s infinite`, ['--fx' as string]: `${i % 2 ? 40 : -34}px`, ['--fr' as string]: `${i % 2 ? 300 : -280}deg` }}>
+            <span className="block h-[7px] w-[6px] rounded-[60%_60%_60%_10%]" style={{ background: PETALS[i % PETALS.length] }} />
+          </span>
+        ))}
+      {!bare && season === 'ete' && !night &&
+        [[18, 30, '#F76B15'], [70, 40, '#6E56CF']].map(([x, y, c], i) => (
+          <span key={`b${i}`} className="pointer-events-none absolute flex" style={{ left: `${x}%`, bottom: `${y}%`, zIndex: 9, animation: `papillon ${11 + i * 3}s ease-in-out ${-i * 4}s infinite` }}>
+            {[0, 1].map((w) => (
+              <span key={w} className="block h-[9px] w-[8px] rounded-full" style={{ background: c as string, opacity: 0.9, transformOrigin: w ? '0 50%' : '100% 50%', animation: 'aile 0.35s ease-in-out infinite' }} />
+            ))}
+          </span>
+        ))}
+      {!bare && season === 'noel' && (
+        // guirlande lumineuse en travers du ciel
+        <svg viewBox="0 0 100 20" preserveAspectRatio="none" className="pointer-events-none absolute inset-x-0 top-0 h-[18%] w-full" style={{ zIndex: 9 }} aria-hidden>
+          <path d="M-2 3 Q 25 15 50 6 Q 75 -2 102 9" fill="none" stroke="#3B3355" strokeOpacity="0.5" strokeWidth="0.5" />
+          {Array.from({ length: 14 }).map((_, i) => {
+            // point le long des deux courbes du fil
+            const t = (i + 0.5) / 14
+            const [a, b, c] = t < 0.5 ? [[-2, 3], [25, 15], [50, 6]] : [[50, 6], [75, -2], [102, 9]]
+            const u = t < 0.5 ? t * 2 : t * 2 - 1
+            const x = (1 - u) ** 2 * a[0] + 2 * u * (1 - u) * b[0] + u ** 2 * c[0]
+            const y = (1 - u) ** 2 * a[1] + 2 * u * (1 - u) * b[1] + u ** 2 * c[1]
+            return <ellipse key={i} cx={x} cy={y + 1.6} rx="0.9" ry="1.6" fill={BULBS[i % BULBS.length]} style={{ animation: `ampoule ${1.4 + (i % 3) * 0.5}s ease-in-out ${i * 0.17}s infinite` }} />
+          })}
+        </svg>
+      )}
+      {!bare && (season === 'hiver' || season === 'noel') && type !== 'chalet' &&
+        Array.from({ length: 14 }).map((_, i) => (
+          <span key={`n${i}`} className="pointer-events-none absolute -top-[4%] rounded-full bg-white" style={{ left: `${(i * 41 + 9) % 100}%`, width: 3 + (i % 3), height: 3 + (i % 3), opacity: 0.85, zIndex: 9, animation: `neige ${7 + (i % 5) * 1.6}s linear ${-i * 0.9}s infinite`, ['--nx' as string]: `${i % 2 ? 22 : -18}px` }} />
+        ))}
+
+      {/* les dernières photos de la famille, accrochées à un fil */}
+      {!bare && photos.length > 0 && (
+        <div className="pointer-events-none absolute left-[2%] top-[3%] h-[30%] w-[44%]" style={{ zIndex: 8 }}>
+          <svg viewBox="0 0 100 40" preserveAspectRatio="none" className="absolute inset-x-0 top-0 h-[40%] w-full" aria-hidden>
+            <path d="M0 4 Q 50 22 100 4" fill="none" stroke={night ? '#E8E2FF' : '#6B5E8F'} strokeOpacity="0.55" strokeWidth="0.8" />
+          </svg>
+          {photos.slice(0, 3).map((src, i) => {
+            const x = [8, 39, 70][i]
+            const r = [-7, 3, -4][i]
+            return (
+              <span key={src.slice(-40) + i} className="absolute w-[24%] origin-top" style={{ left: `${x}%`, top: `${[14, 24, 16][i]}%`, animation: `balance ${4.5 + i}s ease-in-out ${i * 0.6}s infinite` }}>
+                <span className="mx-auto block h-[7px] w-[3px] rounded-sm bg-[#C9A27A]" />
+                <span className="block bg-white p-[6%] pb-[20%] shadow-[0_4px_10px_rgba(29,26,43,0.22)]" style={{ transform: `rotate(${r}deg)` }}>
+                  <img src={src} alt="" className="block aspect-square w-full object-cover" />
+                </span>
+              </span>
+            )
+          })}
+        </div>
+      )}
+
       {!bare && type === 'chalet' &&
         Array.from({ length: 16 }).map((_, i) => (
           <span key={i} className="pointer-events-none absolute -top-[4%] rounded-full bg-white" style={{ left: `${(i * 37 + 5) % 100}%`, width: 3 + (i % 3), height: 3 + (i % 3), opacity: 0.85, zIndex: 9, animation: `neige ${7 + (i % 5) * 1.6}s linear ${-i * 0.9}s infinite`, ['--nx' as string]: `${i % 2 ? 22 : -18}px` }} />

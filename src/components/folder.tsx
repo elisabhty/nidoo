@@ -1,20 +1,26 @@
 import { useHome } from '../lib/store'
-import { gradientOf } from '../lib/folders'
+import { folderArt, gradientOf } from '../lib/folders'
 import type { Folder } from '../lib/types'
 import { Avatar } from './ui'
 
-/** Couverture d'un dossier : sa photo, sinon un dégradé avec son initiale. */
+/** Couverture d'un dossier : sa photo, sinon un fond pastel et une illustration 3D choisie selon son nom. */
 export function FolderCover({ folder, url, size = 'md' }: { folder: Pick<Folder, 'id' | 'name'>; url: string | null; size?: 'sm' | 'md' | 'lg' }) {
   if (url) return <img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" draggable={false} />
-  const letter = (folder.name.trim()[0] ?? '·').toUpperCase()
-  const font = { sm: 'text-[46px]', md: 'text-[78px]', lg: 'text-[150px]' }[size]
+  const place = {
+    sm: 'right-[27%] top-[10%] w-[46%]',
+    md: 'right-[9%] top-[8%] w-[50%]',
+    lg: 'right-[7%] top-[calc(var(--sat)+58px)] w-[34%]',
+  }[size]
   return (
     <div className="absolute inset-0 overflow-hidden" style={{ background: gradientOf(folder.id) }} aria-hidden>
-      <span className="absolute -left-[12%] -top-[18%] h-[70%] w-[70%] rounded-full bg-white/25 blur-2xl" />
-      <span className="absolute -bottom-[25%] -right-[10%] h-[65%] w-[65%] rounded-full bg-black/10 blur-2xl" />
-      <span className={`absolute right-[8%] top-[4%] font-rond font-bold leading-none text-white/85 ${font}`} style={{ textShadow: '0 6px 24px rgba(0,0,0,0.12)' }}>
-        {letter}
-      </span>
+      <span className="absolute -left-[18%] -top-[28%] h-[85%] w-[85%] rounded-full bg-white/45 blur-2xl" />
+      <img
+        src={`./art/${folderArt(folder.name)}.webp`}
+        alt=""
+        draggable={false}
+        className={`absolute aspect-square object-contain ${place}`}
+        style={{ transform: 'rotate(-7deg)', filter: 'drop-shadow(0 12px 16px rgba(29,26,43,0.16))' }}
+      />
     </div>
   )
 }
