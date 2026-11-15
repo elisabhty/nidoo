@@ -103,6 +103,11 @@ function migrate(f: Raw, userId: string) {
   // Les proches fictifs passent des animaux aux personnages.
   for (const m of f.members) if (!m.avatar.startsWith('perso:') && DEMO_LOOKS[m.display_name] && m.user_id !== userId) m.avatar = DEMO_LOOKS[m.display_name]
   for (const r of f.requests ?? []) if (!r.avatar.startsWith('perso:') && DEMO_LOOKS[r.display_name]) r.avatar = DEMO_LOOKS[r.display_name]
+  // La guirlande lumineuse a quitté la boutique : ses étoiles sont rendues.
+  if (f.houseItems.includes('guirlande')) {
+    f.houseItems = f.houseItems.filter((k) => k !== 'guirlande')
+    f.family.stars += 25
+  }
   // Rôles : le créateur est responsable ; une famille garde toujours au moins un responsable.
   for (const m of f.members) m.role ??= m.user_id === f.family.created_by ? 'responsable' : 'membre'
   if (f.members.length && !f.members.some((m) => m.role === 'responsable')) f.members[0].role = 'responsable'

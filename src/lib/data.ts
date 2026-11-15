@@ -60,7 +60,6 @@ export const DECOS: Deco[] = [
   { key: 'lanterne', name: 'Lanterne', cost: 12 },
   { key: 'arbre', name: 'Grand arbre', cost: 18 },
   { key: 'fumee', name: 'Feu de cheminée', cost: 20 },
-  { key: 'guirlande', name: 'Guirlande lumineuse', cost: 25 },
   { key: 'chat', name: 'Chat du quartier', cost: 30 },
   { key: 'balancoire', name: 'Balançoire', cost: 40 },
   { key: 'potager', name: 'Petit potager', cost: 50 },

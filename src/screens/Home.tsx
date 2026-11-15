@@ -45,7 +45,7 @@ export default function Home({ go }: { go: (t: Go) => void }) {
   const level = houseItems.length + 1
   const nextDeco = DECOS.find((d) => !houseItems.includes(d.key))
   const toGo = nextDeco ? Math.max(0, nextDeco.cost - family.stars) : 0
-  const photos = state.moments.filter((m) => m.image_url).slice(0, 3).map((m) => m.image_url!)
+  const photos = state.moments.filter((m) => m.image_url).slice(0, 6).map((m) => m.image_url!)
   const now = season()
   const home = members.filter((m) => isToday(m.mood_at))
 

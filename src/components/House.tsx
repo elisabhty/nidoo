@@ -18,10 +18,10 @@ const SKY = {
 type Phase = keyof typeof SKY
 
 // Positions en % du décor (largeur de référence : celle du cadre).
-const HOUSE: Record<HouseType, { w: number; bottom: number; smoke: [number, number]; lights: [number, number, number] }> = {
-  maison: { w: 47, bottom: 15, smoke: [62, 64], lights: [50, 42, 30] },
-  appartement: { w: 33, bottom: 15, smoke: [44, 64], lights: [50, 41, 21] },
-  chalet: { w: 49, bottom: 15, smoke: [36, 67], lights: [50, 41, 30] },
+const HOUSE: Record<HouseType, { w: number; bottom: number; smoke: [number, number] }> = {
+  maison: { w: 47, bottom: 15, smoke: [62, 64] },
+  appartement: { w: 33, bottom: 15, smoke: [44, 64] },
+  chalet: { w: 49, bottom: 15, smoke: [36, 67] },
 }
 // anim : boucle propre à l'objet ; roam : déplacement dans le décor.
 type Spot = { left: number; bottom?: number; top?: number; w: number; z: number; anim?: string; roam?: string }
@@ -50,8 +50,8 @@ const cover: CSSProperties = { position: 'absolute', inset: 0 }
 export type HousePerson = { m: Member; mood: string | null; label: string; me: boolean }
 // Places dans le jardin : de chaque côté de la maison (devant, puis un peu plus loin) et devant la porte.
 const SLOTS = [
-  { x: 11, y: 2, k: 1 },
-  { x: 89, y: 2, k: 1 },
+  { x: 13, y: 2, k: 1 },
+  { x: 87, y: 2, k: 1 },
   { x: 29, y: 15, k: 0.82 },
   { x: 71, y: 15, k: 0.82 },
   { x: 50, y: 0, k: 1 },
@@ -71,7 +71,6 @@ const MOVES: Record<string, string> = {
 
 const LEAVES = ['#E8833A', '#D9572B', '#F2B33D', '#B5532A', '#E9A23B']
 const PETALS = ['#F9C4D5', '#FDE6EE', '#F4A9C2', '#FFFFFF']
-const BULBS = ['#FF5A5F', '#FFC53D', '#46A758', '#3E9BE9', '#D6409F']
 
 export default function House({
   type, items, className = '', phase = dayPhase(), bare = false, season = seasonOf(), photos = [], people = [], onPerson,
@@ -81,9 +80,9 @@ export default function House({
   className?: string
   phase?: Phase
   bare?: boolean
-  /** La maison suit les saisons : feuilles, neige, guirlande de Noël, pétales, papillons. */
+  /** La maison suit les saisons : feuilles, neige, pétales, papillons. */
   season?: Season
-  /** Les dernières photos partagées, accrochées comme des souvenirs. */
+  /** Les dernières photos partagées, accrochées au fil avec des pinces à linge. */
   photos?: string[]
   /** La famille devant la maison, chacun avec son humeur. */
   people?: HousePerson[]
@@ -239,9 +238,6 @@ export default function House({
         )}
       </div>
 
-      {!bare && has('guirlande') && (
-        <img src="./art/deco-guirlande.webp" alt="" className="pointer-events-none absolute -translate-x-1/2" style={{ left: `${h.lights[0]}%`, bottom: `${h.lights[1]}%`, width: `${h.lights[2]}%`, zIndex: 5, animation: 'lueur 2.4s ease-in-out infinite', filter: 'drop-shadow(0 0 3px rgba(255,214,120,0.7))' }} />
-      )}
       {!bare &&
         has('fumee') &&
         [0, 1, 2].map((i) => (
@@ -280,40 +276,32 @@ export default function House({
             ))}
           </span>
         ))}
-      {!bare && season === 'noel' && (
-        // guirlande lumineuse en travers du ciel
-        <svg viewBox="0 0 100 20" preserveAspectRatio="none" className="pointer-events-none absolute inset-x-0 top-0 h-[18%] w-full" style={{ zIndex: 9 }} aria-hidden>
-          <path d="M-2 3 Q 25 15 50 6 Q 75 -2 102 9" fill="none" stroke="#3B3355" strokeOpacity="0.5" strokeWidth="0.5" />
-          {Array.from({ length: 14 }).map((_, i) => {
-            // point le long des deux courbes du fil
-            const t = (i + 0.5) / 14
-            const [a, b, c] = t < 0.5 ? [[-2, 3], [25, 15], [50, 6]] : [[50, 6], [75, -2], [102, 9]]
-            const u = t < 0.5 ? t * 2 : t * 2 - 1
-            const x = (1 - u) ** 2 * a[0] + 2 * u * (1 - u) * b[0] + u ** 2 * c[0]
-            const y = (1 - u) ** 2 * a[1] + 2 * u * (1 - u) * b[1] + u ** 2 * c[1]
-            return <ellipse key={i} cx={x} cy={y + 1.6} rx="0.9" ry="1.6" fill={BULBS[i % BULBS.length]} style={{ animation: `ampoule ${1.4 + (i % 3) * 0.5}s ease-in-out ${i * 0.17}s infinite` }} />
-          })}
-        </svg>
-      )}
       {!bare && (season === 'hiver' || season === 'noel') && type !== 'chalet' &&
         Array.from({ length: 14 }).map((_, i) => (
           <span key={`n${i}`} className="pointer-events-none absolute -top-[4%] rounded-full bg-white" style={{ left: `${(i * 41 + 9) % 100}%`, width: 3 + (i % 3), height: 3 + (i % 3), opacity: 0.85, zIndex: 9, animation: `neige ${7 + (i % 5) * 1.6}s linear ${-i * 0.9}s infinite`, ['--nx' as string]: `${i % 2 ? 22 : -18}px` }} />
         ))}
 
-      {/* les dernières photos de la famille, accrochées à un fil */}
+      {/* le fil à photos : un cordon noir sur toute la largeur, les photos tenues par des pinces à linge en bois */}
       {!bare && photos.length > 0 && (
-        <div className="pointer-events-none absolute left-[2%] top-[3%] h-[30%] w-[44%]" style={{ zIndex: 8 }}>
-          <svg viewBox="0 0 100 40" preserveAspectRatio="none" className="absolute inset-x-0 top-0 h-[40%] w-full" aria-hidden>
-            <path d="M0 4 Q 50 22 100 4" fill="none" stroke={night ? '#E8E2FF' : '#6B5E8F'} strokeOpacity="0.55" strokeWidth="0.8" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[40%]" style={{ zIndex: 8 }}>
+          <svg viewBox="0 0 100 40" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden>
+            <path d="M-2 3 Q 50 17 102 3" fill="none" stroke="#1D1A2B" strokeWidth={2} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
           </svg>
-          {photos.slice(0, 3).map((src, i) => {
-            const x = [8, 39, 70][i]
-            const r = [-7, 3, -4][i]
+          {photos.slice(0, 6).map((src, i, all) => {
+            const x = ((i + 1) / (all.length + 1)) * 100
+            const t = (x + 2) / 104
+            const y = 3 + 28 * t * (1 - t) // le creux du cordon à cet endroit (sur 40)
+            const r = [-5, 4, -3, 5, -4, 3][i]
             return (
-              <span key={src.slice(-40) + i} className="absolute w-[24%] origin-top" style={{ left: `${x}%`, top: `${[14, 24, 16][i]}%`, animation: `balance ${4.5 + i}s ease-in-out ${i * 0.6}s infinite` }}>
-                <span className="mx-auto block h-[7px] w-[3px] rounded-sm bg-[#C9A27A]" />
-                <span className="block bg-white p-[6%] pb-[20%] shadow-[0_4px_10px_rgba(29,26,43,0.22)]" style={{ transform: `rotate(${r}deg)` }}>
-                  <img src={src} alt="" className="block aspect-square w-full object-cover" />
+              <span key={src.slice(-32) + i} className="absolute w-[11.5%] -translate-x-1/2" style={{ left: `${x}%`, top: `${(y / 40) * 100}%` }}>
+                <span className="block origin-top" style={{ animation: `balance ${4.2 + (i % 3) * 0.9}s ease-in-out ${-i * 0.7}s infinite` }}>
+                  <span className="block bg-white p-[7%] pb-[22%] shadow-[0_5px_12px_rgba(29,26,43,0.28)]" style={{ transform: `translateY(14%) rotate(${r}deg)`, transformOrigin: '50% 0' }}>
+                    <img src={src} alt="" className="block aspect-square w-full object-cover" />
+                  </span>
+                  {/* la pince à linge en bois */}
+                  <span className="absolute left-1/2 top-[-9%] block h-[34%] w-[22%] -translate-x-1/2 rounded-[2px] shadow-[0_1px_2px_rgba(29,26,43,0.35)]" style={{ background: 'linear-gradient(90deg, #C98F55 0%, #E7BD86 45%, #D7A267 100%)' }}>
+                    <span className="absolute inset-x-0 top-[42%] h-[14%] bg-[#8E5E33]/70" />
+                  </span>
                 </span>
               </span>
             )
