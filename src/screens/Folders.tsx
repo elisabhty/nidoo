@@ -1,8 +1,9 @@
 import {
-  ArrowUp, Camera, Check, ChevronLeft, ChevronRight, Ellipsis, FolderPlus, ImagePlus, Lock, NotebookPen, PenLine, Search, Trash2, UsersRound, X,
+  ArrowUp, Camera, Check, ChevronLeft, ChevronRight, Ellipsis, FolderPlus, ImagePlus, Lock, NotebookPen, PenLine, Pencil, Search, Trash2, UsersRound, X,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { FolderCover, MemberStack } from '../components/folder'
+import { DrawSheet } from '../components/drawing'
 import { ComposeSheet } from '../components/sheets'
 import { Art, Avatar, Btn, choisir, confirmer, Rond, Screen, Segments, Sheet, Vide } from '../components/ui'
 import { contentLine, folderStats, membersOf, plural, subtreeIds, whoText } from '../lib/folders'
@@ -47,7 +48,7 @@ export default function Dossiers({ seg, setSeg }: { seg: DossiersSeg; setSeg: (s
 function Accueil({ seg, setSeg, onOpen }: { seg: DossiersSeg; setSeg: (s: DossiersSeg) => void; onOpen: (id: string) => void }) {
   const { state } = useHome()
   const [query, setQuery] = useState('')
-  const [compose, setCompose] = useState<null | 'photo' | 'mot'>(null)
+  const [compose, setCompose] = useState<null | 'instant' | 'mot'>(null)
   const [creating, setCreating] = useState(false)
 
   const roots = useMemo(() => {
@@ -70,20 +71,23 @@ function Accueil({ seg, setSeg, onOpen }: { seg: DossiersSeg; setSeg: (s: Dossie
           ) : (
             <>
               <Rond label="Écrire un petit mot" onClick={() => setCompose('mot')}><PenLine size={19} /></Rond>
-              <Rond label="Photo surprise" tint onClick={() => setCompose('photo')}><Camera size={19} /></Rond>
+              <Rond label="Photo ou dessin" tint onClick={() => setCompose('instant')}>
+                <Camera size={18} />
+                <Pencil size={16} />
+              </Rond>
             </>
           )
         }
       >
         <p className="-mt-1 px-5 text-sous text-brume">
-          {seg === 'dossiers' ? 'Vos souvenirs et projets, bien rangés.' : 'Les photos surprises et petits mots envoyés à toute la famille.'}
+          {seg === 'dossiers' ? 'Vos souvenirs et projets, bien rangés.' : 'Les photos, dessins et petits mots envoyés à toute la famille.'}
         </p>
         <div className="mx-4 mb-4 mt-3">
           <Segments value={seg} onChange={setSeg} options={[{ key: 'dossiers', label: 'Mes dossiers' }, { key: 'fil', label: 'Fil de la famille' }]} />
         </div>
 
         {seg === 'fil' ? (
-          <Fil onCompose={() => setCompose('photo')} />
+          <Fil onCompose={() => setCompose('instant')} />
         ) : total === 0 ? (
           <Vide art="picto-cadeau" title="Aucun dossier" text="Un dossier rassemble photos, notes et discussion, avec les proches de ton choix. Les autres ne le voient pas.">
             <Btn onClick={() => setCreating(true)}>Créer un dossier</Btn>
@@ -119,7 +123,8 @@ function Accueil({ seg, setSeg, onOpen }: { seg: DossiersSeg; setSeg: (s: Dossie
           </>
         )}
       </Screen>
-      {compose && <ComposeSheet startWith={compose} onClose={() => setCompose(null)} />}
+      {compose === 'mot' && <ComposeSheet startWith="mot" onClose={() => setCompose(null)} />}
+      {compose === 'instant' && <DrawSheet to={null} onClose={() => setCompose(null)} />}
       {creating && <NewFolderSheet onClose={() => setCreating(false)} onCreated={onOpen} />}
     </>
   )

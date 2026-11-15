@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { DoodleIcon, DrawingsSheet, DrawingWidget, DrawSheet } from '../components/drawing'
 import House, { type HouseScene } from '../components/House'
 import { JoinRequests } from '../components/requests'
-import { ComposeSheet, eventArt, MoodSheet, ThoughtSheet } from '../components/sheets'
+import { eventArt, MoodSheet, ThoughtSheet } from '../components/sheets'
 import { StarsSheet } from '../components/stars'
 import { Art, Avatar, Lien, Section } from '../components/ui'
 import { WeeklyChallenge } from '../components/weekly'
@@ -17,7 +17,6 @@ import type { Go } from '../App'
 type Open =
   | null
   | { k: 'humeur' }
-  | { k: 'photo' }
   | { k: 'pensee'; to?: Member }
   | { k: 'dessin'; to?: string | null }
   | { k: 'dessins'; start?: Drawing }
@@ -49,7 +48,14 @@ export default function Home({ go }: { go: (t: Go) => void }) {
   const level = houseItems.length + 1
   const nextDeco = DECOS.find((d) => !houseItems.includes(d.key))
   const toGo = nextDeco ? Math.max(0, nextDeco.cost - family.stars) : 0
-  const photos = state.moments.filter((m) => m.image_url).slice(0, 6).map((m) => m.image_url!)
+  // les photos partagées avec toute la famille (fil et instants), les plus récentes d'abord
+  const photos = [
+    ...state.moments.filter((m) => m.image_url).map((m) => ({ at: m.created_at, url: m.image_url! })),
+    ...state.drawings.filter((d) => !d.to_member && d.photo_url).map((d) => ({ at: d.created_at, url: d.photo_url! })),
+  ]
+    .sort((a, b) => b.at.localeCompare(a.at))
+    .slice(0, 6)
+    .map((x) => x.url)
   const now = season()
 
   // Un câlin envoyé ou reçu se joue dans le jardin : l'un va voir l'autre et le fait vraiment.
@@ -114,9 +120,19 @@ export default function Home({ go }: { go: (t: Go) => void }) {
   ]
 
   const tiles = [
-    { label: 'Un câlin', icon: <Art name="geste-calin" size={50} />, on: () => setSheet({ k: 'pensee' }) },
-    { label: 'Une photo', icon: <Art name="picto-photo" size={50} />, on: () => setSheet({ k: 'photo' }) },
-    { label: 'Un dessin', icon: <DoodleIcon size={44} />, on: () => setSheet({ k: 'dessin' }) },
+    { label: 'Un câlin', icon: <Art name="geste-calin" size={52} />, on: () => setSheet({ k: 'pensee' }) },
+    {
+      label: 'Photo ou dessin',
+      icon: (
+        <span className="relative block h-[52px] w-[64px]">
+          <Art name="picto-photo" size={50} className="absolute left-0 top-0" />
+          <span className="absolute -bottom-0.5 right-0">
+            <DoodleIcon size={30} />
+          </span>
+        </span>
+      ),
+      on: () => setSheet({ k: 'dessin' }),
+    },
   ]
 
   return (
@@ -212,7 +228,7 @@ export default function Home({ go }: { go: (t: Go) => void }) {
           </div>
 
           {/* les trois gestes du quotidien */}
-          <div className="mx-4 mt-3 grid grid-cols-3 gap-2.5">
+          <div className="mx-4 mt-3 grid grid-cols-2 gap-2.5">
             {tiles.map((t) => (
               <button
                 key={t.label}
@@ -256,8 +272,8 @@ export default function Home({ go }: { go: (t: Go) => void }) {
           <WeeklyChallenge className="mt-6" />
 
           <Section
-            title="Dessin en direct"
-            hint="Il arrive chez un proche et se dessine sous ses yeux."
+            title="Photo ou dessin"
+            hint="Pour un proche ou toute la famille : il apparaît en direct sur son écran."
             action={state.drawings.length ? <Lien onClick={() => setSheet({ k: 'dessins' })}>Tout voir</Lien> : undefined}
           >
             <div className="px-4">
@@ -268,7 +284,6 @@ export default function Home({ go }: { go: (t: Go) => void }) {
       </div>
 
       {sheet?.k === 'humeur' && <MoodSheet onClose={() => setSheet(null)} />}
-      {sheet?.k === 'photo' && <ComposeSheet onClose={() => setSheet(null)} />}
       {sheet?.k === 'pensee' && <ThoughtSheet to={sheet.to} onClose={() => setSheet(null)} />}
       {sheet?.k === 'dessin' && <DrawSheet to={sheet.to} onClose={() => setSheet(null)} />}
       {sheet?.k === 'dessins' && <DrawingsSheet start={sheet.start} onClose={() => setSheet(null)} onDraw={(to) => setSheet({ k: 'dessin', to })} />}

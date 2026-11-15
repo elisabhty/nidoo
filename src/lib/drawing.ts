@@ -47,15 +47,24 @@ function grain(color: string): HTMLCanvasElement {
   return g
 }
 
-/** Trace un trait (ou ses `n` premiers points) dans un contexte déjà mis à l'échelle de la feuille. */
-export function strokePath(ctx: CanvasRenderingContext2D, s: Stroke, bg: string, n = s.p.length / 2) {
+/**
+ * Trace un trait (ou ses `n` premiers points) dans un contexte déjà mis à l'échelle de la feuille.
+ * La gomme efface pour de vrai (on revoit la photo ou le papier dessous) ; en aperçu, elle se montre en blanc voilé.
+ */
+export function strokePath(ctx: CanvasRenderingContext2D, s: Stroke, _bg: string, n = s.p.length / 2, live = false) {
   const p = s.p
   if (n < 1) return
   ctx.save()
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
   ctx.lineWidth = s.w
-  if (s.o === 'gomme') ctx.strokeStyle = bg
+  if (s.o === 'gomme') {
+    if (live) ctx.strokeStyle = 'rgba(255,255,255,0.72)'
+    else {
+      ctx.globalCompositeOperation = 'destination-out'
+      ctx.strokeStyle = '#000'
+    }
+  }
   else if (s.o === 'crayon') {
     const pat = ctx.createPattern(grain(s.c), 'repeat')
     pat?.setTransform(new DOMMatrix().scale(0.5))
@@ -92,24 +101,84 @@ export function fit(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
   return ctx
 }
 
-/** Peint le dessin entier, ou seulement ses `upto` premiers points (pour le voir se dessiner). */
-export function paint(ctx: CanvasRenderingContext2D, d: DrawingData, upto = Infinity, withBg = true) {
-  ctx.clearRect(0, 0, DRAW_W, DRAW_H)
-  if (withBg) {
-    ctx.fillStyle = d.bg
-    ctx.fillRect(0, 0, DRAW_W, DRAW_H)
+// Les traits sont peints sur un calque à part, posé ensuite sur la photo ou le papier.
+const layers = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>()
+function layerOf(c: HTMLCanvasElement) {
+  let l = layers.get(c)
+  if (!l) {
+    l = document.createElement('canvas')
+    layers.set(c, l)
   }
+  if (l.width !== c.width || l.height !== c.height) {
+    l.width = c.width
+    l.height = c.height
+  }
+  return l
+}
+
+/** La photo couvre toute la feuille ; py choisit la hauteur gardée (0 : le haut, 1 : le bas). */
+export function photoBox(img: { width: number; height: number }, py = 0.5) {
+  const r = img.width / img.height
+  if (r >= DRAW_RATIO) {
+    const w = DRAW_H * r
+    return { x: (DRAW_W - w) / 2, y: 0, w, h: DRAW_H, overflow: 0 }
+  }
+  const h = DRAW_W / r
+  return { x: 0, y: -(h - DRAW_H) * py, w: DRAW_W, h, overflow: (h - DRAW_H) / DRAW_H }
+}
+
+/** Peint la photo ou le papier, puis le dessin entier ou seulement ses `upto` premiers points. */
+export function paint(ctx: CanvasRenderingContext2D, d: DrawingData, upto = Infinity, withBg = true, photo?: HTMLImageElement | null) {
+  const c = ctx.canvas
+  const m = ctx.getTransform()
+  ctx.save()
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
+  ctx.clearRect(0, 0, c.width, c.height)
+  ctx.restore()
+  if (withBg) {
+    if (photo) {
+      const b = photoBox(photo, d.py ?? 0.5)
+      ctx.drawImage(photo, b.x, b.y, b.w, b.h)
+    } else {
+      ctx.fillStyle = d.bg
+      ctx.fillRect(0, 0, DRAW_W, DRAW_H)
+    }
+  }
+  const l = layerOf(c)
+  const lc = l.getContext('2d')!
+  lc.setTransform(1, 0, 0, 1, 0, 0)
+  lc.clearRect(0, 0, l.width, l.height)
+  lc.setTransform(m)
   let left = upto
   for (const s of d.s) {
     if (left <= 0) break
     const n = s.p.length / 2
-    strokePath(ctx, s, d.bg, Math.min(n, left))
+    strokePath(lc, s, d.bg, Math.min(n, left))
     left -= n
   }
+  ctx.save()
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
+  ctx.drawImage(l, 0, 0)
+  ctx.restore()
+}
+
+// Photos des instants : chargées une fois, partagées entre toutes les toiles.
+const photos = new Map<string, HTMLImageElement>()
+export function loadPhoto(url: string, onLoad: () => void): HTMLImageElement | null {
+  let img = photos.get(url)
+  if (!img) {
+    img = new Image()
+    img.decoding = 'async'
+    img.src = url
+    photos.set(url, img)
+  }
+  if (img.complete && img.naturalWidth) return img
+  img.addEventListener('load', onLoad, { once: true })
+  return null
 }
 
 /** Durée de la « relecture » : assez longue pour voir le geste, jamais interminable. */
-export const replayMs = (d: DrawingData) => Math.min(6000, Math.max(2200, pointCount(d) * 6))
+export const replayMs = (d: DrawingData) => (pointCount(d) ? Math.min(6000, Math.max(2200, pointCount(d) * 6)) : 600)
 
 // ───────── Dessins de démonstration ─────────
 // Tracés à la main (un peu tremblés) par les proches fictifs du mode démo.

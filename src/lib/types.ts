@@ -95,7 +95,8 @@ export type Reaction = { moment_id: string; member_id: string; emoji: string }
 /** Dessins : enregistrés trait par trait sur une feuille de 1000 × DRAW_H (forme d'un widget moyen). */
 export type DrawTool = 'crayon' | 'feutre' | 'gomme'
 export type Stroke = { o: DrawTool; c: string; w: number; p: number[] }
-export type DrawingData = { v: 1; bg: string; s: Stroke[] }
+/** py : hauteur gardée de la photo de fond (0 : le haut, 1 : le bas) */
+export type DrawingData = { v: 1; bg: string; s: Stroke[]; py?: number }
 export type Drawing = {
   id: string
   family_id: string
@@ -103,6 +104,9 @@ export type Drawing = {
   /** null : envoyé à toute la famille */
   to_member: string | null
   data: DrawingData
+  /** photo de fond (photo seule ou photo dessinée) */
+  photo_path?: string | null
+  photo_url?: string | null
   created_at: string
 }
 
@@ -207,7 +211,7 @@ export interface Backend {
   sendThought(familyId: string, from: string, to: string, kind: ThoughtKind, message?: string): Promise<void>
   markSeen(ids: string[]): Promise<void>
   /** to = null : pour toute la famille */
-  sendDrawing(familyId: string, from: string, to: string | null, data: DrawingData): Promise<void>
+  sendDrawing(familyId: string, from: string, to: string | null, data: DrawingData, photo?: Blob | null): Promise<void>
   deleteDrawing(id: string): Promise<void>
   addEvent(familyId: string, memberId: string, e: NewEvent): Promise<void>
   deleteEvent(id: string): Promise<void>

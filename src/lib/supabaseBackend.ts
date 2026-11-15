@@ -101,7 +101,7 @@ export function createSupabaseBackend(): Backend {
         sb.from('folder_items').select('*').eq('family_id', fid).order('created_at').limit(2000),
         sb.from('reactions').select('moment_id, member_id, emoji').eq('family_id', fid),
         sb.from('thoughts').select('*').eq('family_id', fid).gte('created_at', since).order('created_at', { ascending: false }).limit(80),
-        sb.from('drawings').select('id, family_id, from_member, to_member, created_at').eq('family_id', fid).order('created_at', { ascending: false }).limit(30),
+        sb.from('drawings').select('id, family_id, from_member, to_member, created_at, photo_path').eq('family_id', fid).order('created_at', { ascending: false }).limit(30),
         sb.from('events').select('*').eq('family_id', fid).order('starts_at'),
         sb.from('list_items').select('*').eq('family_id', fid).order('created_at'),
         sb.from('daily_answers').select('id, member_id, day, question_key, answer').eq('family_id', fid).eq('day', todayKey()),
@@ -133,6 +133,13 @@ export function createSupabaseBackend(): Backend {
       const manquants = dessins.filter((d) => !traits.has(d.id)).map((d) => d.id)
       if (manquants.length) {
         for (const r of check(await sb.from('drawings').select('id, data').in('id', manquants)) as { id: string; data: DrawingData }[]) traits.set(r.id, r.data)
+      }
+      // Photos des instants : liens signés, lisibles seulement par ceux qui voient l'instant.
+      const fonds = dessins.map((d) => d.photo_path).filter((x): x is string => !!x)
+      if (fonds.length) {
+        const signed = await sb.storage.from('instants').createSignedUrls(fonds, 3600)
+        const byPath = new Map((signed.data ?? []).map((x) => [x.path, x.signedUrl]))
+        for (const d of dessins) d.photo_url = d.photo_path ? (byPath.get(d.photo_path) ?? null) : null
       }
       const state: FamilyState = {
         family: check(family) as Family,
@@ -285,11 +292,20 @@ export function createSupabaseBackend(): Backend {
     async markSeen(ids) {
       if (ids.length) check(await sb.from('thoughts').update({ seen_at: new Date().toISOString() }).in('id', ids))
     },
-    async sendDrawing(fid, from, to, data) {
-      check(await sb.from('drawings').insert({ family_id: fid, from_member: from, to_member: to, data }))
+    async sendDrawing(fid, from, to, data, photo) {
+      let photo_path: string | null = null
+      if (photo) {
+        photo_path = `${fid}/${uid()}.jpg`
+        check(await sb.storage.from('instants').upload(photo_path, photo, { contentType: 'image/jpeg' }))
+      }
+      const r = await sb.from('drawings').insert({ family_id: fid, from_member: from, to_member: to, data, photo_path })
+      if (r.error && photo_path) await sb.storage.from('instants').remove([photo_path])
+      check(r)
     },
     async deleteDrawing(id) {
+      const row = (check(await sb.from('drawings').select('photo_path').eq('id', id).maybeSingle()) ?? null) as { photo_path: string | null } | null
       check(await sb.from('drawings').delete().eq('id', id))
+      if (row?.photo_path) await sb.storage.from('instants').remove([row.photo_path])
       traits.delete(id)
     },
 

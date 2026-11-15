@@ -113,6 +113,7 @@ const ERRORS: Record<string, string> = {
   DERNIER_RESPONSABLE: 'La famille doit garder au moins un responsable. Nommes-en un autre d’abord.',
   UTILISE_QUITTER: 'Pour partir toi-même, utilise « Quitter cette maison ».',
   MEMBRE_INCONNU: 'Ce membre n’est plus dans la famille.',
+  DESSIN_VIDE: 'Ajoute une photo ou dessine quelque chose avant d’envoyer.',
   TROP_D_ENFANTS: 'Dix enfants et bébés au maximum par maison.',
   PROFIL_SANS_COMPTE: 'Un enfant sans téléphone ne peut pas être responsable.',
   DEFI_INCOMPLET: 'Le défi n’est pas encore relevé : encore un petit effort !',

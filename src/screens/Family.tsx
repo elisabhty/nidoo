@@ -38,9 +38,6 @@ function Widgets({ onDraw, onOpen }: { onDraw: () => void; onOpen: (d: Drawing) 
   const { state } = useHome()
   const { family, members, me } = state
   const free = family.plan === 'free'
-  const visible = state.moments
-  const photo = visible.find((m) => m.image_url)
-  const note = visible.find((m) => m.body)
   const next = upcoming(state.events, 2)
   const todo = state.items.filter((i) => i.kind === 'tache' && !i.done).slice(0, 3)
   const word = state.thoughts.find((t) => t.to_member === me.id)
@@ -52,18 +49,8 @@ function Widgets({ onDraw, onOpen }: { onDraw: () => void; onOpen: (d: Drawing) 
         <House type={family.house_type} items={state.houseItems} className="h-full !aspect-auto" bare />
         <p className="absolute inset-x-3 bottom-2.5 truncate text-note font-semibold text-white drop-shadow">Famille {family.name}</p>
       </Tuile>
-      <Tuile title="Dessin en direct" wide>
+      <Tuile title="Photo ou dessin" wide>
         <DrawingWidget compact onOpen={onOpen} onDraw={onDraw} />
-      </Tuile>
-      <Tuile title="Notre instant">
-        {photo?.image_url ? (
-          <img src={photo.image_url} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full flex-col justify-between bg-peche-doux p-3.5">
-            <Art name="picto-photo" size={38} />
-            <p className="line-clamp-4 text-sous font-medium">{note?.body ?? 'La prochaine photo surprise apparaîtra ici.'}</p>
-          </div>
-        )}
       </Tuile>
       <Tuile title="Nos humeurs">
         <div className="grid h-full grid-cols-2 content-center gap-x-1 gap-y-2.5 p-3">

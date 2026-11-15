@@ -1,11 +1,11 @@
-import { Brush, Eraser, Pencil, RotateCcw, Trash2, Undo2, UsersRound } from 'lucide-react'
+import { Brush, Camera, Eraser, Images, Move, Pencil, RotateCcw, Trash2, Undo2, UsersRound } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { demoDrawing, DRAW_H, DRAW_W, fit, INKS, MAX_POINTS, paint, PAPERS, pointCount, replayMs, strokePath, WIDTHS } from '../lib/drawing'
+import { demoDrawing, DRAW_H, DRAW_W, fit, INKS, loadPhoto, MAX_POINTS, paint, PAPERS, photoBox, pointCount, replayMs, strokePath, WIDTHS } from '../lib/drawing'
 import { select, success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
 import type { Drawing, DrawingData, DrawTool, FamilyState, Member, Stroke } from '../lib/types'
-import { ago } from '../lib/util'
-import { Avatar, Btn, confirmer, Sheet } from './ui'
+import { ago, compressImage, errorText } from '../lib/util'
+import { Avatar, Btn, choisir, confirmer, Sheet } from './ui'
 
 const RATIO = `${DRAW_W} / ${DRAW_H}`
 
@@ -60,9 +60,23 @@ export const forWhom = (d: Drawing, me: Member, members: Member[]) => {
 
 // ═════════════════════════ Toile ═════════════════════════
 
-/** Affiche un dessin. Chaque fois que `play` change (et n'est pas 0), il se redessine trait par trait. */
-export function DrawingCanvas({ data, id, play = 0, className = '', label }: { data: DrawingData; id?: string; play?: number; className?: string; label?: string }) {
+/** La photo de fond d'un instant, une fois chargée. */
+export function usePhoto(url: string | null | undefined): HTMLImageElement | null {
+  const [, bump] = useState(0)
+  if (!url) return null
+  return loadPhoto(url, () => bump((n) => n + 1))
+}
+
+/** Ce que contient un instant : une photo, une photo dessinée ou un dessin. */
+export const whatOf = (d: Pick<Drawing, 'photo_path' | 'photo_url' | 'data'>) =>
+  d.photo_path || d.photo_url ? (d.data.s.length ? 'une photo dessinée' : 'une photo') : 'un dessin'
+export const sentText = (d: Drawing, fromName: string) =>
+  d.to_member ? `${fromName} t’a envoyé ${whatOf(d)}` : `${fromName} a envoyé ${whatOf(d)} à la famille`
+
+/** Affiche un instant (photo et/ou dessin). Chaque fois que `play` change (et n'est pas 0), le dessin se refait trait par trait sur la photo. */
+export function DrawingCanvas({ data, id, play = 0, className = '', label, photo }: { data: DrawingData; id?: string; play?: number; className?: string; label?: string; photo?: string | null }) {
   const ref = useRef<HTMLCanvasElement>(null)
+  const img = usePhoto(photo)
   // Les données sont relues à chaque rafraîchissement de la maison : on ne recommence le dessin que si c'en est un autre.
   const latest = useRef(data)
   latest.current = data
@@ -74,7 +88,7 @@ export function DrawingCanvas({ data, id, play = 0, className = '', label }: { d
     let raf = 0
     const draw = () => {
       const ctx = fit(c)
-      paint(ctx, data, upto)
+      paint(ctx, data, upto, true, img)
       if (upto !== Infinity) {
         // la pointe du crayon, pendant que le dessin se fait
         let left = upto
@@ -115,7 +129,7 @@ export function DrawingCanvas({ data, id, play = 0, className = '', label }: { d
       cancelAnimationFrame(raf)
       ro.disconnect()
     }
-  }, [id ?? data, play]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [id ?? data, play, img]) // eslint-disable-line react-hooks/exhaustive-deps
   return <canvas ref={ref} className={`block h-full w-full ${className}`} role="img" aria-label={label ?? 'Dessin'} />
 }
 
@@ -164,8 +178,11 @@ export function DrawingWidget({ onOpen, onDraw, compact = false }: { onOpen: (d:
       <button onClick={onDraw} className="presse relative block w-full overflow-hidden rounded-[26px] bg-carte text-left shadow-carte" style={{ aspectRatio: RATIO }}>
         <span className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,#FFE9EF,transparent_55%),radial-gradient(circle_at_85%_80%,#E6F2FF,transparent_55%)]" />
         <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-center">
-          <Pencil size={26} strokeWidth={2} className="text-teinte" />
-          <span className="text-appel font-semibold">Fais un premier dessin</span>
+          <span className="flex items-center gap-1.5 text-teinte">
+            <Camera size={24} strokeWidth={2} />
+            <Pencil size={22} strokeWidth={2} />
+          </span>
+          <span className="text-appel font-semibold">Une photo ou un dessin</span>
           <span className="text-note text-brume">Il arrive en direct chez un proche</span>
         </span>
       </button>
@@ -181,9 +198,9 @@ export function DrawingWidget({ onOpen, onDraw, compact = false }: { onOpen: (d:
           onOpen(latest)
         }}
         className="absolute inset-0"
-        aria-label={`Dessin de ${fromName} pour ${toName}`}
+        aria-label={`${whatOf(latest)} de ${fromName} pour ${toName}`}
       >
-        <DrawingCanvas data={latest.data} id={latest.id} play={play} />
+        <DrawingCanvas data={latest.data} id={latest.id} play={play} photo={latest.photo_url} />
       </button>
       <span className={`pointer-events-none absolute bottom-2 left-2 flex h-7 max-w-[70%] items-center gap-1.5 rounded-full py-0.5 pl-0.5 pr-2.5 ${dark ? 'bg-white/15 text-white' : 'verre text-encre'}`}>
         {from && <Avatar m={from} size={24} />}
@@ -197,10 +214,11 @@ export function DrawingWidget({ onOpen, onDraw, compact = false }: { onOpen: (d:
           tap()
           onDraw()
         }}
-        className="presse absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-teinte text-white shadow-flottant"
-        aria-label="Dessiner"
+        className="presse absolute right-2 top-2 flex h-9 items-center gap-1 rounded-full bg-teinte px-2.5 text-white shadow-flottant"
+        aria-label="Photo ou dessin"
       >
-        <Pencil size={17} strokeWidth={2.4} />
+        <Camera size={16} strokeWidth={2.4} />
+        <Pencil size={15} strokeWidth={2.4} />
       </button>
     </div>
   )
@@ -208,6 +226,7 @@ export function DrawingWidget({ onOpen, onDraw, compact = false }: { onOpen: (d:
 
 // ═════════════════════════ La planche à dessin ═════════════════════════
 
+type Outil = DrawTool | 'cadrer'
 const TOOLS: { key: DrawTool; label: string; icon: typeof Pencil }[] = [
   { key: 'crayon', label: 'Crayon', icon: Pencil },
   { key: 'feutre', label: 'Feutre', icon: Brush },
@@ -220,7 +239,15 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
   const others = members.filter((m) => m.id !== me.id)
   const [to, setTo] = useState<string | null>(initialTo)
   const [strokes, setStrokes] = useState<Stroke[]>([])
-  const [tool, setTool] = useState<DrawTool>('feutre')
+  const [tool, setTool] = useState<Outil>('feutre')
+  // la photo de fond (facultative) et la hauteur gardée
+  const [pic, setPic] = useState<{ blob: Blob; url: string } | null>(null)
+  const [py, setPy] = useState(0.5)
+  const img = usePhoto(pic?.url)
+  const camera = useRef<HTMLInputElement>(null)
+  const gallery = useRef<HTMLInputElement>(null)
+  const drag = useRef<{ id: number; y: number; py: number } | null>(null)
+  useEffect(() => () => void (pic && URL.revokeObjectURL(pic.url)), [pic])
   const [size, setSize] = useState<0 | 1 | 2>(1)
   const [color, setColor] = useState(INKS[1])
   const [bg, setBg] = useState(PAPERS[0].bg)
@@ -237,15 +264,38 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
     chips.current?.querySelector('[aria-pressed="true"]')?.scrollIntoView({ inline: 'center', block: 'nearest' })
   }, [])
 
-  // Toile du dessous : les traits terminés.
+  // Toile du dessous : la photo ou le papier, et les traits terminés.
   useEffect(() => {
-    if (base.current) paint(fit(base.current), { v: 1, bg, s: strokes })
-  }, [strokes, bg])
+    if (base.current) paint(fit(base.current), { v: 1, bg, s: strokes, py }, Infinity, true, img)
+  }, [strokes, bg, img, py])
   useEffect(() => {
-    const ro = new ResizeObserver(() => base.current && paint(fit(base.current), { v: 1, bg, s: strokes }))
+    const ro = new ResizeObserver(() => base.current && paint(fit(base.current), { v: 1, bg, s: strokes, py }, Infinity, true, img))
     if (base.current) ro.observe(base.current)
     return () => ro.disconnect()
-  }, [strokes, bg])
+  }, [strokes, bg, img, py])
+
+  const pick = async (file?: File) => {
+    if (!file) return
+    try {
+      const blob = await compressImage(file, 1400, 0.82)
+      setPic({ blob, url: URL.createObjectURL(blob) })
+      setPy(0.5)
+      if (tool === 'gomme') setTool('feutre')
+      success()
+    } catch (e) {
+      toast(errorText(e), 'err')
+    }
+  }
+  const photoMenu = async () => {
+    const actions = [{ label: 'Prendre une photo' }, { label: 'Choisir dans la photothèque' }, ...(pic ? [{ label: 'Retirer la photo', destructive: true }] : [])]
+    const i = await choisir({ title: pic ? 'Photo de fond' : 'Ajouter une photo', actions })
+    if (i === 0) camera.current?.click()
+    if (i === 1) gallery.current?.click()
+    if (i === 2) {
+      setPic(null)
+      if (tool === 'cadrer') setTool('feutre')
+    }
+  }
 
   // Toile du dessus : le trait en cours, redessiné à chaque image.
   const drawLive = () => {
@@ -254,7 +304,7 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
     if (!c) return
     const ctx = fit(c)
     ctx.clearRect(0, 0, DRAW_W, DRAW_H)
-    if (current.current) strokePath(ctx, current.current.s, bg)
+    if (current.current) strokePath(ctx, current.current.s, bg, undefined, true)
   }
   const pos = (c: HTMLCanvasElement, e: { clientX: number; clientY: number }) => {
     const r = c.getBoundingClientRect()
@@ -262,10 +312,15 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
   }
 
   const recipient = to ? members.find((m) => m.id === to) : null
+  const empty = !strokes.length && !pic
   const send = async () => {
-    if (!strokes.length || busy) return
+    if (empty || busy) return
     setBusy(true)
-    const ok = await run((api) => api.sendDrawing(family.id, me.id, to, { v: 1, bg, s: strokes }), recipient ? `Dessin envoyé à ${recipient.display_name}` : 'Dessin envoyé à toute la famille')
+    const what = pic ? (strokes.length ? 'Photo dessinée envoyée' : 'Photo envoyée') : 'Dessin envoyé'
+    const ok = await run(
+      (api) => api.sendDrawing(family.id, me.id, to, { v: 1, bg, s: strokes, ...(pic ? { py: Math.round(py * 1000) / 1000 } : {}) }, pic?.blob ?? null),
+      recipient ? `${what} à ${recipient.display_name}` : `${what} à toute la famille`,
+    )
     setBusy(false)
     if (ok) {
       success()
@@ -274,7 +329,9 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
   }
 
   return (
-    <Sheet title="Nouveau dessin" onClose={onClose} tall>
+    <Sheet title="Photo ou dessin" onClose={onClose} tall>
+      <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={(e) => void pick(e.target.files?.[0]).then(() => (e.target.value = ''))} />
+      <input ref={gallery} type="file" accept="image/*" hidden onChange={(e) => void pick(e.target.files?.[0]).then(() => (e.target.value = ''))} />
       {/* pour qui */}
       <div ref={chips} className="no-bar -mx-5 flex gap-2 overflow-x-auto px-5 pb-1">
         {[null, ...others.map((m) => m.id)].map((id) => {
@@ -303,14 +360,55 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
         })}
       </div>
 
+      {/* une photo en fond, ou le papier */}
+      <div className="mt-3 flex gap-2">
+        <button
+          onClick={() => {
+            tap()
+            if (pic) void photoMenu()
+            else camera.current?.click()
+          }}
+          className="presse flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full bg-carte text-sous font-semibold text-teinte shadow-carte"
+        >
+          <Camera size={17} strokeWidth={2.3} /> {pic ? 'Changer la photo' : 'Prendre une photo'}
+        </button>
+        {pic ? (
+          <button
+            onClick={() => {
+              select()
+              setTool(tool === 'cadrer' ? 'feutre' : 'cadrer')
+            }}
+            aria-pressed={tool === 'cadrer'}
+            className={`presse flex h-10 items-center gap-1.5 rounded-full px-3.5 text-sous font-semibold shadow-carte transition-colors ${tool === 'cadrer' ? 'bg-teinte text-white' : 'bg-carte text-encre'}`}
+          >
+            <Move size={16} strokeWidth={2.3} /> Cadrer
+          </button>
+        ) : (
+          <button
+            onClick={() => {
+              tap()
+              gallery.current?.click()
+            }}
+            className="presse flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full bg-carte text-sous font-semibold text-teinte shadow-carte"
+          >
+            <Images size={17} strokeWidth={2.3} /> Photothèque
+          </button>
+        )}
+      </div>
+
       {/* la feuille, à la forme exacte du widget */}
-      <div className="relative -mx-1.5 mt-3.5 overflow-hidden rounded-[26px] shadow-carte ring-1 ring-black/5" style={{ aspectRatio: RATIO, background: bg }}>
+      <div className="relative -mx-1.5 mt-3 overflow-hidden rounded-[26px] shadow-carte ring-1 ring-black/5" style={{ aspectRatio: RATIO, background: pic ? '#1D1A2B' : bg }}>
         <canvas ref={base} className="absolute inset-0 h-full w-full" />
         <canvas
           ref={live}
           className="absolute inset-0 h-full w-full touch-none"
           aria-label="Feuille de dessin"
           onPointerDown={(e) => {
+            if (tool === 'cadrer') {
+              e.currentTarget.setPointerCapture(e.pointerId)
+              drag.current = { id: e.pointerId, y: e.clientY, py }
+              return
+            }
             if (current.current) return
             if (total >= MAX_POINTS) {
               toast('Ta feuille est pleine, envoie-la !', 'err')
@@ -318,11 +416,18 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
             }
             e.currentTarget.setPointerCapture(e.pointerId)
             const [x, y] = pos(e.currentTarget, e)
-            current.current = { id: e.pointerId, s: { o: tool, c: color, w: WIDTHS[tool][size], p: [x, y] } }
+            current.current = { id: e.pointerId, s: { o: tool as DrawTool, c: color, w: WIDTHS[tool as DrawTool][size], p: [x, y] } }
             full.current = false
             drawLive()
           }}
           onPointerMove={(e) => {
+            const dg = drag.current
+            if (dg && dg.id === e.pointerId && img) {
+              // glisser vers le bas montre le haut de la photo
+              const over = photoBox(img).overflow
+              if (over > 0) setPy(Math.max(0, Math.min(1, dg.py - (e.clientY - dg.y) / e.currentTarget.getBoundingClientRect().height / over)))
+              return
+            }
             const cur = current.current
             if (!cur || cur.id !== e.pointerId) return
             const evs = e.nativeEvent.getCoalescedEvents?.() ?? [e.nativeEvent]
@@ -340,6 +445,10 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
             if (!raf.current) raf.current = requestAnimationFrame(drawLive)
           }}
           onPointerUp={(e) => {
+            if (drag.current?.id === e.pointerId) {
+              drag.current = null
+              return
+            }
             const cur = current.current
             if (!cur || cur.id !== e.pointerId) return
             current.current = null
@@ -347,12 +456,18 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
             requestAnimationFrame(drawLive)
           }}
           onPointerCancel={() => {
+            drag.current = null
             current.current = null
             requestAnimationFrame(drawLive)
           }}
         />
-        {!strokes.length && (
-          <p className={`pointer-events-none absolute inset-0 flex items-center justify-center text-sous font-medium ${bg === '#1E1B33' ? 'text-white/45' : 'text-pale'}`}>Dessine ici avec ton doigt</p>
+        {empty && (
+          <p className={`pointer-events-none absolute inset-0 flex items-center justify-center px-6 text-center text-sous font-medium ${bg === '#1E1B33' ? 'text-white/45' : 'text-pale'}`}>Dessine ici avec ton doigt, ou ajoute une photo</p>
+        )}
+        {tool === 'cadrer' && (
+          <p className="verre pointer-events-none absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full px-3 py-1 text-legende font-semibold text-encre">
+            <Move size={13} strokeWidth={2.4} /> Glisse pour cadrer la photo
+          </p>
         )}
       </div>
 
@@ -405,7 +520,7 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
               onClick={() => {
                 select()
                 setColor(c)
-                if (tool === 'gomme') setTool('feutre')
+                if (tool === 'gomme' || tool === 'cadrer') setTool('feutre')
               }}
               aria-label={`Couleur ${c}`}
               aria-pressed={on}
@@ -419,8 +534,8 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
       </div>
 
       <div className="mt-3 flex items-center gap-2">
-        <span className="text-note font-medium text-brume">Fond</span>
-        <div className="flex flex-1 gap-1.5">
+        <span className={`text-note font-medium text-brume ${pic ? 'hidden' : ''}`}>Fond</span>
+        <div className={`flex flex-1 gap-1.5 ${pic ? 'invisible' : ''}`}>
           {PAPERS.map((p) => (
             <button
               key={p.key}
@@ -459,7 +574,7 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
         </button>
       </div>
 
-      <Btn className="mt-5" onClick={send} disabled={!strokes.length || busy}>
+      <Btn className="mt-5" onClick={send} disabled={empty || busy}>
         {busy ? 'Envoi…' : recipient ? `Envoyer à ${recipient.display_name}` : 'Envoyer à toute la famille'}
       </Btn>
       <p className="px-2 pt-2 text-center text-note text-brume">
@@ -483,9 +598,9 @@ export function DrawingsSheet({ start, onClose, onDraw }: { start?: Drawing; onC
   const mine = d.from_member === me.id
 
   return (
-    <Sheet title="Dessins" onClose={onClose} tall>
+    <Sheet title="Photos et dessins" onClose={onClose} tall>
       <div className="-mx-1.5 overflow-hidden rounded-[26px] shadow-carte ring-1 ring-black/5" style={{ aspectRatio: RATIO, background: d.data.bg }}>
-        <DrawingCanvas data={d.data} id={d.id} play={play} label={`Dessin de ${fromName}`} />
+        <DrawingCanvas data={d.data} id={d.id} play={play} photo={d.photo_url} label={`${whatOf(d)} de ${fromName}`} />
       </div>
       <div className="mt-3 flex items-center gap-3 px-1">
         {from && <Avatar m={from} size={40} />}
@@ -520,7 +635,7 @@ export function DrawingsSheet({ start, onClose, onDraw }: { start?: Drawing; onC
         )}
       </div>
       <Btn className="mt-4" onClick={() => onDraw(mine ? d.to_member : d.to_member === null ? null : d.from_member)}>
-        <Pencil size={17} strokeWidth={2.4} /> {mine ? 'Faire un autre dessin' : d.to_member === null ? 'Répondre à la famille' : `Répondre à ${fromName}`}
+        <Pencil size={17} strokeWidth={2.4} /> {mine ? 'Envoyer une autre photo ou un dessin' : d.to_member === null ? 'Répondre à la famille' : `Répondre à ${fromName}`}
       </Btn>
 
       {drawings.length > 1 && (
@@ -540,7 +655,7 @@ export function DrawingsSheet({ start, onClose, onDraw }: { start?: Drawing; onC
                   className={`presse text-left ${x.id === d.id ? 'opacity-100' : 'opacity-90'}`}
                 >
                   <span className={`block overflow-hidden rounded-[16px] ring-1 ${x.id === d.id ? 'ring-2 ring-teinte' : 'ring-black/5'}`} style={{ aspectRatio: RATIO, background: x.data.bg }}>
-                    <DrawingCanvas data={x.data} id={x.id} />
+                    <DrawingCanvas data={x.data} id={x.id} photo={x.photo_url} />
                   </span>
                   <span className="mt-1 block truncate text-legende text-brume">
                     <span className="font-semibold text-encre">{w.fromName}</span> → {w.toName}
@@ -569,14 +684,16 @@ export function IncomingDrawing({ d, more, onReply, onSeen }: { d: Drawing; more
         <div className="flex items-center justify-center gap-2.5">
           {from && <Avatar m={from} size={44} />}
           <p className="text-left font-rond text-titre3 leading-tight">
-            {d.to_member ? `${fromName} t’a fait un dessin` : `${fromName} a dessiné pour la famille`}
+            {sentText(d, fromName)}
           </p>
         </div>
         <div className="mt-4 overflow-hidden rounded-[24px] shadow-carte ring-1 ring-black/5" style={{ aspectRatio: RATIO, background: d.data.bg }}>
-          <DrawingCanvas data={d.data} id={d.id} play={1} label={`Dessin de ${fromName}`} />
+          <DrawingCanvas data={d.data} id={d.id} play={1} photo={d.photo_url} label={`${whatOf(d)} de ${fromName}`} />
         </div>
         <Btn className="mt-4" onClick={onReply}>
-          <Pencil size={17} strokeWidth={2.4} /> Répondre par un dessin
+          <Camera size={17} strokeWidth={2.4} />
+          <Pencil size={15} strokeWidth={2.4} />
+          {d.to_member ? `Répondre à ${fromName}` : 'Répondre à la famille'}
         </Btn>
         <Btn kind="gris" className="mt-2" onClick={onSeen}>
           {more > 0 ? `Suivant (${more} de plus)` : 'Merci'}
@@ -610,11 +727,11 @@ export function DrawingBanner({ onOpen }: { onOpen: () => void }) {
     >
       {from && <Avatar m={from} size={38} />}
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sous font-semibold">{d.to_member ? `${fromName} t’a fait un dessin` : `${fromName} a dessiné pour la famille`}</span>
-        <span className="block truncate text-note text-brume">Touche pour le voir se dessiner</span>
+        <span className="block truncate text-sous font-semibold">{sentText(d, fromName)}</span>
+        <span className="block truncate text-note text-brume">Touche pour le voir</span>
       </span>
       <span className="h-[34px] shrink-0 overflow-hidden rounded-[9px] ring-1 ring-black/5" style={{ aspectRatio: RATIO, background: d.data.bg }}>
-        <DrawingCanvas data={d.data} id={d.id} />
+        <DrawingCanvas data={d.data} id={d.id} photo={d.photo_url} />
       </span>
     </button>
   )

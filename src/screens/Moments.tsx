@@ -3,10 +3,13 @@ import { Art, Avatar, Btn, confirmer, Vide } from '../components/ui'
 import { REACTIONS } from '../lib/data'
 import { select } from '../lib/haptic'
 import { useHome } from '../lib/store'
-import type { Moment } from '../lib/types'
+import { useState } from 'react'
+import { DrawingCanvas, whatOf } from '../components/drawing'
+import { DRAW_H, DRAW_W } from '../lib/drawing'
+import type { Drawing, Moment } from '../lib/types'
 import { ago } from '../lib/util'
 
-// Le fil de la famille : photos surprises et petits mots envoyés à tout le monde.
+// Le fil de la famille : photos, dessins et petits mots envoyés à tout le monde.
 
 function Carte({ mo }: { mo: Moment }) {
   const { state, run } = useHome()
@@ -70,14 +73,67 @@ function Carte({ mo }: { mo: Moment }) {
   )
 }
 
+/** Une photo ou un dessin envoyé à toute la famille : il se refait sous les yeux quand on le touche. */
+function Instant({ d }: { d: Drawing }) {
+  const { state, run } = useHome()
+  const { me, members } = state
+  const by = members.find((m) => m.id === d.from_member)
+  const [play, setPlay] = useState(0)
+  if (!by) return null
+  const what = whatOf(d)
+  return (
+    <article className="groupe mx-4 shadow-carte">
+      <header className="flex items-center gap-3 py-3 pl-3.5 pr-2">
+        <Avatar m={by} size={40} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-appel font-semibold">{by.id === me.id ? 'Moi' : by.display_name}</p>
+          <p className="truncate text-note text-brume">
+            {ago(d.created_at)} · {what.replace(/^une? /, '').replace(/^./, (c) => c.toUpperCase())}
+          </p>
+        </div>
+        {by.id === me.id ? (
+          <button
+            onClick={async () =>
+              (await confirmer({ title: 'Cet instant sera supprimé pour toute la famille.', confirm: 'Supprimer', destructive: true })) &&
+              run((api) => api.deleteDrawing(d.id), 'Supprimé')
+            }
+            className="presse flex h-11 w-11 items-center justify-center text-brume"
+            aria-label="Options"
+          >
+            <Ellipsis size={20} />
+          </button>
+        ) : (
+          <span className="w-3" />
+        )}
+      </header>
+      <button
+        onClick={() => {
+          select()
+          setPlay((n) => n + 1)
+        }}
+        className="block w-full overflow-hidden"
+        style={{ aspectRatio: `${DRAW_W} / ${DRAW_H}`, background: d.data.bg }}
+        aria-label={`Revoir ${what}`}
+      >
+        <DrawingCanvas data={d.data} id={d.id} play={play} photo={d.photo_url} />
+      </button>
+      <span className="block h-3" />
+    </article>
+  )
+}
+
 export default function Fil({ onCompose }: { onCompose: () => void }) {
   const { state } = useHome()
-  if (state.moments.length === 0) {
+  const items = [
+    ...state.moments.map((mo) => ({ at: mo.created_at, el: <Carte key={mo.id} mo={mo} /> })),
+    ...state.drawings.filter((d) => !d.to_member).map((d) => ({ at: d.created_at, el: <Instant key={d.id} d={d} /> })),
+  ].sort((a, b) => b.at.localeCompare(a.at))
+  if (items.length === 0) {
     return (
-      <Vide art="picto-photo" title="Le fil est encore vide" text="Une photo de ton café, de ta vue, de ta tête : c’est souvent ce qui fait le plus plaisir.">
-        <Btn onClick={onCompose}>Photo surprise</Btn>
+      <Vide art="picto-photo" title="Le fil est encore vide" text="Une photo de ton café, de ta vue, un petit dessin : c’est souvent ce qui fait le plus plaisir.">
+        <Btn onClick={onCompose}>Photo ou dessin</Btn>
       </Vide>
     )
   }
-  return <div className="space-y-4">{state.moments.map((mo) => <Carte key={mo.id} mo={mo} />)}</div>
+  return <div className="space-y-4">{items.map((x) => x.el)}</div>
 }

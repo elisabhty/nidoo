@@ -159,7 +159,7 @@ export function createLocalBackend(): Backend {
       // Stockage plein : on allège en retirant les plus anciennes photos du fil.
       for (const f of Object.values(db.families)) {
         f.moments = f.moments.slice(0, 6)
-        f.drawings = f.drawings.slice(0, 8)
+        f.drawings = f.drawings.filter((d, i) => i < 8 && (!d.photo_path || i < 3))
       }
       try {
         localStorage.setItem(KEY, JSON.stringify(db))
@@ -343,9 +343,12 @@ export function createLocalBackend(): Backend {
     const after = (iso: string) => new Date(iso).getTime() >= since
     const logged = (reason: string) => f.starLog.filter((x) => x.reason === reason && after(x.created_at)).length
     const c: WeeklyCounts = {
-      photos: f.moments.filter((m) => m.image_path && after(m.created_at)).length + f.folderItems.filter((i) => i.kind === 'photo' && after(i.created_at)).length,
+      photos:
+        f.moments.filter((m) => m.image_path && after(m.created_at)).length +
+        f.folderItems.filter((i) => i.kind === 'photo' && after(i.created_at)).length +
+        f.drawings.filter((d) => d.photo_path && after(d.created_at)).length,
       calins: f.thoughts.filter((t) => after(t.created_at)).length,
-      dessins: f.drawings.filter((d) => after(d.created_at)).length,
+      dessins: f.drawings.filter((d) => d.data.s.length > 0 && after(d.created_at)).length,
       missions: logged('mission'),
       humeurs: logged('humeur'),
       questions: logged('question'),
@@ -458,7 +461,7 @@ export function createLocalBackend(): Backend {
         weeklyClaims: undefined,
         answers: f.answers.filter((a) => a.day === day),
         moments: f.moments.map((m) => ({ ...m, image_url: m.image_path })),
-        drawings: f.drawings.filter((d) => !d.to_member || d.to_member === me.id || d.from_member === me.id).slice(0, 30),
+        drawings: f.drawings.filter((d) => !d.to_member || d.to_member === me.id || d.from_member === me.id).slice(0, 30).map((d) => ({ ...d, photo_url: d.photo_path ?? null })),
         folders: f.folders.filter((d) => mine.has(d.root_id)).map((d) => ({ ...d, cover_url: d.cover_path })),
         folderMembers: f.folderMembers.filter((x) => mine.has(x.folder_id)),
         folderItems: f.folderItems.filter((i) => mine.has(i.root_id)).map((i) => ({ ...i, image_url: i.image_path })),
@@ -612,11 +615,16 @@ export function createLocalBackend(): Backend {
       echo(f, f.members.find((m) => m.id === from)!, f.members.find((m) => m.id === to)!)
       save()
     },
-    async sendDrawing(fid, from, to, data) {
+    async sendDrawing(fid, from, to, data, image) {
       const f = fam(fid)
-      const d: Drawing = { id: uid(), family_id: fid, from_member: from, to_member: to, data: structuredClone(data), created_at: new Date().toISOString() }
+      if (!data.s.length && !image) throw new Error('DESSIN_VIDE')
+      const d: Drawing = {
+        id: uid(), family_id: fid, from_member: from, to_member: to, data: structuredClone(data),
+        photo_path: image ? await photo(image) : null, created_at: new Date().toISOString(),
+      }
       f.drawings.unshift(d)
-      award(f, from, 'dessin', 1, 5)
+      if (image) award(f, from, 'moment', 3, 5)
+      else award(f, from, 'dessin', 1, 5)
       if (!save()) {
         f.drawings.shift()
         throw new Error('STOCKAGE_PLEIN')
