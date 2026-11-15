@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { DECOS } from '../lib/data'
 import { useHome } from '../lib/store'
-import { CareIcon } from './care'
+import { CareIcon, HandIcon } from './care'
 import { DoodleIcon } from './drawing'
 import { Art, Btn, Sheet } from './ui'
 
@@ -12,8 +12,9 @@ const EARN: { icon: ReactNode; label: string; stars: number; limit?: string }[] 
   { icon: <Art name="geste-calin" size={40} />, label: 'Envoyer un câlin', stars: 1, limit: 'jusqu’à 5 par jour' },
   { icon: <DoodleIcon size={34} />, label: 'Envoyer un dessin', stars: 1, limit: 'jusqu’à 5 par jour' },
   { icon: <Art name="picto-missions" size={40} />, label: 'Terminer une mission', stars: 1 },
-  { icon: <CareIcon k="chat" size={32} />, label: 'Nourrir le chat ou les oiseaux', stars: 3, limit: 'une fois par jour chacun, pour toute la famille' },
+  { icon: <CareIcon k="chat" size={32} />, label: 'Nourrir le chat ou les oiseaux', stars: 3, limit: 'une fois par jour chacun · un repas de croquettes' },
   { icon: <CareIcon k="fleurs" size={32} />, label: 'Arroser les fleurs ou le potager', stars: 1, limit: 'une fois par jour chacun, pour toute la famille' },
+  { icon: <HandIcon size={32} />, label: 'Caresser le chat ou les oiseaux', stars: 1, limit: 'une fois par jour, pour chacun' },
 ]
 
 /** Le système d'étoiles, expliqué simplement. */

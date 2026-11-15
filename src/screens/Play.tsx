@@ -1,6 +1,6 @@
 import { Camera, Check, ChevronRight, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { useCare } from '../components/care'
+import { pettedToday, useCare, usePet } from '../components/care'
 import { DecorPage } from '../components/decor'
 import House from '../components/House'
 import { ComposeSheet } from '../components/sheets'
@@ -20,10 +20,11 @@ export default function Play() {
   const [text, setText] = useState('')
   const [photo, setPhoto] = useState(false)
   const [stars, setStars] = useState(false)
-  const [decor, setDecor] = useState(false)
+  const [decor, setDecor] = useState<null | { food?: boolean }>(null)
   const [pic, setPic] = useState<{ blob: Blob; url: string } | null>(null)
   const picker = useRef<HTMLInputElement>(null)
-  const care = useCare()
+  const care = useCare(() => setDecor({ food: true }))
+  const petAnimal = usePet()
   useEffect(() => () => void (pic && URL.revokeObjectURL(pic.url)), [pic])
   const mine = answers.find((a) => a.member_id === me.id)
   const challengeDone = state.moments.some((m) => m.member_id === me.id && m.challenge === challenge && todayKey(new Date(m.created_at)) === todayKey())
@@ -147,11 +148,11 @@ export default function Play() {
 
         <Section title="Notre maison" hint="Chaque petit geste embellit votre maison.">
           <div className="mx-4 overflow-hidden rounded-[28px] bg-carte shadow-carte">
-            <House type={family.house_type} items={houseItems} cares={state.cares} onCare={care} />
+            <House type={family.house_type} items={houseItems} cares={state.cares} onCare={care} since={state.houseSince} petted={pettedToday(state.starLog, me.id)} onPet={petAnimal} />
             <button
               onClick={() => {
                 tap()
-                setDecor(true)
+                setDecor({})
               }}
               className="presse-ligne flex w-full items-center gap-3 px-4 py-3 text-left"
             >
@@ -171,7 +172,7 @@ export default function Play() {
             </button>
           </div>
           <div className="mx-4 mt-3">
-            <Btn onClick={() => setDecor(true)}>Décorer la maison</Btn>
+            <Btn onClick={() => setDecor({})}>Décorer la maison</Btn>
           </div>
         </Section>
 
@@ -205,11 +206,11 @@ export default function Play() {
           onClose={() => setStars(false)}
           onDecorate={() => {
             setStars(false)
-            setDecor(true)
+            setDecor({})
           }}
         />
       )}
-      {decor && <DecorPage onClose={() => setDecor(false)} />}
+      {decor && <DecorPage food={decor.food} onClose={() => setDecor(null)} />}
     </>
   )
 }

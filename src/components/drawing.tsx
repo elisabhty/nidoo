@@ -189,26 +189,27 @@ export function DrawingWidget({ onOpen, onDraw, compact = false }: { onOpen: (d:
     )
   }
   const { from, fromName, toName } = forWhom(latest, me, members)
-  const dark = latest.data.bg === '#1E1B33'
+  // Une nouvelle photo ou un nouveau dessin remplace l'ancien, qui disparaît du widget.
   return (
-    <div className="relative w-full overflow-hidden rounded-[26px] shadow-carte" style={{ aspectRatio: RATIO, background: latest.data.bg }}>
+    <div className="relative w-full overflow-hidden rounded-[26px] shadow-carte" style={{ aspectRatio: RATIO }}>
       <button
+        key={latest.id}
+        style={{ background: latest.data.bg }}
         onClick={() => {
           tap()
           onOpen(latest)
         }}
-        className="absolute inset-0"
-        aria-label={`${whatOf(latest)} de ${fromName} pour ${toName}`}
+        className={`absolute inset-0 ${play ? 'anim-remplace' : ''}`}
+        aria-label={`${whatOf(latest)} de ${fromName} pour ${toName}, ${ago(latest.created_at)}`}
       >
         <DrawingCanvas data={latest.data} id={latest.id} play={play} photo={latest.photo_url} />
       </button>
-      <span className={`pointer-events-none absolute bottom-2 left-2 flex h-7 max-w-[70%] items-center gap-1.5 rounded-full py-0.5 pl-0.5 pr-2.5 ${dark ? 'bg-white/15 text-white' : 'verre text-encre'}`}>
-        {from && <Avatar m={from} size={24} />}
-        <span className="truncate text-legende font-semibold">
-          {fromName}
-          {!compact && <span className="font-normal opacity-70"> · {toName === 'toi' ? 'pour toi' : toName === 'toute la famille' ? 'pour la famille' : `pour ${toName}`} · {ago(latest.created_at)}</span>}
+      {/* juste la tête de celui qui l'a envoyé */}
+      {from && (
+        <span key={`a${latest.id}`} className={`pointer-events-none absolute bottom-2 left-2 flex rounded-full bg-white p-[2px] shadow-[0_2px_8px_rgba(29,26,43,0.25)] ${play ? 'anim-pop' : ''}`}>
+          <Avatar m={from} size={compact ? 30 : 34} />
         </span>
-      </span>
+      )}
       <button
         onClick={() => {
           tap()

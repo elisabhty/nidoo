@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { success, tap } from '../lib/haptic'
-import { CARE, moodOf } from '../lib/data'
+import { ANIMALS, CARE, moodOf } from '../lib/data'
 import type { HouseCare, HouseType, Member } from '../lib/types'
 import { AGE_SCALE, lookOf } from '../lib/look'
 import { Character } from './Character'
 import { Smiley } from './Smiley'
 import { dayPhase, season as seasonOf, todayKey, type Season } from '../lib/util'
-import { CareIcon } from './care'
+import { animalMood, CareIcon, HandIcon, hungerOf, NoteIcon, RainCloud } from './care'
 
 // La maison de la famille : un décor vivant qui suit l'heure, la maison en 3D
 // et les décorations débloquées avec les étoiles. Tout réagit au toucher.
@@ -34,8 +34,9 @@ const SPOTS: Record<string, Spot> = {
   balancoire: { left: 72, bottom: 21, w: 18, z: 3 },
   lanterne: { left: 22, bottom: 14, w: 9, z: 5, anim: 'lueur 3.2s ease-in-out infinite' },
   boite: { left: 67, bottom: 12, w: 8.5, z: 6 },
+  // le chat passe devant la famille : on doit pouvoir le voir, le nourrir et le caresser
   fleurs: { left: 28, bottom: 7, w: 15, z: 7, anim: 'balance 4.5s ease-in-out 0.6s infinite' },
-  chat: { left: 57, bottom: 7, w: 12, z: 7, anim: 'respire 3.4s ease-in-out infinite', roam: 'balade 16s ease-in-out 4s infinite' },
+  chat: { left: 57, bottom: 7, w: 12, z: 9, anim: 'respire 3.4s ease-in-out infinite', roam: 'balade 16s ease-in-out 4s infinite' },
   fontaine: { left: 2, bottom: 1, w: 18, z: 8, anim: 'respire 2.2s ease-in-out infinite' },
   potager: { left: 79, bottom: 0, w: 19, z: 8, anim: 'respire 5s ease-in-out 1s infinite' },
 }
@@ -85,7 +86,7 @@ const LEAVES = ['#E8833A', '#D9572B', '#F2B33D', '#B5532A', '#E9A23B']
 const PETALS = ['#F9C4D5', '#FDE6EE', '#F4A9C2', '#FFFFFF']
 
 export default function House({
-  type, items, className = '', phase = dayPhase(), bare = false, season = seasonOf(), photos = [], people = [], onPerson, scene = null, onSceneEnd, ratio, cares, onCare,
+  type, items, className = '', phase = dayPhase(), bare = false, season = seasonOf(), photos = [], people = [], onPerson, scene = null, onSceneEnd, ratio, cares, onCare, since, petted = true, onPet,
 }: {
   type: HouseType
   items: string[]
@@ -108,6 +109,12 @@ export default function House({
   cares?: HouseCare[]
   /** Toucher un animal qui a faim ou une plante qui a soif s'en occupe. */
   onCare?: (key: string) => void
+  /** Date d'arrivée de chaque décoration : un animal oublié devient triste, puis déprime. */
+  since?: Record<string, string>
+  /** Ai-je déjà eu mon étoile de caresse aujourd'hui ? (sinon, une petite main invite à caresser) */
+  petted?: boolean
+  /** Caresser un animal nourri ; renvoie les étoiles gagnées. */
+  onPet?: (key: string) => Promise<number>
 }) {
   const night = phase === 'nuit'
   const base = HOUSE[type]
@@ -124,6 +131,23 @@ export default function House({
   const cared = (k: string) => !!cares?.some((c) => c.item_key === k && c.day === today)
   const seenCares = useRef<Set<string> | null>(null)
   const [gains, setGains] = useState<{ key: string; id: string; n: number }[]>([])
+  // Comment va chaque animal ou plante (triste, déprimé, fané) ; les caresses en cours.
+  const hunger = (k: string) => (cares ? hungerOf(k, cares, since) : 0)
+  const moodOfKey = (k: string) => (ANIMALS.includes(k) ? animalMood(hunger(k)) : 'bien')
+  const sadFilter = (k: string) => {
+    if (!cares || !CARE[k]) return undefined
+    if (ANIMALS.includes(k)) {
+      const m = moodOfKey(k)
+      return m === 'deprime' ? 'grayscale(0.75) brightness(0.92)' : m === 'triste' ? 'saturate(0.5)' : undefined
+    }
+    return hunger(k) >= 2 ? 'saturate(0.45) sepia(0.3)' : undefined
+  }
+  const [pets, setPets] = useState<{ key: string; id: number; n: number }[]>([])
+  const pet = (key: string) => {
+    const id = Date.now()
+    setPets((p) => [...p.filter((x) => x.key !== key), { key, id, n: 0 }])
+    void onPet?.(key).then((n) => n && setPets((p) => p.map((x) => (x.id === id ? { ...x, n } : x))))
+  }
   useEffect(() => {
     if (!cares) return
     if (seenCares.current) {
@@ -180,24 +204,32 @@ export default function House({
     const sp = SPOTS[key]
     const glow = key === 'lanterne' && night ? 'drop-shadow(0 0 10px rgba(255,214,120,0.95))' : undefined
     const poked = poke?.key === key
+    const sad = sadFilter(key)
+    const look = [glow ?? dim, sad].filter(Boolean).join(' ') || undefined
     return (
       <span
         key={key}
         onClick={() => {
           touch(key)
           if (onCare && CARE[key] && !cared(key)) onCare(key)
+          else if (onPet && ANIMALS.includes(key)) pet(key)
         }}
         className="absolute"
-        style={{ left: `${sp.left}%`, bottom: sp.bottom != null ? `${sp.bottom}%` : undefined, top: sp.top != null ? `${sp.top}%` : undefined, width: `${sp.w * s}%`, zIndex: sp.z, animation: sp.roam }}
+        style={{ left: `${sp.left}%`, bottom: sp.bottom != null ? `${sp.bottom}%` : undefined, top: sp.top != null ? `${sp.top}%` : undefined, width: `${sp.w * s}%`, zIndex: sp.z, animation: moodOfKey(key) === 'deprime' ? undefined : sp.roam }}
       >
         <span className="block" style={{ animation: `pousse 0.6s var(--ressort) ${fresh.includes(key) ? 0 : 0.15 + ORDER.indexOf(key) * 0.07}s both`, transformOrigin: '50% 100%' }}>
           <span key={poked ? poke.n : 0} className="block" style={{ animation: poked ? 'rebond 0.7s var(--ressort)' : undefined, transformOrigin: '50% 100%' }}>
             {ANIM[key] ? (
-              <span className="block aspect-square w-full overflow-hidden" style={{ filter: dim }}>
-                <img src={`./art/deco-${key}-anim.webp`} alt="" className="block h-full max-w-none" style={{ width: `${ANIM[key].frames * 100}%`, animation: `sprite ${ANIM[key].dur}s steps(${ANIM[key].frames}) infinite` }} />
+              <span className="block aspect-square w-full overflow-hidden transition-[filter] duration-700" style={{ filter: look }}>
+                <img
+                  src={`./art/deco-${key}-anim.webp`}
+                  alt=""
+                  className="block h-full max-w-none"
+                  style={{ width: `${ANIM[key].frames * 100}%`, animation: `sprite ${ANIM[key].dur * (sad ? 2.4 : 1)}s steps(${ANIM[key].frames}) infinite` }}
+                />
               </span>
             ) : (
-              <img src={`./art/deco-${key}.webp`} alt="" className="block w-full" style={{ animation: sp.anim, transformOrigin: '50% 100%', filter: glow ?? dim }} />
+              <img src={`./art/deco-${key}.webp`} alt="" className="block w-full transition-[filter] duration-700" style={{ animation: sp.anim, transformOrigin: '50% 100%', filter: look }} />
             )}
           </span>
         </span>
@@ -226,14 +258,29 @@ export default function House({
     const c = CARE[key]
     const need = !cared(key)
     const mine = gains.filter((g) => g.key === key)
-    if (!need && !mine.length) return null
+    const animal = ANIMALS.includes(key)
+    const mood = moodOfKey(key)
+    const petting = pets.filter((p) => p.key === key)
+    const invite = animal && !need && !petted && !!onPet
+    if (!need && !mine.length && !petting.length && !invite) return null
     const water = c.kind === 'arroser'
+    const icon = Math.round(19 * Math.max(0.75, s))
+    const sadLabel = mood === 'deprime' ? `${c.who.replace(/^./, (x) => x.toUpperCase())} déprime${c.plural ? 'nt' : ''} : ${c.plural ? 'ils' : 'il'} n’${c.plural ? 'ont' : 'a'} pas mangé depuis deux jours. ` : mood === 'triste' ? `${c.who.replace(/^./, (x) => x.toUpperCase())} ${c.plural ? 'sont tristes' : 'est triste'} : pas mangé hier. ` : ''
     return (
       <span
         key={`soin-${key}`}
         className="pointer-events-none absolute aspect-square"
-        style={{ left: `${sp.left}%`, bottom: `${sp.bottom ?? 0}%`, width: `${sp.w * s}%`, zIndex: 10, animation: sp.roam }}
+        style={{ left: `${sp.left}%`, bottom: `${sp.bottom ?? 0}%`, width: `${sp.w * s}%`, zIndex: 10, animation: mood === 'deprime' ? undefined : sp.roam }}
       >
+        {/* un animal qui déprime a son petit nuage de pluie */}
+        {need && mood === 'deprime' && (
+          <span className="absolute bottom-[150%] left-1/2 block w-[110%] -translate-x-1/2" style={{ animation: 'flotte 3s ease-in-out infinite' }}>
+            <RainCloud size="100%" />
+            {[22, 44, 66].map((x, i) => (
+              <span key={x} className="absolute top-[58%] block h-[16%] w-[5%] rounded-full bg-[#7CA6D6]" style={{ left: `${x}%`, animation: `pluie 1.1s linear ${i * 0.35}s infinite` }} />
+            ))}
+          </span>
+        )}
         {need &&
           (onCare ? (
             <button
@@ -241,17 +288,63 @@ export default function House({
                 touch(key)
                 onCare(key)
               }}
-              className="pointer-events-auto absolute bottom-[88%] left-1/2 flex rounded-full bg-white p-[3px] shadow-[0_3px_10px_rgba(29,26,43,0.25)]"
-              style={{ animation: 'appelle 2.2s ease-in-out infinite' }}
-              aria-label={`${c.need}. ${c.verb} : +${c.stars} étoile${c.stars > 1 ? 's' : ''}`}
+              className={`pointer-events-auto absolute bottom-[88%] left-1/2 flex rounded-full bg-white p-[3px] shadow-[0_3px_10px_rgba(29,26,43,0.25)] ${mood !== 'bien' ? 'ring-2 ring-rouge/70' : ''}`}
+              style={{ animation: `appelle ${mood === 'bien' ? 2.2 : 1.1}s ease-in-out infinite` }}
+              aria-label={`${sadLabel || `${c.need}. `}${c.verb} : +${c.stars} étoile${c.stars > 1 ? 's' : ''}`}
             >
-              <CareIcon k={key} size={Math.round(19 * Math.max(0.75, s))} />
+              <CareIcon k={key} size={icon} />
             </button>
           ) : (
-            <span className="absolute bottom-[88%] left-1/2 flex -translate-x-1/2 rounded-full bg-white p-[2px] shadow-[0_2px_6px_rgba(29,26,43,0.22)]">
+            <span className={`absolute bottom-[88%] left-1/2 flex -translate-x-1/2 rounded-full bg-white p-[2px] shadow-[0_2px_6px_rgba(29,26,43,0.22)] ${mood !== 'bien' ? 'ring-2 ring-rouge/70' : ''}`}>
               <CareIcon k={key} size={Math.round(17 * Math.max(0.75, s))} />
             </span>
           ))}
+        {/* nourri, pas encore caressé aujourd'hui : une petite main invite à le faire */}
+        {invite && !petting.length && !mine.length && (
+          <button
+            onClick={() => {
+              touch(key)
+              pet(key)
+            }}
+            className="pointer-events-auto absolute bottom-[88%] left-1/2 flex rounded-full bg-[#FFE4EC] p-[3px] shadow-[0_3px_10px_rgba(29,26,43,0.22)]"
+            style={{ animation: 'appelle 2.6s ease-in-out infinite' }}
+            aria-label={`Caresser ${c.who} : +1 étoile`}
+          >
+            <HandIcon size={icon + 2} />
+          </button>
+        )}
+        {/* la caresse : la main passe et repasse, le chat ronronne, les oiseaux chantent */}
+        {petting.map((p) => (
+          <span key={p.id} className="absolute inset-0" style={{ animation: 'apparait 3s ease both' }} onAnimationEnd={(e) => e.target === e.currentTarget && setPets((all) => all.filter((x) => x.id !== p.id))}>
+            {key === 'chat' ? (
+              <>
+                <span className="absolute left-[2%] top-[-40%] block w-[100%] drop-shadow-[0_2px_4px_rgba(29,26,43,0.3)]" style={{ animation: 'caresse 0.62s ease-in-out 3' }}>
+                  <HandIcon size="100%" />
+                </span>
+                <span className="absolute -top-[52%] left-[70%] whitespace-nowrap font-rond text-[11px] font-semibold italic text-[#8B5A2B]" style={{ animation: 'jaillit 1.6s ease-out 0.5s both', ['--jx' as string]: '30%' }}>
+                  ronron
+                </span>
+              </>
+            ) : (
+              [0, 1, 2].map((i) => (
+                <span key={i} className="absolute left-[34%] top-[-10%] block w-[30%]" style={{ animation: `jaillit 1.5s ease-out ${i * 0.28}s both`, ['--jx' as string]: `${(i - 1) * 120}%` }}>
+                  <NoteIcon size="100%" color={['#6E56CF', '#E77BA0', '#3E9BE9'][i]} />
+                </span>
+              ))
+            )}
+            {[0, 1, 2].map((i) => (
+              <img key={i} src="./art/geste-coeur.webp" alt="" className="absolute left-[25%] top-[-6%] w-[50%]" style={{ animation: `jaillit 1.3s ease-out ${1.1 + i * 0.2}s both`, ['--jx' as string]: `${(i - 1) * 90}%` }} />
+            ))}
+            {p.n > 0 && (
+              <span
+                className="absolute bottom-[110%] left-1/2 flex items-center gap-[3px] whitespace-nowrap rounded-full bg-white py-[3px] pl-[8px] pr-[5px] text-[13px] font-bold text-teinte-fonce shadow-[0_4px_12px_rgba(29,26,43,0.25)]"
+                style={{ animation: 'gain 1.6s ease-out 1.2s both' }}
+              >
+                +{p.n} <img src="./art/picto-etoile.webp" alt="" className="h-[15px] w-[15px]" />
+              </span>
+            )}
+          </span>
+        ))}
         {mine.map((g) => (
           <span key={g.id} className="absolute inset-0">
             {/* l'arrosoir qui verse, ou la gamelle / les graines qui arrivent */}

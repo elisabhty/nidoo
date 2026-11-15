@@ -88,6 +88,11 @@ export function createSupabaseBackend(): Backend {
     },
 
     async load(fid) {
+      // Les animaux oubliés trop longtemps s'en vont avant qu'on regarde le jardin.
+      await sb.rpc('check_garden', { p_family: fid }).then(
+        () => undefined,
+        () => undefined,
+      )
       const since = new Date(Date.now() - 14 * 86400000).toISOString()
       const [family, members, requests, weekly, moments, folders, folderMembers, folderItems, reactions, thoughts, drawings, events, items, answers, house, stars, cares] = await Promise.all([
         sb.from('families').select('*').eq('id', fid).single(),
@@ -105,9 +110,9 @@ export function createSupabaseBackend(): Backend {
         sb.from('events').select('*').eq('family_id', fid).order('starts_at'),
         sb.from('list_items').select('*').eq('family_id', fid).order('created_at'),
         sb.from('daily_answers').select('id, member_id, day, question_key, answer, photo_path').eq('family_id', fid).eq('day', todayKey()),
-        sb.from('house_items').select('item_key').eq('family_id', fid),
+        sb.from('house_items').select('item_key, unlocked_at').eq('family_id', fid),
         sb.from('star_log').select('id, member_id, reason, amount, created_at').eq('family_id', fid).order('created_at', { ascending: false }).limit(30),
-        sb.from('house_care').select('item_key, day, member_id, created_at').eq('family_id', fid).gte('day', daysAgoKey(3)),
+        sb.from('house_care').select('item_key, day, member_id, created_at').eq('family_id', fid).gte('day', daysAgoKey(6)),
       ])
       const mem = check(members) as Member[]
       const me = mem.find((m) => m.user_id === userId)
@@ -165,6 +170,7 @@ export function createSupabaseBackend(): Backend {
         items: (check(items) ?? []) as ListItem[],
         answers: reponses,
         houseItems: (check(house) as { item_key: string }[]).map((h) => h.item_key),
+        houseSince: Object.fromEntries((check(house) as { item_key: string; unlocked_at: string }[]).map((h) => [h.item_key, h.unlocked_at])),
         starLog: (check(stars) ?? []) as StarEntry[],
         cares: (check(cares) ?? []) as HouseCare[],
       }
@@ -352,6 +358,12 @@ export function createSupabaseBackend(): Backend {
     },
     async care(fid, key) {
       return check(await sb.rpc('care_item', { p_family: fid, p_key: key })) as number
+    },
+    async buyFood(fid) {
+      return check(await sb.rpc('buy_food', { p_family: fid })) as number
+    },
+    async pet(fid, key) {
+      return check(await sb.rpc('pet_animal', { p_family: fid, p_key: key })) as number
     },
     async unlock(fid, key) {
       check(await sb.rpc('unlock_item', { p_family: fid, p_key: key }))

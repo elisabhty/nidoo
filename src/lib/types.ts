@@ -15,6 +15,8 @@ export type Family = {
   created_by: string
   /** Le code d'invitation ne marche plus après cette date. */
   invite_expires_at: string
+  /** Repas de croquettes en stock, pour le chat et les oiseaux. */
+  food: number
 }
 
 export type Member = {
@@ -172,6 +174,8 @@ export type FamilyState = {
   houseItems: string[]
   /** Les soins du jardin des derniers jours. */
   cares: HouseCare[]
+  /** Date d'arrivée de chaque décoration (pour savoir depuis quand un animal n'a pas mangé). */
+  houseSince: Record<string, string>
   starLog: StarEntry[]
   /** Défi de la semaine : progression de toute la famille, et récompense déjà reçue. */
   weekly: WeeklyState
@@ -230,6 +234,10 @@ export interface Backend {
   answer(familyId: string, memberId: string, questionKey: string, answer: string, photo?: Blob | null): Promise<void>
   /** Nourrit un animal ou arrose une plante du jardin ; renvoie les étoiles gagnées. */
   care(familyId: string, key: string): Promise<number>
+  /** Un sac de croquettes : 10 repas pour 15 étoiles. Renvoie le stock. */
+  buyFood(familyId: string): Promise<number>
+  /** Caresser un animal : 1 étoile la première fois de la journée, pour chacun. */
+  pet(familyId: string, key: string): Promise<number>
   unlock(familyId: string, key: string): Promise<void>
   /** Réclame la récompense du défi de la semaine ; renvoie la décoration offerte (ou « etoiles »). */
   claimWeekly(familyId: string): Promise<string>

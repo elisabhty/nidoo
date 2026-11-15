@@ -59,14 +59,14 @@ function Widgets({ onDraw, onOpen }: { onDraw: () => void; onOpen: (d: Drawing) 
   return (
     <div className="no-bar flex gap-3.5 overflow-x-auto px-4 pb-2">
       <Tuile title="Notre maison · moyen" wide>
-        <House type={family.house_type} items={state.houseItems} people={people} cares={state.cares} ratio={338 / 158} className="h-full" />
+        <House type={family.house_type} items={state.houseItems} people={people} cares={state.cares} since={state.houseSince} ratio={338 / 158} className="h-full" />
       </Tuile>
       <Tuile title="Créer une attention" wide>
         <DrawingWidget compact onOpen={onOpen} onDraw={onDraw} />
       </Tuile>
       <Tuile title="Notre maison · grand" large>
         <div className="flex h-full flex-col">
-          <House type={family.house_type} items={state.houseItems} people={people} cares={state.cares} photos={photos} />
+          <House type={family.house_type} items={state.houseItems} people={people} cares={state.cares} since={state.houseSince} photos={photos} />
           <div className="flex min-h-0 flex-1 flex-col justify-center gap-1.5 px-4">
             <div className="flex items-baseline justify-between gap-2">
               <p className="truncate font-rond text-titre3">Famille {family.name}</p>

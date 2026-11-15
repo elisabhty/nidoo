@@ -114,3 +114,7 @@ input[type='date'], input[type='time'] { -webkit-appearance: none; appearance: n
 @keyframes appelle { 0%, 100% { transform: translate(-50%, 0) scale(1); } 50% { transform: translate(-50%, -12%) scale(1.06); } }
 @keyframes glisse { from { transform: translateX(100%); } to { transform: translateX(0); } }
 .anim-glisse { animation: glisse 0.42s cubic-bezier(0.32, 0.72, 0, 1) both; }
+@keyframes caresse { 0%, 100% { transform: translateX(-14%) rotate(-8deg); } 50% { transform: translateX(16%) rotate(5deg) translateY(6%); } }
+@keyframes apparait { 0% { opacity: 0; } 10% { opacity: 1; } 82% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes remplace { from { opacity: 0; transform: scale(1.05); filter: blur(4px); } to { opacity: 1; transform: scale(1); filter: blur(0); } }
+.anim-remplace { animation: remplace 0.6s cubic-bezier(0.32, 0.72, 0, 1) both; }

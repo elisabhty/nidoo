@@ -1,7 +1,7 @@
 import { ChevronRight } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { careTodo, CareIcon, useCare } from '../components/care'
-import { DecorPage } from '../components/decor'
+import { animalMood, BagIcon, careTodo, CareIcon, HandIcon, hungerOf, pettedToday, useCare, usePet } from '../components/care'
+import { DecorPage, GoneSheet, useGone } from '../components/decor'
 import { DoodleIcon, DrawingsSheet, DrawingWidget, DrawSheet } from '../components/drawing'
 import House, { type HouseScene } from '../components/House'
 import { JoinRequests } from '../components/requests'
@@ -9,7 +9,7 @@ import { eventArt, MoodSheet, ThoughtSheet } from '../components/sheets'
 import { StarsSheet } from '../components/stars'
 import { Art, Avatar, Lien, Section } from '../components/ui'
 import { WeeklyChallenge } from '../components/weekly'
-import { CARE, DECOS, moodOf, questionOfDay } from '../lib/data'
+import { ANIMALS, CARE, DECOS, moodOf, questionOfDay } from '../lib/data'
 import { feel, success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
 import type { Drawing, Member } from '../lib/types'
@@ -23,7 +23,7 @@ type Open =
   | { k: 'dessin'; to?: string | null }
   | { k: 'dessins'; start?: Drawing }
   | { k: 'etoiles' }
-  | { k: 'decor' }
+  | { k: 'decor'; food?: boolean }
 
 export function upcoming(events: ReturnType<typeof useHome>['state']['events'], limit = 3) {
   const start = new Date()
@@ -60,8 +60,21 @@ export default function Home({ go }: { go: (t: Go) => void }) {
     .slice(0, 6)
     .map((x) => x.url)
   const now = season()
-  const care = useCare()
+  const care = useCare(() => setSheet({ k: 'decor', food: true }))
+  const petAnimal = usePet()
+  const petted = pettedToday(state.starLog, me.id)
   const todo = careTodo(houseItems, state.cares)
+  const animals = ANIMALS.filter((k) => houseItems.includes(k))
+  const gone = useGone()
+  // Un animal oublié : triste (pas mangé hier), déprimé (deux jours) ; au 4e jour sans repas il s'en va.
+  const careText = (k: string) => {
+    const c = CARE[k]
+    const mood = ANIMALS.includes(k) ? animalMood(hungerOf(k, state.cares, state.houseSince)) : 'bien'
+    const Who = c.who.replace(/^./, (x) => x.toUpperCase())
+    if (mood === 'deprime') return { text: `${Who} ${c.plural ? 'dépriment' : 'déprime'} : demain, ${c.plural ? 'ils partent' : 'il part'}`, tint: 'text-rouge' }
+    if (mood === 'triste') return { text: `${Who} ${c.plural ? 'sont tristes' : 'est triste'} : pas mangé hier`, tint: 'text-peche-fonce' }
+    return { text: `${c.need} · +${c.stars} étoile${c.stars > 1 ? 's' : ''} pour la maison` }
+  }
   // On s'occupe du chat depuis la liste : la maison revient à l'écran pour voir le « +3 ».
   const careFromList = (key: string) => {
     const r = houseRef.current?.getBoundingClientRect()
@@ -116,9 +129,43 @@ export default function Home({ go }: { go: (t: Go) => void }) {
         </span>
       ),
       title: CARE[k].verb,
-      text: `${CARE[k].need} · +${CARE[k].stars} étoile${CARE[k].stars > 1 ? 's' : ''} pour la maison`,
+      ...careText(k),
       act: () => careFromList(k),
     })),
+    ...(animals.length && family.food <= 2
+      ? [
+          {
+            key: 'croquettes',
+            icon: (
+              <span className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-peche-doux">
+                <BagIcon size={28} empty={family.food === 0} />
+              </span>
+            ),
+            title: family.food ? `Plus que ${family.food} repas de croquettes` : 'Plus de croquettes',
+            text: 'Un sac de 10 repas : 15 étoiles',
+            tint: family.food ? undefined : 'text-rouge',
+            act: () => setSheet({ k: 'decor', food: true }),
+          },
+        ]
+      : []),
+    ...(animals.length && !petted && !animals.some((k) => todo.includes(k))
+      ? [
+          {
+            key: 'caresse',
+            icon: (
+              <span className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-[#FFE4EC]">
+                <HandIcon size={30} />
+              </span>
+            ),
+            title: `Caresser ${CARE[animals[0]].who}`,
+            text: 'Une caresse par jour · +1 étoile',
+            act: () => {
+              houseRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              window.setTimeout(() => houseRef.current?.querySelector<HTMLButtonElement>('button[aria-label^="Caresser"]')?.click(), 500)
+            },
+          },
+        ]
+      : []),
     ...(!myMood ? [{ key: 'humeur', icon: <Art name="humeur-heureux" size={40} />, title: 'Partager mon humeur', text: 'Ta famille voit comment tu te sens', act: () => setSheet({ k: 'humeur' }) }] : []),
     ...soon.map(({ e, at }) => ({
       key: e.id,
@@ -219,6 +266,9 @@ export default function Home({ go }: { go: (t: Go) => void }) {
                 onSceneEnd={() => setScene(null)}
                 cares={state.cares}
                 onCare={care}
+                since={state.houseSince}
+                petted={petted}
+                onPet={petAnimal}
               />
             </div>
             <p className="px-1.5 pt-2 text-note text-brume">
@@ -318,7 +368,8 @@ export default function Home({ go }: { go: (t: Go) => void }) {
           onDecorate={() => setSheet({ k: 'decor' })}
         />
       )}
-      {sheet?.k === 'decor' && <DecorPage onClose={() => setSheet(null)} />}
+      {sheet?.k === 'decor' && <DecorPage food={sheet.food} onClose={() => setSheet(null)} />}
+      {!sheet && gone && <GoneSheet entry={gone.entry} onClose={gone.seen} onAdopt={() => (gone.seen(), setSheet({ k: 'decor' }))} />}
     </>
   )
 }

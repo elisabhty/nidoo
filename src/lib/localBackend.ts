@@ -1,4 +1,4 @@
-import { CARE, DECOS, PLAN_LIMITS, THOUGHTS } from './data'
+import { ANIMALS, CARE, DECOS, FOOD, GONE_AFTER, PLAN_LIMITS, THOUGHTS } from './data'
 import { demoDrawing, type DemoArt } from './drawing'
 import { DEMO_LOOKS } from './look'
 import type { Backend, Drawing, Family, FamilyState, Folder, FolderItem, JoinRequest, Member, Moment, MyRequest, ThoughtKind } from './types'
@@ -8,7 +8,7 @@ import { challenge, nextReward, WEEKLY, weekIndex, weekKey, weekStart, type Week
 // Mode démo : toute la maison vit sur l'appareil, avec trois proches fictifs
 // qui répondent aux attentions. Même contrat que le backend Supabase.
 
-type Raw = Omit<FamilyState, 'me' | 'weekly'> & { dossiersDemo?: boolean; enfantsDemo?: boolean; weeklyClaims?: Record<string, string> }
+type Raw = Omit<FamilyState, 'me' | 'weekly' | 'houseSince'> & { houseSince?: Record<string, string> } & { dossiersDemo?: boolean; enfantsDemo?: boolean; weeklyClaims?: Record<string, string> }
 type Pending = MyRequest & { profile: { displayName: string; avatar: string; color: string } }
 type Db = { userId: string; families: Record<string, Raw>; pending?: Pending[] }
 const KEY = 'nidoo.demo.v2'
@@ -128,6 +128,9 @@ function migrate(f: Raw, userId: string) {
   if (f.members.length && !f.members.some((m) => m.role === 'responsable')) f.members[0].role = 'responsable'
   f.family.invite_expires_at ??= inWeek()
   f.cares ??= []
+  f.family.food ??= 0
+  f.houseSince ??= {}
+  for (const k of f.houseItems) f.houseSince[k] ??= new Date().toISOString()
   const diner = f.events.find((e) => e.title === 'Dîner tous ensemble' && e.description === undefined)
   if (diner) diner.description = DINER
   const dentiste = f.events.find((e) => e.title === 'Dentiste de Léa' && e.members === undefined)
@@ -244,7 +247,7 @@ export function createLocalBackend(): Backend {
     const lou = { ...mk('Bébé Lou', DEMO_LOOKS['Bébé Lou'], 'rose', 'serein', 'Grosse sieste', null as unknown as string), user_id: null, managed_by: papa.id }
     ;(joined ? papa : moi).role = 'responsable'
     db.families[fid] = {
-      family: { id: fid, name, house_type: houseType, invite_code: 'DEMO42', plan: 'free', stars: 14, created_by: joined ? papa.user_id! : db.userId, invite_expires_at: inWeek() },
+      family: { id: fid, name, house_type: houseType, invite_code: 'DEMO42', plan: 'free', stars: 14, created_by: joined ? papa.user_id! : db.userId, invite_expires_at: inWeek(), food: 0 },
       members: [moi, mamie, papa, lea, noe, lou],
       enfantsDemo: true,
       requests: joined ? [] : [demoRequest(fid)],
@@ -274,6 +277,7 @@ export function createLocalBackend(): Backend {
       answers: [],
       houseItems: ['fleurs'],
       cares: [],
+      houseSince: { fleurs: new Date().toISOString() },
       starLog: [
         { id: uid(), member_id: lea.id, reason: 'moment', amount: 3, created_at: iso(55) },
         { id: uid(), member_id: mamie.id, reason: 'attention', amount: 1, created_at: iso(3) },
@@ -320,13 +324,40 @@ export function createLocalBackend(): Backend {
     }
   }
 
+  // Un animal oublié trop longtemps s'en va (même règle que la base : au 4e jour sans repas).
+  function checkGarden(f: Raw) {
+    const today = todayKey()
+    const diff = (a: string) => {
+      const [y, m, d] = a.split('-').map(Number)
+      const [ty, tm, td] = today.split('-').map(Number)
+      return Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(y, m - 1, d)) / 86400000)
+    }
+    let changed = false
+    for (const key of ANIMALS.filter((k) => f.houseItems.includes(k))) {
+      const last = f.cares.filter((c) => c.item_key === key).reduce<string | null>((a, c) => (!a || c.day > a ? c.day : a), null)
+      const base = last ?? todayKey(new Date(f.houseSince?.[key] ?? Date.now()))
+      if (diff(base) >= GONE_AFTER) {
+        f.houseItems = f.houseItems.filter((k) => k !== key)
+        f.starLog.unshift({ id: uid(), member_id: null, reason: `parti:${key}`, amount: 0, created_at: new Date().toISOString() })
+        changed = true
+      }
+    }
+    if (changed) {
+      try {
+        localStorage.setItem(KEY, JSON.stringify(db))
+      } catch {
+        /* l'état reste en mémoire */
+      }
+    }
+  }
+
   // Démo : une fois par visite, un proche s'occupe d'un animal ou d'une plante (jamais du dernier
   // qui reste à faire) : on voit son « +3 » ou son « +1 » arriver en direct dans le jardin.
   let demoCareSent = false
   function demoCare(f: Raw, meId: string) {
     if (demoCareSent) return
     const day = todayKey()
-    const todo = Object.keys(CARE).filter((k) => f.houseItems.includes(k) && !f.cares.some((c) => c.item_key === k && c.day === day))
+    const todo = Object.keys(CARE).filter((k) => f.houseItems.includes(k) && !f.cares.some((c) => c.item_key === k && c.day === day) && (!ANIMALS.includes(k) || f.family.food > 1))
     const helpers = f.members.filter((m) => m.user_id && m.id !== meId)
     if (todo.length < 2 || !helpers.length) return
     demoCareSent = true
@@ -335,6 +366,10 @@ export function createLocalBackend(): Backend {
       if (left.length < 2) return
       const key = left[left.length - 1]
       const who = helpers[Math.floor(Math.random() * helpers.length)]
+      if (ANIMALS.includes(key)) {
+        if (f.family.food <= 0) return
+        f.family.food -= 1
+      }
       f.cares.unshift({ item_key: key, day: todayKey(), member_id: who.id, created_at: new Date().toISOString() })
       award(f, who.id, `soin:${key}`, CARE[key].stars)
       save()
@@ -480,6 +515,7 @@ export function createLocalBackend(): Backend {
       if (!me) throw new Error('PAS_MEMBRE')
       const day = todayKey()
       dailyMoods(f)
+      checkGarden(f)
       demoCare(f, me.id)
       const mine = new Set(f.folderMembers.filter((x) => x.member_id === me.id).map((x) => x.folder_id))
       return structuredClone({
@@ -489,7 +525,8 @@ export function createLocalBackend(): Backend {
         weekly: { counts: weeklyCounts(f), claimed: f.weeklyClaims?.[weekKey()] ?? null },
         weeklyClaims: undefined,
         answers: f.answers.filter((a) => a.day === day).map((a) => ({ ...a, photo_url: a.photo_path ?? null })),
-        cares: f.cares.filter((c) => c.day >= daysAgoKey(3)),
+        cares: f.cares.filter((c) => c.day >= daysAgoKey(6)),
+        houseSince: { ...f.houseSince },
         moments: f.moments.map((m) => ({ ...m, image_url: m.image_path })),
         drawings: f.drawings.filter((d) => !d.to_member || d.to_member === me.id || d.from_member === me.id).slice(0, 30).map((d) => ({ ...d, photo_url: d.photo_path ?? null })),
         folders: f.folders.filter((d) => mine.has(d.root_id)).map((d) => ({ ...d, cover_url: d.cover_path })),
@@ -729,11 +766,35 @@ export function createLocalBackend(): Backend {
       if (!f.houseItems.includes(key)) throw new Error('PAS_INSTALLE')
       const day = todayKey()
       if (f.cares.some((x) => x.item_key === key && x.day === day)) throw new Error('DEJA_FAIT')
+      if (ANIMALS.includes(key)) {
+        if (f.family.food <= 0) throw new Error('PLUS_DE_CROQUETTES')
+        f.family.food -= 1
+      }
       const me = myId(f)
       f.cares.unshift({ item_key: key, day, member_id: me, created_at: new Date().toISOString() })
       award(f, me, `soin:${key}`, c.stars)
       save()
       return c.stars
+    },
+    async buyFood(fid) {
+      const f = fam(fid)
+      if (f.family.food > FOOD.max - FOOD.meals) throw new Error('STOCK_PLEIN')
+      if (f.family.stars < FOOD.cost) throw new Error('PAS_ASSEZ_ETOILES')
+      f.family.stars -= FOOD.cost
+      f.family.food += FOOD.meals
+      f.starLog.unshift({ id: uid(), member_id: myId(f), reason: 'croquettes', amount: -FOOD.cost, created_at: new Date().toISOString() })
+      save()
+      return f.family.food
+    },
+    async pet(fid, key) {
+      const f = fam(fid)
+      if (!ANIMALS.includes(key)) throw new Error('PAS_DE_SOIN')
+      if (!f.houseItems.includes(key)) throw new Error('PAS_INSTALLE')
+      const me = myId(f)
+      if (f.starLog.some((x) => x.reason === 'caresse' && x.member_id === me && todayKey(new Date(x.created_at)) === todayKey())) return 0
+      award(f, me, 'caresse', 1)
+      save()
+      return 1
     },
     async unlock(fid, key) {
       const f = fam(fid)
@@ -742,6 +803,7 @@ export function createLocalBackend(): Backend {
       if (f.family.stars < deco.cost) throw new Error('PAS_ASSEZ_ETOILES')
       f.family.stars -= deco.cost
       f.houseItems.push(key)
+      f.houseSince = { ...f.houseSince, [key]: new Date().toISOString() }
       const me = f.members.find((m) => m.user_id === db.userId)!
       f.starLog.unshift({ id: uid(), member_id: me.id, reason: `deco:${key}`, amount: -deco.cost, created_at: new Date().toISOString() })
       save()
@@ -755,6 +817,7 @@ export function createLocalBackend(): Backend {
       const deco = nextReward(f.houseItems)
       if (deco) {
         f.houseItems.push(deco.key)
+        f.houseSince = { ...f.houseSince, [deco.key]: new Date().toISOString() }
         f.starLog.unshift({ id: uid(), member_id: me.id, reason: 'defi', amount: 0, created_at: new Date().toISOString() })
       } else award(f, me.id, 'defi', 20)
       f.weeklyClaims = { ...f.weeklyClaims, [wk]: deco?.key ?? 'etoiles' }
@@ -768,7 +831,10 @@ export function createLocalBackend(): Backend {
       return null
     },
     async demoDecos(fid, all) {
-      fam(fid).houseItems = all ? DECOS.map((d) => d.key) : ['fleurs']
+      const f = fam(fid)
+      f.houseItems = all ? DECOS.map((d) => d.key) : ['fleurs']
+      f.houseSince = Object.fromEntries(f.houseItems.map((k) => [k, new Date().toISOString()]))
+      if (all) f.family.food = Math.max(f.family.food, FOOD.meals)
       save()
     },
   }

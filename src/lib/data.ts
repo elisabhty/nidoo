@@ -69,25 +69,35 @@ export const DECOS: Deco[] = [
 ]
 
 /** Les animaux et les plantes du jardin : il faut s'en occuper chaque jour, en famille. */
-export type Care = { verb: string; need: string; done: string; stars: number; kind: 'nourrir' | 'arroser'; adopt: string; act: string; warn: string }
+export type Care = {
+  verb: string; need: string; done: string; stars: number; kind: 'nourrir' | 'arroser'; adopt: string; act: string; warn: string
+  /** « le chat », « les oiseaux » : pour les phrases */
+  who: string; plural: boolean
+}
 export const CARE: Record<string, Care> = {
   chat: {
-    verb: 'Nourrir le chat', need: 'Le chat a faim', done: 'a nourri le chat', stars: 3, kind: 'nourrir',
+    verb: 'Nourrir le chat', need: 'Le chat a faim', done: 'a nourri le chat', stars: 3, kind: 'nourrir', who: 'le chat', plural: false,
     adopt: 'Adopter le chat ?', act: 'Adopter', warn: 'Il vivra dans votre jardin. Il faudra le nourrir chaque jour, en famille : n’importe qui peut le faire, et ça rapporte 3 étoiles à la maison.',
   },
   cabane: {
-    verb: 'Nourrir les oiseaux', need: 'Les oiseaux attendent leurs graines', done: 'a nourri les oiseaux', stars: 3, kind: 'nourrir',
-    adopt: 'Accueillir les oiseaux ?', act: 'Accueillir', warn: 'Ils viendront nicher dans la cabane. Il faudra leur donner des graines chaque jour, en famille : n’importe qui peut le faire, et ça rapporte 3 étoiles à la maison.',
+    verb: 'Nourrir les oiseaux', need: 'Les oiseaux ont faim', done: 'a nourri les oiseaux', stars: 3, kind: 'nourrir', who: 'les oiseaux', plural: true,
+    adopt: 'Accueillir les oiseaux ?', act: 'Accueillir', warn: 'Ils viendront nicher dans la cabane. Il faudra les nourrir chaque jour, en famille : n’importe qui peut le faire, et ça rapporte 3 étoiles à la maison.',
   },
   fleurs: {
-    verb: 'Arroser les fleurs', need: 'Les fleurs ont soif', done: 'a arrosé les fleurs', stars: 1, kind: 'arroser',
+    verb: 'Arroser les fleurs', need: 'Les fleurs ont soif', done: 'a arrosé les fleurs', stars: 1, kind: 'arroser', who: 'les fleurs', plural: true,
     adopt: 'Planter les fleurs ?', act: 'Planter', warn: 'Il faudra les arroser chaque jour, en famille : n’importe qui peut le faire, et ça rapporte 1 étoile à la maison.',
   },
   potager: {
-    verb: 'Arroser le potager', need: 'Le potager a soif', done: 'a arrosé le potager', stars: 1, kind: 'arroser',
+    verb: 'Arroser le potager', need: 'Le potager a soif', done: 'a arrosé le potager', stars: 1, kind: 'arroser', who: 'le potager', plural: false,
     adopt: 'Planter le potager ?', act: 'Planter', warn: 'Il faudra l’arroser chaque jour, en famille : n’importe qui peut le faire, et ça rapporte 1 étoile à la maison.',
   },
 }
+
+/** Les croquettes : un stock commun au chat et aux oiseaux. */
+export const FOOD = { meals: 10, cost: 15, max: 100 }
+export const ANIMALS = ['chat', 'cabane']
+/** Un animal oublié : triste (pas mangé hier), déprimé (deux jours), parti au 4e jour sans repas. */
+export const GONE_AFTER = 4
 
 export const STAR_REASONS: Record<string, string> = {
   moment: 'a partagé un instant',
@@ -97,6 +107,7 @@ export const STAR_REASONS: Record<string, string> = {
   defi: 'a relevé le défi de la semaine',
   question: 'a répondu à la question du jour',
   mission: 'a terminé une mission',
+  caresse: 'a caressé un animal',
   ...Object.fromEntries(Object.entries(CARE).map(([k, c]) => [`soin:${k}`, c.done])),
 }
 
