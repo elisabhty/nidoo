@@ -1,12 +1,14 @@
-import { Check, Lock } from 'lucide-react'
-import { useState } from 'react'
+import { Camera, Check, ChevronRight, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { useCare } from '../components/care'
+import { DecorPage } from '../components/decor'
 import House from '../components/House'
 import { ComposeSheet } from '../components/sheets'
 import { StarsSheet } from '../components/stars'
 import { Art, Avatar, Btn, Lien, Screen, Section } from '../components/ui'
 import { WeeklyChallenge } from '../components/weekly'
 import { challengeOfDay, DECOS, questionOfDay, STAR_REASONS } from '../lib/data'
-import { success } from '../lib/haptic'
+import { success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
 import { ago, todayKey } from '../lib/util'
 
@@ -18,6 +20,11 @@ export default function Play() {
   const [text, setText] = useState('')
   const [photo, setPhoto] = useState(false)
   const [stars, setStars] = useState(false)
+  const [decor, setDecor] = useState(false)
+  const [pic, setPic] = useState<{ blob: Blob; url: string } | null>(null)
+  const picker = useRef<HTMLInputElement>(null)
+  const care = useCare()
+  useEffect(() => () => void (pic && URL.revokeObjectURL(pic.url)), [pic])
   const mine = answers.find((a) => a.member_id === me.id)
   const challengeDone = state.moments.some((m) => m.member_id === me.id && m.challenge === challenge && todayKey(new Date(m.created_at)) === todayKey())
   const nextDeco = DECOS.find((d) => !houseItems.includes(d.key))
@@ -54,7 +61,8 @@ export default function Play() {
                       {a ? (
                         <>
                           {m.id !== me.id && <p className="text-legende font-semibold text-brume">{m.display_name}</p>}
-                          <p className="text-appel">{a.answer}</p>
+                          {a.photo_url && <img src={a.photo_url} alt={`Photo de ${m.display_name}`} className="my-1.5 block max-h-[220px] w-full rounded-[14px] object-cover" />}
+                          {a.answer && <p className="text-appel">{a.answer}</p>}
                         </>
                       ) : (
                         <p className="pt-1 text-sous text-pale">{m.display_name} n’a pas encore répondu</p>
@@ -69,15 +77,55 @@ export default function Play() {
               className="mt-3.5"
               onSubmit={(e) => {
                 e.preventDefault()
-                if (text.trim()) {
+                if (text.trim() || pic) {
                   success()
-                  void run((api) => api.answer(family.id, me.id, q.key, text), '2 étoiles pour la maison')
+                  void run((api) => api.answer(family.id, me.id, q.key, text, pic?.blob ?? null), '2 étoiles pour la maison')
                 }
               }}
             >
-              <input className="champ" placeholder="Ta réponse" maxLength={140} value={text} onChange={(e) => setText(e.target.value)} />
-              <p className="px-1 pt-2 text-note text-brume">Les réponses des autres apparaissent une fois la tienne envoyée.</p>
-              <Btn type="submit" className="mt-3" disabled={!text.trim()}>Répondre</Btn>
+              <input
+                ref={picker}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  e.target.value = ''
+                  if (f) setPic({ blob: f, url: URL.createObjectURL(f) })
+                }}
+              />
+              {pic && (
+                <div className="relative mb-2.5 overflow-hidden rounded-[18px]">
+                  <img src={pic.url} alt="Ta photo" className="block max-h-[240px] w-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      tap()
+                      setPic(null)
+                    }}
+                    className="presse verre absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full text-encre"
+                    aria-label="Retirer la photo"
+                  >
+                    <X size={16} strokeWidth={2.8} />
+                  </button>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <input className="champ min-w-0 flex-1" placeholder={pic ? 'Un mot avec ta photo (facultatif)' : 'Ta réponse'} maxLength={140} value={text} onChange={(e) => setText(e.target.value)} />
+                <button
+                  type="button"
+                  onClick={() => {
+                    tap()
+                    picker.current?.click()
+                  }}
+                  className="presse flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-[14px] bg-teinte-doux text-teinte-fonce"
+                  aria-label={pic ? 'Changer la photo' : 'Répondre avec une photo'}
+                >
+                  <Camera size={21} strokeWidth={2.2} />
+                </button>
+              </div>
+              <p className="px-1 pt-2 text-note text-brume">Réponds par un mot, une photo, ou les deux. Les réponses des autres apparaissent une fois la tienne envoyée.</p>
+              <Btn type="submit" className="mt-3" disabled={!text.trim() && !pic}>Répondre</Btn>
             </form>
           )}
         </div>
@@ -97,51 +145,33 @@ export default function Play() {
 
         <WeeklyChallenge className="mt-3" />
 
-        <Section title="Décorer la maison" hint="Chaque petit geste embellit votre maison.">
+        <Section title="Notre maison" hint="Chaque petit geste embellit votre maison.">
           <div className="mx-4 overflow-hidden rounded-[28px] bg-carte shadow-carte">
-            <House type={family.house_type} items={houseItems} />
-            {nextDeco && (
-              <div className="flex items-center gap-3 px-4 py-3">
-                <Art name={`deco-${nextDeco.key}`} size={40} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline justify-between">
-                    <span className="truncate text-sous font-semibold">{nextDeco.name}</span>
-                    <span className="text-note text-brume">{Math.min(family.stars, nextDeco.cost)}/{nextDeco.cost}</span>
-                  </div>
-                  <div className="mt-1.5 h-[6px] overflow-hidden rounded-full bg-remplissage">
-                    <div className="h-full rounded-full bg-teinte transition-all duration-500" style={{ width: `${Math.min(100, (family.stars / nextDeco.cost) * 100)}%` }} />
-                  </div>
-                </div>
-              </div>
-            )}
+            <House type={family.house_type} items={houseItems} cares={state.cares} onCare={care} />
+            <button
+              onClick={() => {
+                tap()
+                setDecor(true)
+              }}
+              className="presse-ligne flex w-full items-center gap-3 px-4 py-3 text-left"
+            >
+              {nextDeco ? <Art name={`deco-${nextDeco.key}`} size={40} /> : <Art name="picto-etoile" size={36} />}
+              <span className="min-w-0 flex-1">
+                <span className="flex items-baseline justify-between gap-2">
+                  <span className="truncate text-sous font-semibold">{nextDeco ? `Prochaine : ${nextDeco.name}` : 'Maison complète, bravo !'}</span>
+                  {nextDeco && <span className="shrink-0 text-note text-brume">{Math.min(family.stars, nextDeco.cost)}/{nextDeco.cost}</span>}
+                </span>
+                {nextDeco && (
+                  <span className="mt-1.5 block h-[6px] overflow-hidden rounded-full bg-remplissage">
+                    <span className="block h-full rounded-full bg-teinte transition-all duration-500" style={{ width: `${Math.min(100, (family.stars / nextDeco.cost) * 100)}%` }} />
+                  </span>
+                )}
+              </span>
+              <ChevronRight size={17} strokeWidth={2.6} className="shrink-0 text-pale" />
+            </button>
           </div>
-          <div className="mx-4 mt-3 grid grid-cols-3 gap-2.5">
-            {DECOS.map((d) => {
-              const owned = houseItems.includes(d.key)
-              const can = family.stars >= d.cost
-              return (
-                <button
-                  key={d.key}
-                  disabled={owned || !can}
-                  onClick={() => {
-                    success()
-                    void run((api) => api.unlock(family.id, d.key), `${d.name} : installé`)
-                  }}
-                  className="presse groupe relative flex flex-col items-center px-1.5 pb-2.5 pt-3 text-center shadow-carte"
-                  aria-label={`${d.name}, ${owned ? 'déjà installé' : `${d.cost} étoiles`}`}
-                >
-                  <Art name={`deco-${d.key}`} size={58} className={!owned && !can ? 'opacity-55' : ''} />
-                  <span className="mt-1.5 line-clamp-2 flex min-h-[32px] items-center text-legende font-medium">{d.name}</span>
-                  {owned ? (
-                    <span className="mt-1.5 flex h-[26px] items-center gap-1 rounded-full bg-remplissage px-2.5 text-legende font-semibold text-brume"><Check size={13} strokeWidth={3} /> Installé</span>
-                  ) : (
-                    <span className={`mt-1.5 flex h-[26px] items-center gap-1 rounded-full px-2.5 text-legende font-semibold ${can ? 'bg-teinte text-white' : 'bg-remplissage text-brume'}`}>
-                      {can ? <Art name="picto-etoile" size={15} /> : <Lock size={11} strokeWidth={2.6} />} {d.cost}
-                    </span>
-                  )}
-                </button>
-              )
-            })}
+          <div className="mx-4 mt-3">
+            <Btn onClick={() => setDecor(true)}>Décorer la maison</Btn>
           </div>
         </Section>
 
@@ -170,7 +200,16 @@ export default function Play() {
         )}
       </Screen>
       {photo && <ComposeSheet challenge={challenge} onClose={() => setPhoto(false)} />}
-      {stars && <StarsSheet onClose={() => setStars(false)} />}
+      {stars && (
+        <StarsSheet
+          onClose={() => setStars(false)}
+          onDecorate={() => {
+            setStars(false)
+            setDecor(true)
+          }}
+        />
+      )}
+      {decor && <DecorPage onClose={() => setDecor(false)} />}
     </>
   )
 }

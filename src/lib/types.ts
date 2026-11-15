@@ -130,6 +130,10 @@ export type FamEvent = {
   all_day: boolean
   yearly: boolean
   created_by: string | null
+  /** Ce qu'il faut savoir : l'adresse, qui apporte quoi… */
+  description?: string | null
+  /** Les proches concernés (vide : toute la famille). */
+  members?: string[]
 }
 
 export type ListItem = {
@@ -144,7 +148,9 @@ export type ListItem = {
   created_at: string
 }
 
-export type Answer = { id: string; member_id: string; day: string; question_key: string; answer: string }
+export type Answer = { id: string; member_id: string; day: string; question_key: string; answer: string; photo_path?: string | null; photo_url?: string | null }
+/** On a nourri le chat, arrosé les fleurs… (une fois par jour pour toute la famille). */
+export type HouseCare = { item_key: string; day: string; member_id: string | null; created_at: string }
 export type StarEntry = { id: string | number; member_id: string | null; reason: string; amount: number; created_at: string }
 
 export type FamilyState = {
@@ -164,6 +170,8 @@ export type FamilyState = {
   items: ListItem[]
   answers: Answer[]
   houseItems: string[]
+  /** Les soins du jardin des derniers jours. */
+  cares: HouseCare[]
   starLog: StarEntry[]
   /** Défi de la semaine : progression de toute la famille, et récompense déjà reçue. */
   weekly: WeeklyState
@@ -171,7 +179,7 @@ export type FamilyState = {
 
 export type Circle = { family: Family; me: Member }
 
-export type NewEvent = { title: string; kind: EventKind; starts_at: string; all_day: boolean; yearly: boolean }
+export type NewEvent = { title: string; kind: EventKind; starts_at: string; all_day: boolean; yearly: boolean; description?: string | null; members?: string[] }
 
 export interface Backend {
   mode: 'supabase' | 'local'
@@ -214,11 +222,14 @@ export interface Backend {
   sendDrawing(familyId: string, from: string, to: string | null, data: DrawingData, photo?: Blob | null): Promise<void>
   deleteDrawing(id: string): Promise<void>
   addEvent(familyId: string, memberId: string, e: NewEvent): Promise<void>
+  updateEvent(id: string, patch: { description?: string | null; members?: string[] }): Promise<void>
   deleteEvent(id: string): Promise<void>
   addItem(familyId: string, memberId: string, kind: ListKind, title: string, assignedTo?: string | null): Promise<void>
   toggleItem(item: ListItem, memberId: string): Promise<void>
   deleteItem(id: string): Promise<void>
-  answer(familyId: string, memberId: string, questionKey: string, answer: string): Promise<void>
+  answer(familyId: string, memberId: string, questionKey: string, answer: string, photo?: Blob | null): Promise<void>
+  /** Nourrit un animal ou arrose une plante du jardin ; renvoie les étoiles gagnées. */
+  care(familyId: string, key: string): Promise<number>
   unlock(familyId: string, key: string): Promise<void>
   /** Réclame la récompense du défi de la semaine ; renvoie la décoration offerte (ou « etoiles »). */
   claimWeekly(familyId: string): Promise<string>

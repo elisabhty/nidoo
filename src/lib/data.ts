@@ -60,13 +60,34 @@ export const DECOS: Deco[] = [
   { key: 'lanterne', name: 'Lanterne', cost: 12 },
   { key: 'arbre', name: 'Grand arbre', cost: 18 },
   { key: 'fumee', name: 'Feu de cheminée', cost: 20 },
-  { key: 'chat', name: 'Chat du quartier', cost: 30 },
+  { key: 'chat', name: 'Chat', cost: 30 },
   { key: 'balancoire', name: 'Balançoire', cost: 40 },
   { key: 'potager', name: 'Petit potager', cost: 50 },
   { key: 'cabane', name: 'Cabane à oiseaux', cost: 70 },
   { key: 'fontaine', name: 'Fontaine', cost: 90 },
   { key: 'montgolfiere', name: 'Montgolfière', cost: 120 },
 ]
+
+/** Les animaux et les plantes du jardin : il faut s'en occuper chaque jour, en famille. */
+export type Care = { verb: string; need: string; done: string; stars: number; kind: 'nourrir' | 'arroser'; adopt: string; act: string; warn: string }
+export const CARE: Record<string, Care> = {
+  chat: {
+    verb: 'Nourrir le chat', need: 'Le chat a faim', done: 'a nourri le chat', stars: 3, kind: 'nourrir',
+    adopt: 'Adopter le chat ?', act: 'Adopter', warn: 'Il vivra dans votre jardin. Il faudra le nourrir chaque jour, en famille : n’importe qui peut le faire, et ça rapporte 3 étoiles à la maison.',
+  },
+  cabane: {
+    verb: 'Nourrir les oiseaux', need: 'Les oiseaux attendent leurs graines', done: 'a nourri les oiseaux', stars: 3, kind: 'nourrir',
+    adopt: 'Accueillir les oiseaux ?', act: 'Accueillir', warn: 'Ils viendront nicher dans la cabane. Il faudra leur donner des graines chaque jour, en famille : n’importe qui peut le faire, et ça rapporte 3 étoiles à la maison.',
+  },
+  fleurs: {
+    verb: 'Arroser les fleurs', need: 'Les fleurs ont soif', done: 'a arrosé les fleurs', stars: 1, kind: 'arroser',
+    adopt: 'Planter les fleurs ?', act: 'Planter', warn: 'Il faudra les arroser chaque jour, en famille : n’importe qui peut le faire, et ça rapporte 1 étoile à la maison.',
+  },
+  potager: {
+    verb: 'Arroser le potager', need: 'Le potager a soif', done: 'a arrosé le potager', stars: 1, kind: 'arroser',
+    adopt: 'Planter le potager ?', act: 'Planter', warn: 'Il faudra l’arroser chaque jour, en famille : n’importe qui peut le faire, et ça rapporte 1 étoile à la maison.',
+  },
+}
 
 export const STAR_REASONS: Record<string, string> = {
   moment: 'a partagé un instant',
@@ -76,6 +97,7 @@ export const STAR_REASONS: Record<string, string> = {
   defi: 'a relevé le défi de la semaine',
   question: 'a répondu à la question du jour',
   mission: 'a terminé une mission',
+  ...Object.fromEntries(Object.entries(CARE).map(([k, c]) => [`soin:${k}`, c.done])),
 }
 
 export const QUESTIONS: { key: string; text: string }[] = [

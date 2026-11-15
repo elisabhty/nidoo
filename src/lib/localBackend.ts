@@ -1,8 +1,8 @@
-import { DECOS, PLAN_LIMITS, THOUGHTS } from './data'
+import { CARE, DECOS, PLAN_LIMITS, THOUGHTS } from './data'
 import { demoDrawing, type DemoArt } from './drawing'
 import { DEMO_LOOKS } from './look'
 import type { Backend, Drawing, Family, FamilyState, Folder, FolderItem, JoinRequest, Member, Moment, MyRequest, ThoughtKind } from './types'
-import { blobToDataUrl, compressImage, todayKey, uid } from './util'
+import { blobToDataUrl, compressImage, daysAgoKey, todayKey, uid } from './util'
 import { challenge, nextReward, WEEKLY, weekIndex, weekKey, weekStart, type WeeklyCounts, type WeeklyKey } from './weekly'
 
 // Mode démo : toute la maison vit sur l'appareil, avec trois proches fictifs
@@ -12,6 +12,7 @@ type Raw = Omit<FamilyState, 'me' | 'weekly'> & { dossiersDemo?: boolean; enfant
 type Pending = MyRequest & { profile: { displayName: string; avatar: string; color: string } }
 type Db = { userId: string; families: Record<string, Raw>; pending?: Pending[] }
 const KEY = 'nidoo.demo.v2'
+const DINER = 'Chez Papa, à partir de 19 h 30. Chacun apporte un plat : Léa s’occupe du dessert, Mamie Jo du gratin.'
 
 
 const iso = (minsAgo: number) => new Date(Date.now() - minsAgo * 60000).toISOString()
@@ -126,6 +127,11 @@ function migrate(f: Raw, userId: string) {
   for (const m of f.members) m.role ??= m.user_id === f.family.created_by ? 'responsable' : 'membre'
   if (f.members.length && !f.members.some((m) => m.role === 'responsable')) f.members[0].role = 'responsable'
   f.family.invite_expires_at ??= inWeek()
+  f.cares ??= []
+  const diner = f.events.find((e) => e.title === 'Dîner tous ensemble' && e.description === undefined)
+  if (diner) diner.description = DINER
+  const dentiste = f.events.find((e) => e.title === 'Dentiste de Léa' && e.members === undefined)
+  if (dentiste) dentiste.members = f.members.filter((m) => ['Léa', 'Papa'].includes(m.display_name)).map((m) => m.id)
   f.requests ??= [demoRequest(f.family.id)]
   if (!f.drawings) {
     // Un premier dessin de Léa pour toute la famille, pour voir le widget rempli.
@@ -256,8 +262,8 @@ export function createLocalBackend(): Backend {
       drawings: [{ id: uid(), family_id: fid, from_member: lea.id, to_member: null, data: demoDrawing('coeurs', 3), created_at: iso(150) }],
       events: [
         { id: uid(), family_id: fid, title: 'Anniversaire de Mamie Jo', kind: 'anniversaire', starts_at: inDays(4), all_day: true, yearly: true, created_by: papa.id },
-        { id: uid(), family_id: fid, title: 'Dîner tous ensemble', kind: 'evenement', starts_at: inDays(1, 19, 30), all_day: false, yearly: false, created_by: lea.id },
-        { id: uid(), family_id: fid, title: 'Dentiste de Léa', kind: 'rdv', starts_at: inDays(2, 14, 0), all_day: false, yearly: false, created_by: lea.id },
+        { id: uid(), family_id: fid, title: 'Dîner tous ensemble', kind: 'evenement', starts_at: inDays(1, 19, 30), all_day: false, yearly: false, created_by: lea.id, description: DINER },
+        { id: uid(), family_id: fid, title: 'Dentiste de Léa', kind: 'rdv', starts_at: inDays(2, 14, 0), all_day: false, yearly: false, created_by: lea.id, members: [lea.id, papa.id] },
       ],
       items: [
         { id: uid(), family_id: fid, kind: 'course', title: 'Farine et œufs', done: false, done_by: null, assigned_to: null, created_by: papa.id, created_at: iso(200) },
@@ -267,6 +273,7 @@ export function createLocalBackend(): Backend {
       ],
       answers: [],
       houseItems: ['fleurs'],
+      cares: [],
       starLog: [
         { id: uid(), member_id: lea.id, reason: 'moment', amount: 3, created_at: iso(55) },
         { id: uid(), member_id: mamie.id, reason: 'attention', amount: 1, created_at: iso(3) },
@@ -311,6 +318,27 @@ export function createLocalBackend(): Backend {
       m.mood_note = MOOD_NOTES[mood][(h >> 5) % 2]
       m.mood_at = (at.getTime() < Date.now() ? at : new Date()).toISOString()
     }
+  }
+
+  // Démo : une fois par visite, un proche s'occupe d'un animal ou d'une plante (jamais du dernier
+  // qui reste à faire) : on voit son « +3 » ou son « +1 » arriver en direct dans le jardin.
+  let demoCareSent = false
+  function demoCare(f: Raw, meId: string) {
+    if (demoCareSent) return
+    const day = todayKey()
+    const todo = Object.keys(CARE).filter((k) => f.houseItems.includes(k) && !f.cares.some((c) => c.item_key === k && c.day === day))
+    const helpers = f.members.filter((m) => m.user_id && m.id !== meId)
+    if (todo.length < 2 || !helpers.length) return
+    demoCareSent = true
+    window.setTimeout(() => {
+      const left = todo.filter((k) => !f.cares.some((c) => c.item_key === k && c.day === todayKey()))
+      if (left.length < 2) return
+      const key = left[left.length - 1]
+      const who = helpers[Math.floor(Math.random() * helpers.length)]
+      f.cares.unshift({ item_key: key, day: todayKey(), member_id: who.id, created_at: new Date().toISOString() })
+      award(f, who.id, `soin:${key}`, CARE[key].stars)
+      save()
+    }, 25000)
   }
 
   // Le proche répond par un dessin quelques secondes plus tard, pour voir la réception en direct.
@@ -452,6 +480,7 @@ export function createLocalBackend(): Backend {
       if (!me) throw new Error('PAS_MEMBRE')
       const day = todayKey()
       dailyMoods(f)
+      demoCare(f, me.id)
       const mine = new Set(f.folderMembers.filter((x) => x.member_id === me.id).map((x) => x.folder_id))
       return structuredClone({
         ...f,
@@ -459,7 +488,8 @@ export function createLocalBackend(): Backend {
         requests: me.role === 'responsable' ? f.requests.filter((r) => r.status === 'attente') : [],
         weekly: { counts: weeklyCounts(f), claimed: f.weeklyClaims?.[weekKey()] ?? null },
         weeklyClaims: undefined,
-        answers: f.answers.filter((a) => a.day === day),
+        answers: f.answers.filter((a) => a.day === day).map((a) => ({ ...a, photo_url: a.photo_path ?? null })),
+        cares: f.cares.filter((c) => c.day >= daysAgoKey(3)),
         moments: f.moments.map((m) => ({ ...m, image_url: m.image_path })),
         drawings: f.drawings.filter((d) => !d.to_member || d.to_member === me.id || d.from_member === me.id).slice(0, 30).map((d) => ({ ...d, photo_url: d.photo_path ?? null })),
         folders: f.folders.filter((d) => mine.has(d.root_id)).map((d) => ({ ...d, cover_url: d.cover_path })),
@@ -641,7 +671,16 @@ export function createLocalBackend(): Backend {
       save()
     },
     async addEvent(fid, memberId, e) {
-      fam(fid).events.push({ id: uid(), family_id: fid, created_by: memberId, ...e })
+      const f = fam(fid)
+      f.events.push({ id: uid(), family_id: fid, created_by: memberId, ...e, members: f.members.filter((m) => e.members?.includes(m.id)).map((m) => m.id) })
+      save()
+    },
+    async updateEvent(id, patch) {
+      for (const f of Object.values(db.families)) {
+        const e = f.events.find((x) => x.id === id)
+        if (e && patch.description !== undefined) e.description = patch.description?.trim() || null
+        if (e && patch.members) e.members = f.members.filter((m) => patch.members!.includes(m.id)).map((m) => m.id)
+      }
       save()
     },
     async deleteEvent(id) {
@@ -668,11 +707,12 @@ export function createLocalBackend(): Backend {
       for (const f of Object.values(db.families)) f.items = f.items.filter((e) => e.id !== id)
       save()
     },
-    async answer(fid, memberId, questionKey, answer) {
+    async answer(fid, memberId, questionKey, answer, image) {
       const f = fam(fid)
       const day = todayKey()
       if (f.answers.some((a) => a.member_id === memberId && a.day === day)) return
-      f.answers.push({ id: uid(), member_id: memberId, day, question_key: questionKey, answer: answer.trim() })
+      if (!answer.trim() && !image) throw new Error('REPONSE_VIDE')
+      f.answers.push({ id: uid(), member_id: memberId, day, question_key: questionKey, answer: answer.trim(), photo_path: image ? await photo(image) : null })
       award(f, memberId, 'question', 2, 1)
       const samples = ['Le gratin de Mamie, sans hésiter', 'Les crêpes du dimanche !', 'Bonne question… je réfléchis encore']
       f.members.filter((m) => m.user_id !== db.userId).slice(0, 2).forEach((m, i) => {
@@ -681,6 +721,19 @@ export function createLocalBackend(): Backend {
         }
       })
       save()
+    },
+    async care(fid, key) {
+      const f = fam(fid)
+      const c = CARE[key]
+      if (!c) throw new Error('PAS_DE_SOIN')
+      if (!f.houseItems.includes(key)) throw new Error('PAS_INSTALLE')
+      const day = todayKey()
+      if (f.cares.some((x) => x.item_key === key && x.day === day)) throw new Error('DEJA_FAIT')
+      const me = myId(f)
+      f.cares.unshift({ item_key: key, day, member_id: me, created_at: new Date().toISOString() })
+      award(f, me, `soin:${key}`, c.stars)
+      save()
+      return c.stars
     },
     async unlock(fid, key) {
       const f = fam(fid)

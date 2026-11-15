@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { success, tap } from '../lib/haptic'
-import { moodOf } from '../lib/data'
-import type { HouseType, Member } from '../lib/types'
+import { CARE, moodOf } from '../lib/data'
+import type { HouseCare, HouseType, Member } from '../lib/types'
 import { AGE_SCALE, lookOf } from '../lib/look'
 import { Character } from './Character'
 import { Smiley } from './Smiley'
-import { dayPhase, season as seasonOf, type Season } from '../lib/util'
+import { dayPhase, season as seasonOf, todayKey, type Season } from '../lib/util'
+import { CareIcon } from './care'
 
 // La maison de la famille : un décor vivant qui suit l'heure, la maison en 3D
 // et les décorations débloquées avec les étoiles. Tout réagit au toucher.
@@ -46,6 +47,9 @@ const ANIM: Record<string, { frames: number; dur: number }> = {
   fontaine: { frames: 6, dur: 0.8 },
 }
 const cover: CSSProperties = { position: 'absolute', inset: 0 }
+// Le décor est dessiné pour un cadre 16/11 ; plus large (widget moyen), tout se resserre en largeur.
+const BASE = 16 / 11
+const careId = (c: HouseCare) => `${c.item_key}|${c.day}`
 
 /** Un proche dans le jardin, avec son humeur du jour (null : pas encore donnée). */
 export type HousePerson = { m: Member; mood: string | null; label: string; me: boolean }
@@ -81,7 +85,7 @@ const LEAVES = ['#E8833A', '#D9572B', '#F2B33D', '#B5532A', '#E9A23B']
 const PETALS = ['#F9C4D5', '#FDE6EE', '#F4A9C2', '#FFFFFF']
 
 export default function House({
-  type, items, className = '', phase = dayPhase(), bare = false, season = seasonOf(), photos = [], people = [], onPerson, scene = null, onSceneEnd,
+  type, items, className = '', phase = dayPhase(), bare = false, season = seasonOf(), photos = [], people = [], onPerson, scene = null, onSceneEnd, ratio, cares, onCare,
 }: {
   type: HouseType
   items: string[]
@@ -98,15 +102,39 @@ export default function House({
   /** Un câlin, un bisou… : celui qui l'envoie va voir l'autre dans le jardin. */
   scene?: HouseScene | null
   onSceneEnd?: () => void
+  /** Largeur / hauteur du cadre (16/11 par défaut ; plus large pour un widget moyen). */
+  ratio?: number
+  /** Les soins du jour : qui a nourri le chat, arrosé les fleurs… */
+  cares?: HouseCare[]
+  /** Toucher un animal qui a faim ou une plante qui a soif s'en occupe. */
+  onCare?: (key: string) => void
 }) {
   const night = phase === 'nuit'
   const base = HOUSE[type]
+  const s = ratio ? Math.min(1, BASE / ratio) : 1
   // En vignette, la maison occupe presque tout le cadre.
-  const h = bare ? { ...base, w: base.w * 1.5, bottom: 11 } : base
+  const h = bare ? { ...base, w: base.w * 1.5, bottom: 11 } : { ...base, w: base.w * s, smoke: [50 + (base.smoke[0] - 50) * s, base.smoke[1]] as [number, number] }
   const has = (k: string) => items.includes(k)
   const dim = night ? 'brightness(0.72) saturate(0.9)' : undefined
   const [bounce, setBounce] = useState(0)
   const [poke, setPoke] = useState<{ key: string; n: number } | null>(null)
+
+  // Soins : ce qui a déjà été fait aujourd'hui, et le « +3 » qui monte quand quelqu'un s'en occupe (soi ou un proche, en direct).
+  const today = todayKey()
+  const cared = (k: string) => !!cares?.some((c) => c.item_key === k && c.day === today)
+  const seenCares = useRef<Set<string> | null>(null)
+  const [gains, setGains] = useState<{ key: string; id: string; n: number }[]>([])
+  useEffect(() => {
+    if (!cares) return
+    if (seenCares.current) {
+      const fresh = cares.filter((c) => c.day === today && CARE[c.item_key] && !seenCares.current!.has(careId(c)))
+      if (fresh.length) {
+        success()
+        setGains((g) => [...g, ...fresh.map((c) => ({ key: c.item_key, id: `${careId(c)}:${Date.now()}`, n: CARE[c.item_key].stars }))])
+      }
+    }
+    seenCares.current = new Set(cares.map(careId))
+  }, [cares, today])
 
   // Une décoration qui vient d'être installée arrive avec une gerbe d'étoiles.
   const known = useRef<string[] | null>(null)
@@ -155,9 +183,12 @@ export default function House({
     return (
       <span
         key={key}
-        onClick={() => touch(key)}
+        onClick={() => {
+          touch(key)
+          if (onCare && CARE[key] && !cared(key)) onCare(key)
+        }}
         className="absolute"
-        style={{ left: `${sp.left}%`, bottom: sp.bottom != null ? `${sp.bottom}%` : undefined, top: sp.top != null ? `${sp.top}%` : undefined, width: `${sp.w}%`, zIndex: sp.z, animation: sp.roam }}
+        style={{ left: `${sp.left}%`, bottom: sp.bottom != null ? `${sp.bottom}%` : undefined, top: sp.top != null ? `${sp.top}%` : undefined, width: `${sp.w * s}%`, zIndex: sp.z, animation: sp.roam }}
       >
         <span className="block" style={{ animation: `pousse 0.6s var(--ressort) ${fresh.includes(key) ? 0 : 0.15 + ORDER.indexOf(key) * 0.07}s both`, transformOrigin: '50% 100%' }}>
           <span key={poked ? poke.n : 0} className="block" style={{ animation: poked ? 'rebond 0.7s var(--ressort)' : undefined, transformOrigin: '50% 100%' }}>
@@ -189,10 +220,85 @@ export default function House({
     )
   }
 
+  // Au-dessus de tout (même des personnages) : la bulle « j'ai faim / j'ai soif », puis le soin lui-même.
+  const careLayer = (key: string) => {
+    const sp = SPOTS[key]
+    const c = CARE[key]
+    const need = !cared(key)
+    const mine = gains.filter((g) => g.key === key)
+    if (!need && !mine.length) return null
+    const water = c.kind === 'arroser'
+    return (
+      <span
+        key={`soin-${key}`}
+        className="pointer-events-none absolute aspect-square"
+        style={{ left: `${sp.left}%`, bottom: `${sp.bottom ?? 0}%`, width: `${sp.w * s}%`, zIndex: 10, animation: sp.roam }}
+      >
+        {need &&
+          (onCare ? (
+            <button
+              onClick={() => {
+                touch(key)
+                onCare(key)
+              }}
+              className="pointer-events-auto absolute bottom-[88%] left-1/2 flex rounded-full bg-white p-[3px] shadow-[0_3px_10px_rgba(29,26,43,0.25)]"
+              style={{ animation: 'appelle 2.2s ease-in-out infinite' }}
+              aria-label={`${c.need}. ${c.verb} : +${c.stars} étoile${c.stars > 1 ? 's' : ''}`}
+            >
+              <CareIcon k={key} size={Math.round(19 * Math.max(0.75, s))} />
+            </button>
+          ) : (
+            <span className="absolute bottom-[88%] left-1/2 flex -translate-x-1/2 rounded-full bg-white p-[2px] shadow-[0_2px_6px_rgba(29,26,43,0.22)]">
+              <CareIcon k={key} size={Math.round(17 * Math.max(0.75, s))} />
+            </span>
+          ))}
+        {mine.map((g) => (
+          <span key={g.id} className="absolute inset-0">
+            {/* l'arrosoir qui verse, ou la gamelle / les graines qui arrivent */}
+            {water ? (
+              <span className="absolute left-[-18%] top-[-58%] block w-[62%] origin-[80%_60%]" style={{ animation: 'verse 1.7s ease-in-out both' }}>
+                <CareIcon k={key} size="100%" />
+              </span>
+            ) : key === 'chat' ? (
+              <span className="absolute bottom-[-6%] left-[58%] block w-[46%]" style={{ animation: 'pop 0.45s var(--ressort) both' }}>
+                <CareIcon k={key} size="100%" />
+              </span>
+            ) : null}
+            {water || key === 'cabane'
+              ? [12, 30, 48, 64, 22, 56].map((x, i) => (
+                  <span
+                    key={i}
+                    className="absolute top-[8%] block w-[7%]"
+                    style={{
+                      left: `${x}%`,
+                      aspectRatio: water ? '0.72' : '1.5',
+                      borderRadius: water ? '50% 50% 50% 50% / 62% 62% 38% 38%' : '50%',
+                      background: water ? '#5AAEF0' : i % 2 ? '#D9A43A' : '#EEC35A',
+                      animation: `pluie 0.9s ease-in ${0.35 + i * 0.14}s both`,
+                    }}
+                  />
+                ))
+              : [0, 1, 2].map((i) => (
+                  <img key={i} src="./art/geste-coeur.webp" alt="" className="absolute left-[30%] top-[0%] w-[40%]" style={{ animation: `jaillit 1.2s ease-out ${0.3 + i * 0.12}s both`, ['--jx' as string]: `${(i - 1) * 90}%` }} />
+                ))}
+            {/* le gain, qui monte au-dessus */}
+            <span
+              className="absolute bottom-[70%] left-1/2 flex items-center gap-[3px] whitespace-nowrap rounded-full bg-white py-[3px] pl-[8px] pr-[5px] text-[13px] font-bold text-teinte-fonce shadow-[0_4px_12px_rgba(29,26,43,0.25)]"
+              style={{ animation: 'gain 2.2s ease-out 0.25s both' }}
+              onAnimationEnd={() => setGains((all) => all.filter((x) => x.id !== g.id))}
+            >
+              +{g.n} <img src="./art/picto-etoile.webp" alt="" className="h-[15px] w-[15px]" />
+            </span>
+          </span>
+        ))}
+      </span>
+    )
+  }
+
   return (
     <div
-      className={`relative aspect-[16/11] overflow-hidden ${className}`}
-      style={{ background: SKY[phase] }}
+      className={`relative overflow-hidden ${ratio ? '' : 'aspect-[16/11]'} ${className}`}
+      style={{ background: SKY[phase], aspectRatio: ratio }}
       role={people.length ? 'group' : 'img'}
       aria-label={people.length ? 'La maison de la famille et l’humeur de chacun' : 'La maison de la famille'}
     >
@@ -322,7 +428,7 @@ export default function House({
             const y = 3 + 28 * t * (1 - t) // le creux du cordon à cet endroit (sur 40)
             const r = [-5, 4, -3, 5, -4, 3][i]
             return (
-              <span key={src.slice(-32) + i} className="absolute w-[11.5%] -translate-x-1/2" style={{ left: `${x}%`, top: `${(y / 40) * 100}%` }}>
+              <span key={src.slice(-32) + i} className="absolute -translate-x-1/2" style={{ left: `${x}%`, top: `${(y / 40) * 100}%`, width: `${11.5 * s}%` }}>
                 <span className="block origin-top" style={{ animation: `balance ${4.2 + (i % 3) * 0.9}s ease-in-out ${-i * 0.7}s infinite` }}>
                   <span className="block bg-white p-[7%] pb-[22%] shadow-[0_5px_12px_rgba(29,26,43,0.28)]" style={{ transform: `translateY(14%) rotate(${r}deg)`, transformOrigin: '50% 0' }}>
                     <img src={src} alt="" className="block aspect-square w-full object-cover" />
@@ -339,7 +445,10 @@ export default function House({
       )}
 
       {/* la famille dans le jardin : chacun son personnage, sa taille, son humeur sur le visage et dans une bulle */}
-      {!bare && people.length > 0 && <Jardin people={people} onTouch={touch} onPerson={onPerson} poke={poke} scene={act ? scene : null} act={act} />}
+      {!bare && people.length > 0 && <Jardin people={people} onTouch={touch} onPerson={onPerson} poke={poke} scene={act ? scene : null} act={act} s={s} />}
+
+      {/* les soins du jour, par-dessus tout le monde */}
+      {!bare && cares && Object.keys(CARE).filter(has).map(careLayer)}
 
       {!bare && type === 'chalet' &&
         Array.from({ length: 16 }).map((_, i) => (
@@ -352,7 +461,7 @@ export default function House({
 type Placed = { p: HousePerson; slot: (typeof SLOTS)[number]; i: number; scale: number }
 
 function Jardin({
-  people, onTouch, onPerson, poke, scene, act,
+  people, onTouch, onPerson, poke, scene, act, s = 1,
 }: {
   people: HousePerson[]
   onTouch: (key: string) => void
@@ -360,6 +469,7 @@ function Jardin({
   poke: { key: string; n: number } | null
   scene: HouseScene | null
   act: null | 'aller' | 'geste' | 'retour'
+  s?: number
 }) {
   const shown = people.slice(0, people.length > MAX_PEOPLE ? MAX_PEOPLE - 1 : MAX_PEOPLE)
   const order = ORDERS[shown.length] ?? ORDERS[MAX_PEOPLE]
@@ -377,7 +487,7 @@ function Jardin({
         const isFrom = live?.from.p.m.id === p.m.id
         const isTo = live?.to.p.m.id === p.m.id
         const away = isFrom && (act === 'aller' || act === 'geste')
-        const x = away ? live!.to.slot.x + live!.side * 8 * live!.to.slot.k : slot.x
+        const x = away ? live!.to.slot.x + live!.side * 8 * live!.to.slot.k * s : slot.x
         const y = away ? live!.to.slot.y : slot.y
         const k = away ? live!.to.slot.k : slot.k
         const hug = doing === 'calin' && (isFrom || isTo)
@@ -394,7 +504,7 @@ function Jardin({
             style={{
               left: `${x}%`,
               bottom: `${y}%`,
-              width: `${14 * k * scale}%`,
+              width: `${14 * k * scale * s}%`,
               zIndex: isFrom ? 9 : k < 1 ? 7 : 8,
               transition: 'left 1.3s ease-in-out, bottom 1.3s ease-in-out, width 1.3s ease-in-out',
             }}
@@ -434,7 +544,7 @@ function Jardin({
 
       {/* le geste lui-même, entre les deux */}
       {doing && live && (
-        <span className="pointer-events-none absolute" style={{ left: `${live.to.slot.x + live.side * 4 * live.to.slot.k - 6}%`, bottom: `${live.to.slot.y + 30}%`, width: '12%', zIndex: 10 }}>
+        <span className="pointer-events-none absolute" style={{ left: `${live.to.slot.x + live.side * 4 * live.to.slot.k - 6 * s}%`, bottom: `${live.to.slot.y + 30}%`, width: `${12 * s}%`, zIndex: 10 }}>
           {[0, 1, 2].map((n) => (
             <img
               key={`${scene!.id}${n}`}

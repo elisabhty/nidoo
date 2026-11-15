@@ -1,4 +1,4 @@
-import { Check, ChevronRight, CircleAlert, X } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, CircleAlert, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { COLORS } from '../lib/data'
 import { select, tap, warn } from '../lib/haptic'
@@ -64,6 +64,46 @@ export function Screen({ title, trailing, leading, children }: { title: string; 
       <div
         className="no-bar h-full overflow-y-auto overscroll-contain pb-[120px]"
         style={{ paddingTop: 'calc(var(--sat) + 52px)' }}
+        onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 34)}
+      >
+        <h1 className="px-5 pb-2 font-rond text-grand">{title}</h1>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+/** Page iOS qui glisse par-dessus l'écran : « Retour » en haut à gauche, grand titre qui se replie au défilement. */
+export function Page({ title, back = 'Retour', onClose, trailing, children }: { title: string; back?: string; onClose: () => void; trailing?: ReactNode; children: ReactNode }) {
+  const [scrolled, setScrolled] = useState(false)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+  return (
+    <div className="anim-glisse absolute inset-0 z-40 bg-fond shadow-[-8px_0_30px_rgba(29,26,43,0.12)]" role="dialog" aria-modal="true" aria-label={title}>
+      <div
+        className={`absolute inset-x-0 top-0 z-20 transition-[background-color,backdrop-filter,border-color] duration-200 ${scrolled ? 'border-b border-trait bg-fond/80 backdrop-blur-2xl backdrop-saturate-150' : 'border-b border-transparent'}`}
+        style={{ paddingTop: 'var(--sat)' }}
+      >
+        <div className="relative flex h-[52px] items-center justify-between pl-1.5 pr-4">
+          <button
+            onClick={() => {
+              tap()
+              onClose()
+            }}
+            className="presse relative z-10 flex h-11 items-center pr-2 text-corps text-teinte"
+          >
+            <ChevronLeft size={30} strokeWidth={2.3} className="-mr-0.5" /> {back}
+          </button>
+          <p className={`absolute inset-x-28 truncate text-center text-corps font-semibold transition-opacity duration-200 ${scrolled ? 'opacity-100' : 'opacity-0'}`}>{title}</p>
+          <div className="relative z-10 flex items-center gap-2">{trailing}</div>
+        </div>
+      </div>
+      <div
+        className="no-bar h-full overflow-y-auto overscroll-contain"
+        style={{ paddingTop: 'calc(var(--sat) + 52px)', paddingBottom: 'calc(var(--sab) + 28px)' }}
         onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 34)}
       >
         <h1 className="px-5 pb-2 font-rond text-grand">{title}</h1>

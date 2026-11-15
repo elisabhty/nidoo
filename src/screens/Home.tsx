@@ -1,5 +1,7 @@
 import { ChevronRight } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { careTodo, CareIcon, useCare } from '../components/care'
+import { DecorPage } from '../components/decor'
 import { DoodleIcon, DrawingsSheet, DrawingWidget, DrawSheet } from '../components/drawing'
 import House, { type HouseScene } from '../components/House'
 import { JoinRequests } from '../components/requests'
@@ -7,7 +9,7 @@ import { eventArt, MoodSheet, ThoughtSheet } from '../components/sheets'
 import { StarsSheet } from '../components/stars'
 import { Art, Avatar, Lien, Section } from '../components/ui'
 import { WeeklyChallenge } from '../components/weekly'
-import { DECOS, moodOf, questionOfDay } from '../lib/data'
+import { CARE, DECOS, moodOf, questionOfDay } from '../lib/data'
 import { feel, success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
 import type { Drawing, Member } from '../lib/types'
@@ -21,6 +23,7 @@ type Open =
   | { k: 'dessin'; to?: string | null }
   | { k: 'dessins'; start?: Drawing }
   | { k: 'etoiles' }
+  | { k: 'decor' }
 
 export function upcoming(events: ReturnType<typeof useHome>['state']['events'], limit = 3) {
   const start = new Date()
@@ -57,6 +60,14 @@ export default function Home({ go }: { go: (t: Go) => void }) {
     .slice(0, 6)
     .map((x) => x.url)
   const now = season()
+  const care = useCare()
+  const todo = careTodo(houseItems, state.cares)
+  // On s'occupe du chat depuis la liste : la maison revient à l'écran pour voir le « +3 ».
+  const careFromList = (key: string) => {
+    const r = houseRef.current?.getBoundingClientRect()
+    if (r && (r.top < 60 || r.bottom > window.innerHeight - 90)) houseRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    window.setTimeout(() => care(key), r && (r.top < 60 || r.bottom > window.innerHeight - 90) ? 450 : 0)
+  }
 
   // Un câlin envoyé ou reçu se joue dans le jardin : l'un va voir l'autre et le fait vraiment.
   useEffect(() => {
@@ -97,12 +108,23 @@ export default function Home({ go }: { go: (t: Go) => void }) {
     ...(low
       ? [{ key: 'low', icon: <img src="./panda.webp" alt="" className="h-10 w-10 rounded-[12px]" />, title: `${low.display_name} a une petite mine`, text: 'Envoie-lui un câlin, ça prend une seconde', act: () => setSheet({ k: 'pensee', to: low }) }]
       : []),
+    ...todo.map((k) => ({
+      key: `soin-${k}`,
+      icon: (
+        <span className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-teinte-doux">
+          <CareIcon k={k} size={28} />
+        </span>
+      ),
+      title: CARE[k].verb,
+      text: `${CARE[k].need} · +${CARE[k].stars} étoile${CARE[k].stars > 1 ? 's' : ''} pour la maison`,
+      act: () => careFromList(k),
+    })),
     ...(!myMood ? [{ key: 'humeur', icon: <Art name="humeur-heureux" size={40} />, title: 'Partager mon humeur', text: 'Ta famille voit comment tu te sens', act: () => setSheet({ k: 'humeur' }) }] : []),
     ...soon.map(({ e, at }) => ({
       key: e.id,
       icon: <Art name={eventArt(e.kind)} size={40} />,
       title: e.title,
-      text: `${dayLabel(at)}${e.all_day ? '' : ` · ${timeLabel(at)}`} · toute la famille`,
+      text: `${dayLabel(at)}${e.all_day ? '' : ` · ${timeLabel(at)}`} · ${whoText(e.members, members, me.id)}`,
       act: () => go('organiser'),
       tint: dayLabel(at) === 'Aujourd’hui' ? 'text-peche-fonce' : undefined,
     })),
@@ -195,16 +217,19 @@ export default function Home({ go }: { go: (t: Go) => void }) {
                 onPerson={(m) => setSheet(m.id === me.id ? { k: 'humeur' } : { k: 'pensee', to: m })}
                 scene={scene}
                 onSceneEnd={() => setScene(null)}
+                cares={state.cares}
+                onCare={care}
               />
             </div>
             <p className="px-1.5 pt-2 text-note text-brume">
               {home.length === members.length ? 'Tout le monde a partagé son humeur aujourd’hui. ' : home.length ? `${home.length} sur ${members.length} ont partagé leur humeur aujourd’hui. ` : ''}
               Touche un proche pour lui envoyer un câlin{myMood ? '.' : ', ou toi pour partager ton humeur.'}
+              {todo.length > 0 && ` ${careHint(todo)}`}
             </p>
             <button
               onClick={() => {
                 tap()
-                go('jouer')
+                setSheet({ k: 'decor' })
               }}
               className="presse block w-full px-1.5 pb-1 pt-3 text-left"
             >
@@ -290,12 +315,26 @@ export default function Home({ go }: { go: (t: Go) => void }) {
       {sheet?.k === 'etoiles' && (
         <StarsSheet
           onClose={() => setSheet(null)}
-          onDecorate={() => {
-            setSheet(null)
-            go('jouer')
-          }}
+          onDecorate={() => setSheet({ k: 'decor' })}
         />
       )}
+      {sheet?.k === 'decor' && <DecorPage onClose={() => setSheet(null)} />}
     </>
   )
+}
+
+/** « Le chat a faim et les fleurs ont soif : touche-les pour t’en occuper. » */
+function careHint(keys: string[]) {
+  const parts = keys.map((k) => CARE[k].need.replace(' attendent leurs graines', ' ont faim'))
+  const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} et ${parts[parts.length - 1].replace(/^L/, 'l')}` : parts[0]
+  return `${list.replace(/, L/g, ', l')} : touche-${keys.length > 1 ? 'les' : keys[0] === 'potager' || keys[0] === 'chat' ? 'le' : 'les'} pour t’en occuper.`
+}
+
+/** « toute la famille », « Léa et toi », « Papa, Léa et Noé » */
+function whoText(ids: string[] | undefined, members: Member[], meId: string) {
+  const names = members.filter((m) => ids?.includes(m.id)).map((m) => (m.id === meId ? 'toi' : m.display_name))
+  if (!names.length) return 'toute la famille'
+  const mine = names.indexOf('toi')
+  if (mine > -1) names.push(names.splice(mine, 1)[0])
+  return names.length > 1 ? `${names.slice(0, -1).join(', ')} et ${names[names.length - 1]}` : names[0]
 }

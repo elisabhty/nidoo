@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { SUPABASE_KEY, SUPABASE_URL } from '../config'
-import type { Answer, Backend, Circle, Drawing, DrawingData, FamEvent, Family, FamilyState, Folder, JoinRequest, MyRequest, FolderItem, FolderMember, ListItem, Member, Moment, Reaction, StarEntry, Thought } from './types'
-import { todayKey, uid } from './util'
+import type { Answer, Backend, HouseCare, Circle, Drawing, DrawingData, FamEvent, Family, FamilyState, Folder, JoinRequest, MyRequest, FolderItem, FolderMember, ListItem, Member, Moment, Reaction, StarEntry, Thought } from './types'
+import { compressImage, daysAgoKey, todayKey, uid } from './util'
 import { emptyCounts, type WeeklyCounts } from './weekly'
 
 function check<T>(r: { data: T; error: { message: string } | null }): T {
@@ -89,7 +89,7 @@ export function createSupabaseBackend(): Backend {
 
     async load(fid) {
       const since = new Date(Date.now() - 14 * 86400000).toISOString()
-      const [family, members, requests, weekly, moments, folders, folderMembers, folderItems, reactions, thoughts, drawings, events, items, answers, house, stars] = await Promise.all([
+      const [family, members, requests, weekly, moments, folders, folderMembers, folderItems, reactions, thoughts, drawings, events, items, answers, house, stars, cares] = await Promise.all([
         sb.from('families').select('*').eq('id', fid).single(),
         sb.from('members').select('*').eq('family_id', fid).order('joined_at'),
         // Lisibles seulement par les responsables (RLS) : vide pour les autres.
@@ -104,19 +104,23 @@ export function createSupabaseBackend(): Backend {
         sb.from('drawings').select('id, family_id, from_member, to_member, created_at, photo_path').eq('family_id', fid).order('created_at', { ascending: false }).limit(30),
         sb.from('events').select('*').eq('family_id', fid).order('starts_at'),
         sb.from('list_items').select('*').eq('family_id', fid).order('created_at'),
-        sb.from('daily_answers').select('id, member_id, day, question_key, answer').eq('family_id', fid).eq('day', todayKey()),
+        sb.from('daily_answers').select('id, member_id, day, question_key, answer, photo_path').eq('family_id', fid).eq('day', todayKey()),
         sb.from('house_items').select('item_key').eq('family_id', fid),
         sb.from('star_log').select('id, member_id, reason, amount, created_at').eq('family_id', fid).order('created_at', { ascending: false }).limit(30),
+        sb.from('house_care').select('item_key, day, member_id, created_at').eq('family_id', fid).gte('day', daysAgoKey(3)),
       ])
       const mem = check(members) as Member[]
       const me = mem.find((m) => m.user_id === userId)
       if (!me) throw new Error('PAS_MEMBRE')
       const moms = check(moments) as Moment[]
-      const paths = moms.filter((m) => m.image_path).map((m) => m.image_path!)
+      const reponses = (check(answers) ?? []) as Answer[]
+      // Photos du fil et de la question du jour : même espace privé, lisible par la famille.
+      const paths = [...moms.map((m) => m.image_path), ...reponses.map((a) => a.photo_path)].filter((x): x is string => !!x)
       if (paths.length) {
         const signed = await sb.storage.from('moments').createSignedUrls(paths, 3600)
         const byPath = new Map((signed.data ?? []).map((s) => [s.path, s.signedUrl]))
         for (const m of moms) m.image_url = m.image_path ? (byPath.get(m.image_path) ?? null) : null
+        for (const a of reponses) a.photo_url = a.photo_path ? (byPath.get(a.photo_path) ?? null) : null
       }
       // Photos et couvertures des dossiers : liens signés, lisibles par les seuls membres.
       const dossiers = (check(folders) ?? []) as Folder[]
@@ -159,16 +163,17 @@ export function createSupabaseBackend(): Backend {
         drawings: dessins.filter((d) => traits.has(d.id)).map((d) => ({ ...d, data: traits.get(d.id)! })),
         events: (check(events) ?? []) as FamEvent[],
         items: (check(items) ?? []) as ListItem[],
-        answers: (check(answers) ?? []) as Answer[],
+        answers: reponses,
         houseItems: (check(house) as { item_key: string }[]).map((h) => h.item_key),
         starLog: (check(stars) ?? []) as StarEntry[],
+        cares: (check(cares) ?? []) as HouseCare[],
       }
       return state
     },
 
     subscribe(fid, onChange) {
       const ch = sb.channel(`famille:${fid}`)
-      for (const table of ['members', 'join_requests', 'weekly_rewards', 'moments', 'folders', 'folder_members', 'folder_items', 'reactions', 'thoughts', 'drawings', 'events', 'list_items', 'daily_answers', 'house_items']) {
+      for (const table of ['members', 'join_requests', 'weekly_rewards', 'moments', 'folders', 'folder_members', 'folder_items', 'reactions', 'thoughts', 'drawings', 'events', 'list_items', 'daily_answers', 'house_items', 'house_care']) {
         ch.on('postgres_changes', { event: '*', schema: 'public', table, filter: `family_id=eq.${fid}` }, onChange)
       }
       ch.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'families', filter: `id=eq.${fid}` }, onChange)
@@ -312,6 +317,17 @@ export function createSupabaseBackend(): Backend {
     async addEvent(fid, memberId, e) {
       check(await sb.from('events').insert({ family_id: fid, created_by: memberId, ...e }))
     },
+    async updateEvent(id, patch) {
+      check(
+        await sb
+          .from('events')
+          .update({
+            ...(patch.description !== undefined ? { description: patch.description?.trim() || null } : {}),
+            ...(patch.members ? { members: patch.members } : {}),
+          })
+          .eq('id', id),
+      )
+    },
     async deleteEvent(id) {
       check(await sb.from('events').delete().eq('id', id))
     },
@@ -326,8 +342,16 @@ export function createSupabaseBackend(): Backend {
       check(await sb.from('list_items').delete().eq('id', id))
     },
 
-    async answer(fid, memberId, questionKey, answer) {
-      check(await sb.from('daily_answers').insert({ family_id: fid, member_id: memberId, question_key: questionKey, answer: answer.trim(), day: todayKey() }))
+    async answer(fid, memberId, questionKey, answer, photo) {
+      let photo_path: string | null = null
+      if (photo) {
+        photo_path = `${fid}/${uid()}.jpg`
+        check(await sb.storage.from('moments').upload(photo_path, await compressImage(photo, 1400, 0.82), { contentType: 'image/jpeg' }))
+      }
+      check(await sb.from('daily_answers').insert({ family_id: fid, member_id: memberId, question_key: questionKey, answer: answer.trim(), photo_path, day: todayKey() }))
+    },
+    async care(fid, key) {
+      return check(await sb.rpc('care_item', { p_family: fid, p_key: key })) as number
     },
     async unlock(fid, key) {
       check(await sb.rpc('unlock_item', { p_family: fid, p_key: key }))

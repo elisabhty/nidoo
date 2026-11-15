@@ -1,11 +1,12 @@
 import { Baby, Check, CircleHelp, Clock, Copy, Crown, House as HouseIcon, LogOut, Mail, Pencil, Plus, RefreshCw, Share, ShieldCheck, UserRound } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import House from '../components/House'
+import { careTodo } from '../components/care'
 import { DrawingsSheet, DrawingWidget, DrawSheet } from '../components/drawing'
 import { eventArt, MoodSheet } from '../components/sheets'
 import { JoinRequests } from '../components/requests'
 import { Art, Avatar, Btn, choisir, confirmer, Rond, Row, Screen, Section, Sheet } from '../components/ui'
-import { DECOS, moodOf, PLAN_LIMITS } from '../lib/data'
+import { CARE, DECOS, moodOf, PLAN_LIMITS } from '../lib/data'
 import { select } from '../lib/haptic'
 import { copy, shareInvite } from '../lib/share'
 import { useHome } from '../lib/store'
@@ -18,10 +19,11 @@ import Onboarding from './Onboarding'
 
 type Open = null | 'profil' | 'maison' | 'plus' | 'compte' | 'ajouter'
 
-function Tuile({ title, locked, wide, children }: { title: string; locked?: boolean; wide?: boolean; children: ReactNode }) {
+/** Taille des widgets iOS : petit 158 × 158, moyen 338 × 158, grand 338 × 354. */
+function Tuile({ title, locked, wide, large, children }: { title: string; locked?: boolean; wide?: boolean; large?: boolean; children: ReactNode }) {
   return (
-    <div className={`${wide ? 'w-[338px]' : 'w-[158px]'} shrink-0`}>
-      <div className="relative h-[158px] overflow-hidden rounded-[26px] bg-carte shadow-carte">
+    <div className={`${wide || large ? 'w-[338px]' : 'w-[158px]'} shrink-0`}>
+      <div className={`relative ${large ? 'h-[354px]' : 'h-[158px]'} overflow-hidden rounded-[26px] bg-carte shadow-carte`}>
         {children}
         {locked && (
           <span className="verre absolute right-2.5 top-2.5 flex h-6 items-center gap-1 rounded-full px-2 text-mini font-semibold text-encre">
@@ -42,24 +44,43 @@ function Widgets({ onDraw, onOpen }: { onDraw: () => void; onOpen: (d: Drawing) 
   const todo = state.items.filter((i) => i.kind === 'tache' && !i.done).slice(0, 3)
   const word = state.thoughts.find((t) => t.to_member === me.id)
   const from = word && members.find((m) => m.id === word.from_member)
+  // La maison du widget : chacun avec son humeur du jour, comme sur l'accueil.
+  const people = members.map((m) => ({ m, mood: isToday(m.mood_at) ? m.mood : null, label: m.display_name, me: m.id === me.id }))
+  const shared = members.filter((m) => isToday(m.mood_at)).length
+  const garden = careTodo(state.houseItems, state.cares)
+  const photos = [
+    ...state.moments.filter((m) => m.image_url).map((m) => ({ at: m.created_at, url: m.image_url! })),
+    ...state.drawings.filter((d) => !d.to_member && d.photo_url).map((d) => ({ at: d.created_at, url: d.photo_url! })),
+  ]
+    .sort((a, b) => b.at.localeCompare(a.at))
+    .slice(0, 6)
+    .map((x) => x.url)
 
   return (
     <div className="no-bar flex gap-3.5 overflow-x-auto px-4 pb-2">
-      <Tuile title="Notre maison">
-        <House type={family.house_type} items={state.houseItems} className="h-full !aspect-auto" bare />
-        <p className="absolute inset-x-3 bottom-2.5 truncate text-note font-semibold text-white drop-shadow">Famille {family.name}</p>
+      <Tuile title="Notre maison · moyen" wide>
+        <House type={family.house_type} items={state.houseItems} people={people} cares={state.cares} ratio={338 / 158} className="h-full" />
       </Tuile>
       <Tuile title="Créer une attention" wide>
         <DrawingWidget compact onOpen={onOpen} onDraw={onDraw} />
       </Tuile>
-      <Tuile title="Nos humeurs">
-        <div className="grid h-full grid-cols-2 content-center gap-x-1 gap-y-2.5 p-3">
-          {members.slice(0, 4).map((m) => (
-            <div key={m.id} className="flex flex-col items-center">
-              <Avatar m={m} size={42} mood />
-              <span className="mt-1 w-full truncate text-center text-mini font-medium text-brume">{(isToday(m.mood_at) && moodOf(m.mood)?.label) || m.display_name}</span>
+      <Tuile title="Notre maison · grand" large>
+        <div className="flex h-full flex-col">
+          <House type={family.house_type} items={state.houseItems} people={people} cares={state.cares} photos={photos} />
+          <div className="flex min-h-0 flex-1 flex-col justify-center gap-1.5 px-4">
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="truncate font-rond text-titre3">Famille {family.name}</p>
+              <span className="flex shrink-0 items-center gap-1 text-note font-semibold text-brume">
+                <Art name="picto-etoile" size={15} /> {family.stars}
+              </span>
             </div>
-          ))}
+            <p className="truncate text-note text-brume">
+              {shared === members.length ? 'Tout le monde a partagé son humeur' : `${shared} sur ${members.length} ont partagé leur humeur`}
+            </p>
+            <p className={`truncate text-note font-semibold ${garden.length ? 'text-peche-fonce' : 'text-vert'}`}>
+              {garden.length ? garden.map((k) => CARE[k].need).join(' · ') : state.houseItems.some((k) => CARE[k]) ? 'Tout le jardin est nourri et arrosé' : next[0] ? `${next[0].e.title} · ${dayLabel(next[0].at).toLowerCase()}` : 'Une belle journée à la maison'}
+            </p>
+          </div>
         </div>
       </Tuile>
       <Tuile title="À venir" locked={free}>

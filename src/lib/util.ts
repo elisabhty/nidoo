@@ -118,7 +118,13 @@ const ERRORS: Record<string, string> = {
   PROFIL_SANS_COMPTE: 'Un enfant sans téléphone ne peut pas être responsable.',
   DEFI_INCOMPLET: 'Le défi n’est pas encore relevé : encore un petit effort !',
   DEFI_DEJA_RECU: 'La récompense de cette semaine a déjà été reçue.',
+  DEJA_FAIT: 'Quelqu’un de la famille s’en est déjà occupé aujourd’hui.',
+  PAS_INSTALLE: 'Il n’est pas encore dans votre jardin.',
+  PAS_DE_SOIN: 'Celui-là n’a besoin de rien.',
+  REPONSE_VIDE: 'Écris une réponse ou ajoute une photo.',
 }
+/** Le jour d'il y a n jours, au format AAAA-MM-JJ. */
+export const daysAgoKey = (n: number) => todayKey(new Date(Date.now() - n * 86400000))
 export function errorText(e: unknown): string {
   const msg = e instanceof Error ? e.message : typeof e === 'object' && e && 'message' in e ? String((e as { message: unknown }).message) : String(e)
   const key = Object.keys(ERRORS).find((k) => msg.includes(k))

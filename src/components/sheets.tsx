@@ -1,12 +1,12 @@
-import { Camera, Images, Trash2 } from 'lucide-react'
+import { Camera, Images, Repeat, Trash2, Users } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { moodOf, MOODS, THOUGHTS, thoughtOf } from '../lib/data'
 import { feel, select, success } from '../lib/haptic'
 import { useHome } from '../lib/store'
-import type { EventKind, Member, ThoughtKind } from '../lib/types'
-import { compressImage, errorText, isToday } from '../lib/util'
+import type { EventKind, FamEvent, Member, ThoughtKind } from '../lib/types'
+import { compressImage, errorText, isToday, timeLabel } from '../lib/util'
 import { DrawSheet, IncomingDrawing, markDrawingsSeen, useUnseenDrawings } from './drawing'
-import { Art, Avatar, Btn, Envol, Segments, Sheet } from './ui'
+import { Art, Avatar, Btn, confirmer, Envol, Segments, Sheet } from './ui'
 
 // ───────── Humeur du jour ─────────
 
@@ -313,14 +313,82 @@ const KINDS: { key: EventKind; label: string; art: string }[] = [
 ]
 export const eventArt = (k: string) => KINDS.find((x) => x.key === k)?.art ?? 'picto-fete'
 
-export function EventSheet({ onClose }: { onClose: () => void }) {
+/** Qui est concerné : toute la famille, ou les proches choisis (avec leur tête et leur prénom). */
+export function WhoPicker({ value, onChange }: { value: string[]; onChange: (ids: string[]) => void }) {
+  const { state } = useHome()
+  const all = value.length === 0
+  const chip = (on: boolean) => `presse flex h-10 items-center gap-1.5 rounded-full text-sous font-medium ${on ? 'bg-teinte text-white' : 'bg-carte text-encre shadow-carte'}`
+  return (
+    <div className="flex flex-wrap gap-2">
+      <button
+        onClick={() => {
+          select()
+          onChange([])
+        }}
+        aria-pressed={all}
+        className={`${chip(all)} px-3.5`}
+      >
+        <Users size={17} strokeWidth={2.4} /> Toute la famille
+      </button>
+      {state.members.map((m) => {
+        const on = value.includes(m.id)
+        return (
+          <button
+            key={m.id}
+            onClick={() => {
+              select()
+              onChange(on ? value.filter((x) => x !== m.id) : [...value, m.id])
+            }}
+            aria-pressed={on}
+            className={`${chip(on)} pl-1 pr-3.5`}
+          >
+            <Avatar m={m} size={32} /> {m.id === state.me.id ? 'Moi' : m.display_name}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/** Les proches concernés, chacun avec sa tête et son prénom. */
+export function WhoList({ ids }: { ids: string[] }) {
+  const { state } = useHome()
+  const people = ids.length ? state.members.filter((m) => ids.includes(m.id)) : []
+  if (!people.length)
+    return (
+      <div className="groupe flex items-center gap-3 px-4 py-3">
+        <span className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-teinte-doux text-teinte-fonce">
+          <Users size={18} strokeWidth={2.4} />
+        </span>
+        <p className="min-w-0 flex-1 text-corps">Toute la famille</p>
+      </div>
+    )
+  return (
+    <div className="groupe">
+      {people.map((m, i) => (
+        <div key={m.id} className="flex items-center gap-3 pl-4">
+          <Avatar m={m} size={36} mood />
+          <p className={`min-w-0 flex-1 py-3 pr-4 text-corps ${i < people.length - 1 ? 'border-b border-trait' : ''}`}>
+            {m.display_name}
+            {m.id === state.me.id && <span className="text-brume"> (moi)</span>}
+          </p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** Nouvel événement ; « day » : le jour touché dans la vue de la semaine. */
+export function EventSheet({ onClose, day }: { onClose: () => void; day?: Date }) {
   const { state, run } = useHome()
   const [title, setTitle] = useState('')
   const [kind, setKind] = useState<EventKind>('evenement')
-  const tomorrow = new Date(Date.now() + 86400000)
+  const first = day ?? new Date(Date.now() + 86400000)
   const pad = (n: number) => String(n).padStart(2, '0')
-  const [date, setDate] = useState(`${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}`)
+  const [date, setDate] = useState(`${first.getFullYear()}-${pad(first.getMonth() + 1)}-${pad(first.getDate())}`)
   const [time, setTime] = useState('')
+  const [description, setDescription] = useState('')
+  const [who, setWho] = useState<string[]>([])
   const birthday = kind === 'anniversaire'
 
   const save = async () => {
@@ -328,7 +396,7 @@ export function EventSheet({ onClose }: { onClose: () => void }) {
     const starts = new Date(`${date}T${allDay ? '09:00' : time}`)
     if (Number.isNaN(starts.getTime())) return
     const ok = await run(
-      (api) => api.addEvent(state.family.id, state.me.id, { title: title.trim(), kind, starts_at: starts.toISOString(), all_day: allDay, yearly: birthday }),
+      (api) => api.addEvent(state.family.id, state.me.id, { title: title.trim(), kind, starts_at: starts.toISOString(), all_day: allDay, yearly: birthday, description: description.trim() || null, members: who }),
       'Ajouté à l’agenda',
     )
     if (ok) {
@@ -361,7 +429,112 @@ export function EventSheet({ onClose }: { onClose: () => void }) {
         )}
       </div>
       {!birthday && <p className="px-4 pt-2 text-note text-brume">Sans heure, l’événement dure toute la journée.</p>}
+      <p className="entete mt-5 !px-1">Qui est concerné</p>
+      <WhoPicker value={who} onChange={setWho} />
+      <textarea
+        className="groupe mt-4 block min-h-[96px] w-full resize-none px-4 py-3 text-corps outline-none placeholder:text-pale"
+        placeholder="Description (facultatif) : l’adresse, qui apporte quoi…"
+        maxLength={500}
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        aria-label="Description"
+      />
       <Btn className="mt-4" onClick={save} disabled={!title.trim() || !date}>Ajouter</Btn>
+    </Sheet>
+  )
+}
+
+/** Un événement ouvert : la date, qui l'a ajouté, et sa description, que chacun peut compléter. */
+export function EventDetailSheet({ event, at, onClose }: { event: FamEvent; at: Date; onClose: () => void }) {
+  const { state, run } = useHome()
+  const [text, setText] = useState(event.description ?? '')
+  const [who, setWho] = useState<string[]>(event.members ?? [])
+  const [editWho, setEditWho] = useState(false)
+  const sameWho = who.length === (event.members ?? []).length && who.every((id) => event.members?.includes(id))
+  const changed = text.trim() !== (event.description ?? '').trim() || !sameWho
+  const author = state.members.find((m) => m.id === event.created_by)
+  const full = at.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^./, (c) => c.toUpperCase())
+  const d0 = new Date()
+  d0.setHours(0, 0, 0, 0)
+  const diff = Math.round((new Date(at.getFullYear(), at.getMonth(), at.getDate()).getTime() - d0.getTime()) / 86400000)
+  const soon = diff === 0 ? 'Aujourd’hui' : diff === 1 ? 'Demain' : diff > 1 && diff <= 30 ? `Dans ${diff} jours` : null
+
+  return (
+    <Sheet title={KINDS.find((k) => k.key === event.kind)?.label ?? 'Événement'} onClose={onClose}>
+      <div className="flex flex-col items-center text-center">
+        <Art name={eventArt(event.kind)} size={72} />
+        <p className="mt-2 font-rond text-titre2">{event.title}</p>
+        <p className="mt-1 text-sous text-brume">
+          {full}
+          {event.all_day ? ' · toute la journée' : ` · ${timeLabel(at)}`}
+        </p>
+        <span className="mt-2 flex flex-wrap justify-center gap-1.5">
+          {soon && <span className="rounded-full bg-peche-doux px-2.5 py-1 text-legende font-semibold text-peche-fonce">{soon}</span>}
+          {event.yearly && (
+            <span className="flex items-center gap-1 rounded-full bg-remplissage px-2.5 py-1 text-legende font-semibold text-brume">
+              <Repeat size={12} strokeWidth={2.6} /> Chaque année
+            </span>
+          )}
+        </span>
+      </div>
+
+      <div className="mt-5 flex items-baseline justify-between px-1">
+        <p className="entete !px-0">Qui est concerné</p>
+        <button
+          onClick={() => {
+            select()
+            setEditWho((v) => !v)
+          }}
+          className="presse pb-1.5 text-sous font-medium text-teinte"
+        >
+          {editWho ? 'Terminé' : 'Modifier'}
+        </button>
+      </div>
+      {editWho ? <WhoPicker value={who} onChange={setWho} /> : <WhoList ids={who} />}
+
+      <p className="entete mt-5 !px-1">Description</p>
+      <textarea
+        className="groupe block min-h-[120px] w-full resize-none px-4 py-3 text-corps outline-none placeholder:text-pale"
+        placeholder="Ajoute une description : l’adresse, l’heure du rendez-vous, qui apporte quoi…"
+        maxLength={500}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        aria-label="Description de l’événement"
+      />
+      <p className="px-1 pt-1.5 text-note text-brume">Toute la famille la voit et peut la compléter.</p>
+      {changed && (
+        <Btn
+          className="mt-3"
+          onClick={async () => {
+            const ok = await run((api) => api.updateEvent(event.id, { description: text.trim() || null, members: who }), 'Événement mis à jour')
+            if (ok) {
+              success()
+              setEditWho(false)
+            }
+          }}
+        >
+          Enregistrer
+        </Btn>
+      )}
+
+      {author && (
+        <div className="groupe mt-4 flex items-center gap-3 px-4 py-3">
+          <Avatar m={author} size={34} />
+          <p className="text-sous">
+            Ajouté par <span className="font-semibold">{author.id === state.me.id ? 'toi' : author.display_name}</span>
+          </p>
+        </div>
+      )}
+      <Btn
+        className="mt-4 !text-rouge"
+        kind="gris"
+        onClick={async () => {
+          if (!(await confirmer({ title: `Supprimer « ${event.title} » ?`, message: 'Il disparaîtra de l’agenda de toute la famille.', confirm: 'Supprimer l’événement', destructive: true }))) return
+          if (await run((api) => api.deleteEvent(event.id), 'Événement supprimé')) onClose()
+        }}
+      >
+        <Trash2 size={17} strokeWidth={2.4} /> Supprimer l’événement
+      </Btn>
     </Sheet>
   )
 }

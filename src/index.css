@@ -106,3 +106,11 @@ input[type='date'], input[type='time'] { -webkit-appearance: none; appearance: n
 .perso-zz { animation: zz 2.8s ease-out infinite; }
 .perso-scintille { transform-box: fill-box; transform-origin: center; animation: scintille 1.6s ease-in-out infinite; }
 .perso-confetti { transform-box: fill-box; transform-origin: center; animation: oscille 1.2s ease-in-out infinite; }
+
+/* soins du jardin : le « +3 » qui monte, l'eau qui tombe, les graines */
+@keyframes gain { 0% { transform: translate(-50%, 10%) scale(0.6); opacity: 0; } 14% { transform: translate(-50%, -20%) scale(1.08); opacity: 1; } 70% { transform: translate(-50%, -150%) scale(1); opacity: 1; } 100% { transform: translate(-50%, -210%) scale(0.96); opacity: 0; } }
+@keyframes pluie { 0% { transform: translateY(-40%); opacity: 0; } 18% { opacity: 1; } 100% { transform: translateY(330%); opacity: 0; } }
+@keyframes verse { 0% { transform: rotate(0deg) translateY(-20%); opacity: 0; } 15% { transform: rotate(-28deg) translateY(0); opacity: 1; } 80% { transform: rotate(-34deg); opacity: 1; } 100% { transform: rotate(0deg) translateY(-25%); opacity: 0; } }
+@keyframes appelle { 0%, 100% { transform: translate(-50%, 0) scale(1); } 50% { transform: translate(-50%, -12%) scale(1.06); } }
+@keyframes glisse { from { transform: translateX(100%); } to { transform: translateX(0); } }
+.anim-glisse { animation: glisse 0.42s cubic-bezier(0.32, 0.72, 0, 1) both; }
