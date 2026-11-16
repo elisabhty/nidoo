@@ -125,3 +125,9 @@ input[type='date'], input[type='time'] { -webkit-appearance: none; appearance: n
 @media (max-height: 740px) {
   .onboarding-preview { display: none; }
 }
+
+/* Shared reading and interaction rhythm across the five tabs. */
+button:focus-visible, a:focus-visible { outline: 3px solid #6646CC; outline-offset: 3px; }
+@media (prefers-reduced-motion: no-preference) {
+  [aria-current="page"] { transition: background-color 180ms ease, color 180ms ease; }
+}

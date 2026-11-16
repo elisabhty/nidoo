@@ -181,6 +181,7 @@ function Liste({ kind }: { kind: ListKind }) {
   const { state, run } = useHome()
   const { me, members, family } = state
   const [title, setTitle] = useState('')
+  const [addingItem, setAddingItem] = useState(false)
   const [to, setTo] = useState<string | null>(null)
   const items = state.items.filter((i) => i.kind === kind)
   const todo = items.filter((i) => !i.done)
@@ -189,9 +190,11 @@ function Liste({ kind }: { kind: ListKind }) {
 
   const add = async () => {
     const t = title.trim()
-    if (!t) return
-    setTitle('')
-    await run((api) => api.addItem(family.id, me.id, kind, t, tache ? to : null))
+    if (!t || addingItem) return
+    setAddingItem(true)
+    const added = await run((api) => api.addItem(family.id, me.id, kind, t, tache ? to : null))
+    if (added) setTitle((current) => current.trim() === t ? '' : current)
+    setAddingItem(false)
   }
 
   return (
@@ -204,8 +207,8 @@ function Liste({ kind }: { kind: ListKind }) {
         }}
       >
         <Plus size={22} strokeWidth={2.4} className="shrink-0 text-teinte" />
-        <input className="h-[50px] min-w-0 flex-1 bg-transparent text-corps outline-none placeholder:text-pale" placeholder={tache ? 'Nouvelle mission' : 'Ajouter un article'} maxLength={80} enterKeyHint="done" value={title} onChange={(e) => setTitle(e.target.value)} />
-        {title.trim() && <button type="submit" className="presse h-9 rounded-full bg-teinte px-4 text-sous font-semibold text-white">Ajouter</button>}
+        <input aria-label={tache ? 'Nouvelle mission' : 'Ajouter un article'} className="h-[54px] min-w-0 flex-1 bg-transparent text-corps outline-none placeholder:text-brume" placeholder={tache ? 'Nouvelle mission' : 'Ajouter un article'} maxLength={80} enterKeyHint="done" value={title} onChange={(e) => setTitle(e.target.value)} />
+        {title.trim() && <button type="submit" disabled={addingItem} className="presse min-h-11 disabled:opacity-50 rounded-full bg-teinte px-4 text-sous font-semibold text-white">{addingItem ? 'Ajout…' : 'Ajouter'}</button>}
       </form>
       {tache && (
         <div className="no-bar mt-2.5 flex gap-2 overflow-x-auto px-4">
@@ -215,7 +218,7 @@ function Liste({ kind }: { kind: ListKind }) {
               setTo(null)
             }}
             aria-pressed={to === null}
-            className={`h-9 shrink-0 rounded-full px-3.5 text-sous font-medium ${to === null ? 'bg-teinte text-white' : 'bg-carte text-encre'}`}
+            className={`min-h-11 shrink-0 rounded-full px-3.5 text-sous font-medium ${to === null ? 'bg-teinte text-white' : 'bg-carte text-encre'}`}
           >
             Pour tous
           </button>
@@ -227,7 +230,7 @@ function Liste({ kind }: { kind: ListKind }) {
                 setTo(m.id)
               }}
               aria-pressed={to === m.id}
-              className={`flex h-9 shrink-0 items-center gap-1.5 rounded-full pl-1 pr-3.5 text-sous font-medium ${to === m.id ? 'bg-teinte text-white' : 'bg-carte text-encre'}`}
+              className={`flex min-h-11 shrink-0 items-center gap-1.5 rounded-full pl-1 pr-3.5 text-sous font-medium ${to === m.id ? 'bg-teinte text-white' : 'bg-carte text-encre'}`}
             >
               <Avatar m={m} size={28} /> {m.id === me.id ? 'Moi' : m.display_name}
             </button>
@@ -243,6 +246,7 @@ function Liste({ kind }: { kind: ListKind }) {
         />
       )}
 
+      <p className="mx-5 mt-5 text-note font-semibold text-brume" role="status">{todo.length} {tache ? `mission${todo.length > 1 ? 's' : ''} à faire` : `article${todo.length > 1 ? 's' : ''} à prendre`}{done.length > 0 ? ` · ${done.length} ${tache ? `terminée${done.length > 1 ? 's' : ''}` : 'dans le panier'}` : ''}</p>
       {todo.length > 0 && (
         <div className="groupe mx-4 mt-4 shadow-carte">
           {todo.map((i, k) => {
@@ -262,7 +266,7 @@ function Liste({ kind }: { kind: ListKind }) {
                 <div className={`flex min-h-[50px] min-w-0 flex-1 items-center gap-2 py-2 pr-3 ${k < todo.length - 1 ? 'border-b border-trait' : ''}`}>
                   <span className="min-w-0 flex-1 text-corps">{i.title}</span>
                   {who && <Avatar m={who} size={28} />}
-                  <button onClick={() => run((api) => api.deleteItem(i.id))} className="presse px-1.5 text-sous text-pale" aria-label={`Supprimer ${i.title}`}>
+                  <button onClick={() => run((api) => api.deleteItem(i.id))} className="presse min-h-11 px-2 text-note text-brume" aria-label={`Supprimer ${i.title}`}>
                     Retirer
                   </button>
                 </div>
@@ -324,12 +328,13 @@ export default function Organize() {
     <>
       <Screen title="Organiser" trailing={seg === 'agenda' ? <Rond label="Nouvel événement" tint onClick={() => setAdding({})}><Plus size={21} strokeWidth={2.4} /></Rond> : undefined}>
         <p className="-mt-1 px-5 text-sous text-brume">
-          {seg === 'agenda' ? 'Tous vos rendez-vous au même endroit.' : seg === 'course' ? 'Une liste commune : chacun ajoute et coche en direct.' : 'Les petites tâches de la maison. Assigne-les à quelqu’un ou à tout le monde.'}
+          {seg === 'agenda' ? 'Moins de choses à retenir, plus de temps ensemble.' : seg === 'course' ? 'Une liste commune : chacun ajoute et coche en direct.' : 'Les petites tâches de la maison. Assigne-les à quelqu’un ou à tout le monde.'}
         </p>
         <div className="mx-4 mb-4 mt-3">
           <Segments value={seg} onChange={setSeg} options={[{ key: 'agenda', label: 'Agenda' }, { key: 'course', label: 'Courses' }, { key: 'tache', label: 'Missions' }]} />
         </div>
 
+        {seg === 'agenda' && <div className="mx-5 mb-5"><Btn onClick={() => setAdding({})}>Ajouter un événement</Btn></div>}
         {seg === 'agenda' && (
           <div className="-mt-1 mb-4 flex gap-2 px-4">
             {(
@@ -345,7 +350,7 @@ export default function Organize() {
                   setVue(k)
                 }}
                 aria-pressed={vue === k}
-                className={`h-9 rounded-full px-4 text-sous font-medium ${vue === k ? 'bg-encre text-white' : 'bg-carte text-encre shadow-carte'}`}
+                className={`min-h-11 rounded-full px-4 text-sous font-medium ${vue === k ? 'bg-encre text-white' : 'bg-carte text-encre shadow-carte'}`}
               >
                 {label}
               </button>

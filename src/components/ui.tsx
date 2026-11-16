@@ -66,7 +66,7 @@ export function Screen({ title, trailing, leading, children }: { title: string; 
         style={{ paddingTop: 'calc(var(--sat) + 52px)' }}
         onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 34)}
       >
-        <h1 className="px-5 pb-2 font-rond text-grand">{title}</h1>
+        <h1 className="px-5 pb-3 pt-2 font-rond text-grand">{title}</h1>
         {children}
       </div>
     </div>
@@ -106,7 +106,7 @@ export function Page({ title, back = 'Retour', onClose, trailing, children }: { 
         style={{ paddingTop: 'calc(var(--sat) + 52px)', paddingBottom: 'calc(var(--sab) + 28px)' }}
         onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 34)}
       >
-        <h1 className="px-5 pb-2 font-rond text-grand">{title}</h1>
+        <h1 className="px-5 pb-3 pt-2 font-rond text-grand">{title}</h1>
         {children}
       </div>
     </div>
@@ -180,7 +180,7 @@ export function Btn({
         onClick?.()
       }}
       disabled={disabled}
-      className={`presse flex h-[50px] w-full items-center justify-center gap-2 rounded-full px-5 text-corps font-semibold disabled:opacity-35 ${styles} ${className}`}
+      className={`presse flex min-h-[52px] shrink-0 w-full items-center justify-center gap-2 rounded-full px-5 text-corps font-semibold disabled:opacity-35 ${styles} ${className}`}
     >
       {children}
     </button>
@@ -202,7 +202,7 @@ export function Section({ title, hint, action, children, className = '' }: { tit
 
 export function Lien({ children, onClick }: { children: ReactNode; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="presse text-corps text-teinte">
+    <button onClick={onClick} className="presse min-h-11 text-sous font-semibold text-teinte-fonce">
       {children}
     </button>
   )
@@ -263,7 +263,7 @@ export function Toasts() {
 export function Segments<T extends string>({ value, onChange, options }: { value: T; onChange: (v: T) => void; options: { key: T; label: string }[] }) {
   const i = Math.max(0, options.findIndex((o) => o.key === value))
   return (
-    <div className="relative flex h-9 rounded-full bg-remplissage p-[2px]" role="tablist">
+    <div className="relative flex min-h-11 rounded-full bg-remplissage p-[2px]" role="tablist">
       <span
         className="absolute bottom-[2px] top-[2px] rounded-full bg-white shadow-[0_3px_8px_rgba(0,0,0,0.12),0_1px_1px_rgba(0,0,0,0.04)] transition-transform duration-300"
         style={{ width: `calc((100% - 4px) / ${options.length})`, transform: `translateX(${i * 100}%)`, transitionTimingFunction: 'var(--ressort)' }}
@@ -273,6 +273,16 @@ export function Segments<T extends string>({ value, onChange, options }: { value
           key={o.key}
           role="tab"
           aria-selected={value === o.key}
+          tabIndex={value === o.key ? 0 : -1}
+          onKeyDown={(e) => {
+            const current = options.findIndex((option) => option.key === o.key)
+            const next = e.key === 'ArrowRight' ? (current + 1) % options.length : e.key === 'ArrowLeft' ? (current - 1 + options.length) % options.length : e.key === 'Home' ? 0 : e.key === 'End' ? options.length - 1 : -1
+            if (next < 0) return
+            e.preventDefault()
+            onChange(options[next].key)
+            const tabs = e.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')
+            tabs?.[next]?.focus()
+          }}
           onClick={() => {
             select()
             onChange(o.key)

@@ -248,6 +248,8 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
   return (
     <>
       <Screen title="Notre famille" trailing={<Rond label="Inviter un proche" tint onClick={invite}><Share size={18} strokeWidth={2.4} /></Rond>}>
+        <p className="px-5 pb-5 text-sous text-brume">Votre cercle, votre maison, vos habitudes.</p>
+        <div className="mx-5 mb-5"><Btn onClick={invite}>Inviter un proche</Btn></div>
         {api.mode === 'local' && (
           <div className="mx-4 mb-3 mt-1 rounded-[16px] bg-peche-doux px-4 py-3">
             <p className="text-note">
@@ -289,10 +291,11 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
           {members.map((m, i) => (
             <button
               key={m.id}
-              disabled={m.user_id ? !admin || m.id === me.id : false}
+              disabled={!!m.user_id && !admin && m.id !== me.id}
               onClick={() => {
                 select()
-                void manage(m)
+                if (m.id === me.id) setSheet('profil')
+                else void manage(m)
               }}
               className={`flex w-full items-center gap-3 pl-3.5 text-left ${(admin && m.id !== me.id) || !m.user_id ? 'presse-ligne' : ''}`}
               aria-label={(admin && m.id !== me.id) || !m.user_id ? `Gérer ${m.display_name}` : undefined}

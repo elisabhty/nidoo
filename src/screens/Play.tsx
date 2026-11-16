@@ -41,11 +41,11 @@ export default function Play() {
           </button>
         }
       >
-        <p className="-mt-1 px-5 text-sous text-brume">Partagez des moments, relevez des défis et faites grandir votre maison.</p>
+        <p className="-mt-1 px-5 text-sous text-brume">Un petit rituel pour se retrouver, chaque jour.</p>
         <div className="mb-3 px-5 pt-1">
           <Lien onClick={() => setStars(true)}>Comment gagner des étoiles ?</Lien>
         </div>
-        <div className="groupe mx-4 mt-2 p-4 shadow-carte">
+        <div className="groupe mx-4 mt-4 p-5 shadow-carte">
           <div className="flex items-center gap-2.5">
             <Art name="picto-bulle" size={30} />
             <p className="text-note font-semibold uppercase tracking-[0.03em] text-teinte">Question du jour</p>

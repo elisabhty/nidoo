@@ -80,24 +80,29 @@ function Accueil({ seg, setSeg, onOpen }: { seg: DossiersSeg; setSeg: (s: Dossie
         }
       >
         <p className="-mt-1 px-5 text-sous text-brume">
-          {seg === 'dossiers' ? 'Vos souvenirs et projets, bien rangés.' : 'Les photos, dessins et petits mots envoyés à toute la famille.'}
+          {seg === 'dossiers' ? 'Les moments que vous aimez retrouver.' : 'Les photos, dessins et petits mots envoyés à toute la famille.'}
         </p>
         <div className="mx-4 mb-4 mt-3">
           <Segments value={seg} onChange={setSeg} options={[{ key: 'dossiers', label: 'Mes dossiers' }, { key: 'fil', label: 'Fil de la famille' }]} />
         </div>
 
+        <div className="mx-5 mb-5">
+          <Btn onClick={() => seg === 'dossiers' ? setCreating(true) : setCompose('instant')}>
+            {seg === 'dossiers' ? 'Créer un dossier de souvenirs' : 'Partager une attention'}
+          </Btn>
+        </div>
         {seg === 'fil' ? (
           <Fil onCompose={() => setCompose('instant')} />
         ) : total === 0 ? (
-          <Vide art="picto-cadeau" title="Aucun dossier" text="Un dossier rassemble photos, notes et discussion, avec les proches de ton choix. Les autres ne le voient pas.">
+          <Vide art="picto-cadeau" title="Votre premier souvenir commence ici" text="Un dossier rassemble photos, notes et discussion, avec les proches de ton choix. Les autres ne le voient pas.">
             <Btn onClick={() => setCreating(true)}>Créer un dossier</Btn>
           </Vide>
         ) : (
           <>
-            {total > 2 && (
-              <label className="mx-4 mb-4 flex h-10 items-center gap-2 rounded-[12px] bg-remplissage px-3 text-brume">
+            {total > 0 && (
+              <label className="mx-4 mb-4 flex min-h-11 items-center gap-2 rounded-[12px] bg-remplissage px-3 text-brume">
                 <Search size={17} strokeWidth={2.4} />
-                <input className="min-w-0 flex-1 bg-transparent text-corps text-encre outline-none placeholder:text-brume" placeholder="Rechercher" value={query} onChange={(e) => setQuery(e.target.value)} />
+                <input className="min-w-0 flex-1 bg-transparent text-corps text-encre outline-none placeholder:text-brume" aria-label="Rechercher un dossier" placeholder="Rechercher un dossier" value={query} onChange={(e) => setQuery(e.target.value)} />
                 {query && (
                   <button onClick={() => setQuery('')} className="flex h-5 w-5 items-center justify-center rounded-full bg-pale text-white" aria-label="Effacer">
                     <X size={12} strokeWidth={3} />
