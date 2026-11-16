@@ -2,7 +2,7 @@
 // La peau : chaque figurine existe en plusieurs couleurs de peau, de vraies images refaites par l'IA à partir
 // de la figurine (public/art/persos/<id>-t<k>.webp, liste dans peaux.ts). On ne recolore jamais la peau
 // pixel par pixel : ça laissait des taches autour des lunettes, des joues et des mains.
-// Les cheveux (ou le voile), les yeux et le rouge à lèvres, eux, sont recolorés dans le navigateur grâce aux
+// Les cheveux (ou le voile) et les yeux, eux, sont recolorés dans le navigateur grâce aux
 // masques de la figurine (public/art/persos/<id>-m.webp : vert = cheveux, bleu 255 = iris, 170 = bouche,
 // 85 = sourcils), qui servent aussi pour ses autres peaux (elles sont recalées dessus). Le relief de la
 // feutrine est gardé : on décale la couleur moyenne, pas la texture. Nez, bouche, taches de rousseur, blush
@@ -85,13 +85,6 @@ export const YEUX: Teinte[] = [
   { label: 'Gris', lab: [48, -2, -7] },
   { label: 'Noirs', lab: [8, 2, 2] },
 ]
-export const LEVRES: Teinte[] = [
-  { label: 'Rose', lab: [60, 46, 8] },
-  { label: 'Rouge', lab: [42, 56, 32] },
-  { label: 'Corail', lab: [63, 42, 38] },
-  { label: 'Prune', lab: [34, 30, -3] },
-  { label: 'Nude', lab: [63, 22, 20] },
-]
 export const MONTURES: { label: string; hex: string }[] = [
   { label: 'Noire', hex: '#2B2540' },
   { label: 'Écaille', hex: '#7A4A2A' },
@@ -136,10 +129,10 @@ export const labHex = (lab: [number, number, number]) => `#${lab2rgb(...lab).map
 export function pixelKey(p: Perso, look: Look) {
   const v = VISAGES[p.id]
   if (!v) return ''
-  const x = v.ha ? look.x ?? 0 : 0, y = look.y ?? 0, l = look.l ?? 0
+  const x = v.ha ? look.x ?? 0 : 0, y = look.y ?? 0
   const feat = v.bouche && ((look.n ?? 0) > 0 || (look.u ?? 0) > 0)
-  if (!x && !y && !l && !feat) return ''
-  return `${p.id}.${peauOf(p, look)}.${x}.${y}.${l}.${feat ? 1 : 0}.${(look.u ?? 0) > 0 ? 1 : 0}`
+  if (!x && !y && !feat) return ''
+  return `${p.id}.${peauOf(p, look)}.${x}.${y}.${feat ? 1 : 0}.${(look.u ?? 0) > 0 ? 1 : 0}`
 }
 
 /** La couleur de peau affichée (pour dessiner le nez et le blush par-dessus). */
@@ -192,24 +185,21 @@ export function renderPerso(p: Perso, look: Look): Promise<string> {
     mctx.drawImage(mask, 0, 0)
     const m = mctx.getImageData(0, 0, W, H).data
     const d = img.data
-    const x = v.ha ? look.x ?? 0 : 0, y = look.y ?? 0, l = look.l ?? 0
+    const x = v.ha ? look.x ?? 0 : 0, y = look.y ?? 0
     const hT = x ? (p.c === 'voile' ? VOILES : CHEVEUX)[x - 1]?.lab : null
     const eT = y ? YEUX[y - 1]?.lab : null
-    const lT = l ? LEVRES[l - 1]?.lab : null
     const ha = v.ha, ir = v.ir
     // les cheveux sombres qui deviennent clairs gagnent du relief, et inversement
     const hs = hT && ha ? Math.max(0.55, Math.min(2.4, (hT[0] + 10) / (ha[0] + 10))) : 1
     for (let i = 0; i < d.length; i += 4) {
       if (d[i + 3] < 8) continue
       const wh = m[i + 1] / 255, cls = m[i + 2]
-      const mouth = cls > 150 && cls < 200
       const iris = cls > 230
       const brow = cls > 60 && cls < 110
       const wHair = hT ? wh : 0
       const wBrow = hT && brow ? 0.85 : 0
       const wEye = eT && iris ? 1 : 0
-      const wLip = lT && mouth && !feat ? 0.85 : 0
-      if (!wHair && !wEye && !wLip && !wBrow) continue
+      if (!wHair && !wEye && !wBrow) continue
       const [L, A, B] = rgb2lab(d[i], d[i + 1], d[i + 2])
       let nL = L, nA = A, nB = B
       // garde-fou : la raie, un bout de peau, un bijou classés « cheveux » gardent leur couleur
@@ -230,11 +220,6 @@ export function renderPerso(p: Perso, look: Look): Promise<string> {
         nL = eT![0] + (L - ir[0]) * 1.1
         nA = eT![1] + (A - ir[1]) * 0.5
         nB = eT![2] + (B - ir[2]) * 0.5
-      }
-      if (wLip) {
-        nL += wLip * (lT![0] + (L - 45) * 0.45 - nL)
-        nA += wLip * (lT![1] - nA)
-        nB += wLip * (lT![2] - nB)
       }
       const [r, g, b] = lab2rgb(nL, nA, nB)
       d[i] = r

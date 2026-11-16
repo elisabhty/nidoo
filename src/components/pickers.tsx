@@ -3,7 +3,7 @@ import { useId, useState } from 'react'
 import { COLOR_KEYS, COLORS, HOUSES, shopItem } from '../lib/data'
 import { select, tap } from '../lib/haptic'
 import { ACCESSORIES, AGE_SCALE, encodeLook, lookOf, type Look } from '../lib/look'
-import { BLUSH, BOUCHES, CHEVEUX, labHex, LEVRES, LUNETTES, MONTURES, NEZ, nomPeau, peauOf, peauProche, peauxDe, persoImg, skinLab, VOILES, YEUX } from '../lib/personnalise'
+import { BLUSH, BOUCHES, CHEVEUX, labHex, LUNETTES, MONTURES, NEZ, nomPeau, peauOf, peauProche, peauxDe, persoImg, skinLab, VOILES, YEUX } from '../lib/personnalise'
 import { COULEURS_MONTURE, FORMES_LUNETTES } from '../lib/lunettes'
 import { GROUPS, PERSOS, persoOf, TONES, type Group, type Perso } from '../lib/persos'
 import { VISAGES } from '../lib/visages'
@@ -347,8 +347,6 @@ export function ProfilePicker({
             {puces(['Sans', 'Avec'], look.f ?? 0, (i) => tune({ f: i }))}
             <p className="mb-2 mt-4 text-note font-semibold text-brume">Blush</p>
             {puces(BLUSH, look.z ?? 0, (i) => tune({ z: i }))}
-            <p className="mb-2 mt-4 text-note font-semibold text-brume">Rouge à lèvres</p>
-            {nuancier(LEVRES.map((t) => t.label), LEVRES.map((t) => labHex(t.lab)), look.l ?? 0, (i) => tune({ l: i }), undefined, 'Sans')}
           </>
         )}
       </div>

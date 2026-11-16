@@ -1,7 +1,7 @@
 import { useEffect, useId, useState, type ReactNode } from 'react'
 import { ACCESSORIES, EYES, HAIR_COLORS, HAIRSTYLES, SKINS, TOPS, type Look } from '../lib/look'
 import { COULEURS_MONTURE, FORMES_LUNETTES, LUNETTES_IMG } from '../lib/lunettes'
-import { cachedSrc, LEVRES, labHex, peauOf, persoImg, pixelKey, renderPerso, skinLab } from '../lib/personnalise'
+import { cachedSrc, labHex, peauOf, persoImg, pixelKey, renderPerso, skinLab } from '../lib/personnalise'
 import { accessoryOf, accPlace, accTop, CH, CW, persoOf, type Perso } from '../lib/persos'
 import { VISAGES } from '../lib/visages'
 
@@ -65,7 +65,7 @@ export function FaceExtras({ p, look }: { p: Perso; look: Look }) {
   const shade = labHex([skin[0] - 14, skin[1] + 4, skin[2] + 2])
   const light = labHex([Math.min(96, skin[0] + 8), skin[1] - 2, skin[2] - 4])
   const base = labHex(skin)
-  const lip = (look.l ?? 0) > 0 ? labHex(LEVRES[(look.l ?? 1) - 1].lab) : '#5A2A2A'
+  const lip = '#5A2A2A'
   const mx = v.mo[0] * CW, my = v.mo[1] * CH
   const mw = Math.max(v.mo[2] * CW, d * 0.34)
   const nx = v.no[0] * CW, ny = v.no[1] * CH
@@ -135,8 +135,8 @@ export function FaceExtras({ p, look }: { p: Perso; look: Look }) {
       )}
       {u === 4 && (
         <>
-          <ellipse cx={mx} cy={my + mw * 0.02} rx={mw * 0.16} ry={mw * 0.1} fill={(look.l ?? 0) > 0 ? lip : '#C8566A'} />
-          <ellipse cx={mx} cy={my + mw * 0.16} rx={mw * 0.15} ry={mw * 0.1} fill={(look.l ?? 0) > 0 ? lip : '#C8566A'} />
+          <ellipse cx={mx} cy={my + mw * 0.02} rx={mw * 0.16} ry={mw * 0.1} fill="#C8566A" />
+          <ellipse cx={mx} cy={my + mw * 0.16} rx={mw * 0.15} ry={mw * 0.1} fill="#C8566A" />
           <path d={`M${mx - mw * 0.12} ${my + mw * 0.09} L${mx + mw * 0.12} ${my + mw * 0.09}`} stroke="#7A2A3A" strokeWidth={mw * 0.03} strokeLinecap="round" />
         </>
       )}
