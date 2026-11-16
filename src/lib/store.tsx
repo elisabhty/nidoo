@@ -3,7 +3,7 @@ import { SUPABASE_KEY, SUPABASE_URL } from '../config'
 import { createLocalBackend } from './localBackend'
 import { createSupabaseBackend } from './supabaseBackend'
 import type { Backend, Circle, FamilyState, MyRequest } from './types'
-import { errorText } from './util'
+import { errorText, familyLabel } from './util'
 
 const backend: Backend = SUPABASE_URL && SUPABASE_KEY ? createSupabaseBackend() : createLocalBackend()
 const LAST = 'nidoo.maison'
@@ -74,7 +74,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       } catch {
         /* sans conséquence */
       }
-      toastRef.current?.(`Bienvenue dans la famille ${welcomed.family_name} !`)
+      toastRef.current?.(`Bienvenue dans « ${familyLabel(welcomed.family_name)} » !`)
     }
     setCircles(cs)
     const wanted = current.current && cs.some((c) => c.family.id === current.current) ? current.current : (cs[0]?.family.id ?? null)

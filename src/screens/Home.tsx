@@ -13,7 +13,7 @@ import { moodOf } from '../lib/data'
 import { feel, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
 import type { Drawing, Member } from '../lib/types'
-import { greeting, isToday, nextOccurrence, season } from '../lib/util'
+import { familyLabel, greeting, isToday, nextOccurrence, season } from '../lib/util'
 import type { Go } from '../App'
 
 type Open =
@@ -98,7 +98,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
             <button onClick={() => setSheet({ k: 'humeur' })} className="presse pointer-events-auto" aria-label="Mon humeur du jour">
               <Avatar m={me} size={38} mood />
             </button>
-            <p className={`absolute inset-x-24 truncate text-center text-corps font-semibold transition-opacity duration-200 ${scrolled ? 'opacity-100' : 'opacity-0'}`}>Famille {family.name}</p>
+            <p className={`absolute inset-x-24 truncate text-center text-corps font-semibold transition-opacity duration-200 ${scrolled ? 'opacity-100' : 'opacity-0'}`}>{familyLabel(family.name)}</p>
             <button
               onClick={() => {
                 tap()
@@ -124,7 +124,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
           <div className="px-5">
             <p className="text-sous font-medium text-brume">{greeting()} {me.display_name}</p>
             <h1 className="break-words font-rond text-grand">Notre maison</h1>
-            <p className="mt-1 text-sous text-brume">Famille {family.name}</p>
+            <p className="mt-1 text-sous text-brume">{familyLabel(family.name)}</p>
           </div>
 
 

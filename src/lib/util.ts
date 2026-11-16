@@ -150,3 +150,12 @@ export function errorText(e: unknown): string {
   return 'Petit souci, réessaie dans un instant.'
 }
 
+
+/** Le nom affiché d'une maison : « Martin » ou « des Tilleuls » deviennent « Famille Martin », « Famille des Tilleuls » ;
+ *  un nom déjà complet (« Notre maison », « Chez Mamie », « Famille Martin ») reste tel quel. */
+export function familyLabel(name: string) {
+  const n = name.trim()
+  if (/^(de|des|du)\s/.test(n) || /^d[’']/.test(n)) return `Famille ${n}`
+  if (!/\s/.test(n) && /^[A-ZÀ-ÖØ-Ý]/.test(n) && !/^(famille|maison|chez|nid|cocon|foyer)/i.test(n)) return `Famille ${n}`
+  return n
+}

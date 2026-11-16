@@ -8,7 +8,8 @@ import { copy, shareInvite } from '../lib/share'
 import { useStore } from '../lib/store'
 import type { HouseType } from '../lib/types'
 import { encodeLook, randomLook } from '../lib/look'
-import { errorText } from '../lib/util'
+import { errorText, familyLabel } from '../lib/util'
+import { ONBOARDING as T } from '../lib/textes'
 
 type Step = 'accueil' | 'maison' | 'code' | 'profil' | 'invite'
 
@@ -21,7 +22,9 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
   const [houseType, setHouseType] = useState<HouseType>('maison')
   const [code, setCode] = useState(urlCode)
   const [preview, setPreview] = useState<{ name: string; house_type: HouseType; member_count: number } | null>(null)
-  const [lookup, setLookup] = useState<'idle' | 'loading' | 'none' | string>('idle')
+  const [checking, setChecking] = useState(false)
+  const [codeError, setCodeError] = useState('')
+  const [nameError, setNameError] = useState('')
   const [name, setName] = useState('')
   const [avatar, setAvatar] = useState(() => encodeLook(randomLook()))
   const [color, setColor] = useState('lavande')
@@ -36,51 +39,65 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
   }, [step])
   const [created, setCreated] = useState<{ id: string; code: string } | null>(null)
 
-  // Dès que le code est complet, on montre la maison qu'il ouvre.
-  useEffect(() => {
-    setPreview(null)
-    if (code.length !== 6) {
-      setLookup('idle')
-      return
-    }
-    let alive = true
-    setLookup('loading')
-    api
-      .previewFamily(code)
-      .then((p) => {
-        if (!alive) return
+  // Les codes d'invitation font 6 caractères (lettres et chiffres, sans espace).
+  const CODE_LEN = 6
+  const NAME_MAX = 40
+  const verify = async () => {
+    if (checking) return
+    setCodeError('')
+    if (!code) return setCodeError(T.join.empty_code)
+    if (code.length !== CODE_LEN) return setCodeError(T.join.invalid_code)
+    setChecking(true)
+    try {
+      const p = await api.previewFamily(code)
+      if (!p) setCodeError(T.join.invalid_code)
+      else {
         setPreview(p)
-        setLookup(p ? 'idle' : 'none')
-      })
-      .catch((e) => alive && setLookup(errorText(e)))
-    return () => {
-      alive = false
+        setStep('profil')
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String((e as { message?: unknown })?.message ?? e)
+      // un code expiré ou trop d'essais : on garde le message précis ; le reste, c'est la connexion
+      setCodeError(/CODE_EXPIRE|TROP_D_ESSAIS|NON_CONNECTE/.test(msg) ? errorText(e) : /CODE_INCONNU/.test(msg) ? T.join.invalid_code : T.join.network_error)
     }
-  }, [api, code])
+    setChecking(false)
+  }
+  const nameTooLong = family.trim().length > NAME_MAX
 
-  const finish = async () => {
+  const create = async () => {
+    if (busy) return
+    setNameError('')
+    if (!family.trim()) return setNameError(T.create.empty_name)
+    if (nameTooLong) return setNameError(T.create.name_too_long)
     setBusy(true)
     try {
-      if (path === 'creer') {
-        const id = await api.createFamily({ name: family.trim(), houseType, displayName: name.trim(), avatar, color })
-        const cs = await api.circles()
-        success()
-        setCreated({ id, code: cs.find((c) => c.family.id === id)?.family.invite_code ?? '' })
-        setStep('invite')
+      const id = await api.createFamily({ name: family.trim(), houseType, displayName: name.trim(), avatar, color })
+      const cs = await api.circles()
+      success()
+      setCreated({ id, code: cs.find((c) => c.family.id === id)?.family.invite_code ?? '' })
+      setStep('invite')
+    } catch {
+      setNameError(T.create.create_error)
+    }
+    setBusy(false)
+  }
+
+  const finish = async () => {
+    if (path === 'creer') return setStep('maison')
+    setBusy(true)
+    try {
+      // Le code ne fait pas entrer : il envoie une demande à la famille.
+      const id = await api.joinFamily({ code, displayName: name.trim(), avatar, color })
+      history.replaceState(null, '', location.pathname)
+      success()
+      if ((await api.circles()).some((c) => c.family.id === id)) {
+        await open(id)
+        onCancel?.()
       } else {
-        // Le code ne fait pas entrer : il envoie une demande à la famille.
-        const id = await api.joinFamily({ code, displayName: name.trim(), avatar, color })
-        history.replaceState(null, '', location.pathname)
-        success()
-        if ((await api.circles()).some((c) => c.family.id === id)) {
-          await open(id)
-          onCancel?.()
-        } else {
-          await reload()
-          if (onCancel) {
-            toast(`Demande envoyée à la famille ${preview?.name ?? ''}`.trim())
-            onCancel()
-          }
+        await reload()
+        if (onCancel) {
+          toast(preview ? `Demande envoyée à « ${familyLabel(preview.name)} »` : 'Demande envoyée')
+          onCancel()
         }
       }
     } catch (e) {
@@ -90,11 +107,16 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
   }
 
   const back = () => {
-    if (step === 'profil') setStep(path === 'creer' ? 'maison' : 'code')
+    if (step === 'maison') setStep('profil')
+    else if (step === 'profil') setStep(path === 'creer' ? 'accueil' : 'code')
     else if (step === 'accueil' && onCancel) onCancel()
     else setStep('accueil')
   }
-  const progress = step === 'maison' || step === 'code' ? 1 : step === 'profil' ? 2 : step === 'invite' ? 3 : 0
+  // créer : personnage, maison, bienvenue ; rejoindre : invitation, personnage, bienvenue
+  const progress =
+    path === 'creer'
+      ? step === 'profil' ? 1 : step === 'maison' ? 2 : step === 'invite' ? 3 : 0
+      : step === 'code' ? 1 : step === 'profil' ? 2 : 0
   const showBack = (step !== 'accueil' || !!onCancel) && step !== 'invite'
 
   return (
@@ -102,14 +124,14 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
       <div className="flex h-[52px] shrink-0 items-center">
         {showBack && (
           <button onClick={back} className="presse -ml-2 flex h-11 items-center gap-0.5 pr-3 text-corps text-teinte" aria-label="Retour">
-            <ChevronLeft size={26} strokeWidth={2.4} /> {step === 'accueil' ? 'Annuler' : 'Retour'}
+            <ChevronLeft size={26} strokeWidth={2.4} /> {step === 'accueil' ? 'Annuler' : T.join.back}
           </button>
         )}
       </div>
 
       {progress > 0 && (
         <ol aria-label="Étapes de démarrage" className="mb-5 grid grid-cols-3 gap-2">
-          {[path === 'creer' ? 'Maison' : 'Invitation', 'Personnage', 'Bienvenue'].map((label, i) => (
+          {(path === 'creer' ? ['Personnage', 'Maison', 'Bienvenue'] : ['Invitation', 'Personnage', 'Bienvenue']).map((label, i) => (
             <li key={label} aria-current={progress === i + 1 ? 'step' : undefined} className={`text-note font-semibold ${progress >= i + 1 ? 'text-teinte-fonce' : 'text-[#625A75]'}`}>
               <span aria-hidden="true" className={`mb-2 block h-1 rounded-full ${progress >= i + 1 ? 'bg-teinte' : 'bg-remplissage'}`} />
               {i + 1}. {label}
@@ -121,74 +143,110 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
         <div className="anim-entre flex flex-1 flex-col">
           <div className="flex flex-1 flex-col items-center justify-center pb-6 pt-3 text-center">
             <img src="./panda.webp" alt="Nidoo, le panda roux" className="anim-flotte h-[132px] w-[132px] rounded-[30px] shadow-[0_24px_50px_-18px_rgba(102,70,204,0.55)]" />
-            <h1 className="outline-none mt-6 font-rond text-[40px] font-bold leading-none tracking-[-0.5px]">NIDOO</h1>
-            <p className="mt-3 max-w-[290px] font-rond text-titre2">Un petit chez-vous, même à distance.</p>
-            <p className="mt-3 max-w-[290px] text-corps text-[#625A75]">Une maison pour vos proches. Une photo ou un dessin pour leur faire signe.</p>
+            <p aria-hidden="true" className="mt-6 font-rond text-[40px] font-bold leading-none tracking-[-0.5px]">NIDOO</p>
+            <h1 className="outline-none mt-3 max-w-[290px] font-rond text-titre2">{T.home.headline}</h1>
+            <p className="mt-3 max-w-[290px] text-corps text-[#625A75]">{T.home.description}</p>
             <div className="onboarding-preview mt-5 w-full max-w-[300px] overflow-hidden rounded-groupe shadow-carte" role="img" aria-label="Aperçu de votre maison virtuelle">
               <House type="maison" items={[]} phase="jour" className="!aspect-[2/1]" />
             </div>
           </div>
-          <Btn onClick={() => { setPath('creer'); setStep('maison') }}>Créer notre maison</Btn>
-          <Btn kind="teinte" className="mt-2.5" onClick={() => { setPath('rejoindre'); setStep('code') }}>J’ai un code d’invitation</Btn>
+          <Btn onClick={() => { setPath('creer'); setStep('profil') }}>{T.home.create_cta}</Btn>
+          <Btn kind="teinte" className="mt-2.5" onClick={() => { setPath('rejoindre'); setStep('code') }}>{T.home.join_cta}</Btn>
         </div>
       )}
 
       {step === 'maison' && (
-        <div className="anim-entre flex flex-1 flex-col">
-          <h1 className="outline-none font-rond text-grand">Votre maison</h1>
-          <p className="mt-1 text-sous text-brume">Donnez-lui un nom et choisissez votre petit chez-vous.</p>
-          <div className="groupe mt-5 flex items-center gap-2 px-4">
-            <span className="text-corps text-brume">Famille</span>
-            <input aria-label="Nom de la famille" autoComplete="off" enterKeyHint="next" className="h-[52px] min-w-0 flex-1 bg-transparent text-corps font-semibold outline-none placeholder:font-normal placeholder:text-pale" placeholder="Martin" maxLength={32} value={family} onChange={(e) => setFamily(e.target.value)} />
-          </div>
+        <form className="anim-entre flex flex-1 flex-col" noValidate onSubmit={(e) => (e.preventDefault(), void create())}>
+          <h1 className="outline-none font-rond text-grand">{T.create.title}</h1>
+          <p className="mt-1 text-sous text-brume">{T.create.description}</p>
+          <label htmlFor="nom-maison" className="mb-1.5 mt-5 px-1 text-note font-semibold text-brume">
+            {T.create.field_label}
+          </label>
+          <input
+            id="nom-maison"
+            autoComplete="off"
+            enterKeyHint="done"
+            className={`champ !bg-carte font-semibold ${nameError ? 'ring-2 ring-rouge/50' : ''}`}
+            placeholder={T.create.placeholder}
+            maxLength={NAME_MAX + 20}
+            value={family}
+            aria-invalid={!!nameError || nameTooLong}
+            aria-describedby="nom-maison-aide"
+            onChange={(e) => {
+              setFamily(e.target.value)
+              setNameError('')
+            }}
+          />
+          <p id="nom-maison-aide" role={nameError || nameTooLong ? 'alert' : undefined} className={`mt-1.5 min-h-[20px] px-1 text-note ${nameError || nameTooLong ? 'text-rouge' : 'text-brume'}`}>
+            {nameError || (nameTooLong ? T.create.name_too_long : family.length > NAME_MAX - 10 ? `${family.trim().length}/${NAME_MAX}` : '')}
+          </p>
           <HousePicker value={houseType} onChange={setHouseType} />
           <div className="flex-1" />
-          <Btn className="mt-6" onClick={() => setStep('profil')} disabled={!family.trim()}>Continuer</Btn>
-        </div>
+          <Btn className="mt-6" type="submit" disabled={busy}>
+            {busy ? T.create.loading : T.create.submit}
+          </Btn>
+        </form>
       )}
 
       {step === 'code' && (
-        <div className="anim-entre flex flex-1 flex-col">
-          <h1 className="outline-none font-rond text-grand">Ton code</h1>
-          <p className="mt-1 text-sous text-brume">Six caractères, envoyés par un proche. Un responsable de la famille acceptera ta demande avant que tu entres.</p>
+        <form className="anim-entre flex flex-1 flex-col" noValidate onSubmit={(e) => (e.preventDefault(), void verify())}>
+          <h1 className="outline-none font-rond text-grand">{T.join.title}</h1>
+          <p className="mt-1 text-sous text-brume">{T.join.description}</p>
+          <label htmlFor="code-invitation" className="mb-1.5 mt-5 px-1 text-note font-semibold text-brume">
+            {T.join.field_label}
+          </label>
           <input
-            className="mt-5 h-[68px] w-full rounded-groupe bg-carte text-center font-rond text-[30px] font-semibold uppercase tracking-[0.3em] outline-none placeholder:text-pale focus:ring-2 focus:ring-teinte/40"
-            aria-label="Code d’invitation à six caractères"
-            placeholder="······"
-            maxLength={6}
+            id="code-invitation"
+            className={`h-[68px] w-full rounded-groupe bg-carte text-center font-rond text-[30px] font-semibold uppercase tracking-[0.3em] outline-none placeholder:text-[20px] placeholder:font-medium placeholder:normal-case placeholder:tracking-normal placeholder:text-pale focus:ring-2 focus:ring-teinte/40 ${codeError ? 'ring-2 ring-rouge/50' : ''}`}
+            placeholder={T.join.placeholder}
+            maxLength={CODE_LEN}
+            inputMode="text"
             autoCapitalize="characters"
+            autoComplete="one-time-code"
             autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="go"
+            aria-invalid={!!codeError}
+            aria-describedby="code-aide"
             value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+            onChange={(e) => {
+              setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, CODE_LEN))
+              setCodeError('')
+            }}
             autoFocus
           />
-          {preview && (
-            <div className="anim-pop groupe mt-3 flex items-center gap-3 p-3">
-              <div className="h-[58px] w-[76px] shrink-0 overflow-hidden rounded-[14px]">
-                <House type={preview.house_type} items={[]} phase="jour" className="h-full !aspect-auto" bare />
-              </div>
-              <div>
-                <p className="font-rond text-titre3">Famille {preview.name}</p>
-                <p className="text-note text-brume">{preview.member_count} {preview.member_count > 1 ? 'membres' : 'membre'} · entrée sur acceptation</p>
-              </div>
-            </div>
-          )}
-          {lookup === 'loading' && <p className="mt-3 text-center text-sous text-brume">Recherche de la maison…</p>}
-          {lookup === 'none' && <p className="mt-3 text-center text-sous text-rouge">Aucune maison avec ce code. Vérifie-le avec la personne qui te l’a envoyé.</p>}
-          {lookup !== 'idle' && lookup !== 'loading' && lookup !== 'none' && <p className="mt-3 text-center text-sous text-rouge">{lookup}</p>}
+          <p id="code-aide" role={codeError ? 'alert' : 'status'} className={`mt-2 min-h-[20px] px-1 text-center text-sous ${codeError ? 'text-rouge' : 'text-brume'}`}>
+            {codeError || (checking ? T.join.loading : '')}
+          </p>
           <div className="flex-1" />
-          <Btn className="mt-6" onClick={() => setStep('profil')} disabled={!preview}>C’est bien ma famille</Btn>
-        </div>
+          <p className="mt-6 text-center text-sous text-brume">{T.join.helper}</p>
+          <Btn className="mt-3" type="submit" disabled={checking}>
+            {checking ? T.join.loading : T.join.submit}
+          </Btn>
+        </form>
       )}
 
       {step === 'profil' && (
         <div className="anim-entre flex flex-1 flex-col">
+          {path === 'rejoindre' && preview && (
+            <div className="groupe mb-4 flex items-center gap-3 p-3">
+              <div className="h-[58px] w-[76px] shrink-0 overflow-hidden rounded-[14px]">
+                <House type={preview.house_type} items={[]} phase="jour" className="h-full !aspect-auto" bare />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate font-rond text-titre3">{familyLabel(preview.name)}</p>
+                <p className="text-note text-brume">
+                  {preview.member_count} {preview.member_count > 1 ? 'membres' : 'membre'} · entrée sur acceptation
+                </p>
+              </div>
+            </div>
+          )}
           <h1 className="outline-none font-rond text-grand">Et toi ?</h1>
           <p className="mb-4 mt-1 text-sous text-brume">Ton prénom, et le personnage qui te ressemble. Tu pourras le changer à tout moment.</p>
           <ProfilePicker compact name={name} setName={setName} avatar={avatar} setAvatar={setAvatar} color={color} setColor={setColor} />
           <div className="flex-1" />
           <Btn className="mt-6 shrink-0" onClick={finish} disabled={busy || !name.trim()}>
-            {busy ? 'Un instant…' : path === 'creer' ? 'Construire la maison' : 'Demander à entrer'}
+            {busy ? 'Un instant…' : path === 'creer' ? 'Continuer' : 'Demander à entrer'}
           </Btn>
         </div>
       )}

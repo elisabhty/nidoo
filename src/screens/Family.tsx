@@ -12,7 +12,7 @@ import { copy, shareInvite } from '../lib/share'
 import { useHome } from '../lib/store'
 import type { Drawing, HouseType, Member } from '../lib/types'
 import { AGES, encodeLook, lookOf, randomLook } from '../lib/look'
-import { dayLabel, errorText, isToday } from '../lib/util'
+import { dayLabel, errorText, familyLabel, isToday } from '../lib/util'
 import { upcoming } from './Home'
 import { HousePicker, ProfilePicker } from '../components/pickers'
 import Onboarding from './Onboarding'
@@ -69,7 +69,7 @@ function Widgets({ onDraw, onOpen }: { onDraw: () => void; onOpen: (d: Drawing) 
           <House type={family.house_type} items={state.houseItems} people={people} cares={state.cares} since={state.houseSince} pet={state.pet} plots={state.plots} gold={state.owned.includes('gamelle:or')} photos={photos} />
           <div className="flex min-h-0 flex-1 flex-col justify-center gap-1.5 px-4">
             <div className="flex items-baseline justify-between gap-2">
-              <p className="truncate font-rond text-titre3">Famille {family.name}</p>
+              <p className="truncate font-rond text-titre3">{familyLabel(family.name)}</p>
               <span className="flex shrink-0 items-center gap-1 text-note font-semibold text-brume">
                 <Art name="picto-etoile" size={15} /> {family.stars}
               </span>
@@ -282,7 +282,7 @@ export default function Family({ onGuide, onActivities }: { onGuide: () => void;
               <House type={family.house_type} items={[]} className="h-full !aspect-auto" bare />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate font-rond text-titre3">Famille {family.name}</p>
+              <p className="truncate font-rond text-titre3">{familyLabel(family.name)}</p>
               <p className="text-note text-brume">
                 {members.filter((m) => m.user_id).length} sur {limit} membres{members.some((m) => !m.user_id) ? ` + ${members.filter((m) => !m.user_id).length} sans téléphone` : ''} · {family.plan === 'plus' ? 'Famille+' : 'Gratuit'}
               </p>
@@ -396,7 +396,7 @@ export default function Family({ onGuide, onActivities }: { onGuide: () => void;
               key={c.family.id}
               icon={<HouseIcon size={17} strokeWidth={2.4} />}
               tint="#F58B5C"
-              label={`Famille ${c.family.name}`}
+              label={familyLabel(c.family.name)}
               chevron={false}
               value={c.family.id === family.id ? <Check size={19} strokeWidth={2.8} className="text-teinte" /> : undefined}
               onClick={() => {
@@ -410,14 +410,14 @@ export default function Family({ onGuide, onActivities }: { onGuide: () => void;
               key={r.id}
               icon={<Clock size={17} strokeWidth={2.4} />}
               tint={r.status === 'refusee' ? '#FF3B30' : '#8E8E93'}
-              label={`Famille ${r.family_name}`}
+              label={familyLabel(r.family_name)}
               value={r.status === 'refusee' ? 'Refusée' : 'En attente'}
               chevron={false}
               onClick={async () => {
                 const ok = await confirmer(
                   r.status === 'refusee'
-                    ? { title: `La famille ${r.family_name} n’a pas accepté ta demande.`, confirm: 'Effacer' }
-                    : { title: `Annuler ta demande pour la famille ${r.family_name} ?`, confirm: 'Annuler la demande', destructive: true },
+                    ? { title: `« ${familyLabel(r.family_name)} » n’a pas accepté ta demande.`, confirm: 'Effacer' }
+                    : { title: `Annuler ta demande pour « ${familyLabel(r.family_name)} » ?`, confirm: 'Annuler la demande', destructive: true },
                 )
                 if (ok) void run((a) => a.cancelRequest(r.id))
               }}
@@ -443,7 +443,7 @@ export default function Family({ onGuide, onActivities }: { onGuide: () => void;
             chevron={false}
             last
             onClick={async () =>
-              (await confirmer({ title: `Quitter la maison de la famille ${family.name} ?`, message: 'Tes photos et tes messages y seront retirés.', confirm: 'Quitter la maison', destructive: true })) && run((a) => a.leave(me.id))
+              (await confirmer({ title: `Quitter « ${familyLabel(family.name)} » ?`, message: 'Tes photos et tes messages y seront retirés.', confirm: 'Quitter la maison', destructive: true })) && run((a) => a.leave(me.id))
             }
           />
         </div>
@@ -462,10 +462,10 @@ export default function Family({ onGuide, onActivities }: { onGuide: () => void;
 
       {sheet === 'maison' && (
         <Sheet title="Notre maison" onClose={() => setSheet(null)}>
-          <div className="groupe flex items-center gap-2 px-4">
-            <span className="text-corps text-brume">Famille</span>
-            <input className="h-[50px] min-w-0 flex-1 bg-transparent text-corps outline-none" maxLength={32} value={famName} onChange={(e) => setFamName(e.target.value)} aria-label="Nom de la famille" />
-          </div>
+          <label htmlFor="nom-maison-modif" className="mb-1.5 block px-1 text-note font-semibold text-brume">
+            Nom de la maison
+          </label>
+          <input id="nom-maison-modif" className="champ !bg-carte font-semibold" maxLength={40} placeholder="Notre maison" value={famName} onChange={(e) => setFamName(e.target.value)} />
           <HousePicker value={houseType} onChange={setHouseType} />
           <Btn className="mt-5" disabled={!famName.trim()} onClick={async () => (await run((a) => a.updateFamily(family.id, { name: famName.trim(), house_type: houseType }), 'Maison mise à jour')) && setSheet(null)}>
             Enregistrer

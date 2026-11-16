@@ -3,7 +3,7 @@ import { useState } from 'react'
 import House from '../components/House'
 import { Btn } from '../components/ui'
 import { useStore } from '../lib/store'
-import { ago, errorText } from '../lib/util'
+import { ago, errorText, familyLabel } from '../lib/util'
 
 /** On a tapé le code : on attend qu'un responsable de la famille nous ouvre la porte. */
 export default function Waiting() {
@@ -33,7 +33,7 @@ export default function Waiting() {
 
   const steps = [
     { label: 'Code vérifié', done: true },
-    { label: 'Demande envoyée à la famille', done: true },
+    { label: 'Demande envoyée à la maison', done: true },
     { label: refused ? 'Demande refusée' : 'Un responsable accepte ta demande', done: false },
   ]
 
@@ -48,8 +48,8 @@ export default function Waiting() {
         <h1 className="mt-6 text-center font-rond text-titre1">{refused ? 'Demande non acceptée' : 'Demande envoyée'}</h1>
         <p className="mx-auto mt-1.5 max-w-[310px] text-center text-sous text-brume">
           {refused
-            ? `La famille ${r.family_name} n’a pas accepté ta demande. Vérifie avec eux le code qu’ils t’ont envoyé.`
-            : `Un responsable de la famille ${r.family_name} doit t’ouvrir la porte. Dès qu’il accepte, tu entres : cet écran se met à jour tout seul.`}
+            ? `« ${familyLabel(r.family_name)} » n’a pas accepté ta demande. Vérifie le code qu’on t’a envoyé.`
+            : `Un responsable de « ${familyLabel(r.family_name)} » doit t’ouvrir la porte. Dès qu’il accepte, tu entres : cet écran se met à jour tout seul.`}
         </p>
 
         <div className="groupe mt-6 shadow-carte">
@@ -70,7 +70,7 @@ export default function Waiting() {
             </div>
           ))}
         </div>
-        {!refused && <p className="px-4 pt-2 text-center text-note text-brume">Envoyée {ago(r.created_at)}. Tu ne vois rien de la famille tant que ta demande n’est pas acceptée.</p>}
+        {!refused && <p className="px-4 pt-2 text-center text-note text-brume">Envoyée {ago(r.created_at)}. Tu ne vois rien de la maison tant que ta demande n’est pas acceptée.</p>}
 
         {!refused && <><p className="mt-5 text-center text-sous text-brume">Tu peux fermer l’application et revenir plus tard avec ce même appareil.</p><Btn className="mt-4" disabled={checking || busy} onClick={() => void check()}>{checking ? 'Vérification…' : 'Vérifier ma demande'}</Btn>{checked && <p role="status" className="mt-2 text-center text-note text-brume">Ta demande est toujours en attente de validation.</p>}</>}
         <div className="flex-1" />
