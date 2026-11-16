@@ -123,7 +123,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
             <img src="./panda.webp" alt="Nidoo, le panda roux" className="anim-flotte h-[132px] w-[132px] rounded-[30px] shadow-[0_24px_50px_-18px_rgba(102,70,204,0.55)]" />
             <h1 className="outline-none mt-6 font-rond text-[40px] font-bold leading-none tracking-[-0.5px]">NIDOO</h1>
             <p className="mt-3 max-w-[290px] font-rond text-titre2">Un petit chez-vous, même à distance.</p>
-            <p className="mt-3 max-w-[290px] text-corps text-[#625A75]">Partagez vos humeurs, vos photos et de petites attentions dans la maison de votre famille.</p>
+            <p className="mt-3 max-w-[290px] text-corps text-[#625A75]">Une maison pour vos proches. Une photo ou un dessin pour leur faire signe.</p>
             <div className="onboarding-preview mt-5 w-full max-w-[300px] overflow-hidden rounded-groupe shadow-carte" role="img" aria-label="Aperçu de votre maison virtuelle">
               <House type="maison" items={[]} phase="jour" className="!aspect-[2/1]" />
             </div>

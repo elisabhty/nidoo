@@ -361,17 +361,18 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
   if (phase === 'format') return <Sheet title={recipient ? `Pour ${recipient.display_name}` : 'Pour toute la famille'} onClose={onClose}>
     <button onClick={() => setPhase('destinataire')} className="mb-4 min-h-11 text-sous font-semibold text-teinte-fonce">Changer de destinataire</button>
     <h3 className="mb-2 font-rond text-titre1">Un petit geste, à ta façon.</h3>
-    <p className="mb-6 text-corps text-brume">Commence avec une photo ou une feuille blanche. Tu pourras dessiner sur la photo si tu en as envie.</p>
+    <p className="mb-6 text-corps text-brume">Une photo de ton quotidien ou un dessin fait pour eux.</p>
     <Btn onClick={() => {setPhase('edition'); setTool('feutre')}}><Pencil size={20} />Faire un dessin</Btn>
-    <Btn kind="teinte" className="mt-3" onClick={() => gallery.current?.click()}><Images size={20} />Choisir une photo</Btn>
-    <Btn kind="gris" className="mt-3" onClick={() => camera.current?.click()}><Camera size={20} />Prendre une photo</Btn>
+    <Btn kind="teinte" className="mt-3" onClick={() => void photoMenu()}><Images size={20} />Une photo</Btn>
     <input ref={gallery} type="file" accept="image/*" hidden onChange={e => { const file=e.target.files?.[0]; if(file) void pick(file).then(ok => { if(ok) setPhase('edition') }); e.target.value='' }} />
     <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={e => { const file=e.target.files?.[0]; if(file) void pick(file).then(ok => { if(ok) setPhase('edition') }); e.target.value='' }} />
   </Sheet>
 
   return (
-    <Sheet title="Créer une attention" onClose={() => { if (!busy) onClose() }} tall>
-      <p className="mb-3 text-note text-brume">Ton brouillon reste disponible tant que l’application reste ouverte.</p>
+    <Sheet title="Créer une attention" onClose={() => { if (!busy) onClose() }} tall footer={<>
+      <Btn onClick={send} disabled={empty || busy}>{busy ? 'Envoi…' : recipient ? `Envoyer à ${recipient.display_name}` : 'Envoyer à toute la famille'}</Btn>
+      <p className="pt-2 text-center text-note text-brume">{recipient ? `Une attention pour ${recipient.display_name}.` : 'Visible par toute la famille.'}</p>
+    </>}>
       <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={(e) => void pick(e.target.files?.[0]).then(() => (e.target.value = ''))} />
       <input ref={gallery} type="file" accept="image/*" hidden onChange={(e) => void pick(e.target.files?.[0]).then(() => (e.target.value = ''))} />
       <button onClick={() => setPhase('destinataire')} className="mb-3 min-h-11 text-sous font-semibold text-teinte-fonce">{recipient ? `Pour ${recipient.display_name}` : 'Pour toute la famille'} · Modifier</button>
@@ -381,12 +382,11 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
         <button
           onClick={() => {
             tap()
-            if (pic) void photoMenu()
-            else camera.current?.click()
+            void photoMenu()
           }}
           className="presse flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full bg-carte text-sous font-semibold text-teinte shadow-carte"
         >
-          <Camera size={17} strokeWidth={2.3} /> {pic ? 'Changer la photo' : 'Prendre une photo'}
+          <Images size={17} strokeWidth={2.3} /> {pic ? 'Changer la photo' : 'Ajouter une photo'}
         </button>
         {pic ? (
           <button
@@ -399,17 +399,7 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
           >
             <Move size={16} strokeWidth={2.3} /> Cadrer
           </button>
-        ) : (
-          <button
-            onClick={() => {
-              tap()
-              gallery.current?.click()
-            }}
-            className="presse flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full bg-carte text-sous font-semibold text-teinte shadow-carte"
-          >
-            <Images size={17} strokeWidth={2.3} /> Photothèque
-          </button>
-        )}
+        ) : null}
       </div>
 
       {/* la feuille, à la forme exacte du widget */}
@@ -478,7 +468,7 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
           }}
         />
         {empty && (
-          <p className={`pointer-events-none absolute inset-0 flex items-center justify-center px-6 text-center text-sous font-medium ${bg === '#1E1B33' ? 'text-white/45' : 'text-pale'}`}>Dessine ici avec ton doigt, ou ajoute une photo</p>
+          <p className={`pointer-events-none absolute inset-0 flex items-center justify-center px-6 text-center text-sous font-medium ${bg === '#1E1B33' ? 'text-white/75' : 'text-brume'}`}>Dessine ici avec ton doigt, ou ajoute une photo</p>
         )}
         {tool === 'cadrer' && (
           <p className="verre pointer-events-none absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full px-3 py-1 text-legende font-semibold text-encre">
@@ -590,12 +580,6 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
         </button>
       </div>
 
-      <Btn className="mt-5" onClick={send} disabled={empty || busy}>
-        {busy ? 'Envoi…' : recipient ? `Envoyer à ${recipient.display_name}` : 'Envoyer à toute la famille'}
-      </Btn>
-      <p className="px-2 pt-2 text-center text-note text-brume">
-        {recipient ? `Elle arrive tout de suite chez ${recipient.display_name}, et ton dessin se refait sous ses yeux.` : 'Elle arrive tout de suite chez chacun, et ton dessin se refait sous leurs yeux.'}
-      </p>
     </Sheet>
   )
 }

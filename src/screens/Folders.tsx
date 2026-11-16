@@ -1,11 +1,11 @@
 import {
-  ArrowUp, Camera, Check, ChevronLeft, ChevronRight, Ellipsis, FolderPlus, ImagePlus, Lock, NotebookPen, PenLine, Pencil, Search, Trash2, UsersRound, X,
+  ArrowUp, Camera, Check, ChevronLeft, ChevronRight, Ellipsis, FolderPlus, ImagePlus, Lock, NotebookPen, PenLine, Pencil, Plus, Search, Trash2, UsersRound, X,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { FolderCover, MemberStack } from '../components/folder'
 import { DrawingCanvas, DrawingsSheet, DrawSheet } from '../components/drawing'
 import { ComposeSheet } from '../components/sheets'
-import { Art, Avatar, Btn, choisir, confirmer, Rond, Screen, Segments, Sheet, Vide } from '../components/ui'
+import { Art, Avatar, Btn, choisir, confirmer, Rond, Screen, SearchField, Segments, Sheet, Vide } from '../components/ui'
 import { contentLine, folderStats, membersOf, plural, subtreeIds, whoText } from '../lib/folders'
 import { select, success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
@@ -90,11 +90,6 @@ function Accueil({ seg, setSeg, onOpen }: { seg: DossiersSeg; setSeg: (s: Dossie
           <Segments value={seg} onChange={setSeg} options={[{ key: 'dossiers', label: 'Albums' }, { key: 'fil', label: 'Fil familial' }, { key: 'attentions', label: 'Attentions' }]} />
         </div>
 
-        <div className="mx-5 mb-5">
-          <Btn onClick={() => seg === 'dossiers' ? setCreating(true) : setCompose('instant')}>
-            {seg === 'dossiers' ? 'Créer un dossier de souvenirs' : 'Partager une attention'}
-          </Btn>
-        </div>
         {seg === 'attentions' ? <>
           <div className="mx-5 mb-5"><Segments value={direction} onChange={setDirection} options={[{key:'recues',label:'Reçues'},{key:'envoyees',label:'Envoyées'}]} /></div>
           <div className="space-y-4 px-4">{state.drawings.filter(d => direction === 'envoyees' ? d.from_member === state.me.id : d.from_member !== state.me.id && (!d.to_member || d.to_member === state.me.id)).map(d => {
@@ -114,17 +109,7 @@ function Accueil({ seg, setSeg, onOpen }: { seg: DossiersSeg; setSeg: (s: Dossie
           </Vide>
         ) : (
           <>
-            {total > 0 && (
-              <label className="mx-4 mb-4 flex min-h-11 items-center gap-2 rounded-[12px] bg-remplissage px-3 text-brume">
-                <Search size={17} strokeWidth={2.4} />
-                <input className="min-w-0 flex-1 bg-transparent text-corps text-encre outline-none placeholder:text-brume" aria-label="Rechercher un dossier" placeholder="Rechercher un dossier" value={query} onChange={(e) => setQuery(e.target.value)} />
-                {query && (
-                  <button onClick={() => setQuery('')} className="flex h-5 w-5 items-center justify-center rounded-full bg-pale text-white" aria-label="Effacer">
-                    <X size={12} strokeWidth={3} />
-                  </button>
-                )}
-              </label>
-            )}
+            <SearchField value={query} onChange={setQuery} placeholder="Rechercher un album" label="Rechercher un dossier" />
             <div className="mx-5 mb-4 flex items-center justify-between"><h2 className="font-rond text-titre2">{query ? 'Résultats' : 'Votre collection'}</h2><span className="text-note text-brume">{roots.length} dossier{roots.length > 1 ? 's' : ''}</span></div>
             {roots.length === 0 ? (
               <p className="px-8 py-10 text-center text-sous text-brume">Aucun dossier ne correspond à « {query.trim()} ».</p>
@@ -133,12 +118,7 @@ function Accueil({ seg, setSeg, onOpen }: { seg: DossiersSeg; setSeg: (s: Dossie
                 {roots.map(({ f, s }) => (
                   <FolderCard key={f.id} folder={f} cover={s.cover} line={contentLine(s)} last={s.last} onOpen={() => onOpen(f.id)} />
                 ))}
-                {!query && (
-                  <button onClick={() => setCreating(true)} className="presse flex min-h-[64px] flex-row items-center justify-center gap-2 rounded-[24px] border-[1.5px] border-dashed border-pale text-brume">
-                    <FolderPlus size={28} strokeWidth={1.8} />
-                    <span className="text-sous font-medium">Nouveau dossier</span>
-                  </button>
-                )}
+
               </div>
             )}
           </>
@@ -318,7 +298,7 @@ function FolderView({ id, backLabel, onBack, onOpen }: { id: string; backLabel: 
       <div className="relative h-full">
         {/* barre du haut : boutons en verre sur la couverture, puis barre floutée au défilement */}
         <div
-          className={`absolute inset-x-0 top-0 z-20 transition-[background-color,backdrop-filter,border-color] duration-200 ${scrolled ? 'border-b border-trait bg-fond/80 backdrop-blur-2xl backdrop-saturate-150' : 'border-b border-transparent'}`}
+          className={`ios-topbar absolute inset-x-0 top-0 z-20 transition-[background-color,backdrop-filter,border-color] duration-200 ${scrolled ? 'ios-toolbar-active' : 'border-b border-transparent'}`}
           style={{ paddingTop: 'var(--sat)' }}
         >
           <div className="relative flex h-[52px] items-center justify-between px-4">
@@ -336,7 +316,7 @@ function FolderView({ id, backLabel, onBack, onOpen }: { id: string; backLabel: 
             <p className={`absolute inset-x-[34%] truncate text-center text-corps font-semibold transition-opacity duration-200 ${scrolled ? 'opacity-100' : 'opacity-0'}`}>{folder.name}</p>
             <div className="flex items-center gap-2">
               <Rond label="Options du dossier" onClick={menu}><Ellipsis size={20} /></Rond>
-              <Rond label="Ajouter" tint onClick={add}><span className="text-[22px] font-medium leading-none">+</span></Rond>
+              <Rond label="Ajouter" tint onClick={add}><Plus size={21} strokeWidth={2.4} /></Rond>
             </div>
           </div>
         </div>

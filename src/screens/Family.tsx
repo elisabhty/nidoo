@@ -126,7 +126,7 @@ function Widgets({ onDraw, onOpen }: { onDraw: () => void; onOpen: (d: Drawing) 
   )
 }
 
-export default function Family({ onGuide }: { onGuide: () => void }) {
+export default function Family({ onGuide, onActivities }: { onGuide: () => void; onActivities: () => void }) {
   const { state, run, api, circles, open, toast, requests, reload } = useHome()
   const { family, me, members } = state
   const [sheet, setSheet] = useState<Open>(null)
@@ -250,7 +250,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
     <>
       <Screen title="Notre famille" trailing={<Rond label="Inviter un proche" tint onClick={invite}><Share size={18} strokeWidth={2.4} /></Rond>}>
         <p className="px-5 pb-5 text-sous text-brume">Votre cercle, votre maison, vos habitudes.</p>
-        <div className="mx-5 mb-5"><Btn onClick={invite}>Inviter un proche</Btn></div>
+
         <div className="mx-5 mb-5"><Segments value={section} onChange={setSection} options={[{key:'proches',label:'Mes proches'},{key:'maison',label:'La maison'},{key:'reglages',label:'Réglages'}]} /></div>
         {section === 'reglages' && api.mode === 'local' && (
           <div className="mx-4 mb-3 mt-1 rounded-[16px] bg-peche-doux px-4 py-3">
@@ -374,6 +374,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
 
         </>}
         {section === 'maison' && <>
+        <div className="groupe mx-4 mb-6"><Row icon={<CircleHelp size={18} />} label="À vivre ensemble" hint="Question du jour, défis et décorations" onClick={onActivities} last /></div>
         <Section title="Widgets">
           <p className="-mt-1.5 mb-3 px-5 text-sous text-brume">Aperçu en direct de ce que chacun verra sur son écran d’accueil.</p>
           <Widgets onDraw={() => setDessin({ to: null })} onOpen={(d) => setDessins(d)} />

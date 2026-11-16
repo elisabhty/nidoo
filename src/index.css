@@ -137,31 +137,95 @@ button:focus-visible, a:focus-visible { outline: 3px solid #6646CC; outline-offs
   background: linear-gradient(180deg, #7C5DDF 0%, #6948CF 100%);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 4px 12px -6px rgba(87,55,182,.38);
 }
-.ios-segments { background: rgba(106,91,146,.09); box-shadow: inset 0 1px 2px rgba(29,26,43,.025); }
+.ios-segments {
+  background: rgba(104,87,143,.075);
+  border: 1px solid rgba(255,255,255,.48);
+  box-shadow: inset 0 1px 2px rgba(29,26,43,.025);
+}
 .ios-tabbar {
-  background: rgba(255,255,255,.8);
-  border: 1px solid rgba(255,255,255,.85);
-  box-shadow: 0 10px 36px -12px rgba(40,27,70,.22), inset 0 1px 0 rgba(255,255,255,.95);
-  backdrop-filter: blur(28px) saturate(160%);
-  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  background: linear-gradient(155deg, rgba(255,255,255,.84), rgba(250,248,255,.58) 55%, rgba(241,235,255,.72));
+  border: 1px solid rgba(255,255,255,.8);
+  box-shadow: 0 14px 42px -16px rgba(40,27,70,.28), 0 2px 8px -4px rgba(40,27,70,.15), inset 0 1px 1px #fff, inset 0 -1px 1px rgba(255,255,255,.5);
+  backdrop-filter: blur(24px) saturate(175%);
+  -webkit-backdrop-filter: blur(24px) saturate(175%);
+}
+.ios-tabbar::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(115deg, rgba(255,255,255,.24), transparent 30%, transparent 72%, rgba(255,255,255,.16));
 }
 .ios-tab-selection {
   position: absolute; left: 6px; top: 6px; bottom: 6px;
   width: calc((100% - 12px) / 4); border-radius: 999px;
-  background: #EEE9FA;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.8);
+  background: linear-gradient(150deg, rgba(222,210,250,.7), rgba(237,230,251,.6));
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.9), inset 0 -1px 1px rgba(121,94,175,.08), 0 2px 5px rgba(64,42,104,.035);
   transition: transform 320ms var(--ressort);
 }
-.ios-sheet { border: 1px solid rgba(255,255,255,.7); box-shadow: 0 -12px 60px -20px rgba(29,26,43,.2); }
+.glass-control, .verre {
+  background: linear-gradient(145deg, rgba(255,255,255,.88), rgba(255,255,255,.56));
+  border: 1px solid rgba(255,255,255,.76);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.95), inset 0 -1px 0 rgba(255,255,255,.36), 0 5px 18px -9px rgba(43,30,70,.2);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+}
+.glass-tinted {
+  background: linear-gradient(145deg, rgba(124,91,220,.96), rgba(96,64,199,.92));
+  border: 1px solid rgba(255,255,255,.28);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.4), inset 0 -1px 1px rgba(53,28,127,.15), 0 8px 24px -10px rgba(87,55,182,.5);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+}
+.ios-toolbar-active {
+  background: linear-gradient(180deg, rgba(248,247,252,.92), rgba(248,247,252,.72));
+  border-bottom: 1px solid rgba(103,83,139,.10);
+  box-shadow: 0 4px 16px -12px rgba(43,30,70,.16);
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+}
+.ios-sheet {
+  background: linear-gradient(165deg, rgba(255,255,255,.96), rgba(248,247,252,.94));
+  border: 1px solid rgba(255,255,255,.82);
+  box-shadow: 0 -16px 64px -20px rgba(29,26,43,.22), inset 0 1px 1px #fff;
+  backdrop-filter: blur(26px) saturate(150%);
+  -webkit-backdrop-filter: blur(26px) saturate(150%);
+}
 @supports (corner-shape: squircle) {
   .groupe, .ios-sheet { corner-shape: squircle; }
 }
 input, textarea { caret-color: #7050D5; }
 ::selection { background: #DDD2FA; color: #28174C; }
 @media (prefers-reduced-transparency: reduce) {
-  .ios-tabbar, .verre { background: #FFFFFF; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .ios-tabbar, .verre, .glass-control, .ios-sheet, .ios-toolbar-active { background: #F8F7FC; backdrop-filter: none; -webkit-backdrop-filter: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .ios-tab-selection { transition: none; }
 }
 .ios-tabbar[hidden] { display: none; }
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass-tinted { background: #6948CF; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .ios-tabbar::after { display: none; }
+  .ios-tab-selection { background: #EAE2F9; }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .ios-tabbar, .glass-control, .verre, .ios-sheet, .ios-toolbar-active { background: #FAF9FD; }
+  .glass-tinted { background: #6948CF; }
+}
+
+.sheet-header { border-bottom: 1px solid transparent; transition: border-color 180ms ease, background-color 180ms ease; }
+.sheet-header-scrolled { border-bottom-color: rgba(103,83,139,.12); background: rgba(255,255,255,.55); }
+.sheet-footer { border-top: 1px solid rgba(103,83,139,.08); background: rgba(250,249,253,.9); }
+@media (hover: hover) and (pointer: fine) {
+  .glass-control:hover, .verre:hover { background-color: rgba(255,255,255,.95); }
+}
+.glass-control:active, .glass-tinted:active, .ios-primary:active { filter: brightness(.96); }
+@media (prefers-reduced-transparency: reduce) {
+  .sheet-header-scrolled, .sheet-footer { background: #F8F7FC; }
+}
+
+.ios-search input::-webkit-search-cancel-button { -webkit-appearance: none; }
+.ios-search input::-webkit-search-decoration { -webkit-appearance: none; }
+/* Only the app's own scroll views move; keyboard focus must not pan the document. */
+html, body { overflow: hidden; width: 100%; }
+#root { position: fixed; inset: 0; overflow: hidden; }
+
+[data-keyboard] .ios-topbar { visibility: hidden; pointer-events: none; }

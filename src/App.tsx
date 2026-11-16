@@ -1,6 +1,6 @@
-import { BookHeart, CalendarDays, House as HouseIcon, UsersRound, ChevronLeft, Pencil } from 'lucide-react'
+import { BookHeart, CalendarDays, House as HouseIcon, UsersRound, ChevronLeft } from 'lucide-react'
 import { useRef, useState } from 'react'
-import { DrawingBanner, DrawSheet, useUnseenDrawings } from './components/drawing'
+import { DrawingBanner, useUnseenDrawings } from './components/drawing'
 import Guide from './components/Guide'
 import { Incoming } from './components/sheets'
 import { ActionSheetHost, Btn, Toasts } from './components/ui'
@@ -52,7 +52,6 @@ export default function App() {
     setTab(next)
   }
   const [showIncoming, setShowIncoming] = useState(false)
-  const [compose, setCompose] = useState(false)
   const [activity, setActivity] = useState(false)
   const [seg, setSeg] = useState<DossiersSeg>('dossiers')
   const go = (g: Go) => {
@@ -99,7 +98,7 @@ export default function App() {
               <div id="nidoo-tab-maison" data-tab="maison" hidden={tab !== 'maison'} className="h-full"><Home go={go} active={tab === 'maison'} /></div>
               {visited.includes('moments') && <div id="nidoo-tab-moments" data-tab="moments" hidden={tab !== 'moments'} className="h-full"><Dossiers seg={seg} setSeg={setSeg} /></div>}
               {visited.includes('organiser') && <div id="nidoo-tab-organiser" data-tab="organiser" hidden={tab !== 'organiser'} className="h-full"><Organize /></div>}
-              {visited.includes('famille') && <div id="nidoo-tab-famille" data-tab="famille" hidden={tab !== 'famille'} className="h-full"><Family onGuide={() => setGuide(true)} /></div>}
+              {visited.includes('famille') && <div id="nidoo-tab-famille" data-tab="famille" hidden={tab !== 'famille'} className="h-full"><Family onGuide={() => setGuide(true)} onActivities={() => setActivity(true)} /></div>}
             </div>
 
             {/* Barre d'onglets flottante en verre */}
@@ -128,10 +127,8 @@ export default function App() {
               })}
             </nav>
 
-            {tab !== 'maison' && !guide && !activity && !keyboard && <button onClick={() => setCompose(true)} className="presse absolute right-5 z-30 flex min-h-11 items-center gap-2 rounded-full bg-teinte px-4 text-sous font-semibold text-white shadow-flottant" style={{bottom:'calc(var(--sab) + 84px)'}}><Pencil size={17} />Une attention</button>}
-            {compose && <DrawSheet onClose={() => setCompose(false)} />}
             {activity && <div className="absolute inset-0 z-40 flex flex-col bg-fond" role="dialog" aria-modal="true" aria-label="À vivre ensemble" style={{paddingTop:'var(--sat)'}}>
-              <button onClick={() => setActivity(false)} className="presse flex min-h-[52px] shrink-0 items-center gap-1 px-4 text-corps text-teinte-fonce"><ChevronLeft size={22} />Retour à la maison</button>
+              <button onClick={() => setActivity(false)} className="presse flex min-h-[52px] shrink-0 items-center gap-1 px-4 text-corps text-teinte-fonce"><ChevronLeft size={22} />Retour</button>
               <div className="min-h-0 flex-1"><Play /></div>
             </div>}
             {tab === 'maison' && showIncoming && !guide && !activity && <Incoming onClose={() => setShowIncoming(false)} />}

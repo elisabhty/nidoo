@@ -1,4 +1,4 @@
-import { Check, ChevronLeft, ChevronRight, CircleAlert, X } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, CircleAlert, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { COLORS } from '../lib/data'
 import { select, tap, warn } from '../lib/haptic'
@@ -39,7 +39,7 @@ export function Rond({ children, onClick, label, tint = false }: { children: Rea
         onClick()
       }}
       aria-label={label}
-      className={`presse flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-3 text-appel font-semibold ${tint ? 'bg-teinte text-white shadow-flottant' : 'verre text-encre'}`}
+      className={`presse flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-3 text-appel font-semibold ${tint ? 'glass-tinted text-white' : 'glass-control text-encre'}`}
     >
       {children}
     </button>
@@ -52,7 +52,7 @@ export function Screen({ title, trailing, leading, children }: { title: string; 
   return (
     <div className="relative h-full">
       <div
-        className={`pointer-events-none absolute inset-x-0 top-0 z-20 transition-[background-color,backdrop-filter,border-color] duration-200 ${scrolled ? 'border-b border-trait bg-fond/80 backdrop-blur-2xl backdrop-saturate-150' : 'border-b border-transparent'}`}
+        className={`ios-topbar pointer-events-none absolute inset-x-0 top-0 z-20 transition-[background-color,backdrop-filter,border-color] duration-200 ${scrolled ? 'ios-toolbar-active' : 'border-b border-transparent'}`}
         style={{ paddingTop: 'var(--sat)' }}
       >
         <div className="relative flex h-[52px] items-center justify-between px-4">
@@ -66,7 +66,7 @@ export function Screen({ title, trailing, leading, children }: { title: string; 
         style={{ paddingTop: 'calc(var(--sat) + 52px)' }}
         onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 34)}
       >
-        <h1 className="px-5 pb-3 pt-2 tracking-[-0.8px] font-rond text-grand">{title}</h1>
+        <h1 className="px-5 pb-3 pt-2 tracking-[-0.8px] font-sans text-grand">{title}</h1>
         {children}
       </div>
     </div>
@@ -84,7 +84,7 @@ export function Page({ title, back = 'Retour', onClose, trailing, children }: { 
   return (
     <div className="anim-glisse absolute inset-0 z-40 bg-fond shadow-[-8px_0_30px_rgba(29,26,43,0.12)]" role="dialog" aria-modal="true" aria-label={title}>
       <div
-        className={`absolute inset-x-0 top-0 z-20 transition-[background-color,backdrop-filter,border-color] duration-200 ${scrolled ? 'border-b border-trait bg-fond/80 backdrop-blur-2xl backdrop-saturate-150' : 'border-b border-transparent'}`}
+        className={`ios-topbar absolute inset-x-0 top-0 z-20 transition-[background-color,backdrop-filter,border-color] duration-200 ${scrolled ? 'ios-toolbar-active' : 'border-b border-transparent'}`}
         style={{ paddingTop: 'var(--sat)' }}
       >
         <div className="relative flex h-[52px] items-center justify-between pl-1.5 pr-4">
@@ -106,7 +106,7 @@ export function Page({ title, back = 'Retour', onClose, trailing, children }: { 
         style={{ paddingTop: 'calc(var(--sat) + 52px)', paddingBottom: 'calc(var(--sab) + 28px)' }}
         onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 34)}
       >
-        <h1 className="px-5 pb-3 pt-2 tracking-[-0.8px] font-rond text-grand">{title}</h1>
+        <h1 className="px-5 pb-3 pt-2 tracking-[-0.8px] font-sans text-grand">{title}</h1>
         {children}
       </div>
     </div>
@@ -114,8 +114,10 @@ export function Page({ title, back = 'Retour', onClose, trailing, children }: { 
 }
 
 /** Feuille modale iOS : poignée, glisser vers le bas pour fermer. */
-export function Sheet({ title, onClose, children, tall = false }: { title: string; onClose: () => void; children: ReactNode; tall?: boolean }) {
+export function Sheet({ title, onClose, children, tall = false, footer }: { title: string; onClose: () => void; children: ReactNode; tall?: boolean; footer?: ReactNode }) {
   const [dy, setDy] = useState(0)
+  const [contentScrolled, setContentScrolled] = useState(false)
+  const dragStarted = useRef(0)
   const start = useRef<number | null>(null)
   const root = useRef<HTMLDivElement>(null)
   const panel = useRef<HTMLDivElement>(null)
@@ -138,8 +140,10 @@ export function Sheet({ title, onClose, children, tall = false }: { title: strin
     window.addEventListener('keydown', onKey)
     return () => {cancelAnimationFrame(frame); window.removeEventListener('keydown',onKey); if(previous?.isConnected) previous.focus({preventScroll:true})}
   }, [])
-  const end = () => {
-    if (dy > 110) onClose()
+  const end = (e: {clientY: number}) => {
+    const distance = start.current === null ? 0 : Math.max(0,e.clientY - start.current)
+    const velocity = distance / Math.max(1,performance.now() - dragStarted.current)
+    if (distance > 110 || (distance > 40 && velocity > .65)) close.current()
     start.current = null
     setDy(0)
   }
@@ -153,14 +157,15 @@ export function Sheet({ title, onClose, children, tall = false }: { title: strin
         style={{ paddingBottom: 'calc(var(--sab) + 14px)', transform: dy ? `translateY(${dy}px)` : undefined, transition: start.current === null ? 'transform 0.35s var(--ressort)' : 'none' }}
       >
         <div
-          className="touch-none"
+          className={`sheet-header touch-none shrink-0 ${contentScrolled ? 'sheet-header-scrolled' : ''}`}
           onPointerDown={(e) => {
+            dragStarted.current = performance.now()
             start.current = e.clientY
             e.currentTarget.setPointerCapture(e.pointerId)
           }}
           onPointerMove={(e) => start.current !== null && setDy(Math.max(0, e.clientY - start.current))}
           onPointerUp={end}
-          onPointerCancel={end}
+          onPointerCancel={() => {start.current = null; setDy(0)}}
         >
           <div className="mx-auto mt-[6px] h-[5px] w-9 rounded-full bg-pale" />
           <div className="relative flex h-[52px] items-center justify-center px-5">
@@ -168,14 +173,15 @@ export function Sheet({ title, onClose, children, tall = false }: { title: strin
             <button
               onClick={onClose}
               onPointerDown={(e) => e.stopPropagation()}
-              className="presse absolute right-4 flex h-11 w-11 items-center justify-center rounded-full bg-remplissage text-brume"
+              className="presse absolute right-4 flex h-11 w-11 items-center justify-center rounded-full glass-control text-encre/70"
               aria-label="Fermer"
             >
               <X size={16} strokeWidth={2.8} />
             </button>
           </div>
         </div>
-        <div className="no-bar min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-1">{children}</div>
+        <div className="no-bar min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-1" onScroll={e => setContentScrolled(e.currentTarget.scrollTop > 8)}>{children}</div>
+        {footer && <div className="sheet-footer shrink-0 px-5 pt-3">{footer}</div>}
       </div>
     </div>
   )
@@ -224,6 +230,20 @@ export function Lien({ children, onClick }: { children: ReactNode; onClick: () =
       {children}
     </button>
   )
+}
+
+/** Search stays in context and can be cancelled without leaving its screen. */
+export function SearchField({value,onChange,placeholder='Rechercher',label=placeholder}: {value:string;onChange:(value:string)=>void;placeholder?:string;label?:string}) {
+  const input = useRef<HTMLInputElement>(null)
+  const [editing,setEditing] = useState(false)
+  return <div className="ios-search mx-4 mb-5 flex items-center gap-3">
+    <div className={`flex min-h-[46px] min-w-0 flex-1 items-center gap-2 rounded-[14px] bg-remplissage pl-3 ${editing ? 'ring-2 ring-teinte/20' : ''}`}>
+      <Search size={18} strokeWidth={2.2} className="shrink-0 text-brume" />
+      <input ref={input} type="search" enterKeyHint="search" autoComplete="off" aria-label={label} placeholder={placeholder} value={value} onChange={e=>onChange(e.target.value)} onFocus={()=>setEditing(true)} onKeyDown={e=>{if(e.key==='Enter') input.current?.blur();if(e.key==='Escape'){onChange('');setEditing(false);input.current?.blur()}}} className="min-w-0 flex-1 appearance-none bg-transparent py-3 text-corps text-encre outline-none placeholder:text-brume" />
+      {value ? <button aria-label="Effacer la recherche" onPointerDown={e=>e.preventDefault()} onClick={()=>{onChange('');input.current?.focus()}} className="flex h-11 w-11 shrink-0 items-center justify-center text-brume"><span className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-brume text-white"><X size={12} strokeWidth={3} /></span></button> : <span className="w-3" />}
+    </div>
+    {editing && <button onPointerDown={e=>e.preventDefault()} onClick={()=>{onChange('');setEditing(false);input.current?.blur()}} className="presse min-h-11 shrink-0 text-corps text-teinte-fonce">Annuler</button>}
+  </div>
 }
 
 /** Ligne de liste groupée façon Réglages. */
@@ -383,14 +403,31 @@ export function ActionSheetHost() {
       push = null
     }
   }, [])
+  const dialog = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!ask) return
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const controls = () => Array.from(dialog.current?.querySelectorAll<HTMLButtonElement>('button:not([tabindex="-1"])') ?? [])
+    const frame = requestAnimationFrame(() => controls()[0]?.focus({preventScroll:true}))
+    const cancel = () => {ask.resolve(-1); setAsk(null)}
+    const onKey = (e: KeyboardEvent) => {
+      if(e.key === 'Escape') {e.preventDefault(); cancel(); return}
+      if(e.key !== 'Tab') return
+      const list = controls(), first = list[0], last = list[list.length - 1]
+      if(e.shiftKey && document.activeElement === first) {e.preventDefault(); last?.focus()}
+      else if(!e.shiftKey && document.activeElement === last) {e.preventDefault(); first?.focus()}
+    }
+    window.addEventListener('keydown',onKey)
+    return () => {cancelAnimationFrame(frame);window.removeEventListener('keydown',onKey);if(previous?.isConnected)previous.focus({preventScroll:true})}
+  }, [ask])
   if (!ask) return null
   const done = (i: number) => {
     ask.resolve(i)
     setAsk(null)
   }
   return (
-    <div className="absolute inset-0 z-[60] flex flex-col justify-end px-2.5" style={{ paddingBottom: 'calc(var(--sab) + 10px)' }} role="alertdialog" aria-modal="true" aria-label={ask.title ?? 'Actions'}>
-      <button className="anim-fondu absolute inset-0 bg-black/30" onClick={() => done(-1)} aria-label="Annuler" />
+    <div ref={dialog} className="absolute inset-0 z-[60] flex flex-col justify-end px-2.5" style={{ paddingBottom: 'calc(var(--sab) + 10px)' }} role="alertdialog" aria-modal="true" aria-label={ask.title ?? 'Actions'}>
+      <button className="anim-fondu absolute inset-0 bg-black/30" onClick={() => done(-1)} tabIndex={-1} aria-label="Annuler" />
       <div className="anim-monte relative">
         <div className="verre overflow-hidden rounded-[26px] bg-white/85">
           {(ask.title || ask.message) && (
