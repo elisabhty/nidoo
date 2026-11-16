@@ -123,7 +123,22 @@ const ERRORS: Record<string, string> = {
   PAS_DE_SOIN: 'Celui-là n’a besoin de rien.',
   REPONSE_VIDE: 'Écris une réponse ou ajoute une photo.',
   PLUS_DE_CROQUETTES: 'Plus de croquettes ! Rachetez un sac dans « Décorer la maison ».',
-  STOCK_PLEIN: 'Le placard est plein : finissez d’abord les croquettes.',
+  STOCK_PLEIN: 'Le placard est plein : utilisez d’abord ce qu’il y a dedans.',
+  DEJA_ACHETE: 'La famille l’a déjà.',
+  DEJA_UN_COMPAGNON: 'La famille a déjà un compagnon.',
+  PRENOM_VIDE: 'Donne-lui un prénom.',
+  PAS_DE_COMPAGNON: 'La famille n’a pas encore de compagnon.',
+  PAS_ACHETE: 'Il faut d’abord l’acheter au centre commercial.',
+  PLUS_DE_FRIANDISES: 'Plus de friandises : il y en a à la supérette.',
+  PAS_DE_POTAGER: 'Installez d’abord le potager dans « Décorer la maison ».',
+  PARCELLE_PRISE: 'Quelque chose pousse déjà ici.',
+  PARCELLE_INCONNUE: 'Cette parcelle n’existe pas.',
+  PLANTE_INCONNUE: 'Cette plante n’existe pas.',
+  PLUS_DE_GRAINES: 'Plus de graines : il y en a à la supérette.',
+  RIEN_A_FAIRE_POUSSER: 'Rien n’est planté pour l’instant.',
+  PLUS_D_ENGRAIS: 'Plus d’engrais : il y en a à la supérette.',
+  PARCELLE_VIDE: 'Rien à récolter ici.',
+  PAS_ENCORE_MUR: 'Pas encore mûr : encore quelques arrosages.',
 }
 /** Le jour d'il y a n jours, au format AAAA-MM-JJ. */
 export const daysAgoKey = (n: number) => todayKey(new Date(Date.now() - n * 86400000))

@@ -1,5 +1,5 @@
 import { useId, type ReactNode } from 'react'
-import { EYES, HAIR_COLORS, HAIRSTYLES, SKINS, TOPS, type Look } from '../lib/look'
+import { ACCESSORIES, EYES, HAIR_COLORS, HAIRSTYLES, SKINS, TOPS, type Look } from '../lib/look'
 
 // Un personnage de la famille, dessiné en SVG : un même visage pour tous, et ce qui rend chacun unique.
 // Son visage change avec son humeur du jour (sourire, yeux fermés, sourcils froncés, larme…).
@@ -329,6 +329,95 @@ export function Character({
   ][look.b]
   const mole = [null, [36.6, 57.2], [63.6, 56.2], [55.8, 57]][look.m] as number[] | null
 
+  // Les accessoires de la boutique, par-dessus les cheveux.
+  const acc = ACCESSORIES[look.v ?? 0] ?? ''
+  const flower = (x: number, y: number, c: string) => (
+    <g key={`${x}${y}`}>
+      {[0, 72, 144, 216, 288].map((r) => (
+        <circle key={r} cx={x + 2.4 * Math.cos((r * Math.PI) / 180)} cy={y + 2.4 * Math.sin((r * Math.PI) / 180)} r={1.9} fill={c} />
+      ))}
+      <circle cx={x} cy={y} r={1.3} fill="#F7C948" />
+    </g>
+  )
+  const hat = {
+    bonnet: (
+      <g key="bonnet">
+        <path d="M23.5 34 C23.5 16 35 7.5 50 7.5 C65 7.5 76.5 16 76.5 34 Z" fill="#E5484D" />
+        <path d="M31 14 C34.5 21 35 28 34.5 33 M40.5 9.8 C43 17 43.4 26 43 33 M50 8 V33 M59.5 9.8 C57 17 56.6 26 57 33 M69 14 C65.5 21 65 28 65.5 33" stroke="#B9363C" strokeWidth={1.2} fill="none" opacity={0.55} />
+        <rect x={21.5} y={27.5} width={57} height={9.5} rx={4.75} fill="#D33F45" />
+        <path d="M24 32 H76" stroke="#B9363C" strokeWidth={1} opacity={0.4} />
+        <circle cx={50} cy={7} r={6.4} fill="#FFF6EA" />
+      </g>
+    ),
+    casquette: (
+      <g key="casquette">
+        <path d="M26.5 33 C26.5 18 37 10.5 50 10.5 C63 10.5 73.5 18 73.5 33 Z" fill="#3B74E0" />
+        <path d="M50 11 V32 M38 14 Q44 22 44 32 M62 14 Q56 22 56 32" stroke="#2F62C4" strokeWidth={1} fill="none" opacity={0.6} />
+        <path d="M50 31.5 C60 29.5 74 29.5 86.5 34 C80.5 38.5 66 39 50 36.5 Z" fill="#2E5DBB" />
+        <circle cx={50} cy={11} r={2} fill="#2E5DBB" />
+      </g>
+    ),
+    paille: (
+      <g key="paille">
+        <ellipse cx={50} cy={30} rx={37} ry={8.5} fill="#EBC77D" />
+        <path d="M31 30 C31 15.5 39 9 50 9 C61 9 69 15.5 69 30 Z" fill="#E2B867" />
+        <path d="M31.3 24 Q50 21.6 68.7 24 L68.9 29.6 Q50 27.6 31.1 29.6 Z" fill="#F28AA8" />
+        <path d="M65 26.5 L58.5 22 Q57.5 26.5 58.5 31 Z M65 26.5 L71.5 22 Q72.5 26.5 71.5 31 Z" fill="#EE7398" />
+        <circle cx={65} cy={26.5} r={1.7} fill="#E05C86" />
+        <path d="M17 31 Q50 40 83 31" stroke="#D8AE5E" strokeWidth={1} fill="none" opacity={0.6} />
+      </g>
+    ),
+    fleurs: (
+      <g key="fleurs">
+        <path d="M27 31 Q50 17 73 31" stroke="#7BB662" strokeWidth={2.4} fill="none" strokeLinecap="round" />
+        {[
+          [28.5, 29.5, '#F59BB6'],
+          [35, 24.5, '#FFFFFF'],
+          [42.5, 21.5, '#F7C948'],
+          [50, 20.5, '#F59BB6'],
+          [57.5, 21.5, '#FFFFFF'],
+          [65, 24.5, '#F7C948'],
+          [71.5, 29.5, '#F59BB6'],
+        ].map(([x, y, c]) => flower(x as number, y as number, c as string))}
+      </g>
+    ),
+    couronne: (
+      <g key="couronne">
+        <path d="M33.5 26 L35 9.5 L42.5 17.5 L50 6 L57.5 17.5 L65 9.5 L66.5 26 Z" fill="#F2C14E" stroke="#D9A43A" strokeWidth={0.9} strokeLinejoin="round" />
+        <rect x={33} y={22} width={34} height={5.5} rx={2} fill="#E5AE34" />
+        <circle cx={50} cy={24.7} r={1.9} fill="#E5484D" />
+        <circle cx={41} cy={24.7} r={1.4} fill="#5AA3E0" />
+        <circle cx={59} cy={24.7} r={1.4} fill="#5AA3E0" />
+        {[35, 50, 65].map((x, i) => (
+          <circle key={x} cx={x} cy={[9.5, 6, 9.5][i]} r={1.5} fill="#FFF0B8" />
+        ))}
+      </g>
+    ),
+    noeud: (
+      <g key="noeud">
+        <path d="M66 20 L57.5 14.5 Q55.8 20 57.5 25.5 Z M66 20 L74.5 14.5 Q76.2 20 74.5 25.5 Z" fill="#A684E8" />
+        <circle cx={66} cy={20} r={2.2} fill="#8D6AD6" />
+      </g>
+    ),
+    echarpe: (
+      <g key="echarpe">
+        <path d="M56 78.5 L63.5 101 L55.5 102 L50.5 81 Z" fill="#F4B740" />
+        <path d="M57.8 84 L60 84 M59.6 89.5 L61.8 89.5 M61.3 95 L63.5 95" stroke="#F0795B" strokeWidth={2.4} />
+        <path d="M33 71.5 Q50 81.5 67 71.5 L68 79 Q50 89.5 32 79 Z" fill="#F4B740" />
+        <path d="M38 75.5 L37.5 82.5 M46 78 L45.8 85.5 M54 78 L54.2 85.5 M62 75.5 L62.5 82.5" stroke="#F0795B" strokeWidth={2.6} />
+      </g>
+    ),
+  }[acc as string] ?? null
+  const starGlasses = (
+    <g key="star">
+      <circle cx={L} cy={46.5} r={7.4} fill="#1E1B2B" />
+      <circle cx={R} cy={46.5} r={7.4} fill="#1E1B2B" />
+      <path d="M47.9 45.6 Q50 44 52.1 45.6 M33.1 45 L26.8 43.8 M66.9 45 L73.2 43.8" stroke="#1E1B2B" strokeWidth={1.6} fill="none" />
+      <path d="M36.2 43.2 Q38.5 41.6 41 42 M55.2 43.2 Q57.5 41.6 60 42" stroke="#FFFFFF" strokeWidth={1.2} strokeLinecap="round" opacity={0.55} fill="none" />
+    </g>
+  )
+  const hatOn = ['bonnet', 'casquette', 'paille', 'fleurs', 'couronne'].includes(acc)
+
   const bottom = [128, 121, 114, 112][look.a] ?? 128
   const y0 = extras ? -6 : 0
   const box = bust ? '10 6 80 80' : `8 ${y0} 84 ${bottom - y0}`
@@ -392,8 +481,9 @@ export function Character({
       )}
 
       {hs.front}
-      {glasses}
-      {(extras || mood === 'triste' || mood === 'stresse') && extra}
+      {acc === 'lunettes' ? starGlasses : glasses}
+      {hat}
+      {(extras || mood === 'triste' || mood === 'stresse') && !(hatOn && mood === 'fete') && extra}
     </svg>
   )
 }

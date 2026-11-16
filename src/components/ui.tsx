@@ -74,8 +74,13 @@ export function Screen({ title, trailing, leading, children }: { title: string; 
 }
 
 /** Page iOS qui glisse par-dessus l'écran : « Retour » en haut à gauche, grand titre qui se replie au défilement. */
-export function Page({ title, back = 'Retour', onClose, trailing, children }: { title: string; back?: string; onClose: () => void; trailing?: ReactNode; children: ReactNode }) {
+export function Page({ title, back = 'Retour', onClose, trailing, children, scrollKey }: { title: string; back?: string; onClose: () => void; trailing?: ReactNode; children: ReactNode; scrollKey?: string }) {
   const [scrolled, setScrolled] = useState(false)
+  const body = useRef<HTMLDivElement>(null)
+  // un nouveau contenu (par exemple juste après l'adoption) repart du haut
+  useEffect(() => {
+    body.current?.scrollTo({ top: 0 })
+  }, [scrollKey])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
@@ -102,6 +107,7 @@ export function Page({ title, back = 'Retour', onClose, trailing, children }: { 
         </div>
       </div>
       <div
+        ref={body}
         className="no-bar h-full overflow-y-auto overscroll-contain"
         style={{ paddingTop: 'calc(var(--sat) + 52px)', paddingBottom: 'calc(var(--sab) + 28px)' }}
         onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 34)}

@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { SUPABASE_KEY, SUPABASE_URL } from '../config'
-import type { Answer, Backend, HouseCare, Circle, Drawing, DrawingData, FamEvent, Family, FamilyState, Folder, JoinRequest, MyRequest, FolderItem, FolderMember, ListItem, Member, Moment, Reaction, StarEntry, Thought } from './types'
+import type { Answer, Backend, HouseCare, Pet, Plot, Circle, Drawing, DrawingData, FamEvent, Family, FamilyState, Folder, JoinRequest, MyRequest, FolderItem, FolderMember, ListItem, Member, Moment, Reaction, StarEntry, Thought } from './types'
 import { compressImage, daysAgoKey, todayKey, uid } from './util'
 import { emptyCounts, type WeeklyCounts } from './weekly'
 
@@ -94,7 +94,7 @@ export function createSupabaseBackend(): Backend {
         () => undefined,
       )
       const since = new Date(Date.now() - 14 * 86400000).toISOString()
-      const [family, members, requests, weekly, moments, folders, folderMembers, folderItems, reactions, thoughts, drawings, events, items, answers, house, stars, cares] = await Promise.all([
+      const [family, members, requests, weekly, moments, folders, folderMembers, folderItems, reactions, thoughts, drawings, events, items, answers, house, stars, cares, pets, plots, stock, owned] = await Promise.all([
         sb.from('families').select('*').eq('id', fid).single(),
         sb.from('members').select('*').eq('family_id', fid).order('joined_at'),
         // Lisibles seulement par les responsables (RLS) : vide pour les autres.
@@ -113,7 +113,12 @@ export function createSupabaseBackend(): Backend {
         sb.from('house_items').select('item_key, unlocked_at').eq('family_id', fid),
         sb.from('star_log').select('id, member_id, reason, amount, created_at').eq('family_id', fid).order('created_at', { ascending: false }).limit(30),
         sb.from('house_care').select('item_key, day, member_id, created_at').eq('family_id', fid).gte('day', daysAgoKey(6)),
+        sb.from('pets').select('species, name, love, outfit, bed, adopted_at').eq('family_id', fid),
+        sb.from('garden_plots').select('plot, plant, growth, planted_at').eq('family_id', fid).order('plot'),
+        sb.from('family_stock').select('item_key, qty').eq('family_id', fid),
+        sb.from('shop_items').select('item_key').eq('family_id', fid),
       ])
+      const pet = ((check(pets) ?? []) as Pet[])[0] ?? null
       const mem = check(members) as Member[]
       const me = mem.find((m) => m.user_id === userId)
       if (!me) throw new Error('PAS_MEMBRE')
@@ -170,7 +175,14 @@ export function createSupabaseBackend(): Backend {
         items: (check(items) ?? []) as ListItem[],
         answers: reponses,
         houseItems: (check(house) as { item_key: string }[]).map((h) => h.item_key),
-        houseSince: Object.fromEntries((check(house) as { item_key: string; unlocked_at: string }[]).map((h) => [h.item_key, h.unlocked_at])),
+        houseSince: {
+          ...Object.fromEntries((check(house) as { item_key: string; unlocked_at: string }[]).map((h) => [h.item_key, h.unlocked_at])),
+          ...(pet ? { compagnon: pet.adopted_at } : {}),
+        },
+        pet,
+        plots: (check(plots) ?? []) as Plot[],
+        stock: Object.fromEntries(((check(stock) ?? []) as { item_key: string; qty: number }[]).map((x) => [x.item_key, x.qty])),
+        owned: ((check(owned) ?? []) as { item_key: string }[]).map((x) => x.item_key),
         starLog: (check(stars) ?? []) as StarEntry[],
         cares: (check(cares) ?? []) as HouseCare[],
       }
@@ -179,7 +191,7 @@ export function createSupabaseBackend(): Backend {
 
     subscribe(fid, onChange) {
       const ch = sb.channel(`famille:${fid}`)
-      for (const table of ['members', 'join_requests', 'weekly_rewards', 'moments', 'folders', 'folder_members', 'folder_items', 'reactions', 'thoughts', 'drawings', 'events', 'list_items', 'daily_answers', 'house_items', 'house_care']) {
+      for (const table of ['members', 'join_requests', 'weekly_rewards', 'moments', 'folders', 'folder_members', 'folder_items', 'reactions', 'thoughts', 'drawings', 'events', 'list_items', 'daily_answers', 'house_items', 'house_care', 'pets', 'garden_plots', 'family_stock', 'shop_items']) {
         ch.on('postgres_changes', { event: '*', schema: 'public', table, filter: `family_id=eq.${fid}` }, onChange)
       }
       ch.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'families', filter: `id=eq.${fid}` }, onChange)
@@ -364,6 +376,30 @@ export function createSupabaseBackend(): Backend {
     },
     async pet(fid, key) {
       return check(await sb.rpc('pet_animal', { p_family: fid, p_key: key })) as number
+    },
+    async buyItem(fid, key) {
+      check(await sb.rpc('buy_item', { p_family: fid, p_key: key }))
+    },
+    async adoptPet(fid, species, name) {
+      check(await sb.rpc('adopt_pet', { p_family: fid, p_species: species, p_name: name.trim() }))
+    },
+    async dressPet(fid, patch) {
+      check(await sb.rpc('dress_pet', { p_family: fid, p_outfit: patch.outfit ?? '', p_bed: patch.bed ?? '', p_name: patch.name }))
+    },
+    async giveTreat(fid) {
+      return check(await sb.rpc('give_treat', { p_family: fid })) as number
+    },
+    async playPet(fid, toy) {
+      return check(await sb.rpc('play_pet', { p_family: fid, p_toy: toy })) as number
+    },
+    async plant(fid, plot, plant) {
+      check(await sb.rpc('plant_seed', { p_family: fid, p_plot: plot, p_plant: plant }))
+    },
+    async fertilize(fid) {
+      check(await sb.rpc('fertilize', { p_family: fid }))
+    },
+    async harvest(fid, plot) {
+      return check(await sb.rpc('harvest', { p_family: fid, p_plot: plot })) as number
     },
     async unlock(fid, key) {
       check(await sb.rpc('unlock_item', { p_family: fid, p_key: key }))

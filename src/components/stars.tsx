@@ -12,9 +12,11 @@ const EARN: { icon: ReactNode; label: string; stars: number; limit?: string }[] 
   { icon: <Art name="geste-calin" size={40} />, label: 'Envoyer un câlin', stars: 1, limit: 'jusqu’à 5 par jour' },
   { icon: <DoodleIcon size={34} />, label: 'Envoyer un dessin', stars: 1, limit: 'jusqu’à 5 par jour' },
   { icon: <Art name="picto-missions" size={40} />, label: 'Terminer une mission', stars: 1 },
-  { icon: <CareIcon k="chat" size={32} />, label: 'Nourrir le chat ou les oiseaux', stars: 3, limit: 'une fois par jour chacun · un repas de croquettes' },
+  { icon: <CareIcon k="chat" size={32} />, label: 'Nourrir le compagnon ou les oiseaux', stars: 3, limit: 'une fois par jour chacun · un repas de croquettes' },
   { icon: <CareIcon k="fleurs" size={32} />, label: 'Arroser les fleurs ou le potager', stars: 1, limit: 'une fois par jour chacun, pour toute la famille' },
-  { icon: <HandIcon size={32} />, label: 'Caresser le chat ou les oiseaux', stars: 1, limit: 'une fois par jour, pour chacun' },
+  { icon: <HandIcon size={32} />, label: 'Caresser le compagnon ou les oiseaux', stars: 1, limit: 'une fois par jour, pour chacun' },
+  { icon: <Art name="jeu-balle" size={36} />, label: 'Jouer avec le compagnon', stars: 1, limit: 'une fois par jour, pour chacun' },
+  { icon: <Art name="carotte" size={38} />, label: 'Récolter au potager', stars: 8, limit: 'de 8 à 22 selon la plante' },
 ]
 
 /** Le système d'étoiles, expliqué simplement. */

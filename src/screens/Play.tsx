@@ -2,12 +2,14 @@ import { Camera, Check, ChevronRight, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { pettedToday, useCare, usePet } from '../components/care'
 import { DecorPage } from '../components/decor'
+import { useLieux } from '../components/lieux'
+import { PetFigure } from '../components/pet'
 import House from '../components/House'
 import { ComposeSheet } from '../components/sheets'
 import { StarsSheet } from '../components/stars'
 import { Art, Avatar, Btn, Lien, Screen, Section, Segments } from '../components/ui'
 import { WeeklyChallenge } from '../components/weekly'
-import { challengeOfDay, DECOS, questionOfDay, STAR_REASONS } from '../lib/data'
+import { challengeOfDay, DECOS, petStage, questionOfDay, STAR_REASONS } from '../lib/data'
 import { success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
 import { ago, todayKey } from '../lib/util'
@@ -25,6 +27,7 @@ export default function Play() {
   const [pic, setPic] = useState<{ blob: Blob; url: string } | null>(null)
   const picker = useRef<HTMLInputElement>(null)
   const care = useCare(() => setDecor({ food: true }))
+  const lieux = useLieux()
   const petAnimal = usePet()
   useEffect(() => () => void (pic && URL.revokeObjectURL(pic.url)), [pic])
   const mine = answers.find((a) => a.member_id === me.id)
@@ -154,7 +157,18 @@ export default function Play() {
 
         <Section title="Notre maison" hint="Chaque petit geste embellit votre maison.">
           <div className="mx-4 overflow-hidden rounded-[28px] bg-carte shadow-carte">
-            <House type={family.house_type} items={houseItems} cares={state.cares} onCare={care} since={state.houseSince} petted={pettedToday(state.starLog, me.id)} onPet={petAnimal} />
+            <House
+              type={family.house_type}
+              items={houseItems}
+              cares={state.cares}
+              onCare={care}
+              since={state.houseSince}
+              petted={pettedToday(state.starLog, me.id)}
+              onPet={petAnimal}
+              pet={state.pet}
+              plots={state.plots}
+              gold={state.owned.includes('gamelle:or')}
+            />
             <button
               onClick={() => {
                 tap()
@@ -176,6 +190,29 @@ export default function Play() {
               </span>
               <ChevronRight size={17} strokeWidth={2.6} className="shrink-0 text-pale" />
             </button>
+          </div>
+          {/* les lieux : le compagnon, le potager, le centre commercial */}
+          <div className="mx-4 mt-3 grid grid-cols-3 gap-2.5">
+            {[
+              { k: 'compagnon' as const, label: state.pet ? state.pet.name : 'Compagnon', sub: state.pet ? petStage(state.pet.love).label : 'À choisir', art: state.pet ? null : 'pet-chat' },
+              { k: 'potager' as const, label: 'Potager', sub: state.plots.length ? `${state.plots.length} parcelle${state.plots.length > 1 ? 's' : ''}` : houseItems.includes('potager') ? 'À semer' : 'À installer', art: state.plots[0] ? state.plots[0].plant : 'plant-pousse' },
+              { k: 'centre' as const, label: 'Centre commercial', sub: 'Courses, jouets, mode', art: 'centre-commercial' },
+            ].map((x) => (
+              <button
+                key={x.k}
+                onClick={() => {
+                  tap()
+                  lieux.open({ k: x.k })
+                }}
+                className="presse groupe flex flex-col items-center px-1.5 pb-2.5 pt-3 text-center shadow-carte"
+              >
+                <span className="flex h-[58px] items-center justify-center">
+                  {x.k === 'compagnon' && state.pet ? <PetFigure pet={state.pet} className="w-[58px]" /> : <img src={`./art/${x.art}.webp`} alt="" className={x.k === 'centre' ? 'w-[86px] object-contain' : 'h-[58px] w-[58px]'} />}
+                </span>
+                <span className="mt-1.5 w-full truncate text-legende font-semibold">{x.label}</span>
+                <span className="w-full truncate text-mini text-brume">{x.sub}</span>
+              </button>
+            ))}
           </div>
           <div className="mx-4 mt-3">
             <Btn onClick={() => setDecor({})}>Décorer la maison</Btn>
@@ -218,6 +255,7 @@ export default function Play() {
         />
       )}
       {decor && <DecorPage food={decor.food} onClose={() => setDecor(null)} />}
+      {lieux.node}
     </>
   )
 }

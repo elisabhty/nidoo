@@ -60,7 +60,6 @@ export const DECOS: Deco[] = [
   { key: 'lanterne', name: 'Lanterne', cost: 12 },
   { key: 'arbre', name: 'Grand arbre', cost: 18 },
   { key: 'fumee', name: 'Feu de cheminée', cost: 20 },
-  { key: 'chat', name: 'Chat', cost: 30 },
   { key: 'balancoire', name: 'Balançoire', cost: 40 },
   { key: 'potager', name: 'Petit potager', cost: 50 },
   { key: 'cabane', name: 'Cabane à oiseaux', cost: 70 },
@@ -75,9 +74,10 @@ export type Care = {
   who: string; plural: boolean
 }
 export const CARE: Record<string, Care> = {
-  chat: {
-    verb: 'Nourrir le chat', need: 'Le chat a faim', done: 'a nourri le chat', stars: 3, kind: 'nourrir', who: 'le chat', plural: false,
-    adopt: 'Adopter le chat ?', act: 'Adopter', warn: 'Il vivra dans votre jardin. Il faudra le nourrir chaque jour, en famille : n’importe qui peut le faire, et ça rapporte 3 étoiles à la maison.',
+  // le compagnon : ses phrases prennent son prénom (voir careFor)
+  compagnon: {
+    verb: 'Nourrir le compagnon', need: 'Le compagnon a faim', done: 'a nourri le compagnon', stars: 3, kind: 'nourrir', who: 'le compagnon', plural: false,
+    adopt: 'Adopter un compagnon ?', act: 'Adopter', warn: '',
   },
   cabane: {
     verb: 'Nourrir les oiseaux', need: 'Les oiseaux ont faim', done: 'a nourri les oiseaux', stars: 3, kind: 'nourrir', who: 'les oiseaux', plural: true,
@@ -95,7 +95,7 @@ export const CARE: Record<string, Care> = {
 
 /** Les croquettes : un stock commun au chat et aux oiseaux. */
 export const FOOD = { meals: 10, cost: 15, max: 100 }
-export const ANIMALS = ['chat', 'cabane']
+export const ANIMALS = ['compagnon', 'cabane']
 /** Un animal oublié : triste (pas mangé hier), déprimé (deux jours), parti au 4e jour sans repas. */
 export const GONE_AFTER = 4
 
@@ -108,6 +108,8 @@ export const STAR_REASONS: Record<string, string> = {
   question: 'a répondu à la question du jour',
   mission: 'a terminé une mission',
   caresse: 'a caressé un animal',
+  jeu: 'a joué avec le compagnon',
+  ...Object.fromEntries(['carotte', 'salade', 'tournesol', 'tomate', 'fraise', 'citrouille'].map((k) => [`recolte:${k}`, 'a fait une récolte au potager'])),
   ...Object.fromEntries(Object.entries(CARE).map(([k, c]) => [`soin:${k}`, c.done])),
 }
 
@@ -166,3 +168,93 @@ export const questionOfDay = (d = new Date()) => QUESTIONS[dayIndex(d) % QUESTIO
 export const challengeOfDay = (d = new Date()) => PHOTO_CHALLENGES[dayIndex(d) % PHOTO_CHALLENGES.length]
 
 export const PLAN_LIMITS = { free: 5, plus: 15 }
+
+// ───────── Le compagnon ─────────
+
+export const SPECIES: { key: string; name: string; names: string[] }[] = [
+  { key: 'chat', name: 'Chaton', names: ['Caramel', 'Moka', 'Pistache'] },
+  { key: 'chien', name: 'Chiot', names: ['Biscuit', 'Gaufre', 'Praline'] },
+  { key: 'lapin', name: 'Lapin', names: ['Flocon', 'Guimauve', 'Pompon'] },
+  { key: 'renard', name: 'Renardeau', names: ['Roux', 'Cannelle', 'Paprika'] },
+  { key: 'panda', name: 'Panda', names: ['Bambou', 'Oréo', 'Mochi'] },
+  { key: 'koala', name: 'Koala', names: ['Eucalyptus', 'Nuage', 'Kiwi'] },
+  { key: 'pingouin', name: 'Pingouin', names: ['Glaçon', 'Pingu', 'Esquimau'] },
+  { key: 'hibou', name: 'Hibou', names: ['Plume', 'Noisette', 'Hulotte'] },
+]
+export const PET_COST = 30
+/** Il grandit avec l'amour : bébé, puis jeune (20 ♥), puis adulte (60 ♥). */
+export const PET_STAGES = [
+  { key: 'bebe', label: 'Bébé', min: 0, scale: 0.64 },
+  { key: 'jeune', label: 'Jeune', min: 20, scale: 0.82 },
+  { key: 'adulte', label: 'Adulte', min: 60, scale: 1 },
+]
+export const petStage = (love: number) => [...PET_STAGES].reverse().find((s) => love >= s.min) ?? PET_STAGES[0]
+export const nextStage = (love: number) => PET_STAGES.find((s) => s.min > love) ?? null
+export const LOVE = { feed: 2, pet: 1, treat: 3, play: 2 }
+
+// ───────── Le potager ─────────
+
+export type PlantInfo = { key: string; name: string; ripe: number; reward: number }
+/** Combien d'arrosages avant la récolte, et ce qu'elle rapporte (les mêmes chiffres que la base). */
+export const PLANTS: PlantInfo[] = [
+  { key: 'carotte', name: 'Carottes', ripe: 4, reward: 8 },
+  { key: 'salade', name: 'Salade', ripe: 4, reward: 8 },
+  { key: 'tournesol', name: 'Tournesol', ripe: 5, reward: 10 },
+  { key: 'tomate', name: 'Tomates', ripe: 6, reward: 13 },
+  { key: 'fraise', name: 'Fraises', ripe: 7, reward: 17 },
+  { key: 'citrouille', name: 'Citrouille', ripe: 9, reward: 22 },
+]
+export const plantOf = (k: string) => PLANTS.find((p) => p.key === k)
+export type PlantStage = 'graine' | 'pousse' | 'jeune' | 'mur'
+export function plantStage(plant: string, growth: number): PlantStage {
+  const ripe = plantOf(plant)?.ripe ?? 5
+  return growth <= 0 ? 'graine' : growth >= ripe ? 'mur' : growth < ripe / 2 ? 'pousse' : 'jeune'
+}
+export const plantArt = (plant: string, growth: number) => {
+  const st = plantStage(plant, growth)
+  return st === 'graine' ? 'plant-graine' : st === 'pousse' ? 'plant-pousse' : st === 'jeune' ? `${plant}-jeune` : plant
+}
+export const STAGE_LABEL: Record<PlantStage, string> = { graine: 'Graines semées', pousse: 'Petite pousse', jeune: 'Ça pousse', mur: 'Prêt à récolter' }
+
+// ───────── Le centre commercial ─────────
+
+const SEED_NAMES: Record<string, string> = {
+  carotte: 'Graines de carottes', salade: 'Graines de salade', tournesol: 'Graines de tournesol',
+  tomate: 'Graines de tomates', fraise: 'Plants de fraises', citrouille: 'Graines de citrouille',
+}
+
+export type Shop = 'superette' | 'animalerie' | 'boutique'
+export type ShopItem = { key: string; name: string; cost: number; art: string; shop: Shop; group: string; qty?: number; text?: string }
+/** Les mêmes prix que la base (private.shop_catalog). */
+export const SHOP: ShopItem[] = [
+  { key: 'friandises', name: 'Friandises', cost: 8, qty: 5, art: 'shop-friandises', shop: 'superette', group: 'Pour le compagnon', text: '5 friandises · +3 ♥ chacune' },
+  { key: 'engrais', name: 'Engrais', cost: 6, qty: 1, art: 'shop-engrais', shop: 'superette', group: 'Pour le potager', text: 'Tout le potager pousse d’un cran' },
+  ...PLANTS.map((p) => ({
+    key: `graines:${p.key}`, name: SEED_NAMES[p.key],
+    cost: [4, 4, 5, 6, 8, 10][PLANTS.indexOf(p)], qty: 1, art: p.key, shop: 'superette' as Shop, group: 'Pour le potager',
+    text: `Prêt en ${p.ripe} arrosages · récolte +${p.reward} ★`,
+  })),
+  { key: 'lit:coussin', name: 'Coussin moelleux', cost: 15, art: 'lit-coussin', shop: 'animalerie', group: 'Son coin' },
+  { key: 'lit:panier', name: 'Panier douillet', cost: 20, art: 'lit-panier', shop: 'animalerie', group: 'Son coin' },
+  { key: 'lit:arbre', name: 'Arbre à grimper', cost: 35, art: 'lit-arbre', shop: 'animalerie', group: 'Son coin' },
+  { key: 'lit:niche', name: 'Niche', cost: 40, art: 'lit-niche', shop: 'animalerie', group: 'Son coin' },
+  { key: 'jeu:balle', name: 'Balle', cost: 10, art: 'jeu-balle', shop: 'animalerie', group: 'Jeux' },
+  { key: 'jeu:pelote', name: 'Pelote de laine', cost: 10, art: 'jeu-pelote', shop: 'animalerie', group: 'Jeux' },
+  { key: 'jeu:souris', name: 'Petite souris', cost: 10, art: 'jeu-souris', shop: 'animalerie', group: 'Jeux' },
+  { key: 'jeu:os', name: 'Os à mâcher', cost: 12, art: 'jeu-os', shop: 'animalerie', group: 'Jeux' },
+  { key: 'jeu:plumeau', name: 'Canne à plumes', cost: 12, art: 'jeu-plumeau', shop: 'animalerie', group: 'Jeux' },
+  { key: 'habit:noeud', name: 'Nœud papillon', cost: 12, art: 'habit-noeud', shop: 'animalerie', group: 'Vêtements' },
+  { key: 'habit:bandana', name: 'Bandana', cost: 12, art: 'habit-bandana', shop: 'animalerie', group: 'Vêtements' },
+  { key: 'habit:bonnet', name: 'Bonnet à oreilles', cost: 15, art: 'habit-bonnet', shop: 'animalerie', group: 'Vêtements' },
+  { key: 'habit:pull', name: 'Petit pull', cost: 20, art: 'habit-pull', shop: 'animalerie', group: 'Vêtements' },
+  { key: 'gamelle:or', name: 'Gamelle dorée', cost: 25, art: 'shop-gamelle', shop: 'animalerie', group: 'Sa gamelle' },
+  { key: 'mode:noeud', name: 'Barrette nœud', cost: 8, art: 'mode-noeud', shop: 'boutique', group: 'Accessoires' },
+  { key: 'mode:bonnet', name: 'Bonnet à pompon', cost: 10, art: 'mode-bonnet', shop: 'boutique', group: 'Chapeaux' },
+  { key: 'mode:casquette', name: 'Casquette', cost: 10, art: 'mode-casquette', shop: 'boutique', group: 'Chapeaux' },
+  { key: 'mode:echarpe', name: 'Écharpe rayée', cost: 10, art: 'mode-echarpe', shop: 'boutique', group: 'Accessoires' },
+  { key: 'mode:paille', name: 'Chapeau de paille', cost: 12, art: 'mode-paille', shop: 'boutique', group: 'Chapeaux' },
+  { key: 'mode:lunettes', name: 'Lunettes de star', cost: 12, art: 'mode-lunettes', shop: 'boutique', group: 'Accessoires' },
+  { key: 'mode:fleurs', name: 'Couronne de fleurs', cost: 15, art: 'mode-fleurs', shop: 'boutique', group: 'Chapeaux' },
+  { key: 'mode:couronne', name: 'Couronne dorée', cost: 30, art: 'mode-couronne', shop: 'boutique', group: 'Chapeaux' },
+]
+export const shopItem = (k: string) => SHOP.find((i) => i.key === k)

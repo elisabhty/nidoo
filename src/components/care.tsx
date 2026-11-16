@@ -1,15 +1,15 @@
 import { useRef } from 'react'
-import { ANIMALS, CARE, GONE_AFTER } from '../lib/data'
+import { ANIMALS, CARE, GONE_AFTER, type Care } from '../lib/data'
 import { tap, warn } from '../lib/haptic'
 import { useHome } from '../lib/store'
-import type { HouseCare, StarEntry } from '../lib/types'
+import type { HouseCare, Pet, StarEntry } from '../lib/types'
 import { isToday, todayKey } from '../lib/util'
 
 // Les soins du jardin : une gamelle pour le chat, des graines pour les oiseaux,
 // un arrosoir pour les fleurs et le potager. Dessinés, pas d'emoji.
 
 export function CareIcon({ k, size = 20 }: { k: string; size?: number | string }) {
-  if (k === 'chat')
+  if (k === 'chat' || k === 'compagnon')
     return (
       <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden>
         <ellipse cx="12" cy="11.4" rx="8.2" ry="2.4" fill="#8B5A2B" />
@@ -43,7 +43,17 @@ export function CareIcon({ k, size = 20 }: { k: string; size?: number | string }
   )
 }
 
-/** Ce qui reste à faire aujourd'hui dans le jardin (seulement ce que la famille possède). */
+/** Les phrases d'un soin ; celles du compagnon prennent son prénom. */
+export function careFor(key: string, pet: Pet | null | undefined): Care {
+  const c = CARE[key]
+  if (key !== 'compagnon' || !pet) return c
+  return { ...c, verb: `Nourrir ${pet.name}`, need: `${pet.name} a faim`, done: `a nourri ${pet.name}`, who: pet.name }
+}
+
+/** Ce qui vit au jardin : les décorations, plus le compagnon s'il y en a un. */
+export const gardenKeys = (items: string[], pet: Pet | null | undefined) => (pet ? [...items, 'compagnon'] : items)
+
+/** Ce qui reste à faire aujourd'hui dans le jardin (seulement ce que la famille possède : passer gardenKeys). */
 export function careTodo(items: string[], cares: HouseCare[]) {
   const day = todayKey()
   return Object.keys(CARE).filter((k) => items.includes(k) && !cares.some((c) => c.item_key === k && c.day === day))

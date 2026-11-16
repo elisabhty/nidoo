@@ -4,6 +4,8 @@ import { pettedToday, useCare, usePet } from '../components/care'
 import { DecorPage, GoneSheet, useGone } from '../components/decor'
 import { DrawingsSheet, DrawSheet, useUnseenDrawings } from '../components/drawing'
 import House, { type HouseScene } from '../components/House'
+import { useLieux } from '../components/lieux'
+import { PetFigure } from '../components/pet'
 import { MoodSheet, ThoughtSheet } from '../components/sheets'
 import { StarsSheet } from '../components/stars'
 import { Art, Avatar } from '../components/ui'
@@ -58,6 +60,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
   const care = useCare(() => setSheet({ k: 'decor', food: true }))
   const petAnimal = usePet()
   const petted = pettedToday(state.starLog, me.id)
+  const lieux = useLieux()
   const gone = useGone()
   // Un câlin envoyé ou reçu se joue dans le jardin : l'un va voir l'autre et le fait vraiment.
   useEffect(() => {
@@ -148,8 +151,34 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
                 since={state.houseSince}
                 petted={petted}
                 onPet={petAnimal}
+                pet={state.pet}
+                plots={state.plots}
+                gold={state.owned.includes('gamelle:or')}
               />
             </div>
+          </div>
+          {/* les lieux de la maison : le compagnon, le potager, le centre commercial */}
+          <div className="no-bar mt-3 flex gap-2 overflow-x-auto px-5" aria-label="Les lieux de la maison">
+            {[
+              {
+                k: 'compagnon' as const,
+                label: state.pet ? state.pet.name : 'Un compagnon',
+                icon: state.pet ? <PetFigure pet={state.pet} className="w-[30px]" /> : <img src="./art/pet-chat.webp" alt="" className="h-[30px] w-[30px]" />,
+              },
+              { k: 'potager' as const, label: 'Le potager', icon: <img src={`./art/${state.plots[0] ? state.plots[0].plant : 'plant-pousse'}.webp`} alt="" className="h-[30px] w-[30px]" /> },
+              { k: 'centre' as const, label: 'Centre commercial', icon: <img src="./art/centre-commercial.webp" alt="" className="h-[26px] w-[44px] object-contain" /> },
+            ].map((x) => (
+              <button
+                key={x.k}
+                onClick={() => {
+                  tap()
+                  lieux.open({ k: x.k })
+                }}
+                className="presse flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-white pl-1.5 pr-3.5 text-sous font-semibold shadow-carte"
+              >
+                {x.icon} {x.label}
+              </button>
+            ))}
           </div>
           <div className="no-bar mx-5 mt-4 flex gap-5 overflow-x-auto pb-2" aria-label="Les humeurs de la famille">
             {members.map((m) => (
@@ -182,7 +211,18 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
         />
       )}
       {sheet?.k === 'decor' && <DecorPage food={sheet.food} onClose={() => setSheet(null)} />}
-      {!sheet && gone && <GoneSheet entry={gone.entry} onClose={gone.seen} onAdopt={() => (gone.seen(), setSheet({ k: 'decor' }))} />}
+      {!sheet && gone && (
+        <GoneSheet
+          entry={gone.entry}
+          onClose={gone.seen}
+          onAdopt={() => {
+            gone.seen()
+            if (gone.entry.reason.startsWith('parti:compagnon')) lieux.open({ k: 'compagnon' })
+            else setSheet({ k: 'decor' })
+          }}
+        />
+      )}
+      {lieux.node}
     </>
   )
 }

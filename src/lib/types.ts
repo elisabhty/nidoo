@@ -153,6 +153,10 @@ export type ListItem = {
 export type Answer = { id: string; member_id: string; day: string; question_key: string; answer: string; photo_path?: string | null; photo_url?: string | null }
 /** On a nourri le chat, arrosé les fleurs… (une fois par jour pour toute la famille). */
 export type HouseCare = { item_key: string; day: string; member_id: string | null; created_at: string }
+/** Le compagnon de la famille : il grandit avec l'amour qu'on lui donne. */
+export type Pet = { species: string; name: string; love: number; outfit: string | null; bed: string | null; adopted_at: string }
+/** Une parcelle du potager : ce qui y pousse, et combien de fois elle a été arrosée. */
+export type Plot = { plot: number; plant: string; growth: number; planted_at: string }
 export type StarEntry = { id: string | number; member_id: string | null; reason: string; amount: number; created_at: string }
 
 export type FamilyState = {
@@ -176,6 +180,12 @@ export type FamilyState = {
   cares: HouseCare[]
   /** Date d'arrivée de chaque décoration (pour savoir depuis quand un animal n'a pas mangé). */
   houseSince: Record<string, string>
+  pet: Pet | null
+  plots: Plot[]
+  /** Le placard : friandises, graines, engrais (combien il en reste). */
+  stock: Record<string, number>
+  /** Ce que la famille a acheté et garde (coins, jeux, vêtements, accessoires). */
+  owned: string[]
   starLog: StarEntry[]
   /** Défi de la semaine : progression de toute la famille, et récompense déjà reçue. */
   weekly: WeeklyState
@@ -238,6 +248,18 @@ export interface Backend {
   buyFood(familyId: string): Promise<number>
   /** Caresser un animal : 1 étoile la première fois de la journée, pour chacun. */
   pet(familyId: string, key: string): Promise<number>
+  /** Le centre commercial : un objet qu'on garde, ou un lot pour le placard. */
+  buyItem(familyId: string, key: string): Promise<void>
+  adoptPet(familyId: string, species: string, name: string): Promise<void>
+  dressPet(familyId: string, patch: { outfit: string | null; bed: string | null; name: string }): Promise<void>
+  /** Une friandise : renvoie son amour. */
+  giveTreat(familyId: string): Promise<number>
+  /** Jouer : 1 étoile (et de l'amour) la première fois de la journée, pour chacun. */
+  playPet(familyId: string, toy: string): Promise<number>
+  plant(familyId: string, plot: number, plant: string): Promise<void>
+  fertilize(familyId: string): Promise<void>
+  /** Récolter une parcelle mûre : renvoie les étoiles gagnées. */
+  harvest(familyId: string, plot: number): Promise<number>
   unlock(familyId: string, key: string): Promise<void>
   /** Réclame la récompense du défi de la semaine ; renvoie la décoration offerte (ou « etoiles »). */
   claimWeekly(familyId: string): Promise<string>

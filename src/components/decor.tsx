@@ -6,6 +6,8 @@ import { useHome } from '../lib/store'
 import type { StarEntry } from '../lib/types'
 import { todayKey } from '../lib/util'
 import { BagIcon, CareIcon, pettedToday, useCare, usePet } from './care'
+import { useLieux } from './lieux'
+import { PetFigure } from './pet'
 import House from './House'
 import { StarsSheet } from './stars'
 import { Art, Btn, Page, Sheet } from './ui'
@@ -15,7 +17,7 @@ import { Art, Btn, Page, Sheet } from './ui'
 // on prévient qu'il faudra s'en occuper chaque jour, ensemble.
 
 const GROUPS: { title: string; hint?: string; keys: string[] }[] = [
-  { title: 'Animaux et plantes', hint: 'Ils vivent avec vous : il faut les nourrir ou les arroser chaque jour, en famille.', keys: ['fleurs', 'chat', 'potager', 'cabane'] },
+  { title: 'Animaux et plantes', hint: 'Ils vivent avec vous : il faut les nourrir ou les arroser chaque jour, en famille.', keys: ['compagnon', 'fleurs', 'potager', 'cabane'] },
   { title: 'Le jardin', keys: ['boite', 'lanterne', 'arbre', 'balancoire', 'fontaine'] },
   { title: 'La maison et le ciel', keys: ['fumee', 'montgolfiere'] },
 ]
@@ -31,6 +33,7 @@ export function DecorPage({ onClose, food: forFood = false }: { onClose: () => v
     setGlow(true)
   }
   const care = useCare(showFood)
+  const lieux = useLieux()
   const petAnimal = usePet()
   useEffect(() => {
     if (!forFood) return
@@ -76,7 +79,18 @@ export function DecorPage({ onClose, food: forFood = false }: { onClose: () => v
         </p>
 
         <div className="mx-4 mt-4 overflow-hidden rounded-[28px] bg-carte shadow-carte">
-          <House type={family.house_type} items={houseItems} cares={cares} onCare={care} since={state.houseSince} petted={pettedToday(state.starLog, state.me.id)} onPet={petAnimal} />
+          <House
+            type={family.house_type}
+            items={houseItems}
+            cares={cares}
+            onCare={care}
+            since={state.houseSince}
+            petted={pettedToday(state.starLog, state.me.id)}
+            onPet={petAnimal}
+            pet={state.pet}
+            plots={state.plots}
+            gold={state.owned.includes('gamelle:or')}
+          />
           {next && (
             <div className="flex items-center gap-3 px-4 py-3">
               <Art name={`deco-${next.key}`} size={40} />
@@ -97,7 +111,7 @@ export function DecorPage({ onClose, food: forFood = false }: { onClose: () => v
           <div key={g.title} className="mt-6">
             <p className="entete">{g.title}</p>
             {g.hint && <p className="-mt-1 px-5 pb-2.5 text-note text-brume">{g.hint}</p>}
-            {g.keys.includes('chat') && (
+            {g.keys.includes('compagnon') && (
               <div ref={foodRef} className={`groupe mx-4 mb-2.5 flex items-center gap-3 p-3 pr-3.5 shadow-carte transition-shadow duration-500 ${glow ? 'ring-2 ring-teinte' : ''}`}>
                 <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[16px] bg-peche-doux">
                   <BagIcon size={40} empty={family.food === 0} />
@@ -105,7 +119,7 @@ export function DecorPage({ onClose, food: forFood = false }: { onClose: () => v
                 <div className="min-w-0 flex-1">
                   <p className="text-corps font-semibold">Sac de croquettes</p>
                   <p className={`text-note ${family.food ? 'text-brume' : 'font-semibold text-rouge'}`}>
-                    {family.food ? `Il reste ${family.food} repas` : 'Le placard est vide'} · pour le chat et les oiseaux
+                    {family.food ? `Il reste ${family.food} repas` : 'Le placard est vide'} · pour le compagnon et les oiseaux
                   </p>
                   <span className="mt-1.5 flex gap-[3px]" aria-hidden>
                     {Array.from({ length: FOOD.meals }).map((_, i) => (
@@ -128,6 +142,26 @@ export function DecorPage({ onClose, food: forFood = false }: { onClose: () => v
             )}
             <div className="mx-4 grid grid-cols-3 gap-2.5">
               {g.keys.map((key) => {
+                // le compagnon n'est pas une décoration : on le choisit, puis il a sa page
+                if (key === 'compagnon') {
+                  const pet = state.pet
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => {
+                        tap()
+                        lieux.open({ k: 'compagnon' })
+                      }}
+                      className="presse groupe relative flex flex-col items-center px-1.5 pb-2.5 pt-3 text-center shadow-carte"
+                    >
+                      {pet ? <PetFigure pet={pet} className="w-[58px]" /> : <Art name="pet-chat" size={58} />}
+                      <span className="mt-1.5 line-clamp-2 flex min-h-[32px] items-center text-legende font-medium">{pet ? pet.name : 'Un compagnon'}</span>
+                      <span className={`mt-1.5 flex h-[26px] items-center gap-1 rounded-full px-2.5 text-legende font-semibold ${pet ? 'bg-teinte-doux text-teinte-fonce' : 'bg-teinte text-white'}`}>
+                        {pet ? 'Le voir' : 'Choisir'}
+                      </span>
+                    </button>
+                  )
+                }
                 const d = DECOS.find((x) => x.key === key)!
                 const c = CARE[key]
                 const owned = houseItems.includes(key)
@@ -137,7 +171,17 @@ export function DecorPage({ onClose, food: forFood = false }: { onClose: () => v
                   <div key={key} className="groupe relative flex flex-col items-center px-1.5 pb-2.5 pt-3 text-center shadow-carte">
                     <Art name={`deco-${key}`} size={58} className={!owned && !can ? 'opacity-55' : ''} />
                     <span className="mt-1.5 line-clamp-2 flex min-h-[32px] items-center text-legende font-medium">{d.name}</span>
-                    {owned && c ? (
+                    {owned && key === 'potager' ? (
+                      <button
+                        onClick={() => {
+                          tap()
+                          lieux.open({ k: 'potager' })
+                        }}
+                        className="presse mt-1.5 flex h-[26px] items-center gap-1 rounded-full bg-teinte-doux px-2.5 text-legende font-semibold text-teinte-fonce"
+                      >
+                        {state.plots.length ? 'Le voir' : 'Semer'}
+                      </button>
+                    ) : owned && c ? (
                       done ? (
                         <span className="mt-1.5 flex h-[26px] items-center gap-1 rounded-full bg-remplissage px-2.5 text-legende font-semibold text-brume">
                           <Check size={13} strokeWidth={3} /> {c.kind === 'nourrir' ? 'Nourri' : 'Arrosé'}
@@ -191,6 +235,7 @@ export function DecorPage({ onClose, food: forFood = false }: { onClose: () => v
         />
       )}
       {stars && <StarsSheet onClose={() => setStars(false)} />}
+      {lieux.node}
     </>
   )
 }
@@ -288,24 +333,28 @@ export function useGone() {
 }
 
 export function GoneSheet({ entry, onClose, onAdopt }: { entry: StarEntry; onClose: () => void; onAdopt: () => void }) {
-  const key = entry.reason.slice('parti:'.length)
+  const parts = entry.reason.split(':')
+  const key = parts[1]
+  const pet = key === 'compagnon' ? { species: parts[2] ?? 'chat', name: parts.slice(3).join(':') || 'Votre compagnon' } : null
   const c = CARE[key]
   const deco = DECOS.find((d) => d.key === key)
-  if (!c || !deco) return null
-  const Who = c.who.replace(/^./, (x) => x.toUpperCase())
+  if (!c || (!pet && !deco)) return null
+  const Who = pet ? pet.name : c.who.replace(/^./, (x) => x.toUpperCase())
+  const plural = !pet && c.plural
   return (
-    <Sheet title={`${Who} ${c.plural ? 'sont partis' : 'est parti'}`} onClose={onClose}>
+    <Sheet title={`${Who} ${plural ? 'sont partis' : 'est parti'}`} onClose={onClose}>
       <div className="flex flex-col items-center text-center">
-        <Art name={`deco-${key}`} size={120} className="opacity-60 grayscale" />
+        {pet ? <PetFigure pet={{ species: pet.species, outfit: null }} className="w-[120px] opacity-60 grayscale" /> : <Art name={`deco-${key}`} size={120} className="opacity-60 grayscale" />}
         <p className="mt-3 font-rond text-titre2">
-          {Who} {c.plural ? 'sont partis' : 'est parti'}
+          {Who} {plural ? 'sont partis' : 'est parti'}
         </p>
         <p className="mt-1.5 max-w-[310px] text-sous text-brume">
-          Personne ne {c.plural ? 'les' : 'l’'}a nourri{c.plural ? 's' : ''} pendant trois jours. {c.plural ? 'Ils sont partis' : 'Il est parti'} chercher une famille qui aura plus de temps pour {c.plural ? 'eux' : 'lui'}. Les {deco.cost} étoiles dépensées ne sont pas rendues.
+          Personne ne {plural ? 'les' : 'l’'}a nourri{plural ? 's' : ''} pendant trois jours. {plural ? 'Ils sont partis' : 'Il est parti'} chercher une famille qui aura plus de temps pour {plural ? 'eux' : 'lui'}.{' '}
+          {pet ? `Son amour est parti avec lui, et les étoiles de l’adoption ne sont pas rendues.` : `Les ${deco!.cost} étoiles dépensées ne sont pas rendues.`}
         </p>
       </div>
       <Btn className="mt-5" onClick={onAdopt}>
-        {c.act === 'Adopter' ? 'Adopter un nouveau chat' : 'Accueillir de nouveaux oiseaux'}
+        {pet ? 'Adopter un nouveau compagnon' : 'Accueillir de nouveaux oiseaux'}
       </Btn>
       <Btn className="mt-2.5" kind="gris" onClick={onClose}>
         Compris

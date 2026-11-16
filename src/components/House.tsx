@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { success, tap } from '../lib/haptic'
-import { ANIMALS, CARE, moodOf } from '../lib/data'
-import type { HouseCare, HouseType, Member } from '../lib/types'
+import { ANIMALS, CARE, moodOf, petStage, plantArt } from '../lib/data'
+import type { HouseCare, HouseType, Member, Pet, Plot } from '../lib/types'
 import { AGE_SCALE, lookOf } from '../lib/look'
 import { Character } from './Character'
 import { Smiley } from './Smiley'
 import { dayPhase, season as seasonOf, todayKey, type Season } from '../lib/util'
-import { animalMood, CareIcon, HandIcon, hungerOf, NoteIcon, RainCloud } from './care'
+import { animalMood, careFor, CareIcon, HandIcon, hungerOf, NoteIcon, RainCloud } from './care'
+import { PetFigure } from './pet'
 
 // La maison de la famille : un décor vivant qui suit l'heure, la maison en 3D
 // et les décorations débloquées avec les étoiles. Tout réagit au toucher.
@@ -42,16 +43,15 @@ const SPOTS: Record<string, Spot> = {
   balancoire: { left: 72, bottom: 21, w: 18, z: 3 },
   lanterne: { left: 22, bottom: 14, w: 9, z: 5, anim: 'lueur 3.2s ease-in-out infinite' },
   boite: { left: 67, bottom: 12, w: 8.5, z: 6 },
-  // le chat passe devant la famille : on doit pouvoir le voir, le nourrir et le caresser
+  // le compagnon passe devant la famille : on doit pouvoir le voir, le nourrir et le caresser
   fleurs: { left: 28, bottom: 7, w: 15, z: 7, anim: 'balance 4.5s ease-in-out 0.6s infinite' },
-  chat: { left: 57, bottom: 7, w: 12, z: 9, anim: 'respire 3.4s ease-in-out infinite', roam: 'balade 16s ease-in-out 4s infinite' },
+  compagnon: { left: 57, bottom: 7, w: 12, z: 9, anim: 'respire 3.4s ease-in-out infinite', roam: 'balade 16s ease-in-out 4s infinite' },
   fontaine: { left: 2, bottom: 1, w: 18, z: 8, anim: 'respire 2.2s ease-in-out infinite' },
-  potager: { left: 79, bottom: 0, w: 19, z: 8, anim: 'respire 5s ease-in-out 1s infinite' },
+  potager: { left: 79, bottom: 0, w: 19, z: 9, anim: 'respire 5s ease-in-out 1s infinite' },
 }
 const ORDER = Object.keys(SPOTS)
 // Décorations qui ont une vraie boucle animée (bande de sprites deco-<clé>-anim.webp).
 const ANIM: Record<string, { frames: number; dur: number }> = {
-  chat: { frames: 6, dur: 1.3 },
   balancoire: { frames: 8, dur: 1.9 },
   fontaine: { frames: 6, dur: 0.8 },
 }
@@ -93,7 +93,7 @@ const LEAVES = ['#E8833A', '#D9572B', '#F2B33D', '#B5532A', '#E9A23B']
 const PETALS = ['#F9C4D5', '#FDE6EE', '#F4A9C2', '#FFFFFF']
 
 export default function House({
-  type, items, className = '', phase = dayPhase(), bare = false, season = seasonOf(), photos = [], people = [], onPerson, scene = null, onSceneEnd, ratio, cares, onCare, since, petted = true, onPet,
+  type, items, className = '', phase = dayPhase(), bare = false, season = seasonOf(), photos = [], people = [], onPerson, scene = null, onSceneEnd, ratio, cares, onCare, since, petted = true, onPet, pet = null, plots = [], gold = false,
 }: {
   type: HouseType
   items: string[]
@@ -122,6 +122,11 @@ export default function House({
   petted?: boolean
   /** Caresser un animal nourri ; renvoie les étoiles gagnées. */
   onPet?: (key: string) => Promise<number>
+  /** Le compagnon de la famille (il grandit avec l'amour) et ce qui pousse au potager. */
+  pet?: Pet | null
+  plots?: Plot[]
+  /** La gamelle dorée du centre commercial, posée près de son coin. */
+  gold?: boolean
 }) {
   const night = phase === 'nuit'
   const base = HOUSE[type]
@@ -138,7 +143,9 @@ export default function House({
     ground: Math.max(0, h.bottom - 10),
     R,
   }
-  const has = (k: string) => items.includes(k)
+  const has = (k: string) => items.includes(k) || (k === 'compagnon' && !!pet)
+  // le compagnon grandit : bébé, jeune, adulte
+  const spotW = (k: string) => SPOTS[k].w * (k === 'compagnon' && pet ? petStage(pet.love).scale : 1)
   const dim = night ? 'brightness(0.72) saturate(0.9)' : undefined
   const [bounce, setBounce] = useState(0)
   const [poke, setPoke] = useState<{ key: string; n: number } | null>(null)
@@ -160,7 +167,7 @@ export default function House({
     return hunger(k) >= 2 ? 'saturate(0.45) sepia(0.3)' : undefined
   }
   const [pets, setPets] = useState<{ key: string; id: number; n: number }[]>([])
-  const pet = (key: string) => {
+  const stroke = (key: string) => {
     const id = Date.now()
     setPets((p) => [...p.filter((x) => x.key !== key), { key, id, n: 0 }])
     void onPet?.(key).then((n) => n && setPets((p) => p.map((x) => (x.id === id ? { ...x, n } : x))))
@@ -229,14 +236,30 @@ export default function House({
         onClick={() => {
           touch(key)
           if (onCare && CARE[key] && !cared(key)) onCare(key)
-          else if (onPet && ANIMALS.includes(key)) pet(key)
+          else if (onPet && ANIMALS.includes(key)) stroke(key)
         }}
         className="absolute"
-        style={{ left: `${sp.left}%`, bottom: sp.bottom != null ? `${sp.bottom}%` : undefined, top: sp.top != null ? `${sp.top}%` : undefined, width: `${sp.w * s}%`, zIndex: sp.z, animation: moodOfKey(key) === 'deprime' ? undefined : sp.roam }}
+        style={{ left: `${sp.left}%`, bottom: sp.bottom != null ? `${sp.bottom}%` : undefined, top: sp.top != null ? `${sp.top}%` : undefined, width: `${spotW(key) * s}%`, zIndex: sp.z, animation: moodOfKey(key) === 'deprime' ? undefined : sp.roam }}
       >
         <span className="block" style={{ animation: `pousse 0.6s var(--ressort) ${fresh.includes(key) ? 0 : 0.15 + ORDER.indexOf(key) * 0.07}s both`, transformOrigin: '50% 100%' }}>
           <span key={poked ? poke.n : 0} className="block" style={{ animation: poked ? 'rebond 0.7s var(--ressort)' : undefined, transformOrigin: '50% 100%' }}>
-            {ANIM[key] ? (
+            {key === 'compagnon' && pet ? (
+              <PetFigure pet={pet} className="w-full transition-[filter] duration-700" style={{ animation: sp.anim, transformOrigin: '50% 100%' }} filter={look} />
+            ) : key === 'potager' ? (
+              // le bac du potager, et ce qui pousse dans ses trois parcelles
+              <span className="relative block aspect-square w-full transition-[filter] duration-700" style={{ filter: look }}>
+                <img src="./art/potager-bac.webp" alt="" className="absolute inset-0 block h-full w-full" />
+                {plots.map((p) => (
+                  <img
+                    key={`${p.plot}${p.plant}${p.growth}`}
+                    src={`./art/${plantArt(p.plant, p.growth)}.webp`}
+                    alt=""
+                    className="absolute block w-[40%]"
+                    style={{ left: `${[30, 50, 70][p.plot] - 20}%`, bottom: '32%', zIndex: p.plot === 1 ? 1 : 2, animation: 'pop 0.5s var(--ressort) both, balance 5s ease-in-out 0.5s infinite', transformOrigin: '50% 100%' }}
+                  />
+                ))}
+              </span>
+            ) : ANIM[key] ? (
               <span className="block aspect-square w-full overflow-hidden transition-[filter] duration-700" style={{ filter: look }}>
                 <img
                   src={`./art/deco-${key}-anim.webp`}
@@ -272,7 +295,7 @@ export default function House({
   // Au-dessus de tout (même des personnages) : la bulle « j'ai faim / j'ai soif », puis le soin lui-même.
   const careLayer = (key: string) => {
     const sp = SPOTS[key]
-    const c = CARE[key]
+    const c = careFor(key, pet)
     const need = !cared(key)
     const mine = gains.filter((g) => g.key === key)
     const animal = ANIMALS.includes(key)
@@ -287,7 +310,7 @@ export default function House({
       <span
         key={`soin-${key}`}
         className="pointer-events-none absolute aspect-square"
-        style={{ left: `${sp.left}%`, bottom: `${sp.bottom ?? 0}%`, width: `${sp.w * s}%`, zIndex: 10, animation: mood === 'deprime' ? undefined : sp.roam }}
+        style={{ left: `${sp.left}%`, bottom: `${sp.bottom ?? 0}%`, width: `${spotW(key) * s}%`, zIndex: 10, animation: mood === 'deprime' ? undefined : sp.roam }}
       >
         {/* un animal qui déprime a son petit nuage de pluie */}
         {need && mood === 'deprime' && (
@@ -321,7 +344,7 @@ export default function House({
           <button
             onClick={() => {
               touch(key)
-              pet(key)
+              stroke(key)
             }}
             className="pointer-events-auto absolute bottom-[88%] left-1/2 flex rounded-full bg-[#FFE4EC] p-[3px] shadow-[0_3px_10px_rgba(29,26,43,0.22)]"
             style={{ animation: 'appelle 2.6s ease-in-out infinite' }}
@@ -333,7 +356,7 @@ export default function House({
         {/* la caresse : la main passe et repasse, le chat ronronne, les oiseaux chantent */}
         {petting.map((p) => (
           <span key={p.id} className="absolute inset-0" style={{ animation: 'apparait 3s ease both' }} onAnimationEnd={(e) => e.target === e.currentTarget && setPets((all) => all.filter((x) => x.id !== p.id))}>
-            {key === 'chat' ? (
+            {key === 'compagnon' ? (
               <>
                 <span className="absolute left-[2%] top-[-40%] block w-[100%] drop-shadow-[0_2px_4px_rgba(29,26,43,0.3)]" style={{ animation: 'caresse 0.62s ease-in-out 3' }}>
                   <HandIcon size="100%" />
@@ -369,7 +392,7 @@ export default function House({
               <span className="absolute left-[-18%] top-[-58%] block w-[62%] origin-[80%_60%]" style={{ animation: 'verse 1.7s ease-in-out both' }}>
                 <CareIcon k={key} size="100%" />
               </span>
-            ) : key === 'chat' ? (
+            ) : key === 'compagnon' ? (
               <span className="absolute bottom-[-6%] left-[58%] block w-[46%]" style={{ animation: 'pop 0.45s var(--ressort) both' }}>
                 <CareIcon k={key} size="100%" />
               </span>
@@ -490,6 +513,19 @@ export default function House({
         ))}
 
       {!bare && ORDER.filter((k) => has(k) && SPOTS[k].z >= 4).map((k) => deco(k))}
+
+      {/* le coin du compagnon (panier, coussin, niche, arbre) et sa gamelle dorée */}
+      {!bare && pet?.bed && (
+        <img
+          src={`./art/${pet.bed.replace(':', '-')}.webp`}
+          alt=""
+          className="pointer-events-none absolute block"
+          style={{ left: `${50 + (SPOTS.compagnon.left - 12 - 50) * s}%`, bottom: '4%', width: `${(pet.bed === 'lit:arbre' || pet.bed === 'lit:niche' ? 13 : 10.5) * s}%`, zIndex: 8, animation: 'pop 0.6s var(--ressort) both' }}
+        />
+      )}
+      {!bare && pet && gold && (
+        <img src="./art/shop-gamelle.webp" alt="" className="pointer-events-none absolute block" style={{ left: `${50 + (SPOTS.compagnon.left + 11 - 50) * s}%`, bottom: '3%', width: `${5.5 * s}%`, zIndex: 8 }} />
+      )}
 
       {/* vie du décor : lucioles la nuit, pollen le jour, neige sur le chalet */}
       {!bare && night &&

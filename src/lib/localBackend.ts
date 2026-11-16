@@ -1,4 +1,4 @@
-import { ANIMALS, CARE, DECOS, FOOD, GONE_AFTER, PLAN_LIMITS, THOUGHTS } from './data'
+import { ANIMALS, CARE, DECOS, FOOD, GONE_AFTER, PET_COST, PLAN_LIMITS, plantOf, shopItem, THOUGHTS } from './data'
 import { demoDrawing, type DemoArt } from './drawing'
 import { DEMO_LOOKS } from './look'
 import type { Backend, Drawing, Family, FamilyState, Folder, FolderItem, JoinRequest, Member, Moment, MyRequest, ThoughtKind } from './types'
@@ -131,6 +131,16 @@ function migrate(f: Raw, userId: string) {
   f.family.food ??= 0
   f.houseSince ??= {}
   for (const k of f.houseItems) f.houseSince[k] ??= new Date().toISOString()
+  f.plots ??= []
+  f.stock ??= {}
+  f.owned ??= []
+  if (f.pet === undefined) f.pet = null
+  // Le chat du jardin devient le compagnon de la famille.
+  if (f.houseItems.includes('chat')) {
+    f.pet ??= { species: 'chat', name: 'Minou', love: 0, outfit: null, bed: null, adopted_at: f.houseSince.chat ?? new Date().toISOString() }
+    f.houseItems = f.houseItems.filter((k) => k !== 'chat')
+  }
+  for (const c of f.cares) if (c.item_key === 'chat') c.item_key = 'compagnon'
   const diner = f.events.find((e) => e.title === 'Dîner tous ensemble' && e.description === undefined)
   if (diner) diner.description = DINER
   const dentiste = f.events.find((e) => e.title === 'Dentiste de Léa' && e.members === undefined)
@@ -278,6 +288,10 @@ export function createLocalBackend(): Backend {
       houseItems: ['fleurs'],
       cares: [],
       houseSince: { fleurs: new Date().toISOString() },
+      pet: null,
+      plots: [],
+      stock: {},
+      owned: [],
       starLog: [
         { id: uid(), member_id: lea.id, reason: 'moment', amount: 3, created_at: iso(55) },
         { id: uid(), member_id: mamie.id, reason: 'attention', amount: 1, created_at: iso(3) },
@@ -324,6 +338,9 @@ export function createLocalBackend(): Backend {
     }
   }
 
+  /** Le compagnon n'est pas une décoration : il est là si la famille en a un. */
+  const has = (f: Raw, key: string) => (key === 'compagnon' ? !!f.pet : f.houseItems.includes(key))
+
   // Un animal oublié trop longtemps s'en va (même règle que la base : au 4e jour sans repas).
   function checkGarden(f: Raw) {
     const today = todayKey()
@@ -333,12 +350,15 @@ export function createLocalBackend(): Backend {
       return Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(y, m - 1, d)) / 86400000)
     }
     let changed = false
-    for (const key of ANIMALS.filter((k) => f.houseItems.includes(k))) {
+    for (const key of ANIMALS.filter((k) => has(f, k))) {
       const last = f.cares.filter((c) => c.item_key === key).reduce<string | null>((a, c) => (!a || c.day > a ? c.day : a), null)
-      const base = last ?? todayKey(new Date(f.houseSince?.[key] ?? Date.now()))
+      const since = key === 'compagnon' ? f.pet!.adopted_at : f.houseSince?.[key]
+      const base = last ?? todayKey(new Date(since ?? Date.now()))
       if (diff(base) >= GONE_AFTER) {
-        f.houseItems = f.houseItems.filter((k) => k !== key)
-        f.starLog.unshift({ id: uid(), member_id: null, reason: `parti:${key}`, amount: 0, created_at: new Date().toISOString() })
+        const reason = key === 'compagnon' ? `parti:compagnon:${f.pet!.species}:${f.pet!.name}` : `parti:${key}`
+        if (key === 'compagnon') f.pet = null
+        else f.houseItems = f.houseItems.filter((k) => k !== key)
+        f.starLog.unshift({ id: uid(), member_id: null, reason, amount: 0, created_at: new Date().toISOString() })
         changed = true
       }
     }
@@ -357,7 +377,7 @@ export function createLocalBackend(): Backend {
   function demoCare(f: Raw, meId: string) {
     if (demoCareSent) return
     const day = todayKey()
-    const todo = Object.keys(CARE).filter((k) => f.houseItems.includes(k) && !f.cares.some((c) => c.item_key === k && c.day === day) && (!ANIMALS.includes(k) || f.family.food > 1))
+    const todo = Object.keys(CARE).filter((k) => has(f, k) && !f.cares.some((c) => c.item_key === k && c.day === day) && (!ANIMALS.includes(k) || f.family.food > 1))
     const helpers = f.members.filter((m) => m.user_id && m.id !== meId)
     if (todo.length < 2 || !helpers.length) return
     demoCareSent = true
@@ -371,9 +391,16 @@ export function createLocalBackend(): Backend {
         f.family.food -= 1
       }
       f.cares.unshift({ item_key: key, day: todayKey(), member_id: who.id, created_at: new Date().toISOString() })
+      grow(f, key)
       award(f, who.id, `soin:${key}`, CARE[key].stars)
       save()
     }, 25000)
+  }
+
+  /** Un repas fait grandir le compagnon ; un arrosage fait pousser le potager. */
+  function grow(f: Raw, key: string) {
+    if (key === 'compagnon' && f.pet) f.pet.love += 2
+    if (key === 'potager') for (const p of f.plots) p.growth = Math.min(30, p.growth + 1)
   }
 
   // Le proche répond par un dessin quelques secondes plus tard, pour voir la réception en direct.
@@ -526,7 +553,7 @@ export function createLocalBackend(): Backend {
         weeklyClaims: undefined,
         answers: f.answers.filter((a) => a.day === day).map((a) => ({ ...a, photo_url: a.photo_path ?? null })),
         cares: f.cares.filter((c) => c.day >= daysAgoKey(6)),
-        houseSince: { ...f.houseSince },
+        houseSince: { ...f.houseSince, ...(f.pet ? { compagnon: f.pet.adopted_at } : {}) },
         moments: f.moments.map((m) => ({ ...m, image_url: m.image_path })),
         drawings: f.drawings.filter((d) => !d.to_member || d.to_member === me.id || d.from_member === me.id).slice(0, 30).map((d) => ({ ...d, photo_url: d.photo_path ?? null })),
         folders: f.folders.filter((d) => mine.has(d.root_id)).map((d) => ({ ...d, cover_url: d.cover_path })),
@@ -763,7 +790,7 @@ export function createLocalBackend(): Backend {
       const f = fam(fid)
       const c = CARE[key]
       if (!c) throw new Error('PAS_DE_SOIN')
-      if (!f.houseItems.includes(key)) throw new Error('PAS_INSTALLE')
+      if (!has(f, key)) throw new Error(key === 'compagnon' ? 'PAS_DE_COMPAGNON' : 'PAS_INSTALLE')
       const day = todayKey()
       if (f.cares.some((x) => x.item_key === key && x.day === day)) throw new Error('DEJA_FAIT')
       if (ANIMALS.includes(key)) {
@@ -772,6 +799,7 @@ export function createLocalBackend(): Backend {
       }
       const me = myId(f)
       f.cares.unshift({ item_key: key, day, member_id: me, created_at: new Date().toISOString() })
+      grow(f, key)
       award(f, me, `soin:${key}`, c.stars)
       save()
       return c.stars
@@ -789,12 +817,97 @@ export function createLocalBackend(): Backend {
     async pet(fid, key) {
       const f = fam(fid)
       if (!ANIMALS.includes(key)) throw new Error('PAS_DE_SOIN')
-      if (!f.houseItems.includes(key)) throw new Error('PAS_INSTALLE')
+      if (!has(f, key)) throw new Error(key === 'compagnon' ? 'PAS_DE_COMPAGNON' : 'PAS_INSTALLE')
       const me = myId(f)
       if (f.starLog.some((x) => x.reason === 'caresse' && x.member_id === me && todayKey(new Date(x.created_at)) === todayKey())) return 0
+      if (key === 'compagnon' && f.pet) f.pet.love += 1
       award(f, me, 'caresse', 1)
       save()
       return 1
+    },
+    async buyItem(fid, key) {
+      const f = fam(fid)
+      const it = shopItem(key)
+      if (!it) throw new Error('OBJET_INCONNU')
+      if (!it.qty && f.owned.includes(key)) throw new Error('DEJA_ACHETE')
+      if (it.qty && (f.stock[key] ?? 0) + it.qty > 99) throw new Error('STOCK_PLEIN')
+      if (f.family.stars < it.cost) throw new Error('PAS_ASSEZ_ETOILES')
+      f.family.stars -= it.cost
+      if (it.qty) f.stock[key] = (f.stock[key] ?? 0) + it.qty
+      else f.owned.push(key)
+      f.starLog.unshift({ id: uid(), member_id: myId(f), reason: `achat:${key}`, amount: -it.cost, created_at: new Date().toISOString() })
+      save()
+    },
+    async adoptPet(fid, species, name) {
+      const f = fam(fid)
+      if (f.pet) throw new Error('DEJA_UN_COMPAGNON')
+      if (!name.trim()) throw new Error('PRENOM_VIDE')
+      if (f.family.stars < PET_COST) throw new Error('PAS_ASSEZ_ETOILES')
+      f.family.stars -= PET_COST
+      f.pet = { species, name: name.trim().slice(0, 24), love: 0, outfit: null, bed: null, adopted_at: new Date().toISOString() }
+      f.starLog.unshift({ id: uid(), member_id: myId(f), reason: 'adoption', amount: -PET_COST, created_at: new Date().toISOString() })
+      save()
+    },
+    async dressPet(fid, patch) {
+      const f = fam(fid)
+      if (!f.pet) throw new Error('PAS_DE_COMPAGNON')
+      if ((patch.outfit && !f.owned.includes(patch.outfit)) || (patch.bed && !f.owned.includes(patch.bed))) throw new Error('PAS_ACHETE')
+      f.pet.outfit = patch.outfit || null
+      f.pet.bed = patch.bed || null
+      if (patch.name.trim()) f.pet.name = patch.name.trim().slice(0, 24)
+      save()
+    },
+    async giveTreat(fid) {
+      const f = fam(fid)
+      if (!f.pet) throw new Error('PAS_DE_COMPAGNON')
+      if (!f.stock.friandises) throw new Error('PLUS_DE_FRIANDISES')
+      f.stock.friandises -= 1
+      f.pet.love += 3
+      save()
+      return f.pet.love
+    },
+    async playPet(fid, toy) {
+      const f = fam(fid)
+      if (!f.pet) throw new Error('PAS_DE_COMPAGNON')
+      if (!toy.startsWith('jeu:') || !f.owned.includes(toy)) throw new Error('PAS_ACHETE')
+      const me = myId(f)
+      if (f.starLog.some((x) => x.reason === 'jeu' && x.member_id === me && todayKey(new Date(x.created_at)) === todayKey())) return 0
+      f.pet.love += 2
+      award(f, me, 'jeu', 1)
+      save()
+      return 1
+    },
+    async plant(fid, plot, plant) {
+      const f = fam(fid)
+      if (!f.houseItems.includes('potager')) throw new Error('PAS_DE_POTAGER')
+      if (plot < 0 || plot > 2) throw new Error('PARCELLE_INCONNUE')
+      if (f.plots.some((p) => p.plot === plot)) throw new Error('PARCELLE_PRISE')
+      if (!plantOf(plant)) throw new Error('PLANTE_INCONNUE')
+      const k = `graines:${plant}`
+      if (!f.stock[k]) throw new Error('PLUS_DE_GRAINES')
+      f.stock[k] -= 1
+      f.plots.push({ plot, plant, growth: 0, planted_at: new Date().toISOString() })
+      f.plots.sort((a, b) => a.plot - b.plot)
+      save()
+    },
+    async fertilize(fid) {
+      const f = fam(fid)
+      if (!f.plots.length) throw new Error('RIEN_A_FAIRE_POUSSER')
+      if (!f.stock.engrais) throw new Error('PLUS_D_ENGRAIS')
+      f.stock.engrais -= 1
+      for (const p of f.plots) p.growth = Math.min(30, p.growth + 1)
+      save()
+    },
+    async harvest(fid, plot) {
+      const f = fam(fid)
+      const p = f.plots.find((x) => x.plot === plot)
+      if (!p) throw new Error('PARCELLE_VIDE')
+      const info = plantOf(p.plant)!
+      if (p.growth < info.ripe) throw new Error('PAS_ENCORE_MUR')
+      f.plots = f.plots.filter((x) => x !== p)
+      award(f, myId(f), `recolte:${p.plant}`, info.reward)
+      save()
+      return info.reward
     },
     async unlock(fid, key) {
       const f = fam(fid)

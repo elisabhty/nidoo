@@ -1,8 +1,8 @@
 import { ChevronDown, Dices } from 'lucide-react'
 import { useState } from 'react'
-import { COLOR_KEYS, COLORS, HOUSES } from '../lib/data'
+import { COLOR_KEYS, COLORS, HOUSES, shopItem } from '../lib/data'
 import { select, tap } from '../lib/haptic'
-import { AGE_SCALE, AGES, BEARDS, encodeLook, EYES, GLASSES, HAIR_COLORS, HAIRSTYLES, lookOf, MOLES, randomLook, SKINS, TOPS, type Look } from '../lib/look'
+import { ACCESSORIES, AGE_SCALE, AGES, BEARDS, encodeLook, EYES, GLASSES, HAIR_COLORS, HAIRSTYLES, lookOf, MOLES, randomLook, SKINS, TOPS, type Look } from '../lib/look'
 import type { HouseType } from '../lib/types'
 import { Character } from './Character'
 import House from './House'
@@ -12,8 +12,8 @@ type Onglet = 'cheveux' | 'visage' | 'yeux' | 'details' | 'tenue'
 
 /** Le créateur de personnage : un même visage pour tous, et chacun choisit ce qui le rend unique. */
 export function ProfilePicker({
-  name, setName, avatar, setAvatar, color, setColor, placeholder = 'Ton prénom ou ton surnom', compact = false,
-}: { name: string; setName: (v: string) => void; avatar: string; setAvatar: (v: string) => void; color: string; setColor: (v: string) => void; placeholder?: string; compact?: boolean }) {
+  name, setName, avatar, setAvatar, color, setColor, placeholder = 'Ton prénom ou ton surnom', compact = false, owned = [],
+}: { name: string; setName: (v: string) => void; avatar: string; setAvatar: (v: string) => void; color: string; setColor: (v: string) => void; placeholder?: string; compact?: boolean; owned?: string[] }) {
   const look = lookOf(avatar)
   const [tab, setTab] = useState<Onglet>('cheveux')
   const [hop, setHop] = useState(0)
@@ -172,6 +172,17 @@ export function ProfilePicker({
         )}
         {tab === 'tenue' && (
           <>
+            {titre('De la boutique')}
+            {owned.some((k) => k.startsWith('mode:')) ? (
+              <div className="grid grid-cols-4 gap-y-2.5">
+                {choix('v0', 'Rien', !look.v, { v: 0 })}
+                {ACCESSORIES.map((a, i) =>
+                  i && owned.includes(`mode:${a}`) ? choix(`v${i}`, shopItem(`mode:${a}`)?.name ?? a, look.v === i, { v: i }) : null,
+                )}
+              </div>
+            ) : (
+              <p className="text-sous text-brume">Chapeaux, écharpe, couronne… s’achètent à la boutique du centre commercial, puis se portent ici.</p>
+            )}
             {titre('Haut')}
             {pastilles(TOPS, look.t, (i) => set({ t: i }), 'Couleur du haut')}
             {titre('Couleur de fond')}

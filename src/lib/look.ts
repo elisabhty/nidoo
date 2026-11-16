@@ -40,6 +40,8 @@ export const AGE_SCALE = [1, 0.94, 0.82, 0.7]
 export const GLASSES = ['Sans', 'Rondes', 'Carrées', 'Soleil']
 export const BEARDS = ['Sans', 'Courte', 'Moustache', 'Longue']
 export const MOLES = ['Sans', 'Joue gauche', 'Joue droite', 'Au-dessus de la lèvre']
+/** Les accessoires achetés à la boutique du centre commercial (clé « mode:<nom> »). */
+export const ACCESSORIES = ['', 'bonnet', 'casquette', 'paille', 'fleurs', 'echarpe', 'lunettes', 'couronne', 'noeud']
 
 export type Look = {
   s: number // peau
@@ -55,17 +57,18 @@ export type Look = {
   t: number // haut
   a: number // taille : adulte, ado, enfant, bébé
   p: number // tétine (bébé)
+  v?: number // accessoire de la boutique (0 : aucun)
 }
-const KEYS: (keyof Look)[] = ['s', 'h', 'c', 'e', 'g', 'b', 'm', 'f', 'o', 'l', 't', 'a', 'p']
-const MAX: Look = { s: SKINS.length, h: HAIRSTYLES.length, c: HAIR_COLORS.length, e: EYES.length, g: GLASSES.length, b: BEARDS.length, m: MOLES.length, f: 2, o: 2, l: 2, t: TOPS.length, a: AGES.length, p: 2 }
+const KEYS: (keyof Look)[] = ['s', 'h', 'c', 'e', 'g', 'b', 'm', 'f', 'o', 'l', 't', 'a', 'p', 'v']
+const MAX: Required<Look> = { s: SKINS.length, h: HAIRSTYLES.length, c: HAIR_COLORS.length, e: EYES.length, g: GLASSES.length, b: BEARDS.length, m: MOLES.length, f: 2, o: 2, l: 2, t: TOPS.length, a: AGES.length, p: 2, v: ACCESSORIES.length }
 
-export const encodeLook = (l: Look) => `perso:${KEYS.map((k) => `${k}${l[k]}`).join('.')}`
+export const encodeLook = (l: Look) => `perso:${KEYS.map((k) => `${k}${l[k] ?? 0}`).join('.')}`
 
 /** Lit un personnage ; un ancien avatar (animal) devient un personnage stable tiré de son identifiant. */
 export function lookOf(avatar: string | undefined, seed = ''): Look {
   if (avatar?.startsWith('perso:')) {
     // les champs ajoutés plus tard (taille, tétine) valent « adulte, sans » par défaut
-    const out = { ...randomLook(avatar), a: 0, p: 0 }
+    const out: Look = { ...randomLook(avatar), a: 0, p: 0, v: 0 }
     for (const part of avatar.slice(6).split('.')) {
       const k = part[0] as keyof Look
       const v = Number(part.slice(1))
@@ -98,6 +101,7 @@ export function randomLook(seed?: string): Look {
     t: r(TOPS.length - 1),
     a: 0,
     p: 0,
+    v: 0,
   }
 }
 

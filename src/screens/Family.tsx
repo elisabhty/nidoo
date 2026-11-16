@@ -1,7 +1,7 @@
 import { Baby, Check, CircleHelp, Clock, Copy, Crown, House as HouseIcon, LogOut, Mail, Pencil, Plus, RefreshCw, Share, ShieldCheck, UserRound } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import House from '../components/House'
-import { careTodo } from '../components/care'
+import { careFor, careTodo, gardenKeys } from '../components/care'
 import { DrawingsSheet, DrawingWidget, DrawSheet } from '../components/drawing'
 import { eventArt, MoodSheet } from '../components/sheets'
 import { JoinRequests } from '../components/requests'
@@ -47,7 +47,7 @@ function Widgets({ onDraw, onOpen }: { onDraw: () => void; onOpen: (d: Drawing) 
   // La maison du widget : chacun avec son humeur du jour, comme sur l'accueil.
   const people = members.map((m) => ({ m, mood: isToday(m.mood_at) ? m.mood : null, label: m.display_name, me: m.id === me.id }))
   const shared = members.filter((m) => isToday(m.mood_at)).length
-  const garden = careTodo(state.houseItems, state.cares)
+  const garden = careTodo(gardenKeys(state.houseItems, state.pet), state.cares)
   const photos = [
     ...state.moments.filter((m) => m.image_url).map((m) => ({ at: m.created_at, url: m.image_url! })),
     ...state.drawings.filter((d) => !d.to_member && d.photo_url).map((d) => ({ at: d.created_at, url: d.photo_url! })),
@@ -59,14 +59,14 @@ function Widgets({ onDraw, onOpen }: { onDraw: () => void; onOpen: (d: Drawing) 
   return (
     <div className="no-bar flex gap-3.5 overflow-x-auto px-4 pb-2">
       <Tuile title="Notre maison · moyen" wide>
-        <House type={family.house_type} items={state.houseItems} people={people} cares={state.cares} since={state.houseSince} ratio={338 / 158} className="h-full" />
+        <House type={family.house_type} items={state.houseItems} people={people} cares={state.cares} since={state.houseSince} pet={state.pet} plots={state.plots} gold={state.owned.includes('gamelle:or')} ratio={338 / 158} className="h-full" />
       </Tuile>
       <Tuile title="Créer une attention" wide>
         <DrawingWidget compact onOpen={onOpen} onDraw={onDraw} />
       </Tuile>
       <Tuile title="Notre maison · grand" large>
         <div className="flex h-full flex-col">
-          <House type={family.house_type} items={state.houseItems} people={people} cares={state.cares} since={state.houseSince} photos={photos} />
+          <House type={family.house_type} items={state.houseItems} people={people} cares={state.cares} since={state.houseSince} pet={state.pet} plots={state.plots} gold={state.owned.includes('gamelle:or')} photos={photos} />
           <div className="flex min-h-0 flex-1 flex-col justify-center gap-1.5 px-4">
             <div className="flex items-baseline justify-between gap-2">
               <p className="truncate font-rond text-titre3">Famille {family.name}</p>
@@ -78,7 +78,7 @@ function Widgets({ onDraw, onOpen }: { onDraw: () => void; onOpen: (d: Drawing) 
               {shared === members.length ? 'Tout le monde a partagé son humeur' : `${shared} sur ${members.length} ont partagé leur humeur`}
             </p>
             <p className={`truncate text-note font-semibold ${garden.length ? 'text-peche-fonce' : 'text-vert'}`}>
-              {garden.length ? garden.map((k) => CARE[k].need).join(' · ') : state.houseItems.some((k) => CARE[k]) ? 'Tout le jardin est nourri et arrosé' : next[0] ? `${next[0].e.title} · ${dayLabel(next[0].at).toLowerCase()}` : 'Une belle journée à la maison'}
+              {garden.length ? garden.map((k) => careFor(k, state.pet).need).join(' · ') : state.pet || state.houseItems.some((k) => CARE[k]) ? 'Tout le jardin est nourri et arrosé' : next[0] ? `${next[0].e.title} · ${dayLabel(next[0].at).toLowerCase()}` : 'Une belle journée à la maison'}
             </p>
           </div>
         </div>
@@ -453,7 +453,7 @@ export default function Family({ onGuide, onActivities }: { onGuide: () => void;
 
       {sheet === 'profil' && (
         <Sheet title="Mon personnage" onClose={() => setSheet(null)} tall>
-          <ProfilePicker name={name} setName={setName} avatar={avatar} setAvatar={setAvatar} color={color} setColor={setColor} />
+          <ProfilePicker name={name} setName={setName} avatar={avatar} setAvatar={setAvatar} color={color} setColor={setColor} owned={state.owned} />
           <Btn className="mt-5" disabled={!name.trim()} onClick={async () => (await run((a) => a.updateMember(me.id, { display_name: name.trim(), avatar, color }), 'Profil mis à jour')) && setSheet(null)}>
             Enregistrer
           </Btn>
@@ -557,6 +557,7 @@ export default function Family({ onGuide, onActivities }: { onGuide: () => void;
             color={petit.color}
             setColor={(v) => setPetit((x) => x && { ...x, color: v })}
             placeholder="Son prénom"
+            owned={state.owned}
           />
           <Btn
             className="mt-5"
