@@ -92,9 +92,11 @@ export function FaceExtras({ p, look }: { p: Perso; look: Look }) {
           <stop offset="0" stopColor="#FF6F91" stopOpacity={z === 2 ? 0.75 : 0.45} />
           <stop offset="1" stopColor="#FF6F91" stopOpacity="0" />
         </radialGradient>
-        <filter id={`fo${id}`} x="-1" y="-1" width="3" height="3">
-          <feGaussianBlur stdDeviation={d * 0.006} />
-        </filter>
+        <radialGradient id={`fo${id}`} cx="0.45" cy="0.4">
+          <stop offset="0" stopColor={dent} stopOpacity={0.55} />
+          <stop offset="0.55" stopColor={dent} stopOpacity={0.22} />
+          <stop offset="1" stopColor={dent} stopOpacity={0} />
+        </radialGradient>
         <radialGradient id={`ne${id}`} cx="0.4" cy="0.35">
           <stop offset="0" stopColor={light} />
           <stop offset="0.6" stopColor={base} />
@@ -117,13 +119,14 @@ export function FaceExtras({ p, look }: { p: Perso; look: Look }) {
           )),
         )}
       {dd > 0 &&
-        // les fossettes : deux petits creux doux au coin de la bouche, dans la couleur de la peau
+        // les fossettes : un petit creux sur chaque joue, à hauteur du sourire (une ombre douce et un bord éclairé)
         [-1, 1].map((side) => {
-          const cx = mx + side * (mw * 0.5 + d * 0.065), cy = my + d * 0.02, hh = d * 0.05
+          const cx = mx + side * d * 0.4, cy = my - d * 0.035
           return (
-            <g key={side} filter={`url(#fo${id})`} strokeLinecap="round" fill="none">
-              <path d={`M${cx} ${cy - hh} Q${cx + side * d * 0.04} ${cy} ${cx} ${cy + hh}`} stroke={dent} strokeWidth={d * 0.03} opacity={0.8} />
-              <path d={`M${cx - side * d * 0.016} ${cy - hh * 0.75} Q${cx + side * d * 0.012} ${cy} ${cx - side * d * 0.016} ${cy + hh * 0.75}`} stroke={light} strokeWidth={d * 0.014} opacity={0.4} />
+            <g key={side}>
+              <ellipse cx={cx} cy={cy} rx={d * 0.06} ry={d * 0.08} fill={`url(#fo${id})`} />
+              <path d={`M${cx - side * d * 0.012} ${cy - d * 0.055} Q${cx + side * d * 0.03} ${cy} ${cx - side * d * 0.005} ${cy + d * 0.055}`} fill="none" stroke={dent} strokeWidth={d * 0.022} strokeLinecap="round" opacity={0.65} />
+              <path d={`M${cx + side * d * 0.03} ${cy - d * 0.045} Q${cx + side * d * 0.062} ${cy} ${cx + side * d * 0.028} ${cy + d * 0.05}`} fill="none" stroke={light} strokeWidth={d * 0.016} strokeLinecap="round" opacity={0.5} />
             </g>
           )
         })}

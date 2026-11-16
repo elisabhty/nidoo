@@ -1,9 +1,22 @@
-// Le smiley de l'humeur, dessiné (pas d'emoji système) : il se lit d'un coup d'œil dans la bulle au-dessus de chacun.
+// Le smiley de l'humeur : une petite boule de feutrine (public/art/humeurs/<humeur>.webp, générée avec ElevenLabs
+// dans le style des figurines), avec ce qui va autour (chapeau de fête, z, larme, cœur…). Il se lit d'un coup d'œil
+// dans la bulle au-dessus de chacun. Un smiley dessiné reste pour une humeur inconnue.
+
+const FEUTRE = new Set(['heureux', 'serein', 'motive', 'fete', 'fatigue', 'stresse', 'nostalgique', 'triste'])
 
 const INK = '#5B3A1E'
 const MOUTH = '#7A3B1E'
 
 export function Smiley({ mood, size = 22 }: { mood: string; size?: number }) {
+  if (FEUTRE.has(mood)) {
+    // l'image fait deux fois la boule : la boule remplit le rond, le reste dépasse un peu
+    const w = size * 1.86
+    return (
+      <span aria-hidden className="relative inline-block shrink-0" style={{ width: size, height: size }}>
+        <img src={`./art/humeurs/${mood}.webp`} alt="" draggable={false} className="pointer-events-none absolute max-w-none select-none" style={{ width: w, height: w, left: (size - w) / 2, top: (size - w) / 2 }} />
+      </span>
+    )
+  }
   const eyes = (y = 9.6) => (
     <>
       <ellipse cx={8.3} cy={y} rx={1.25} ry={1.55} fill={INK} />

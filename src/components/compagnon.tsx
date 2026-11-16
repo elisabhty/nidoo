@@ -418,7 +418,7 @@ function EffectLayer({ e, scale, onDone }: { e: Effect; scale: number; onDone: (
         </span>
       )}
       {e.kind === 'caresse' && (
-        <span className="absolute left-[4%] top-[-30%] block w-[92%] drop-shadow-[0_2px_4px_rgba(29,26,43,0.3)]" style={{ animation: 'caresse 0.62s ease-in-out 3' }}>
+        <span className="absolute left-[14%] top-[-24%] block w-[72%] drop-shadow-[0_2px_4px_rgba(29,26,43,0.3)]" style={{ animation: 'caresse 0.62s ease-in-out 3' }}>
           <HandIcon size="100%" />
         </span>
       )}
@@ -428,7 +428,7 @@ function EffectLayer({ e, scale, onDone }: { e: Effect; scale: number; onDone: (
         <img key={i} src="./art/geste-coeur.webp" alt="" className="absolute left-[32%] top-[0%] w-[36%]" style={{ animation: `jaillit 1.3s ease-out ${0.7 + i * 0.22}s both`, ['--jx' as string]: `${(i - 1) * 90}%` }} />
       ))}
       {(e.love > 0 || e.stars > 0) && (
-        <span className="absolute bottom-[96%] left-1/2 flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-2.5 py-1 text-[14px] font-bold shadow-[0_4px_12px_rgba(29,26,43,0.22)]" style={{ animation: 'gain 1.8s ease-out 0.9s both' }}>
+        <span className={`absolute ${e.kind === 'caresse' ? 'bottom-[128%]' : 'bottom-[96%]'} left-1/2 flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-2.5 py-1 text-[14px] font-bold shadow-[0_4px_12px_rgba(29,26,43,0.22)]`} style={{ animation: 'gain 1.8s ease-out 0.9s both' }}>
           {e.love > 0 && (
             <span className="flex items-center gap-0.5 text-[#D45D88]">
               +{e.love} <Heart size={13} fill="#E77BA0" strokeWidth={0} />

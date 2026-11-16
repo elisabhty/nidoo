@@ -358,7 +358,7 @@ export default function House({
           <span key={p.id} className="absolute inset-0" style={{ animation: 'apparait 3s ease both' }} onAnimationEnd={(e) => e.target === e.currentTarget && setPets((all) => all.filter((x) => x.id !== p.id))}>
             {key === 'compagnon' ? (
               <>
-                <span className="absolute left-[2%] top-[-40%] block w-[100%] drop-shadow-[0_2px_4px_rgba(29,26,43,0.3)]" style={{ animation: 'caresse 0.62s ease-in-out 3' }}>
+                <span className="absolute left-[12%] top-[-34%] block w-[78%] drop-shadow-[0_2px_4px_rgba(29,26,43,0.3)]" style={{ animation: 'caresse 0.62s ease-in-out 3' }}>
                   <HandIcon size="100%" />
                 </span>
                 <span className="absolute -top-[52%] left-[70%] whitespace-nowrap font-rond text-[11px] font-semibold italic text-[#8B5A2B]" style={{ animation: 'jaillit 1.6s ease-out 0.5s both', ['--jx' as string]: '30%' }}>

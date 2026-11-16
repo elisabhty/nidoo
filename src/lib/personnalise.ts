@@ -8,8 +8,8 @@
 // feutrine est gardé : on décale la couleur moyenne, pas la texture. Nez, bouche, taches de rousseur, blush
 // et lunettes sont dessinés par-dessus (voir Character).
 
-import type { Look } from './look'
-import type { Perso } from './persos'
+import { lookOf, type Look } from './look'
+import { persoOf, type Perso } from './persos'
 import { PEAUX, type Peau } from './peaux'
 import { VISAGES } from './visages'
 
@@ -234,4 +234,12 @@ export function renderPerso(p: Perso, look: Look): Promise<string> {
   cache.set(key, job)
   job.catch(() => cache.delete(key))
   return job
+}
+
+/** La main (en feutrine) de la bonne couleur pour caresser : celle de la peau de son personnage (1 très claire … 5 foncée). */
+export function teinteMain(avatar?: string | null): number {
+  if (!avatar) return 2
+  const look = lookOf(avatar)
+  const L = skinLab(persoOf(look), look)[0]
+  return L >= 78 ? 1 : L >= 68 ? 2 : L >= 55 ? 3 : L >= 38 ? 4 : 5
 }

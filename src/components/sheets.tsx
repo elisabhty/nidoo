@@ -1,6 +1,7 @@
 import { Camera, Images, Repeat, Trash2, Users } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { moodOf, MOODS, THOUGHTS, thoughtOf } from '../lib/data'
+import { Smiley } from './Smiley'
 import { feel, select, success } from '../lib/haptic'
 import { useHome } from '../lib/store'
 import type { EventKind, FamEvent, Member, ThoughtKind } from '../lib/types'
@@ -45,7 +46,9 @@ export function MoodSheet({ onClose, member }: { onClose: () => void; member?: M
               aria-pressed={on}
               className={`presse flex flex-col items-center gap-1 rounded-[20px] pb-2.5 pt-2 ${on ? 'bg-teinte-doux ring-2 ring-teinte' : 'bg-carte'}`}
             >
-              <Avatar m={{ ...who, mood: m.key, mood_at: new Date().toISOString() }} size={56} mood />
+              <span className="flex h-14 w-14 items-center justify-center">
+                <Smiley mood={m.key} size={44} />
+              </span>
               <span className={`text-legende ${on ? 'font-semibold text-teinte-fonce' : 'font-medium text-encre'}`}>{m.label}</span>
             </button>
           )

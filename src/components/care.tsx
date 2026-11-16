@@ -1,7 +1,8 @@
 import { useRef } from 'react'
 import { ANIMALS, CARE, GONE_AFTER, type Care } from '../lib/data'
 import { tap, warn } from '../lib/haptic'
-import { useHome } from '../lib/store'
+import { teinteMain } from '../lib/personnalise'
+import { useHome, useStore } from '../lib/store'
 import type { HouseCare, Pet, StarEntry } from '../lib/types'
 import { isToday, todayKey } from '../lib/util'
 
@@ -117,20 +118,11 @@ export type AnimalMood = 'bien' | 'triste' | 'deprime'
 export const animalMood = (hunger: number): AnimalMood => (hunger >= GONE_AFTER - 1 ? 'deprime' : hunger >= 2 ? 'triste' : 'bien')
 
 /** La main qui caresse. */
+/** La main qui caresse : une main en feutrine (public/art/main-1…5.webp), de la couleur de peau de son personnage. */
 export function HandIcon({ size = 24 }: { size?: number | string }) {
-  return (
-    <svg viewBox="0 0 40 32" width={size} height={size} aria-hidden>
-      <g fill="#F7CDB0" stroke="#DDA07B" strokeWidth={1.3} strokeLinejoin="round">
-        <rect x="9" y="2.5" width="6" height="15" rx="3" transform="rotate(-10 12 10)" />
-        <rect x="15.5" y="1" width="6" height="16" rx="3" />
-        <rect x="22" y="2" width="6" height="15" rx="3" transform="rotate(8 25 10)" />
-        <rect x="28" y="5" width="5.5" height="13" rx="2.75" transform="rotate(18 30.7 11.5)" />
-        <rect x="2" y="12" width="6" height="12" rx="3" transform="rotate(-48 5 18)" />
-        <path d="M7.5 15c0-2 1.6-3.2 3.4-3.2h18.6c2.2 0 4 1.6 4 4v3.2c0 5.6-4.4 10-10 10h-6.4c-5.4 0-9.6-4.4-9.6-9.6z" />
-      </g>
-      <path d="M14 21.5c2.6 1.6 6.4 1.6 9 0" fill="none" stroke="#DDA07B" strokeWidth={1.2} strokeLinecap="round" />
-    </svg>
-  )
+  const { state } = useStore()
+  const n = teinteMain(state?.me?.avatar)
+  return <img src={`./art/main-${n}.webp`} alt="" draggable={false} className="pointer-events-none block select-none" style={{ width: size, height: size, objectFit: 'contain' }} />
 }
 
 /** Le sac de croquettes de la maison. */
