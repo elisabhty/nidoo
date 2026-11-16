@@ -1,4 +1,4 @@
-import { ChevronLeft, Copy, Share } from 'lucide-react'
+import { ChevronLeft, Copy, Heart, Share } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import House from '../components/House'
 import { HousePicker, ProfilePicker } from '../components/pickers'
@@ -83,6 +83,8 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
   }
 
   const finish = async () => {
+    if (busy || !name.trim()) return
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
     if (path === 'creer') return setStep('maison')
     setBusy(true)
     try {
@@ -120,7 +122,8 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
   const showBack = (step !== 'accueil' || !!onCancel) && step !== 'invite'
 
   return (
-    <div ref={container} className="no-bar flex h-full flex-col overflow-y-auto bg-fond px-5" style={{ paddingTop: 'var(--sat)', paddingBottom: 'calc(var(--sab) + 18px)' }}>
+    <div className="flex h-full flex-col bg-fond" style={{ paddingTop: 'var(--sat)' }}>
+    <div ref={container} className="no-bar flex min-h-0 flex-1 flex-col overflow-y-auto px-5" style={{ paddingBottom: step === 'profil' ? '20px' : 'calc(var(--sab) + 18px)' }}>
       <div className="flex h-[52px] shrink-0 items-center">
         {showBack && (
           <button onClick={back} className="presse -ml-2 flex h-11 items-center gap-0.5 pr-3 text-corps text-teinte" aria-label="Retour">
@@ -141,17 +144,24 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
       )}
       {step === 'accueil' && (
         <div className="anim-entre flex flex-1 flex-col">
-          <div className="flex flex-1 flex-col items-center justify-center pb-6 pt-3 text-center">
-            <img src="./panda.webp" alt="Nidoo, le panda roux" className="anim-flotte h-[132px] w-[132px] rounded-[30px] shadow-[0_24px_50px_-18px_rgba(102,70,204,0.55)]" />
-            <p aria-hidden="true" className="mt-6 font-rond text-[40px] font-bold leading-none tracking-[-0.5px]">NIDOO</p>
-            <h1 className="outline-none mt-3 max-w-[290px] font-rond text-titre2">{T.home.headline}</h1>
-            <p className="mt-3 max-w-[290px] text-corps text-[#625A75]">{T.home.description}</p>
-            <div className="onboarding-preview mt-5 w-full max-w-[300px] overflow-hidden rounded-groupe shadow-carte" role="img" aria-label="Aperçu de votre maison virtuelle">
-              <House type="maison" items={[]} phase="jour" className="!aspect-[2/1]" />
+          <div className="onboarding-welcome flex flex-1 flex-col items-center justify-center pb-6 pt-3 text-center">
+            <img src="./panda.webp" alt="Nidoo, le panda roux" width={100} height={100} className="onboarding-mascot anim-flotte h-[100px] w-[100px] rounded-[26px] shadow-[0_24px_50px_-18px_rgba(102,70,204,0.55)]" />
+            <p aria-hidden="true" className="mt-4 font-rond text-[32px] font-bold leading-none tracking-[-0.5px]">NIDOO</p>
+            <h1 className="outline-none mt-3 max-w-[310px] font-rond text-titre1">{T.home.headline}</h1>
+            <p className="mt-3 max-w-[300px] text-sous text-[#625A75]">{T.home.description}</p>
+            <div className="onboarding-preview mt-5 w-full max-w-[300px] overflow-hidden rounded-groupe bg-carte shadow-carte">
+              <div role="img" aria-label="Une maison virtuelle à partager avec tes proches">
+                <House type="maison" items={[]} phase="jour" className="!aspect-[2/1]" />
+              </div>
+              <div className="flex items-center gap-3 px-4 py-3 text-left">
+                <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teinte-doux text-teinte-fonce"><Heart size={20} /></span>
+                <div>
+                  <p className="text-note text-brume">Un exemple de petite attention</p>
+                  <p className="font-rond text-appel font-bold">« Je pense à toi »</p>
+                </div>
+              </div>
             </div>
           </div>
-          <Btn onClick={() => { setPath('creer'); setStep('profil') }}>{T.home.create_cta}</Btn>
-          <Btn kind="teinte" className="mt-2.5" onClick={() => { setPath('rejoindre'); setStep('code') }}>{T.home.join_cta}</Btn>
         </div>
       )}
 
@@ -242,12 +252,8 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
             </div>
           )}
           <h1 className="outline-none font-rond text-grand">Et toi ?</h1>
-          <p className="mb-4 mt-1 text-sous text-brume">Ton prénom, et le personnage qui te ressemble. Tu pourras le changer à tout moment.</p>
-          <ProfilePicker compact name={name} setName={setName} avatar={avatar} setAvatar={setAvatar} color={color} setColor={setColor} />
-          <div className="flex-1" />
-          <Btn className="mt-6 shrink-0" onClick={finish} disabled={busy || !name.trim()}>
-            {busy ? 'Un instant…' : path === 'creer' ? 'Continuer' : 'Demander à entrer'}
-          </Btn>
+          <p className="mb-4 mt-1 text-sous text-brume">Un prénom suffit pour commencer. Ton personnage pourra évoluer avec toi.</p>
+          <ProfilePicker compact collapsible name={name} setName={setName} avatar={avatar} setAvatar={setAvatar} color={color} setColor={setColor} />
         </div>
       )}
 
@@ -279,6 +285,21 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
           <Btn kind="teinte" className="mt-2.5" onClick={() => void open(created.id).then(() => onCancel?.())}>Entrer dans la maison</Btn>
         </div>
       )}
+    </div>
+    {step === 'accueil' && (
+      <div className="shrink-0 bg-fond px-5 pt-2" style={{ paddingBottom: 'calc(var(--sab) + 18px)' }}>
+        <Btn onClick={() => { setPath('creer'); setStep('profil') }}>{T.home.create_cta}</Btn>
+        <Btn kind="teinte" className="mt-2.5" onClick={() => { setPath('rejoindre'); setStep('code') }}>{T.home.join_cta}</Btn>
+      </div>
+    )}
+    {step === 'profil' && (
+      <div className="shrink-0 border-t border-trait bg-fond px-5 pt-3" style={{ paddingBottom: 'calc(var(--sab) + 18px)' }}>
+        <p className="mb-2 text-center text-note text-brume">{name.trim() ? 'Tu pourras modifier ton personnage plus tard.' : 'Ajoute ton prénom pour continuer.'}</p>
+        <Btn onClick={finish} disabled={busy || !name.trim()}>
+          {busy ? 'Un instant…' : path === 'creer' ? 'Continuer' : 'Demander à entrer'}
+        </Btn>
+      </div>
+    )}
     </div>
   )
 }

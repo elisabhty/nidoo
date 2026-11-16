@@ -1,5 +1,5 @@
-import { Dices } from 'lucide-react'
-import { useState } from 'react'
+import { ChevronDown, Dices } from 'lucide-react'
+import { useId, useState } from 'react'
 import { COLOR_KEYS, COLORS, HOUSES, shopItem } from '../lib/data'
 import { select, tap } from '../lib/haptic'
 import { ACCESSORIES, AGE_SCALE, encodeLook, lookOf, type Look } from '../lib/look'
@@ -13,8 +13,11 @@ import { Segments } from './ui'
 
 /** Choisir son personnage : la figurine en feutrine qui nous ressemble le plus, sa taille et ce qu'on porte. */
 export function ProfilePicker({
-  name, setName, avatar, setAvatar, color, setColor, placeholder = 'Ton prénom ou ton surnom', compact = false, owned = [],
-}: { name: string; setName: (v: string) => void; avatar: string; setAvatar: (v: string) => void; color: string; setColor: (v: string) => void; placeholder?: string; compact?: boolean; owned?: string[] }) {
+  name, setName, avatar, setAvatar, color, setColor, placeholder = 'Ton prénom ou ton surnom', compact = false, owned = [], collapsible = false,
+}: { name: string; setName: (v: string) => void; avatar: string; setAvatar: (v: string) => void; color: string; setColor: (v: string) => void; placeholder?: string; compact?: boolean; owned?: string[]; collapsible?: boolean }) {
+  const [expanded, setExpanded] = useState(false)
+  const customizationId = useId()
+  const nameId = useId()
   const look = lookOf(avatar)
   const mine = persoOf(look)
   const [group, setGroup] = useState<Group>(mine.g)
@@ -129,7 +132,17 @@ export function ProfilePicker({
         </button>
       </div>
 
-      <input aria-label={placeholder} autoComplete="given-name" enterKeyHint="done" className="champ mt-3 !bg-carte text-center font-rond text-titre3" placeholder={placeholder} maxLength={24} value={name} onChange={(e) => setName(e.target.value)} />
+      <label htmlFor={nameId} className="mb-1.5 mt-5 px-1 text-note font-semibold text-brume">{placeholder}</label>
+      <input id={nameId} aria-label={placeholder} autoComplete="given-name" enterKeyHint="done" className="champ !bg-carte text-center font-rond text-titre3" placeholder={placeholder} maxLength={24} value={name} onChange={(e) => setName(e.target.value)} />
+
+      {collapsible && (
+        <button type="button" aria-expanded={expanded} aria-controls={customizationId} onClick={() => setExpanded((value) => !value)} className="presse mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-teinte-doux px-4 text-sous font-semibold text-teinte-fonce">
+          {expanded ? 'Réduire la personnalisation' : 'Personnaliser mon personnage'}
+          <ChevronDown size={18} aria-hidden="true" className={`shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+        </button>
+      )}
+
+      <div id={customizationId} hidden={collapsible && !expanded}>
 
       <p className={`${compact ? 'mt-4' : 'mt-5'} px-1 text-center text-sous text-brume`}>Choisis le personnage qui te ressemble le plus.</p>
       <div className="mt-3">
@@ -312,6 +325,7 @@ export function ProfilePicker({
           />
         ))}
       </div>
+      </div>
     </>
   )
 }
@@ -321,6 +335,7 @@ export function HousePicker({ value, onChange }: { value: HouseType; onChange: (
     <div className="mt-4 grid grid-cols-3 gap-2.5">
       {HOUSES.map((h) => (
         <button
+          type="button"
           key={h.key}
           onClick={() => {
             select()
