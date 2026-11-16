@@ -302,9 +302,11 @@ export function ProfilePicker({
                 {puces(NEZ, look.n ?? 0, (i) => tune({ n: i }))}
                 <p className="mb-2 mt-4 text-note font-semibold text-brume">Bouche</p>
                 {puces(BOUCHES, look.u ?? 0, (i) => tune({ u: i }))}
+                <p className="mb-2 mt-4 text-note font-semibold text-brume">Fossettes</p>
+                {puces(['Sans', 'Avec'], look.d ?? 0, (i) => tune({ d: i }))}
               </>
             ) : (
-              <p className="mt-4 text-sous text-brume">Avec la barbe, le nez et la bouche restent ceux de la figurine.</p>
+              <p className="mt-4 text-sous text-brume">Avec la barbe, le nez, la bouche et les fossettes restent ceux de la figurine.</p>
             )}
           </>
         )}

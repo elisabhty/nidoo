@@ -68,14 +68,15 @@ export type Look = {
   j?: number // lunettes
   w?: number // couleur des lunettes
   z?: number // blush
+  d?: number // fossettes
 }
-const KEYS: (keyof Look)[] = ['s', 'h', 'c', 'e', 'g', 'b', 'm', 'f', 'o', 'l', 't', 'a', 'p', 'v', 'k', 'q', 'x', 'y', 'n', 'u', 'j', 'w', 'z']
+const KEYS: (keyof Look)[] = ['s', 'h', 'c', 'e', 'g', 'b', 'm', 'f', 'o', 'l', 't', 'a', 'p', 'v', 'k', 'q', 'x', 'y', 'n', 'u', 'j', 'w', 'z', 'd']
 /** Les champs de l'ancien personnage dessiné : inutiles une fois la figurine choisie. */
 const LEGACY: (keyof Look)[] = ['s', 'h', 'c', 'e', 'g', 'b', 'm', 'o', 't', 'p']
-const MAX: Required<Look> = { s: SKINS.length, h: HAIRSTYLES.length, c: HAIR_COLORS.length, e: EYES.length, g: GLASSES.length, b: BEARDS.length, m: MOLES.length, f: 2, o: 2, l: 6, t: TOPS.length, a: AGES.length, p: 2, v: ACCESSORIES.length, k: 256, q: 9, x: 12, y: 7, n: 4, u: 5, j: 4, w: 6, z: 3 }
+const MAX: Required<Look> = { s: SKINS.length, h: HAIRSTYLES.length, c: HAIR_COLORS.length, e: EYES.length, g: GLASSES.length, b: BEARDS.length, m: MOLES.length, f: 2, o: 2, l: 6, t: TOPS.length, a: AGES.length, p: 2, v: ACCESSORIES.length, k: 256, q: 9, x: 12, y: 7, n: 4, u: 5, j: 4, w: 6, z: 3, d: 2 }
 
 export const encodeLook = (l: Look) =>
-  `perso:${KEYS.filter((k) => !(l.k && LEGACY.includes(k)) && (k.match(/[qxynujwz]/) ? l[k] : true))
+  `perso:${KEYS.filter((k) => !(l.k && LEGACY.includes(k)) && (k.match(/[qxynujwzd]/) ? l[k] : true))
     .map((k) => `${k}${l[k] ?? 0}`)
     .join('.')}`
 

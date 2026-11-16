@@ -56,7 +56,8 @@ export function FaceExtras({ p, look }: { p: Perso; look: Look }) {
   const j = look.j ?? 0
   const z = look.z ?? 0
   const f = look.f ?? 0
-  if (!n && !u && !j && !z && !f) return null
+  const dd = v.bouche ? look.d ?? 0 : 0
+  if (!n && !u && !j && !z && !f && !dd) return null
   const [lx0, ly0, rx0, ry0, r0] = v.e
   const lx = lx0 * CW, ly = ly0 * CH, rx = rx0 * CW, ry = ry0 * CH, r = r0 * CW
   const d = rx - lx
@@ -64,6 +65,7 @@ export function FaceExtras({ p, look }: { p: Perso; look: Look }) {
   const skin = skinLab(p, look)
   const shade = labHex([skin[0] - 14, skin[1] + 4, skin[2] + 2])
   const light = labHex([Math.min(96, skin[0] + 8), skin[1] - 2, skin[2] - 4])
+  const dent = labHex([Math.max(8, skin[0] * 0.72 - 4), skin[1] + 3, skin[2]])
   const base = labHex(skin)
   const lip = '#5A2A2A'
   const mx = v.mo[0] * CW, my = v.mo[1] * CH
@@ -90,6 +92,9 @@ export function FaceExtras({ p, look }: { p: Perso; look: Look }) {
           <stop offset="0" stopColor="#FF6F91" stopOpacity={z === 2 ? 0.75 : 0.45} />
           <stop offset="1" stopColor="#FF6F91" stopOpacity="0" />
         </radialGradient>
+        <filter id={`fo${id}`} x="-1" y="-1" width="3" height="3">
+          <feGaussianBlur stdDeviation={d * 0.006} />
+        </filter>
         <radialGradient id={`ne${id}`} cx="0.4" cy="0.35">
           <stop offset="0" stopColor={light} />
           <stop offset="0.6" stopColor={base} />
@@ -111,6 +116,17 @@ export function FaceExtras({ p, look }: { p: Perso; look: Look }) {
             <circle key={`${side}${i}`} cx={(side < 0 ? lx : rx) + side * d * 0.02 + dx * d * side} cy={ey + d * 0.36 + dy * d} r={d * 0.016} fill="#9A5A3A" opacity={0.55} />
           )),
         )}
+      {dd > 0 &&
+        // les fossettes : deux petits creux doux au coin de la bouche, dans la couleur de la peau
+        [-1, 1].map((side) => {
+          const cx = mx + side * (mw * 0.5 + d * 0.065), cy = my + d * 0.02, hh = d * 0.05
+          return (
+            <g key={side} filter={`url(#fo${id})`} strokeLinecap="round" fill="none">
+              <path d={`M${cx} ${cy - hh} Q${cx + side * d * 0.04} ${cy} ${cx} ${cy + hh}`} stroke={dent} strokeWidth={d * 0.03} opacity={0.8} />
+              <path d={`M${cx - side * d * 0.016} ${cy - hh * 0.75} Q${cx + side * d * 0.012} ${cy} ${cx - side * d * 0.016} ${cy + hh * 0.75}`} stroke={light} strokeWidth={d * 0.014} opacity={0.4} />
+            </g>
+          )
+        })}
       {n === 1 && <ellipse cx={nx} cy={ny} rx={d * 0.075} ry={d * 0.06} fill={`url(#ne${id})`} />}
       {n === 2 && <ellipse cx={nx} cy={ny + d * 0.01} rx={d * 0.11} ry={d * 0.085} fill={`url(#ne${id})`} />}
       {n === 3 && (
