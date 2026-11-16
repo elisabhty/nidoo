@@ -203,10 +203,11 @@ export function renderPerso(p: Perso, look: Look): Promise<string> {
         nB += wH * (hT![2] + (B - ha[2]) * 0.6 - nB)
       }
       // les sourcils prennent la couleur des cheveux
+      // (un peu plus foncés que les cheveux, comme de vrais sourcils)
       if (wBrow) {
-        nL += wBrow * (hT![0] + (L - 50) * 0.35 - nL)
-        nA += wBrow * (hT![1] - nA)
-        nB += wBrow * (hT![2] - nB)
+        nL += wBrow * (hT![0] * 0.72 + (L - 50) * 0.3 - nL)
+        nA += wBrow * (hT![1] * 0.75 - nA)
+        nB += wBrow * (hT![2] * 0.75 - nB)
       }
       if (wEye) {
         nL = eT![0] + (L - ir[0]) * 1.1
