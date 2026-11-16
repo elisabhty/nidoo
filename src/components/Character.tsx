@@ -1,6 +1,7 @@
 import { useEffect, useId, useState, type ReactNode } from 'react'
 import { ACCESSORIES, EYES, HAIR_COLORS, HAIRSTYLES, SKINS, TOPS, type Look } from '../lib/look'
-import { cachedSrc, LEVRES, labHex, MONTURES, peauOf, persoImg, pixelKey, renderPerso, skinLab } from '../lib/personnalise'
+import { COULEURS_MONTURE, FORMES_LUNETTES, LUNETTES_IMG } from '../lib/lunettes'
+import { cachedSrc, LEVRES, labHex, peauOf, persoImg, pixelKey, renderPerso, skinLab } from '../lib/personnalise'
 import { accessoryOf, accPlace, accTop, CH, CW, persoOf, type Perso } from '../lib/persos'
 import { VISAGES } from '../lib/visages'
 
@@ -68,17 +69,20 @@ export function FaceExtras({ p, look }: { p: Perso; look: Look }) {
   const mx = v.mo[0] * CW, my = v.mo[1] * CH
   const mw = Math.max(v.mo[2] * CW, d * 0.34)
   const nx = v.no[0] * CW, ny = v.no[1] * CH
-  const frame = MONTURES[look.w ?? 0]?.hex ?? MONTURES[0].hex
-  const R = r * 2.05
   const id = p.id
-  const lens = (cx: number, cy: number, side: number) =>
-    j === 1 ? (
-      <circle cx={cx} cy={cy} r={R} />
-    ) : j === 2 ? (
-      <rect x={cx - R * 1.12} y={cy - R * 0.9} width={R * 2.24} height={R * 1.8} rx={R * 0.38} />
-    ) : (
-      <path d={`M${cx - R * 1.1 * side} ${cy - R * 0.2} Q${cx - R * 1.15 * side} ${cy + R * 0.95} ${cx} ${cy + R * 0.9} Q${cx + R * 1.1 * side} ${cy + R * 0.85} ${cx + R * 1.12 * side} ${cy - R * 0.35} L${cx + R * 1.35 * side} ${cy - R * 1.0} Q${cx + R * 0.2 * side} ${cy - R * 0.95} ${cx - R * 1.1 * side} ${cy - R * 0.2} Z`} />
-    )
+  // les lunettes : une vraie paire (image), posée verres sur les yeux, avec son ombre
+  const lun = j > 0 && !p.l ? `lun-${FORMES_LUNETTES[j - 1]}-${COULEURS_MONTURE[look.w ?? 0] ?? COULEURS_MONTURE[0]}` : ''
+  const mon = lun ? LUNETTES_IMG[lun] : null
+  let lunettes: { k: string; t: string; w: number; h: number } | null = null
+  if (mon) {
+    const D = mon.r[0] - mon.l[0]
+    const s0 = Math.hypot(rx - lx, ry - ly) / D
+    // les yeux doivent tenir dans les verres, sans que les lunettes deviennent énormes
+    const s = Math.min(s0 * 1.5, Math.max(s0, (r * 3.3) / mon.v[0]))
+    const deg = (Math.atan2(ry - ly, rx - lx) * 180) / Math.PI
+    const gx = (mon.l[0] + mon.r[0]) / 2, gy = (mon.l[1] + mon.r[1]) / 2
+    lunettes = { k: lun, t: `translate(${ex} ${ey + r * 0.05}) rotate(${deg}) scale(${s}) translate(${-gx} ${-gy})`, w: mon.w, h: mon.h }
+  }
   return (
     <svg viewBox={`0 0 ${CW} ${CH}`} className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true">
       <defs>
@@ -136,16 +140,9 @@ export function FaceExtras({ p, look }: { p: Perso; look: Look }) {
           <path d={`M${mx - mw * 0.12} ${my + mw * 0.09} L${mx + mw * 0.12} ${my + mw * 0.09}`} stroke="#7A2A3A" strokeWidth={mw * 0.03} strokeLinecap="round" />
         </>
       )}
-      {j > 0 && (
-        <g fill="rgba(255,255,255,0.14)" stroke={frame} strokeWidth={r * 0.36} strokeLinejoin="round">
-          {lens(lx, ly, -1)}
-          {lens(rx, ry, 1)}
-          <path d={`M${lx + R * (j === 2 ? 1.12 : 1)} ${ey - r * 0.2} Q${ex} ${ey - r * 0.9} ${rx - R * (j === 2 ? 1.12 : 1)} ${ey - r * 0.2}`} fill="none" />
-          <path d={`M${lx - R * (j === 2 ? 1.12 : 1)} ${ly - r * 0.3} L${lx - R * 1.25 - d * 0.12} ${ly - r * 0.6} M${rx + R * (j === 2 ? 1.12 : 1)} ${ry - r * 0.3} L${rx + R * 1.25 + d * 0.12} ${ry - r * 0.6}`} fill="none" />
-          <g fill="none" stroke="#FFFFFF" strokeOpacity={0.3} strokeWidth={r * 0.12}>
-            {lens(lx, ly, -1)}
-            {lens(rx, ry, 1)}
-          </g>
+      {lunettes && (
+        <g transform={lunettes.t}>
+          <image href={`./art/persos/${lunettes.k}.webp`} width={lunettes.w} height={lunettes.h} />
         </g>
       )}
     </svg>

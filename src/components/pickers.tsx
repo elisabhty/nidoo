@@ -4,6 +4,7 @@ import { COLOR_KEYS, COLORS, HOUSES, shopItem } from '../lib/data'
 import { select, tap } from '../lib/haptic'
 import { ACCESSORIES, AGE_SCALE, encodeLook, lookOf, type Look } from '../lib/look'
 import { BLUSH, BOUCHES, CHEVEUX, labHex, LEVRES, LUNETTES, MONTURES, NEZ, nomPeau, peauOf, peauProche, peauxDe, persoImg, skinLab, VOILES, YEUX } from '../lib/personnalise'
+import { COULEURS_MONTURE, FORMES_LUNETTES } from '../lib/lunettes'
 import { GROUPS, PERSOS, persoOf, TONES, type Group, type Perso } from '../lib/persos'
 import { VISAGES } from '../lib/visages'
 import type { HouseType } from '../lib/types'
@@ -309,12 +310,33 @@ export function ProfilePicker({
         )}
         {tab === 'lunettes' && (
           <>
-            {mine.l && <p className="mb-3 text-sous text-brume">Cette figurine porte déjà des lunettes : celles-ci se mettent par-dessus.</p>}
-            {puces(LUNETTES, look.j ?? 0, (i) => tune({ j: i }))}
-            {(look.j ?? 0) > 0 && (
+            {mine.l ? (
+              <p className="text-sous text-brume">Cette figurine porte déjà ses lunettes. Pour en choisir d'autres, prends une figurine sans lunettes.</p>
+            ) : (
               <>
-                <p className="mb-2 mt-4 text-note font-semibold text-brume">Monture</p>
-                {nuancier(MONTURES.map((m) => m.label), MONTURES.map((m) => m.hex), (look.w ?? 0) + 1, (i) => tune({ w: Math.max(0, i - 1) }))}
+                <div className="grid grid-cols-4 gap-2">
+                  {LUNETTES.map((label, i) => {
+                    const on = (look.j ?? 0) === i
+                    return (
+                      <button
+                        key={label}
+                        onClick={() => tune({ j: i })}
+                        aria-pressed={on}
+                        aria-label={label}
+                        className={`presse flex h-16 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-note font-semibold transition-colors ${on ? 'bg-teinte-doux text-teinte-fonce ring-2 ring-teinte' : 'bg-remplissage text-encre'}`}
+                      >
+                        {i ? <img src={`./art/persos/lun-${FORMES_LUNETTES[i - 1]}-${COULEURS_MONTURE[look.w ?? 0] ?? 'noire'}.webp`} alt="" className="h-6 w-auto max-w-full" draggable={false} /> : <span className="h-6 leading-6 text-brume">—</span>}
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
+                {(look.j ?? 0) > 0 && (
+                  <>
+                    <p className="mb-2 mt-4 text-note font-semibold text-brume">Monture</p>
+                    {nuancier(MONTURES.map((m) => m.label), MONTURES.map((m) => m.hex), (look.w ?? 0) + 1, (i) => tune({ w: Math.max(0, i - 1) }))}
+                  </>
+                )}
               </>
             )}
           </>
