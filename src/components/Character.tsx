@@ -72,6 +72,13 @@ export function FaceExtras({ p, look }: { p: Perso; look: Look }) {
   const mw = Math.max(v.mo[2] * CW, d * 0.34)
   const nx = v.no[0] * CW, ny = v.no[1] * CH
   const id = p.id
+  const deg = (Math.atan2(ry - ly, rx - lx) * 180) / Math.PI
+  // fossettes : on part du milieu des yeux (plus sûr que le centre de bouche détecté), on descend à hauteur
+  // de la bouche le long de l'axe du visage, puis on s'écarte autant à gauche qu'à droite
+  const dl = Math.hypot(rx - lx, ry - ly)
+  const ux = (rx - lx) / dl, uy = (ry - ly) / dl
+  const bas = (mx - ex) * -uy + (my - ey) * ux + d * 0.01
+  const fossettes = [-1, 1].map((side) => [ex - uy * bas + side * ux * d * 0.37, ey + ux * bas + side * uy * d * 0.37])
   // les lunettes : une vraie paire (image), posée verres sur les yeux, avec son ombre
   const lun = j > 0 && !p.l ? `lun-${FORMES_LUNETTES[j - 1]}-${COULEURS_MONTURE[look.w ?? 0] ?? COULEURS_MONTURE[0]}` : ''
   const mon = lun ? LUNETTES_IMG[lun] : null
@@ -81,7 +88,6 @@ export function FaceExtras({ p, look }: { p: Perso; look: Look }) {
     const s0 = Math.hypot(rx - lx, ry - ly) / D
     // les yeux doivent tenir dans les verres, sans que les lunettes deviennent énormes
     const s = Math.min(s0 * 1.5, Math.max(s0, (r * 3.3) / mon.v[0]))
-    const deg = (Math.atan2(ry - ly, rx - lx) * 180) / Math.PI
     const gx = (mon.l[0] + mon.r[0]) / 2, gy = (mon.l[1] + mon.r[1]) / 2
     lunettes = { k: lun, t: `translate(${ex} ${ey + r * 0.05}) rotate(${deg}) scale(${s}) translate(${-gx} ${-gy})`, w: mon.w, h: mon.h }
   }
@@ -92,11 +98,14 @@ export function FaceExtras({ p, look }: { p: Perso; look: Look }) {
           <stop offset="0" stopColor="#FF6F91" stopOpacity={z === 2 ? 0.75 : 0.45} />
           <stop offset="1" stopColor="#FF6F91" stopOpacity="0" />
         </radialGradient>
-        <radialGradient id={`fo${id}`} cx="0.45" cy="0.4">
-          <stop offset="0" stopColor={dent} stopOpacity={0.55} />
-          <stop offset="0.55" stopColor={dent} stopOpacity={0.22} />
+        <radialGradient id={`fo${id}`} cx="0.5" cy="0.42">
+          <stop offset="0" stopColor={dent} stopOpacity={0.4} />
+          <stop offset="0.6" stopColor={dent} stopOpacity={0.18} />
           <stop offset="1" stopColor={dent} stopOpacity={0} />
         </radialGradient>
+        <filter id={`fb${id}`} x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation={d * 0.008} />
+        </filter>
         <radialGradient id={`ne${id}`} cx="0.4" cy="0.35">
           <stop offset="0" stopColor={light} />
           <stop offset="0.6" stopColor={base} />
@@ -119,14 +128,17 @@ export function FaceExtras({ p, look }: { p: Perso; look: Look }) {
           )),
         )}
       {dd > 0 &&
-        // les fossettes : un petit creux sur chaque joue, à hauteur du sourire (une ombre douce et un bord éclairé)
-        [-1, 1].map((side) => {
-          const cx = mx + side * d * 0.4, cy = my - d * 0.035
+        // les fossettes : sur les joues, à hauteur du sourire, à égale distance du milieu du visage ;
+        // pas de trait de crayon : un creux flouté en forme de parenthèse et un rebord plus clair côté joue
+        fossettes.map(([cx, cy], i) => {
+          const side = i ? 1 : -1
+          const creux = `M${cx - side * d * 0.01} ${cy - d * 0.048} Q${cx + side * d * 0.02} ${cy} ${cx - side * d * 0.01} ${cy + d * 0.048}`
+          const bord = `M${cx + side * d * 0.012} ${cy - d * 0.04} Q${cx + side * d * 0.04} ${cy + d * 0.004} ${cx + side * d * 0.012} ${cy + d * 0.046}`
           return (
-            <g key={side}>
-              <ellipse cx={cx} cy={cy} rx={d * 0.06} ry={d * 0.08} fill={`url(#fo${id})`} />
-              <path d={`M${cx - side * d * 0.012} ${cy - d * 0.055} Q${cx + side * d * 0.03} ${cy} ${cx - side * d * 0.005} ${cy + d * 0.055}`} fill="none" stroke={dent} strokeWidth={d * 0.022} strokeLinecap="round" opacity={0.65} />
-              <path d={`M${cx + side * d * 0.03} ${cy - d * 0.045} Q${cx + side * d * 0.062} ${cy} ${cx + side * d * 0.028} ${cy + d * 0.05}`} fill="none" stroke={light} strokeWidth={d * 0.016} strokeLinecap="round" opacity={0.5} />
+            <g key={i} filter={`url(#fb${id})`} transform={`rotate(${deg} ${cx} ${cy})`} fill="none" strokeLinecap="round">
+              <ellipse cx={cx + side * d * 0.004} cy={cy} rx={d * 0.026} ry={d * 0.05} fill={`url(#fo${id})`} />
+              <path d={bord} stroke={light} strokeWidth={d * 0.024} opacity={0.5} />
+              <path d={creux} stroke={dent} strokeWidth={d * 0.026} opacity={0.5} />
             </g>
           )
         })}
