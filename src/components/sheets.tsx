@@ -1,10 +1,13 @@
-import { Camera, Images, Repeat, Trash2, Users } from 'lucide-react'
+import { Camera, Images, Repeat, Sticker as StickerIcon, Trash2, Undo2, Users } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { moodOf, MOODS, THOUGHTS, thoughtOf } from '../lib/data'
 import { Smiley } from './Smiley'
 import { feel, select, success } from '../lib/haptic'
 import { useHome } from '../lib/store'
-import type { EventKind, FamEvent, Member, ThoughtKind } from '../lib/types'
+import type { EventKind, FamEvent, Member, Sticker, ThoughtKind } from '../lib/types'
+import { chargerImage, photoFinale, vignettesFiltres, type FiltreKey } from '../lib/filtres'
+import { MAX_STICKERS } from '../lib/stickers'
+import { FilterRow, nouveauSticker, StickerStage, StickerTray } from './stickers'
 import { compressImage, errorText, isToday, timeLabel } from '../lib/util'
 import { DrawSheet, IncomingDrawing, markDrawingsSeen, useUnseenDrawings } from './drawing'
 import { Art, Avatar, Btn, confirmer, Envol, Segments, Sheet } from './ui'
@@ -66,26 +69,78 @@ export function MoodSheet({ onClose, member }: { onClose: () => void; member?: M
 
 export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onClose: () => void; challenge?: string; startWith?: 'photo' | 'mot' }) {
   const { state, run, toast } = useHome()
-  const [blob, setBlob] = useState<Blob | null>(null)
+  // la photo d'origine ; celle qu'on montre est filtrée, les stickers sont collés au moment d'envoyer
+  const [orig, setOrig] = useState<Blob | null>(null)
+  const [shown, setShown] = useState<Blob | null>(null)
+  const [ratio, setRatio] = useState(4 / 3)
+  const [f, setF] = useState<FiltreKey>('aucun')
+  const [vignettes, setVignettes] = useState<Record<FiltreKey, string> | null>(null)
+  const [stickers, setStickers] = useState<Sticker[]>([])
+  const [sel, setSel] = useState<number | null>(null)
+  const [tray, setTray] = useState(false)
+  const hist = useRef<Sticker[][]>([])
+  const [, setHistN] = useState(0)
   const [body, setBody] = useState('')
   const [busy, setBusy] = useState(false)
   const camera = useRef<HTMLInputElement>(null)
   const gallery = useRef<HTMLInputElement>(null)
-  const preview = useMemo(() => (blob ? URL.createObjectURL(blob) : null), [blob])
+  const preview = useMemo(() => (shown ? URL.createObjectURL(shown) : null), [shown])
   useEffect(() => () => void (preview && URL.revokeObjectURL(preview)), [preview])
+  // la feuille des stickers : 1000 de large, la hauteur suit la photo
+  const SW = 1000
+  const SH = Math.round(SW / ratio)
 
-  const pick = async (f: File | undefined) => {
-    if (!f) return
+  const pick = async (file: File | undefined) => {
+    if (!file) return
     try {
-      setBlob(await compressImage(f))
+      const blob = await compressImage(file)
+      const img = await chargerImage(blob)
+      setRatio(img.naturalWidth / img.naturalHeight)
+      URL.revokeObjectURL(img.src)
+      setOrig(blob)
+      setShown(blob)
+      setF('aucun')
+      setStickers([])
+      hist.current = []
+      setHistN(0)
+      setSel(null)
+      vignettesFiltres(blob).then(setVignettes).catch(() => setVignettes(null))
     } catch (e) {
       toast(errorText(e), 'err')
     }
   }
+  const filtrer = async (k: FiltreKey) => {
+    if (!orig || k === f) return
+    try {
+      setShown(await photoFinale(orig, k))
+      setF(k)
+    } catch (e) {
+      toast(errorText(e), 'err')
+    }
+  }
+  const snap = () => {
+    hist.current.push(stickers)
+    setHistN(hist.current.length)
+  }
+  const addSticker = (key: string) => {
+    if (stickers.length >= MAX_STICKERS) return toast('Ta photo est couverte de stickers !', 'err')
+    snap()
+    setStickers([...stickers, nouveauSticker(key, SW, SH, stickers.length)])
+    setSel(stickers.length)
+    setTray(false)
+  }
   const send = async () => {
     setBusy(true)
+    let blob: Blob | undefined
+    try {
+      blob = orig ? await photoFinale(orig, f, stickers) : undefined
+    } catch (e) {
+      toast(errorText(e), 'err')
+      setBusy(false)
+      return
+    }
     const ok = await run(
-      (api) => api.postMoment(state.family.id, state.me.id, { blob: blob ?? undefined, body, challenge }),
+      (api) => api.postMoment(state.family.id, state.me.id, { blob, body, challenge }),
       blob ? 'Photo partagée avec la famille' : 'Petit mot partagé',
     )
     setBusy(false)
@@ -103,16 +158,84 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
           <p className="text-sous font-semibold">{challenge}</p>
         </div>
       )}
-      <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={(e) => pick(e.target.files?.[0])} />
-      <input ref={gallery} type="file" accept="image/*" hidden onChange={(e) => pick(e.target.files?.[0])} />
+      <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={(e) => void pick(e.target.files?.[0]).then(() => (e.target.value = ''))} />
+      <input ref={gallery} type="file" accept="image/*" hidden onChange={(e) => void pick(e.target.files?.[0]).then(() => (e.target.value = ''))} />
 
       {preview ? (
-        <div className="relative overflow-hidden rounded-groupe bg-remplissage">
-          <img src={preview} alt="Aperçu de la photo" className="max-h-[44vh] w-full object-cover" />
-          <button onClick={() => setBlob(null)} className="presse verre absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full text-encre" aria-label="Retirer la photo">
-            <Trash2 size={17} />
-          </button>
-        </div>
+        <>
+          <div
+            className="relative mx-auto overflow-hidden rounded-groupe bg-remplissage"
+            style={{ aspectRatio: `${ratio}`, width: `min(100%, calc(46vh * ${ratio}))` }}
+            onPointerDown={() => {
+              setSel(null)
+              setTray(false)
+            }}
+          >
+            <img src={preview} alt="Aperçu de la photo" className="absolute inset-0 h-full w-full object-cover" />
+            <StickerStage
+              W={SW}
+              H={SH}
+              k={stickers}
+              setK={setStickers}
+              sel={sel}
+              setSel={setSel}
+              begin={snap}
+              end={(changed) => {
+                if (!changed) {
+                  hist.current.pop()
+                  setHistN(hist.current.length)
+                }
+              }}
+            />
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => {
+                setOrig(null)
+                setShown(null)
+                setStickers([])
+                setTray(false)
+              }}
+              className="presse verre absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full text-encre"
+              aria-label="Retirer la photo"
+            >
+              <Trash2 size={17} />
+            </button>
+          </div>
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              onClick={() => {
+                select()
+                setTray(!tray)
+                setSel(null)
+              }}
+              aria-pressed={tray}
+              className={`presse flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full text-sous font-semibold shadow-carte transition-colors ${tray ? 'bg-teinte text-white' : 'bg-carte text-teinte'}`}
+            >
+              <StickerIcon size={17} strokeWidth={2.3} /> Ajouter des stickers
+            </button>
+            <button
+              onClick={() => {
+                const h = hist.current.pop()
+                if (h) setStickers(h)
+                setSel(null)
+                setHistN(hist.current.length)
+              }}
+              disabled={!hist.current.length}
+              className="presse flex h-10 w-10 items-center justify-center rounded-full bg-carte text-encre shadow-carte disabled:opacity-35"
+              aria-label="Annuler"
+            >
+              <Undo2 size={17} strokeWidth={2.4} />
+            </button>
+          </div>
+          {tray ? (
+            <StickerTray onPick={addSticker} onClose={() => setTray(false)} />
+          ) : (
+            <div className="mt-3">
+              <p className="mb-1 px-1 text-note font-medium text-brume">Filtre</p>
+              <FilterRow f={f} setF={(k) => void filtrer(k)} vignettes={vignettes} />
+            </div>
+          )}
+        </>
       ) : (
         <div className="groupe">
           <button onClick={() => camera.current?.click()} className="presse-ligne flex h-[52px] w-full items-center gap-3 border-b border-trait px-4 text-corps text-teinte">
@@ -132,7 +255,7 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
         onChange={(e) => setBody(e.target.value)}
         autoFocus={startWith === 'mot'}
       />
-      <Btn className="mt-3" onClick={send} disabled={busy || (!blob && !body.trim())}>
+      <Btn className="mt-3" onClick={send} disabled={busy || (!orig && !body.trim())}>
         {busy ? 'Envoi…' : 'Envoyer à la famille'}
       </Btn>
     </Sheet>

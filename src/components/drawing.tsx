@@ -1,10 +1,13 @@
-import { Brush, Camera, Eraser, Images, Move, Pencil, RotateCcw, Trash2, Undo2, UsersRound } from 'lucide-react'
+import { Brush, Camera, Eraser, Heart, Images, Move, Pencil, Rainbow, RotateCcw, Sparkles, Sticker as StickerIcon, Trash2, Undo2, UsersRound } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { demoDrawing, DRAW_H, DRAW_W, fit, INKS, loadPhoto, MAX_POINTS, paint, PAPERS, photoBox, pointCount, replayMs, strokePath, WIDTHS } from '../lib/drawing'
+import { demoDrawing, DRAW_H, DRAW_W, fit, INKS, loadPhoto, MAX_POINTS, paint, PAPERS, photoBox, pointCount, replayParts, strokePath, WIDTHS } from '../lib/drawing'
+import { photoFinale, vignettesFiltres, type FiltreKey } from '../lib/filtres'
 import { select, success, tap } from '../lib/haptic'
+import { MAX_STICKERS } from '../lib/stickers'
 import { useHome } from '../lib/store'
-import type { Drawing, DrawingData, DrawTool, FamilyState, Member, Stroke } from '../lib/types'
+import type { Drawing, DrawingData, DrawTool, FamilyState, Member, Sticker, Stroke } from '../lib/types'
 import { ago, compressImage, errorText } from '../lib/util'
+import { FilterRow, nouveauSticker, StickerStage, StickerTray } from './stickers'
 import { Avatar, Btn, choisir, confirmer, Sheet } from './ui'
 
 const RATIO = `${DRAW_W} / ${DRAW_H}`
@@ -69,7 +72,7 @@ export function usePhoto(url: string | null | undefined): HTMLImageElement | nul
 
 /** Ce que contient un instant : une photo, une photo dessinée ou un dessin. */
 export const whatOf = (d: Pick<Drawing, 'photo_path' | 'photo_url' | 'data'>) =>
-  d.photo_path || d.photo_url ? (d.data.s.length ? 'une photo dessinée' : 'une photo') : 'un dessin'
+  d.photo_path || d.photo_url ? (d.data.s.length ? 'une photo dessinée' : d.data.k?.length ? 'une photo décorée' : 'une photo') : 'un dessin'
 export const sentText = (d: Drawing, fromName: string) =>
   d.to_member ? `${fromName} t’a envoyé ${whatOf(d)}` : `${fromName} a envoyé ${whatOf(d)} à la famille`
 
@@ -85,10 +88,11 @@ export function DrawingCanvas({ data, id, play = 0, className = '', label, photo
     const c = ref.current
     if (!c) return
     let upto = Infinity
+    let pop = 1
     let raf = 0
     const draw = () => {
       const ctx = fit(c)
-      paint(ctx, data, upto, true, img)
+      paint(ctx, data, upto, true, img, { stickers: pop, onLoad: () => requestAnimationFrame(draw) })
       if (upto !== Infinity) {
         // la pointe du crayon, pendant que le dessin se fait
         let left = upto
@@ -110,16 +114,24 @@ export function DrawingCanvas({ data, id, play = 0, className = '', label, photo
       }
     }
     if (play) {
+      // d'abord les traits, puis les stickers se collent un à un
       const total = pointCount(data)
-      const dur = replayMs(data)
+      const { traits, stickers, total: dur } = replayParts(data)
       const t0 = performance.now()
       const step = (now: number) => {
-        const k = Math.min(1, (now - t0) / dur)
-        upto = k >= 1 ? Infinity : Math.max(1, Math.ceil(k * total))
+        const e = now - t0
+        if (e < traits) {
+          upto = Math.max(1, Math.ceil((e / traits) * total))
+          pop = 0
+        } else {
+          upto = Infinity
+          pop = stickers ? Math.min(1, (e - traits) / stickers) : 1
+        }
         draw()
-        if (k < 1) raf = requestAnimationFrame(step)
+        if (e < dur) raf = requestAnimationFrame(step)
       }
-      upto = 1
+      upto = traits ? 1 : Infinity
+      pop = 0
       raf = requestAnimationFrame(step)
     }
     draw()
@@ -231,10 +243,16 @@ type Outil = DrawTool | 'cadrer'
 const TOOLS: { key: DrawTool; label: string; icon: typeof Pencil }[] = [
   { key: 'crayon', label: 'Crayon', icon: Pencil },
   { key: 'feutre', label: 'Feutre', icon: Brush },
+  { key: 'arcenciel', label: 'Arc-en-ciel', icon: Rainbow },
+  { key: 'paillettes', label: 'Paillettes', icon: Sparkles },
+  { key: 'coeurs', label: 'Tampon cœurs', icon: Heart },
   { key: 'gomme', label: 'Gomme', icon: Eraser },
 ]
+const ARC = 'linear-gradient(135deg, #FF6B6B, #FFC53D, #46A758, #3E9BE9, #6E56CF)'
 
-const attentionDrafts = new Map<string, { strokes: Stroke[]; pic: {blob: Blob; url: string} | null; bg: string; py: number; to: string | null }>()
+/** La photo de fond : celle qu'on montre (filtrée), l'originale et son filtre. */
+type Pic = { blob: Blob; url: string; orig: Blob; f: FiltreKey }
+const attentionDrafts = new Map<string, { strokes: Stroke[]; stickers: Sticker[]; pic: Pic | null; bg: string; py: number; to: string | null }>()
 
 export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | null; onClose: () => void }) {
   const { state, run, toast } = useHome()
@@ -243,12 +261,17 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
   const draftKey = `${family.id}:${me.id}:${initialTo ?? 'famille'}`
   const draft = attentionDrafts.get(draftKey)
   const [to, setTo] = useState<string | null>(draft?.to ?? initialTo)
-  const [phase, setPhase] = useState<'destinataire' | 'format' | 'edition'>(() => draft?.strokes.length || draft?.pic ? 'edition' : initialTo ? 'format' : 'destinataire')
+  const [phase, setPhase] = useState<'destinataire' | 'format' | 'edition'>(() => draft?.strokes.length || draft?.stickers.length || draft?.pic ? 'edition' : initialTo ? 'format' : 'destinataire')
   const [sent, setSent] = useState(false)
   const [strokes, setStrokes] = useState<Stroke[]>(() => draft?.strokes ?? [])
+  const [stickers, setStickers] = useState<Sticker[]>(() => draft?.stickers ?? [])
+  const [sel, setSel] = useState<number | null>(null)
+  const [tray, setTray] = useState(false)
   const [tool, setTool] = useState<Outil>('feutre')
-  // la photo de fond (facultative) et la hauteur gardée
-  const [pic, setPic] = useState<{ blob: Blob; url: string } | null>(() => draft?.pic ?? null)
+  // la photo de fond (facultative), son filtre et la hauteur gardée
+  const [pic, setPic] = useState<Pic | null>(() => draft?.pic ?? null)
+  const [vignettes, setVignettes] = useState<Record<FiltreKey, string> | null>(null)
+  const [filtering, setFiltering] = useState(false)
   const [py, setPy] = useState(draft?.py ?? 0.5)
   const img = usePhoto(pic?.url)
   const camera = useRef<HTMLInputElement>(null)
@@ -271,7 +294,7 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
     chips.current?.querySelector('[aria-pressed="true"]')?.scrollIntoView({ inline: 'center', block: 'nearest' })
   }, [])
 
-  // Toile du dessous : la photo ou le papier, et les traits terminés.
+  // Toile du dessous : la photo ou le papier, et les traits terminés (les stickers sont posés par-dessus, à part).
   useEffect(() => {
     if (base.current) paint(fit(base.current), { v: 1, bg, s: strokes, py }, Infinity, true, img)
   }, [strokes, bg, img, py, phase])
@@ -281,12 +304,66 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
     return () => ro.disconnect()
   }, [strokes, bg, img, py, phase])
 
+  // Annuler : on garde les états précédents (traits et stickers ensemble).
+  const hist = useRef<{ s: Stroke[]; k: Sticker[] }[]>([])
+  const [, setHistN] = useState(0)
+  const now = useRef({ s: strokes, k: stickers })
+  now.current = { s: strokes, k: stickers }
+  const snap = () => {
+    hist.current.push(now.current)
+    if (hist.current.length > 100) hist.current.shift()
+    setHistN(hist.current.length)
+  }
+  const undo = () => {
+    const h = hist.current.pop()
+    if (h) {
+      setStrokes(h.s)
+      setStickers(h.k)
+      setSel(null)
+    }
+    setHistN(hist.current.length)
+  }
+
+  // Les vignettes des filtres, une fois par photo.
+  useEffect(() => {
+    if (!pic) return setVignettes(null)
+    let live = true
+    vignettesFiltres(pic.orig).then((v) => live && setVignettes(v)).catch(() => undefined)
+    return () => {
+      live = false
+    }
+  }, [pic?.orig]) // eslint-disable-line react-hooks/exhaustive-deps
+  const filtrer = async (f: FiltreKey) => {
+    if (!pic || pic.f === f || filtering) return
+    setFiltering(true)
+    try {
+      const blob = await photoFinale(pic.orig, f)
+      URL.revokeObjectURL(pic.url)
+      setPic({ ...pic, blob, url: URL.createObjectURL(blob), f })
+    } catch (e) {
+      toast(errorText(e), 'err')
+    }
+    setFiltering(false)
+  }
+
+  const addSticker = (key: string) => {
+    if (stickers.length >= MAX_STICKERS) {
+      toast('Ta feuille est couverte de stickers, envoie-la !', 'err')
+      return
+    }
+    snap()
+    setStickers([...stickers, nouveauSticker(key, DRAW_W, DRAW_H, stickers.length)])
+    setSel(stickers.length)
+    setTray(false)
+    if (tool === 'cadrer') setTool('feutre')
+  }
+
   const pick = async (file?: File) => {
     if (!file) return
     try {
       const blob = await compressImage(file, 1400, 0.82)
       if (pic) URL.revokeObjectURL(pic.url)
-      setPic({ blob, url: URL.createObjectURL(blob) })
+      setPic({ blob, url: URL.createObjectURL(blob), orig: blob, f: 'aucun' })
       setPy(0.5)
       if (tool === 'gomme') setTool('feutre')
       success()
@@ -322,20 +399,20 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
   }
 
   useEffect(() => {
-    if (!sent) attentionDrafts.set(draftKey, {strokes, pic, bg, py, to})
-  }, [draftKey, strokes, pic, bg, py, to, sent])
+    if (!sent) attentionDrafts.set(draftKey, { strokes, stickers, pic, bg, py, to })
+  }, [draftKey, strokes, stickers, pic, bg, py, to, sent])
 
   const recipient = to ? members.find((m) => m.id === to) : null
-  const empty = !strokes.length && !pic
+  const empty = !strokes.length && !stickers.length && !pic
   const send = async () => {
     if (empty || busy) return
     if (to && !recipient) { toast('Ce proche ne fait plus partie de la maison. Choisis un autre destinataire.', 'err'); setPhase('destinataire'); return }
     const confirmed = to ? true : await confirmer({title: recipient ? `Envoyer à ${recipient.display_name} ?` : 'Envoyer à toute la famille ?', message: recipient ? 'Cette attention sera partagée uniquement avec ce proche.' : 'Tous les membres de cette maison pourront voir cette attention.', confirm: 'Envoyer mon attention'})
     if (!confirmed) return
     setBusy(true)
-    const what = pic ? (strokes.length ? 'Photo dessinée envoyée' : 'Photo envoyée') : 'Dessin envoyé'
+    const what = pic ? (strokes.length || stickers.length ? 'Photo décorée envoyée' : 'Photo envoyée') : 'Dessin envoyé'
     const ok = await run(
-      (api) => api.sendDrawing(family.id, me.id, to, { v: 1, bg, s: strokes, ...(pic ? { py: Math.round(py * 1000) / 1000 } : {}) }, pic?.blob ?? null),
+      (api) => api.sendDrawing(family.id, me.id, to, { v: 1, bg, s: strokes, ...(stickers.length ? { k: stickers } : {}), ...(pic ? { py: Math.round(py * 1000) / 1000 } : {}) }, pic?.blob ?? null),
       recipient ? `${what} à ${recipient.display_name}` : `${what} à toute la famille`,
     )
     setBusy(false)
@@ -376,23 +453,34 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
       <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={(e) => void pick(e.target.files?.[0]).then(() => (e.target.value = ''))} />
       <input ref={gallery} type="file" accept="image/*" hidden onChange={(e) => void pick(e.target.files?.[0]).then(() => (e.target.value = ''))} />
       <button onClick={() => setPhase('destinataire')} className="mb-3 min-h-11 text-sous font-semibold text-teinte-fonce">{recipient ? `Pour ${recipient.display_name}` : 'Pour toute la famille'} · Modifier</button>
-      {/* pour qui */}
-      {/* une photo en fond, ou le papier */}
+      {/* une photo en fond (ou le papier), des stickers */}
       <div className="mt-3 flex gap-2">
         <button
           onClick={() => {
             tap()
             void photoMenu()
           }}
-          className="presse flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full bg-carte text-sous font-semibold text-teinte shadow-carte"
+          className="presse flex h-10 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-carte px-3 text-sous font-semibold text-teinte shadow-carte"
         >
-          <Images size={17} strokeWidth={2.3} /> {pic ? 'Changer la photo' : 'Ajouter une photo'}
+          <Images size={17} strokeWidth={2.3} className="shrink-0" /> <span className="truncate">{pic ? 'Photo' : 'Ajouter une photo'}</span>
+        </button>
+        <button
+          onClick={() => {
+            select()
+            setTray(!tray)
+            setSel(null)
+          }}
+          aria-pressed={tray}
+          className={`presse flex h-10 items-center gap-1.5 rounded-full px-3.5 text-sous font-semibold shadow-carte transition-colors ${tray ? 'bg-teinte text-white' : 'bg-carte text-teinte'}`}
+        >
+          <StickerIcon size={17} strokeWidth={2.3} /> Stickers
         </button>
         {pic ? (
           <button
             onClick={() => {
               select()
               setTool(tool === 'cadrer' ? 'feutre' : 'cadrer')
+              setSel(null)
             }}
             aria-pressed={tool === 'cadrer'}
             className={`presse flex h-10 items-center gap-1.5 rounded-full px-3.5 text-sous font-semibold shadow-carte transition-colors ${tool === 'cadrer' ? 'bg-teinte text-white' : 'bg-carte text-encre'}`}
@@ -410,6 +498,8 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
           className="absolute inset-0 h-full w-full touch-none"
           aria-label="Feuille de dessin"
           onPointerDown={(e) => {
+            if (sel !== null) setSel(null)
+            if (tray) setTray(false)
             if (tool === 'cadrer') {
               e.currentTarget.setPointerCapture(e.pointerId)
               drag.current = { id: e.pointerId, y: e.clientY, py }
@@ -458,6 +548,7 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
             const cur = current.current
             if (!cur || cur.id !== e.pointerId) return
             current.current = null
+            snap()
             setStrokes((s) => [...s, cur.s])
             requestAnimationFrame(drawLive)
           }}
@@ -467,8 +558,23 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
             requestAnimationFrame(drawLive)
           }}
         />
+        <StickerStage
+          W={DRAW_W}
+          H={DRAW_H}
+          k={stickers}
+          setK={setStickers}
+          sel={sel}
+          setSel={setSel}
+          begin={snap}
+          end={(changed) => {
+            if (!changed) {
+              hist.current.pop()
+              setHistN(hist.current.length)
+            }
+          }}
+        />
         {empty && (
-          <p className={`pointer-events-none absolute inset-0 flex items-center justify-center px-6 text-center text-sous font-medium ${bg === '#1E1B33' ? 'text-white/75' : 'text-brume'}`}>Dessine ici avec ton doigt, ou ajoute une photo</p>
+          <p className={`pointer-events-none absolute inset-0 flex items-center justify-center px-6 text-center text-sous font-medium ${bg === '#1E1B33' ? 'text-white/75' : 'text-brume'}`}>Dessine ici avec ton doigt, ajoute une photo ou des stickers</p>
         )}
         {tool === 'cadrer' && (
           <p className="verre pointer-events-none absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full px-3 py-1 text-legende font-semibold text-encre">
@@ -477,108 +583,129 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
         )}
       </div>
 
-      {/* outils */}
-      <div className="mt-4 flex items-center gap-2">
-        <div className="flex rounded-full bg-remplissage p-[3px]">
-          {TOOLS.map((t) => {
-            const on = tool === t.key
-            return (
-              <button
-                key={t.key}
-                onClick={() => {
-                  select()
-                  setTool(t.key)
-                }}
-                aria-pressed={on}
-                aria-label={t.label}
-                className={`flex h-9 items-center gap-1 rounded-full px-3 text-note font-semibold transition-colors ${on ? 'bg-white text-encre shadow-[0_2px_6px_rgba(0,0,0,0.1)]' : 'text-brume'}`}
-              >
-                <t.icon size={16} strokeWidth={2.3} />
-                {on && t.label}
-              </button>
-            )
-          })}
-        </div>
-        <div className="flex flex-1 items-center justify-end gap-1">
-          {([0, 1, 2] as const).map((i) => (
-            <button
-              key={i}
-              onClick={() => {
-                select()
-                setSize(i)
-              }}
-              aria-label={['Fin', 'Moyen', 'Épais'][i]}
-              aria-pressed={size === i}
-              className={`flex h-9 w-9 items-center justify-center rounded-full ${size === i ? 'bg-teinte-doux' : ''}`}
-            >
-              <span className="rounded-full" style={{ width: [6, 11, 17][i], height: [6, 11, 17][i], background: tool === 'gomme' ? '#B9B4C8' : color, boxShadow: color === '#FFFFFF' && tool !== 'gomme' ? 'inset 0 0 0 1px #CFCADB' : undefined }} />
-            </button>
-          ))}
-        </div>
-      </div>
+      {tray ? (
+        <StickerTray onPick={addSticker} onClose={() => setTray(false)} />
+      ) : (
+        <>
+          {/* outils */}
+          <div className="mt-4 flex items-center gap-2">
+            <div className="flex rounded-full bg-remplissage p-[3px]">
+              {TOOLS.map((t) => {
+                const on = tool === t.key
+                return (
+                  <button
+                    key={t.key}
+                    onClick={() => {
+                      select()
+                      setTool(t.key)
+                      setSel(null)
+                    }}
+                    aria-pressed={on}
+                    aria-label={t.label}
+                    title={t.label}
+                    className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${on ? 'bg-white text-encre shadow-[0_2px_6px_rgba(0,0,0,0.1)]' : 'text-brume'}`}
+                  >
+                    <t.icon size={17} strokeWidth={2.3} />
+                  </button>
+                )
+              })}
+            </div>
+            <div className="flex flex-1 items-center justify-end">
+              {([0, 1, 2] as const).map((i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    select()
+                    setSize(i)
+                  }}
+                  aria-label={['Fin', 'Moyen', 'Épais'][i]}
+                  aria-pressed={size === i}
+                  className={`flex h-9 w-9 items-center justify-center rounded-full ${size === i ? 'bg-teinte-doux' : ''}`}
+                >
+                  <span
+                    className="rounded-full"
+                    style={{ width: [6, 11, 17][i], height: [6, 11, 17][i], background: tool === 'gomme' ? '#B9B4C8' : tool === 'arcenciel' ? ARC : color, boxShadow: color === '#FFFFFF' && tool !== 'gomme' && tool !== 'arcenciel' ? 'inset 0 0 0 1px #CFCADB' : undefined }}
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="mt-1 px-1 text-legende font-medium text-brume">{tool === 'cadrer' ? 'Glisse la photo pour la cadrer' : TOOLS.find((t) => t.key === tool)?.label}{tool === 'arcenciel' ? ' : les couleurs changent toutes seules' : ''}</p>
 
-      <div className="no-bar -mx-5 mt-3 flex gap-2 overflow-x-auto px-5 py-1">
-        {INKS.map((c) => {
-          const on = color === c && tool !== 'gomme'
-          return (
-            <button
-              key={c}
-              onClick={() => {
-                select()
-                setColor(c)
-                if (tool === 'gomme' || tool === 'cadrer') setTool('feutre')
-              }}
-              aria-label={`Couleur ${c}`}
-              aria-pressed={on}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
-              style={{ boxShadow: on ? `0 0 0 2.5px #F4F1F9, 0 0 0 4.5px ${c === '#FFFFFF' ? '#CFCADB' : c}` : undefined }}
-            >
-              <span className="h-[30px] w-[30px] rounded-full" style={{ background: c, boxShadow: c === '#FFFFFF' ? 'inset 0 0 0 1px #CFCADB' : 'inset 0 -3px 6px rgba(0,0,0,0.12)' }} />
-            </button>
-          )
-        })}
-      </div>
+          <div className="no-bar -mx-5 mt-2 flex gap-2 overflow-x-auto px-5 py-1">
+            {INKS.map((c) => {
+              const on = color === c && tool !== 'gomme' && tool !== 'arcenciel'
+              return (
+                <button
+                  key={c}
+                  onClick={() => {
+                    select()
+                    setColor(c)
+                    if (tool === 'gomme' || tool === 'cadrer' || tool === 'arcenciel') setTool('feutre')
+                  }}
+                  aria-label={`Couleur ${c}`}
+                  aria-pressed={on}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+                  style={{ boxShadow: on ? `0 0 0 2.5px #F4F1F9, 0 0 0 4.5px ${c === '#FFFFFF' ? '#CFCADB' : c}` : undefined }}
+                >
+                  <span className="h-[30px] w-[30px] rounded-full" style={{ background: c, boxShadow: c === '#FFFFFF' ? 'inset 0 0 0 1px #CFCADB' : 'inset 0 -3px 6px rgba(0,0,0,0.12)' }} />
+                </button>
+              )
+            })}
+          </div>
 
-      <div className="mt-3 flex items-center gap-2">
-        <span className={`text-note font-medium text-brume ${pic ? 'hidden' : ''}`}>Fond</span>
-        <div className={`flex flex-1 gap-1.5 ${pic ? 'invisible' : ''}`}>
-          {PAPERS.map((p) => (
+          {pic && (
+            <div className="mt-2">
+              <p className="mb-1 px-1 text-note font-medium text-brume">Filtre</p>
+              <FilterRow f={pic.f} setF={(f) => void filtrer(f)} vignettes={vignettes} busy={filtering} />
+            </div>
+          )}
+
+          <div className="mt-3 flex items-center gap-2">
+            <span className={`text-note font-medium text-brume ${pic ? 'hidden' : ''}`}>Fond</span>
+            <div className={`flex flex-1 gap-1.5 ${pic ? 'invisible' : ''}`}>
+              {PAPERS.map((p) => (
+                <button
+                  key={p.key}
+                  onClick={() => {
+                    select()
+                    setBg(p.bg)
+                  }}
+                  aria-label={`Fond ${p.label}`}
+                  aria-pressed={bg === p.bg}
+                  className={`h-7 w-7 rounded-full ring-1 ring-black/10 ${bg === p.bg ? 'outline outline-2 outline-offset-2 outline-teinte' : ''}`}
+                  style={{ background: p.bg }}
+                />
+              ))}
+            </div>
             <button
-              key={p.key}
               onClick={() => {
-                select()
-                setBg(p.bg)
+                tap()
+                undo()
               }}
-              aria-label={`Fond ${p.label}`}
-              aria-pressed={bg === p.bg}
-              className={`h-7 w-7 rounded-full ring-1 ring-black/10 ${bg === p.bg ? 'outline outline-2 outline-offset-2 outline-teinte' : ''}`}
-              style={{ background: p.bg }}
-            />
-          ))}
-        </div>
-        <button
-          onClick={() => {
-            tap()
-            setStrokes((s) => s.slice(0, -1))
-          }}
-          disabled={!strokes.length}
-          className="presse flex h-9 w-9 items-center justify-center rounded-full bg-carte text-encre shadow-carte disabled:opacity-35"
-          aria-label="Annuler le dernier trait"
-        >
-          <Undo2 size={17} strokeWidth={2.4} />
-        </button>
-        <button
-          onClick={async () => {
-            if (strokes.length > 3 && !(await confirmer({ title: 'Effacer tout le dessin ?', confirm: 'Tout effacer', destructive: true }))) return
-            setStrokes([])
-          }}
-          disabled={!strokes.length}
-          className="presse flex h-9 w-9 items-center justify-center rounded-full bg-carte text-rouge shadow-carte disabled:opacity-35"
-          aria-label="Tout effacer"
-        >
-          <Trash2 size={16} strokeWidth={2.4} />
-        </button>
-      </div>
+              disabled={!hist.current.length}
+              className="presse flex h-9 w-9 items-center justify-center rounded-full bg-carte text-encre shadow-carte disabled:opacity-35"
+              aria-label="Annuler"
+            >
+              <Undo2 size={17} strokeWidth={2.4} />
+            </button>
+            <button
+              onClick={async () => {
+                if ((strokes.length > 3 || stickers.length > 1) && !(await confirmer({ title: 'Tout effacer ?', message: 'Les traits et les stickers. Tu pourras revenir en arrière.', confirm: 'Tout effacer', destructive: true }))) return
+                snap()
+                setStrokes([])
+                setStickers([])
+                setSel(null)
+              }}
+              disabled={!strokes.length && !stickers.length}
+              className="presse flex h-9 w-9 items-center justify-center rounded-full bg-carte text-rouge shadow-carte disabled:opacity-35"
+              aria-label="Tout effacer"
+            >
+              <Trash2 size={16} strokeWidth={2.4} />
+            </button>
+          </div>
+        </>
+      )}
 
     </Sheet>
   )

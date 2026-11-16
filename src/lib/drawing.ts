@@ -1,3 +1,4 @@
+import { drawStickers } from './stickers'
 import type { DrawingData, DrawTool, Stroke } from './types'
 
 /** Feuille de dessin : 1000 × 467, la forme d'un widget moyen d'iPhone (338 × 158). */
@@ -18,6 +19,9 @@ export const PAPERS: { key: string; label: string; bg: string }[] = [
 export const WIDTHS: Record<DrawTool, [number, number, number]> = {
   crayon: [5, 10, 18],
   feutre: [11, 22, 42],
+  arcenciel: [9, 18, 34],
+  paillettes: [14, 26, 46],
+  coeurs: [28, 44, 68],
   gomme: [26, 52, 96],
 }
 
@@ -47,29 +51,37 @@ function grain(color: string): HTMLCanvasElement {
   return g
 }
 
-/**
- * Trace un trait (ou ses `n` premiers points) dans un contexte déjà mis à l'échelle de la feuille.
- * La gomme efface pour de vrai (on revoit la photo ou le papier dessous) ; en aperçu, elle se montre en blanc voilé.
- */
-export function strokePath(ctx: CanvasRenderingContext2D, s: Stroke, _bg: string, n = s.p.length / 2, live = false) {
-  const p = s.p
-  if (n < 1) return
-  ctx.save()
-  ctx.lineCap = 'round'
-  ctx.lineJoin = 'round'
-  ctx.lineWidth = s.w
-  if (s.o === 'gomme') {
-    if (live) ctx.strokeStyle = 'rgba(255,255,255,0.72)'
-    else {
-      ctx.globalCompositeOperation = 'destination-out'
-      ctx.strokeStyle = '#000'
+// ───────── Pinceaux rigolos : arc-en-ciel, paillettes, tampon cœurs ─────────
+// Leur petit hasard dépend du trait lui-même : le dessin est identique chez tout le monde et à chaque relecture.
+
+const seedOf = (p: number[]) => (Math.imul(p[0] | 0, 73856093) ^ Math.imul(p[1] | 0, 19349663) ^ p.length) >>> 0
+function rng(seed: number) {
+  let s = seed || 1
+  return () => ((s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296)
+}
+
+/** Des points posés à intervalle régulier le long des `n` premiers points du trait. */
+function along(p: number[], n: number, step: number): [number, number][] {
+  const out: [number, number][] = [[p[0], p[1]]]
+  let left = step
+  for (let i = 1; i < n; i++) {
+    let x0 = p[i * 2 - 2], y0 = p[i * 2 - 1]
+    const x1 = p[i * 2], y1 = p[i * 2 + 1]
+    let d = Math.hypot(x1 - x0, y1 - y0)
+    while (d >= left) {
+      const k = left / d
+      x0 += (x1 - x0) * k
+      y0 += (y1 - y0) * k
+      out.push([x0, y0])
+      d -= left
+      left = step
     }
+    left -= d
   }
-  else if (s.o === 'crayon') {
-    const pat = ctx.createPattern(grain(s.c), 'repeat')
-    pat?.setTransform(new DOMMatrix().scale(0.5))
-    ctx.strokeStyle = pat ?? s.c
-  } else ctx.strokeStyle = s.c
+  return out
+}
+
+function smooth(ctx: CanvasRenderingContext2D, p: number[], n: number) {
   ctx.beginPath()
   ctx.moveTo(p[0], p[1])
   if (n === 1) ctx.lineTo(p[0] + 0.01, p[1])
@@ -82,6 +94,131 @@ export function strokePath(ctx: CanvasRenderingContext2D, s: Stroke, _bg: string
     }
     ctx.lineTo(p[(n - 1) * 2], p[(n - 1) * 2 + 1])
   }
+}
+
+/** Un cœur centré en (x, y), de largeur `w`. */
+export function heartPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number) {
+  const h = w * 0.92
+  ctx.moveTo(x, y + h * 0.42)
+  ctx.bezierCurveTo(x - w * 0.62, y + h * 0.02, x - w * 0.42, y - h * 0.62, x, y - h * 0.24)
+  ctx.bezierCurveTo(x + w * 0.42, y - h * 0.62, x + w * 0.62, y + h * 0.02, x, y + h * 0.42)
+}
+
+function sparkle(ctx: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  ctx.moveTo(x, y - r)
+  ctx.quadraticCurveTo(x, y, x + r, y)
+  ctx.quadraticCurveTo(x, y, x, y + r)
+  ctx.quadraticCurveTo(x, y, x - r, y)
+  ctx.quadraticCurveTo(x, y, x, y - r)
+}
+
+function fancy(ctx: CanvasRenderingContext2D, s: Stroke, n: number) {
+  const p = s.p
+  const rnd = rng(seedOf(p))
+  if (s.o === 'arcenciel') {
+    // la couleur tourne le long du trait
+    const h0 = seedOf(p) % 360
+    let dist = 0
+    ctx.lineWidth = s.w
+    for (let i = 0; i < n; i++) {
+      const x0 = p[Math.max(0, i - 1) * 2], y0 = p[Math.max(0, i - 1) * 2 + 1]
+      const x1 = p[i * 2], y1 = p[i * 2 + 1]
+      dist += Math.hypot(x1 - x0, y1 - y0)
+      ctx.strokeStyle = `hsl(${(h0 + dist * 0.45) % 360} 92% 62%)`
+      ctx.beginPath()
+      ctx.moveTo(x0, y0)
+      ctx.lineTo(i ? x1 : x1 + 0.01, y1)
+      ctx.stroke()
+    }
+    return
+  }
+  if (s.o === 'paillettes') {
+    // un trait fin de la couleur, couvert de paillettes et de petites étoiles
+    ctx.strokeStyle = s.c
+    ctx.lineWidth = s.w * 0.62
+    smooth(ctx, p, n)
+    ctx.stroke()
+    // un reflet brillant au milieu du trait
+    ctx.globalAlpha = 0.45
+    ctx.strokeStyle = '#FFFFFF'
+    ctx.lineWidth = s.w * 0.18
+    smooth(ctx, p, n)
+    ctx.stroke()
+    ctx.globalAlpha = 1
+    const couleurs = ['#FFFFFF', '#FFE27A', '#FFFFFF', '#FFC1D9', '#BFF1FF']
+    for (const [x, y] of along(p, n, Math.max(4, s.w * 0.3))) {
+      for (let j = 0; j < 2; j++) {
+        const a = rnd() * Math.PI * 2
+        const d = rnd() * s.w * 0.7
+        const r = s.w * (0.05 + rnd() * 0.09)
+        const c = couleurs[Math.floor(rnd() * couleurs.length)]
+        const star = rnd() < 0.14
+        ctx.fillStyle = c
+        ctx.beginPath()
+        if (star) sparkle(ctx, x + Math.cos(a) * d, y + Math.sin(a) * d, s.w * (0.32 + rnd() * 0.2))
+        else ctx.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, r, 0, Math.PI * 2)
+        ctx.fill()
+      }
+    }
+    return
+  }
+  // tampon cœurs
+  const pts = along(p, n, s.w * 1.2)
+  pts.forEach(([x, y], i) => {
+    const a = ((i % 2 ? 1 : -1) * 0.2 + (rnd() - 0.5) * 0.25)
+    const w = s.w * (0.85 + rnd() * 0.3)
+    ctx.save()
+    ctx.translate(x, y)
+    ctx.rotate(a)
+    ctx.fillStyle = s.c
+    ctx.beginPath()
+    heartPath(ctx, 0, 0, w)
+    ctx.fill()
+    if (s.c !== '#FFFFFF') {
+      ctx.fillStyle = 'rgba(255,255,255,0.55)'
+      ctx.beginPath()
+      ctx.ellipse(-w * 0.2, -w * 0.12, w * 0.09, w * 0.06, -0.6, 0, Math.PI * 2)
+      ctx.fill()
+    } else {
+      ctx.strokeStyle = 'rgba(29,26,43,0.18)'
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      heartPath(ctx, 0, 0, w)
+      ctx.stroke()
+    }
+    ctx.restore()
+  })
+}
+
+/**
+ * Trace un trait (ou ses `n` premiers points) dans un contexte déjà mis à l'échelle de la feuille.
+ * La gomme efface pour de vrai (on revoit la photo ou le papier dessous) ; en aperçu, elle se montre en blanc voilé.
+ */
+export function strokePath(ctx: CanvasRenderingContext2D, s: Stroke, _bg: string, n = s.p.length / 2, live = false) {
+  const p = s.p
+  if (n < 1) return
+  ctx.save()
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  ctx.lineWidth = s.w
+  if (s.o === 'arcenciel' || s.o === 'paillettes' || s.o === 'coeurs') {
+    fancy(ctx, s, n)
+    ctx.restore()
+    return
+  }
+  if (s.o === 'gomme') {
+    if (live) ctx.strokeStyle = 'rgba(255,255,255,0.72)'
+    else {
+      ctx.globalCompositeOperation = 'destination-out'
+      ctx.strokeStyle = '#000'
+    }
+  }
+  else if (s.o === 'crayon') {
+    const pat = ctx.createPattern(grain(s.c), 'repeat')
+    pat?.setTransform(new DOMMatrix().scale(0.5))
+    ctx.strokeStyle = pat ?? s.c
+  } else ctx.strokeStyle = s.c
+  smooth(ctx, p, n)
   ctx.stroke()
   ctx.restore()
 }
@@ -127,8 +264,18 @@ export function photoBox(img: { width: number; height: number }, py = 0.5) {
   return { x: 0, y: -(h - DRAW_H) * py, w: DRAW_W, h, overflow: (h - DRAW_H) / DRAW_H }
 }
 
-/** Peint la photo ou le papier, puis le dessin entier ou seulement ses `upto` premiers points. */
-export function paint(ctx: CanvasRenderingContext2D, d: DrawingData, upto = Infinity, withBg = true, photo?: HTMLImageElement | null) {
+/**
+ * Peint la photo ou le papier, puis le dessin entier ou seulement ses `upto` premiers points, puis les stickers.
+ * `stickers` : false pour ne pas les coller (on les montre à part pendant qu'on les déplace), ou 0 → 1 pour les faire apparaître.
+ */
+export function paint(
+  ctx: CanvasRenderingContext2D,
+  d: DrawingData,
+  upto = Infinity,
+  withBg = true,
+  photo?: HTMLImageElement | null,
+  opts: { stickers?: number | false; onLoad?: () => void } = {},
+) {
   const c = ctx.canvas
   const m = ctx.getTransform()
   ctx.save()
@@ -160,6 +307,7 @@ export function paint(ctx: CanvasRenderingContext2D, d: DrawingData, upto = Infi
   ctx.setTransform(1, 0, 0, 1, 0, 0)
   ctx.drawImage(l, 0, 0)
   ctx.restore()
+  if (d.k?.length && opts.stickers !== false) drawStickers(ctx, d.k, opts.stickers ?? 1, opts.onLoad)
 }
 
 // Photos des instants : chargées une fois, partagées entre toutes les toiles.
@@ -177,8 +325,14 @@ export function loadPhoto(url: string, onLoad: () => void): HTMLImageElement | n
   return null
 }
 
-/** Durée de la « relecture » : assez longue pour voir le geste, jamais interminable. */
-export const replayMs = (d: DrawingData) => (pointCount(d) ? Math.min(6000, Math.max(2200, pointCount(d) * 6)) : 600)
+/** Durée de la « relecture » : assez longue pour voir le geste, jamais interminable ; puis les stickers se collent un à un. */
+export function replayParts(d: DrawingData) {
+  const traits = pointCount(d) ? Math.min(6000, Math.max(2200, pointCount(d) * 6)) : 0
+  const n = d.k?.length ?? 0
+  const stickers = n ? Math.min(1600, 450 + n * 110) : 0
+  return { traits, stickers, total: Math.max(600, traits + stickers) }
+}
+export const replayMs = (d: DrawingData) => replayParts(d).total
 
 // ───────── Dessins de démonstration ─────────
 // Tracés à la main (un peu tremblés) par les proches fictifs du mode démo.

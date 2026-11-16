@@ -95,10 +95,12 @@ export type FolderCover = { blob: Blob } | { path: string } | null
 export type Reaction = { moment_id: string; member_id: string; emoji: string }
 
 /** Dessins : enregistrés trait par trait sur une feuille de 1000 × DRAW_H (forme d'un widget moyen). */
-export type DrawTool = 'crayon' | 'feutre' | 'gomme'
+export type DrawTool = 'crayon' | 'feutre' | 'arcenciel' | 'paillettes' | 'coeurs' | 'gomme'
 export type Stroke = { o: DrawTool; c: string; w: number; p: number[] }
-/** py : hauteur gardée de la photo de fond (0 : le haut, 1 : le bas) */
-export type DrawingData = { v: 1; bg: string; s: Stroke[]; py?: number }
+/** Un sticker collé : i = sa clé (« coeur », « mot:coucou »…), x/y = son centre, s = sa largeur (unités de la feuille), r = sa rotation en degrés */
+export type Sticker = { i: string; x: number; y: number; s: number; r: number }
+/** py : hauteur gardée de la photo de fond (0 : le haut, 1 : le bas) ; k : les stickers, collés par-dessus le dessin */
+export type DrawingData = { v: 1; bg: string; s: Stroke[]; py?: number; k?: Sticker[] }
 export type Drawing = {
   id: string
   family_id: string

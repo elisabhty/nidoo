@@ -712,7 +712,7 @@ export function createLocalBackend(): Backend {
     },
     async sendDrawing(fid, from, to, data, image) {
       const f = fam(fid)
-      if (!data.s.length && !image) throw new Error('DESSIN_VIDE')
+      if (!data.s.length && !data.k?.length && !image) throw new Error('DESSIN_VIDE')
       const d: Drawing = {
         id: uid(), family_id: fid, from_member: from, to_member: to, data: structuredClone(data),
         photo_path: image ? await photo(image) : null, created_at: new Date().toISOString(),
