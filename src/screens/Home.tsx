@@ -2,7 +2,7 @@ import { ChevronRight } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { animalMood, BagIcon, careTodo, CareIcon, HandIcon, hungerOf, pettedToday, useCare, usePet } from '../components/care'
 import { DecorPage, GoneSheet, useGone } from '../components/decor'
-import { DoodleIcon, DrawingsSheet, DrawingWidget, DrawSheet } from '../components/drawing'
+import { DoodleIcon, DrawingsSheet, DrawingWidget, DrawSheet, useUnseenDrawings } from '../components/drawing'
 import House, { type HouseScene } from '../components/House'
 import { JoinRequests } from '../components/requests'
 import { eventArt, MoodSheet, ThoughtSheet } from '../components/sheets'
@@ -39,13 +39,16 @@ const PLAYED = 'nidoo.scenes.jouees'
 
 type Ligne = { key: string; icon: ReactNode; title: string; text: string; act: () => void; tint?: string }
 
-export default function Home({ go }: { go: (t: Go) => void }) {
+export default function Home({ go, active = true }: { go: (t: Go) => void; active?: boolean }) {
   const { state, run } = useHome()
   const [sheet, setSheet] = useState<Open>(null)
   const [scene, setScene] = useState<HouseScene | null>(null)
   const houseRef = useRef<HTMLDivElement>(null)
   const [scrolled, setScrolled] = useState(false)
   const { family, me, members, houseItems } = state
+  const received = useUnseenDrawings(state)
+  const pendingThoughts = state.thoughts.filter(t => t.to_member === me.id && !t.seen_at)
+  const nextSender = pendingThoughts[pendingThoughts.length - 1]?.from_member ?? received[0]?.from_member
   const others = members.filter((m) => m.id !== me.id)
   const myMood = isToday(me.mood_at) ? moodOf(me.mood) : null
   const level = houseItems.length + 1
@@ -84,7 +87,7 @@ export default function Home({ go }: { go: (t: Go) => void }) {
 
   // Un câlin envoyé ou reçu se joue dans le jardin : l'un va voir l'autre et le fait vraiment.
   useEffect(() => {
-    if (scene || sheet) return
+    if (!active || scene || sheet) return
     let played: string[] = []
     try {
       played = JSON.parse(localStorage.getItem(PLAYED) ?? '[]') as string[]
@@ -105,7 +108,7 @@ export default function Home({ go }: { go: (t: Go) => void }) {
     setScene({ id: t.id, from: t.from_member, to: t.to_member, kind: t.kind })
     const v = window.setTimeout(() => feel(t.kind), 1300)
     return () => window.clearTimeout(v)
-  }, [state.thoughts, sheet, scene, me.id])
+  }, [state.thoughts, sheet, scene, me.id, active])
   const home = members.filter((m) => isToday(m.mood_at))
 
   // ── Aujourd'hui en famille : ce qui compte maintenant, dans une seule liste.
@@ -185,7 +188,7 @@ export default function Home({ go }: { go: (t: Go) => void }) {
         void run((api) => api.toggleItem(i, me.id), 'Mission accomplie, 1 étoile gagnée')
       },
     })),
-    ...(!answered ? [{ key: 'question', icon: <Art name="picto-bulle" size={40} />, title: questionOfDay().text, text: 'Question du jour · +2 étoiles', act: () => go('jouer') }] : []),
+    ...(!answered ? [{ key: 'question', icon: <Art name="picto-bulle" size={40} />, title: questionOfDay().text, text: 'Un sujet pour se retrouver', act: () => go('jouer') }] : []),
   ]
 
   const tiles = [
@@ -246,6 +249,10 @@ export default function Home({ go }: { go: (t: Go) => void }) {
 
 
 
+          {received.length > 0 || pendingThoughts.length > 0 ? <button onClick={() => go('recus')} className="presse mx-5 mt-5 flex w-[calc(100%-2.5rem)] items-center gap-4 rounded-[24px] bg-teinte-doux p-5 text-left">
+            <Art name="geste-coeur" size={46} /><span className="flex-1"><span className="block font-rond text-titre3">{members.find(m => m.id === nextSender)?.display_name ?? 'Un proche'} pense à toi</span><span className="mt-1 block text-sous text-brume">Une attention à découvrir, quand tu veux.</span></span><ChevronRight size={20} />
+          </button> : others.length === 0 ? <div className="mx-5 mt-5 rounded-[24px] bg-white p-5 shadow-carte"><h2 className="font-rond text-titre2">Votre histoire commence ici.</h2><p className="mt-2 text-corps text-brume">Ta maison est prête. Invite un proche pour commencer à vous laisser des attentions.</p><button onClick={() => go('famille')} className="presse mt-4 min-h-[50px] w-full rounded-full bg-teinte px-4 font-semibold text-white">Inviter mon premier proche</button></div> : null}
+
           {/* Notre petit monde : la maison, son niveau et la prochaine surprise */}
           <div className="mx-4 mt-5">
             <div ref={houseRef} className="overflow-hidden rounded-[22px]">
@@ -285,10 +292,13 @@ export default function Home({ go }: { go: (t: Go) => void }) {
 
           <button onClick={() => setSheet({ k: 'decor' })} className="presse mx-5 mt-4 flex min-h-11 items-center gap-2 text-sous text-teinte-fonce">Décorer notre maison <ChevronRight size={16} /></button>
           {state.requests.length > 0 && <button onClick={() => go('famille')} className="presse mx-5 mt-2 min-h-11 text-sous text-brume">{state.requests.length} demande(s) à examiner <ChevronRight className="inline" size={16} /></button>}
+          <button onClick={() => go('jouer')} className="presse mx-5 mt-6 flex w-[calc(100%-2.5rem)] items-center gap-4 rounded-[24px] bg-teinte-doux p-5 text-left">
+            <Art name="picto-bulle" size={48} /><span className="min-w-0 flex-1"><span className="block font-rond text-titre3">Un moment ensemble</span><span className="mt-1 block text-sous text-brume">La question du jour, un défi photo, à votre rythme.</span></span><ChevronRight size={20} className="shrink-0 text-teinte-fonce" />
+          </button>
           <Section title="Aujourd’hui en famille" action={<Lien onClick={() => go('organiser')}>Voir tout</Lien>}>
             <div className="groupe mx-4 shadow-carte">
               {today.length === 0 && <p className="px-4 py-4 text-sous text-brume">Rien de prévu aujourd’hui. Profitez-en !</p>}
-              {today.map((l, i) => (
+              {today.slice(0, 2).map((l, i) => (
                 <button
                   key={l.key}
                   onClick={() => {
@@ -310,7 +320,7 @@ export default function Home({ go }: { go: (t: Go) => void }) {
             </div>
           </Section>
 
-          <WeeklyChallenge className="mt-6" />
+
 
           <Section
             title="Créer une attention"

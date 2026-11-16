@@ -1,4 +1,4 @@
-import { Check } from 'lucide-react'
+import { Check, Clock } from 'lucide-react'
 import { useState } from 'react'
 import House from '../components/House'
 import { Btn } from '../components/ui'
@@ -8,6 +8,13 @@ import { ago, errorText } from '../lib/util'
 /** On a tapé le code : on attend qu'un responsable de la famille nous ouvre la porte. */
 export default function Waiting() {
   const { requests, api, reload, toast } = useStore()
+  const [checking, setChecking] = useState(false)
+  const [checked, setChecked] = useState(false)
+  const check = async () => {
+    setChecking(true)
+    try { await reload(); setChecked(true) } catch(e) { toast(errorText(e), 'err') }
+    setChecking(false)
+  }
   const [busy, setBusy] = useState(false)
   const r = requests.find((x) => x.status === 'attente') ?? requests[0]
   if (!r) return null
@@ -55,7 +62,7 @@ export default function Waiting() {
               ) : refused ? (
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-rouge/15 text-[13px] font-bold text-rouge">✕</span>
               ) : (
-                <span className="h-6 w-6 shrink-0 animate-spin rounded-full border-[2.5px] border-teinte/25 border-t-teinte" />
+                <Clock size={24} className="shrink-0 text-teinte" />
               )}
               <span className={`flex min-h-[50px] flex-1 items-center pr-4 text-corps ${i < steps.length - 1 ? 'border-b border-trait' : ''} ${s.done ? '' : 'font-semibold'}`}>
                 {s.label}
@@ -65,8 +72,9 @@ export default function Waiting() {
         </div>
         {!refused && <p className="px-4 pt-2 text-center text-note text-brume">Envoyée {ago(r.created_at)}. Tu ne vois rien de la famille tant que ta demande n’est pas acceptée.</p>}
 
+        {!refused && <><p className="mt-5 text-center text-sous text-brume">Tu peux fermer l’application et revenir plus tard avec ce même appareil.</p><Btn className="mt-4" disabled={checking || busy} onClick={() => void check()}>{checking ? 'Vérification…' : 'Vérifier ma demande'}</Btn>{checked && <p role="status" className="mt-2 text-center text-note text-brume">Ta demande est toujours en attente de validation.</p>}</>}
         <div className="flex-1" />
-        <Btn kind={refused ? 'plein' : 'gris'} className="mt-6" disabled={busy} onClick={drop}>
+        <Btn kind={refused ? 'plein' : 'gris'} className="mt-6" disabled={busy || checking} onClick={drop}>
           {refused ? 'Compris' : 'Annuler ma demande'}
         </Btn>
       </div>

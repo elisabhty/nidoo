@@ -5,7 +5,7 @@ import { DecorPage } from '../components/decor'
 import House from '../components/House'
 import { ComposeSheet } from '../components/sheets'
 import { StarsSheet } from '../components/stars'
-import { Art, Avatar, Btn, Lien, Screen, Section } from '../components/ui'
+import { Art, Avatar, Btn, Lien, Screen, Section, Segments } from '../components/ui'
 import { WeeklyChallenge } from '../components/weekly'
 import { challengeOfDay, DECOS, questionOfDay, STAR_REASONS } from '../lib/data'
 import { success, tap } from '../lib/haptic'
@@ -17,6 +17,7 @@ export default function Play() {
   const { family, me, members, answers, houseItems } = state
   const q = questionOfDay()
   const challenge = challengeOfDay()
+  const [section, setSection] = useState<'jour' | 'maison'>('jour')
   const [text, setText] = useState('')
   const [photo, setPhoto] = useState(false)
   const [stars, setStars] = useState(false)
@@ -34,7 +35,7 @@ export default function Play() {
   return (
     <>
       <Screen
-        title="Moments"
+        title="À vivre ensemble"
         trailing={
           <button onClick={() => setStars(true)} className="presse verre flex h-10 items-center gap-1.5 rounded-full pl-2 pr-3.5 text-appel font-semibold" aria-label={`${family.stars} étoiles : comment en gagner`}>
             <Art name="picto-etoile" size={24} /> {family.stars}
@@ -42,10 +43,13 @@ export default function Play() {
         }
       >
         <p className="-mt-1 px-5 text-sous text-brume">Un petit rituel pour se retrouver, chaque jour.</p>
-        <div className="mb-3 px-5 pt-1">
-          <Lien onClick={() => setStars(true)}>Comment gagner des étoiles ?</Lien>
+        <div className="mx-5 my-5"><Segments value={section} onChange={setSection} options={[{key:'jour',label:'À vivre ensemble'},{key:'maison',label:'Notre progression'}]} /></div>
+        {section === 'jour' && <>
+        <div className="mx-5 mb-4 flex items-center gap-3">
+          <div className="flex -space-x-2">{members.filter(m => answers.some(a => a.member_id === m.id)).slice(0,4).map(m => <Avatar key={m.id} m={m} size={32} />)}</div>
+          <p className="text-note text-brume">{answers.length ? `${answers.length} réponse${answers.length > 1 ? 's' : ''} à découvrir` : 'Soyez les premiers à lancer le moment du jour.'}</p>
         </div>
-        <div className="groupe mx-4 mt-4 p-5 shadow-carte">
+        <div className="mx-4 mt-4 rounded-[28px] bg-white p-6 shadow-carte">
           <div className="flex items-center gap-2.5">
             <Art name="picto-bulle" size={30} />
             <p className="text-note font-semibold uppercase tracking-[0.03em] text-teinte">Question du jour</p>
@@ -66,7 +70,7 @@ export default function Play() {
                           {a.answer && <p className="text-appel">{a.answer}</p>}
                         </>
                       ) : (
-                        <p className="pt-1 text-sous text-pale">{m.display_name} n’a pas encore répondu</p>
+                        <p className="pt-1 text-sous text-pale">{m.display_name} pourra répondre à son rythme</p>
                       )}
                     </div>
                   </div>
@@ -112,7 +116,7 @@ export default function Play() {
                 </div>
               )}
               <div className="flex items-center gap-2">
-                <input className="champ min-w-0 flex-1" placeholder={pic ? 'Un mot avec ta photo (facultatif)' : 'Ta réponse'} maxLength={140} value={text} onChange={(e) => setText(e.target.value)} />
+                <textarea aria-label="Ta réponse à la question du jour" rows={3} className="champ min-w-0 flex-1 resize-none" placeholder={pic ? 'Un mot avec ta photo (facultatif)' : 'Ta réponse'} maxLength={140} value={text} onChange={(e) => setText(e.target.value)} />
                 <button
                   type="button"
                   onClick={() => {
@@ -144,6 +148,8 @@ export default function Play() {
           )}
         </div>
 
+        </>}
+        {section === 'maison' && <>
         <WeeklyChallenge className="mt-3" />
 
         <Section title="Notre maison" hint="Chaque petit geste embellit votre maison.">
@@ -199,6 +205,7 @@ export default function Play() {
             </div>
           </Section>
         )}
+        </>}
       </Screen>
       {photo && <ComposeSheet challenge={challenge} onClose={() => setPhoto(false)} />}
       {stars && (

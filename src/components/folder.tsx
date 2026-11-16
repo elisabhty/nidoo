@@ -4,9 +4,10 @@ import type { Folder } from '../lib/types'
 import { Avatar } from './ui'
 
 /** Couverture d'un dossier : sa photo, sinon un fond pastel et une illustration 3D choisie selon son nom. */
-export function FolderCover({ folder, url, size = 'md' }: { folder: Pick<Folder, 'id' | 'name'>; url: string | null; size?: 'sm' | 'md' | 'lg' }) {
+export function FolderCover({ folder, url, size = 'md' }: { folder: Pick<Folder, 'id' | 'name'>; url: string | null; size?: 'sm' | 'md' | 'lg' | 'wide' }) {
   if (url) return <img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" draggable={false} />
   const place = {
+    wide: 'right-[3%] top-[8%] w-[36%]',
     sm: 'right-[27%] top-[10%] w-[46%]',
     md: 'right-[9%] top-[8%] w-[50%]',
     lg: 'right-[7%] top-[calc(var(--sat)+58px)] w-[34%]',

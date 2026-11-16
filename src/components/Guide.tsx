@@ -4,12 +4,9 @@ import { Art, Btn } from './ui'
 
 // Le tour de bienvenue : une fonctionnalité par écran, en une phrase.
 const STEPS: { art: string; title: string; text: string }[] = [
-  { art: 'panda', title: 'Bienvenue chez vous', text: 'NIDOO, c’est la petite maison de ta famille. On s’y donne des nouvelles en un geste, sans avoir à lancer une conversation.' },
-  { art: 'humeur-heureux', title: 'Dis comment tu vas', text: 'Partage ton humeur du jour en un toucher. Tes proches voient tout de suite comment tu te sens.' },
-  { art: 'geste-calin', title: 'Un câlin, une attention', text: 'Touche un proche pour lui faire un câlin dans le jardin. Ou crée-lui une attention : une photo sur laquelle tu dessines avec tes crayons, ou juste un dessin. Elle apparaît en direct sur son écran.' },
-  { art: 'picto-photo', title: 'Vos souvenirs, bien rangés', text: 'Crée un dossier avec les proches de ton choix : photos, notes et discussion. Seuls ses membres le voient, les autres ne savent même pas qu’il existe.' },
-  { art: 'picto-etoile', title: 'Faites grandir votre maison', text: 'Chaque petit geste rapporte des étoiles à toute la famille. Relevez ensemble le défi de la semaine : la maison s’embellit et change avec les saisons.' },
-  { art: 'picto-agenda', title: 'Organisez-vous', text: 'Anniversaires, rendez-vous, liste de courses et petites missions, au même endroit pour tout le monde.' },
+  { art: 'panda', title: 'Un petit chez-vous', text: 'Retrouve tes proches dans la Maison. Partage ton humeur quand tu en as envie, ou touche un proche pour lui envoyer un câlin.' },
+  { art: 'geste-calin', title: 'Un geste suffit', text: 'Une photo, un dessin, un petit mot : crée une attention et choisis à qui l’envoyer. Vos attentions et albums se retrouvent dans Souvenirs.' },
+  { art: 'picto-agenda', title: 'À votre rythme', text: 'Organiser rassemble les rendez-vous, les courses et les missions. Famille permet d’inviter tes proches et de personnaliser votre maison.' },
 ]
 
 export default function Guide({ onClose }: { onClose: () => void }) {

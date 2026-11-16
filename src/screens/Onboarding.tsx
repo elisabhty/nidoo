@@ -199,7 +199,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
             <House type={houseType} items={[]} />
           </div>
           <h1 className="outline-none mt-6 font-rond text-titre1">La maison est prête</h1>
-          <p className="mx-auto mt-1.5 max-w-[300px] text-sous text-brume">Envoie ce code à tes proches. Chaque personne qui le tape t’envoie une demande : c’est toi qui acceptes. Il reste valable 7 jours.</p>
+          <p className="mx-auto mt-1.5 max-w-[300px] text-sous text-brume">Envoie ce code à tes proches. Chaque personne qui le tape t’envoie une demande : c’est toi qui acceptes. Il reste valable 7 jours. Tu peux aussi découvrir ta maison et les inviter plus tard depuis Famille.</p>
           <button
             onClick={async () => (await copy(created.code)) && toast('Code copié')}
             className="presse groupe mx-auto mt-5 flex h-[64px] items-center gap-3 px-6"

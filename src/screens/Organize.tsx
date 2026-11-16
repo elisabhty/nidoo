@@ -183,7 +183,8 @@ function Liste({ kind }: { kind: ListKind }) {
   const [title, setTitle] = useState('')
   const [addingItem, setAddingItem] = useState(false)
   const [to, setTo] = useState<string | null>(null)
-  const items = state.items.filter((i) => i.kind === kind)
+  const [onlyMine, setOnlyMine] = useState(false)
+  const items = state.items.filter((i) => i.kind === kind && (!(kind === 'tache' && onlyMine) || !i.assigned_to || i.assigned_to === me.id))
   const todo = items.filter((i) => !i.done)
   const done = items.filter((i) => i.done)
   const tache = kind === 'tache'
@@ -199,6 +200,7 @@ function Liste({ kind }: { kind: ListKind }) {
 
   return (
     <>
+      {kind === 'tache' && <div className="mx-5 mb-4"><Segments value={onlyMine ? 'moi' : 'tous'} onChange={(v) => setOnlyMine(v === 'moi')} options={[{key:'tous',label:'Toutes les missions'},{key:'moi',label:'Pour moi'}]} /></div>}
       <form
         className="groupe mx-4 flex items-center gap-3 pl-4 pr-2 shadow-carte"
         onSubmit={(e) => {
@@ -334,6 +336,10 @@ export default function Organize() {
           <Segments value={seg} onChange={setSeg} options={[{ key: 'agenda', label: 'Agenda' }, { key: 'course', label: 'Courses' }, { key: 'tache', label: 'Missions' }]} />
         </div>
 
+        {seg === 'agenda' && coming.length > 0 && <button onClick={() => setOpen(coming[0])} className="presse mx-4 mb-5 flex w-[calc(100%-2rem)] items-center gap-4 rounded-[24px] bg-teinte-doux p-5 text-left">
+          <span className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-[18px] bg-white text-teinte-fonce"><span className="text-note uppercase">{coming[0].at.toLocaleDateString('fr-FR',{month:'short'})}</span><span className="font-rond text-titre1">{coming[0].at.getDate()}</span></span>
+          <span className="min-w-0"><span className="block text-note font-semibold text-teinte-fonce">Votre prochain rendez-vous</span><span className="mt-1 block font-rond text-titre3">{coming[0].e.title}</span><span className="mt-1 block text-note text-brume">{coming[0].at.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric'})}</span></span>
+        </button>}
         {seg === 'agenda' && <div className="mx-5 mb-5"><Btn onClick={() => setAdding({})}>Ajouter un événement</Btn></div>}
         {seg === 'agenda' && (
           <div className="-mt-1 mb-4 flex gap-2 px-4">

@@ -138,23 +138,31 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
 
 // ───────── On pense à toi ─────────
 
+const thoughtDrafts = new Map<string, {target?: string; kind: ThoughtKind; message: string}>()
+
 export function ThoughtSheet({ onClose, to }: { onClose: () => void; to?: Member }) {
   const { state, run } = useHome()
   const others = state.members.filter((m) => m.id !== state.me.id)
-  const [target, setTarget] = useState<Member | undefined>(to ?? (others.length === 1 ? others[0] : undefined))
-  const [kind, setKind] = useState<ThoughtKind>('coeur')
-  const [message, setMessage] = useState('')
+  const draftKey = `${state.family.id}:${state.me.id}:${to?.id ?? 'libre'}`
+  const draft = thoughtDrafts.get(draftKey)
+  const [target, setTarget] = useState<Member | undefined>(to ?? others.find(m => m.id === draft?.target) ?? (others.length === 1 ? others[0] : undefined))
+  const [kind, setKind] = useState<ThoughtKind>(draft?.kind ?? 'coeur')
+  const [message, setMessage] = useState(draft?.message ?? '')
+  const [busy, setBusy] = useState(false)
   const [sent, setSent] = useState(false)
   const art = message.trim() ? 'geste-mot' : `geste-${kind}`
 
+  useEffect(() => {if(!sent) thoughtDrafts.set(draftKey,{target:target?.id,kind,message})}, [draftKey,target?.id,kind,message,sent])
   const send = async () => {
-    if (!target) return
+    if (!target || busy) return
+    setBusy(true)
     const k: ThoughtKind = message.trim() ? 'mot' : kind
     const ok = await run((api) => api.sendThought(state.family.id, state.me.id, target.id, k, message))
+    setBusy(false)
     if (ok) {
       success()
+      thoughtDrafts.delete(draftKey)
       setSent(true)
-      window.setTimeout(onClose, 1800)
     }
   }
 
@@ -170,13 +178,14 @@ export function ThoughtSheet({ onClose, to }: { onClose: () => void; to?: Member
             <p className="mt-4 font-rond text-titre2">{target.display_name} va le recevoir</p>
             <p className="mt-1 text-sous text-brume">Sans un mot de plus, juste une présence.</p>
           </div>
+          <Btn onClick={onClose}>C’est fait</Btn>
         </Sheet>
       </>
     )
   }
 
   return (
-    <Sheet title="On pense à toi" onClose={onClose}>
+    <Sheet title="On pense à toi" onClose={() => {if(!busy) onClose()}}>
       {others.length === 0 ? (
         <p className="px-4 py-8 text-center text-sous text-brume">Invite d’abord un proche dans la maison pour lui envoyer une attention.</p>
       ) : (
@@ -218,7 +227,6 @@ export function ThoughtSheet({ onClose, to }: { onClose: () => void; to?: Member
                   onClick={() => {
                     select()
                     setKind(t.key)
-                    setMessage('')
                   }}
                   aria-pressed={on}
                   className={`presse flex flex-col items-center gap-1.5 rounded-[20px] px-1 pb-2.5 pt-3 ${on ? 'bg-teinte-doux ring-2 ring-teinte' : 'bg-carte'}`}
@@ -229,9 +237,9 @@ export function ThoughtSheet({ onClose, to }: { onClose: () => void; to?: Member
               )
             })}
           </div>
-          <input className="champ mt-3 !bg-carte" placeholder="Ou glisse-lui un petit mot" maxLength={140} value={message} onChange={(e) => setMessage(e.target.value)} />
-          <Btn className="mt-4" onClick={send} disabled={!target}>
-            {target ? `Envoyer à ${target.display_name}` : 'Choisis un proche'}
+          <textarea aria-label="Ton petit mot" rows={3} className="champ mt-3 !bg-carte resize-none" placeholder="Ou glisse-lui un petit mot" maxLength={140} value={message} onChange={(e) => setMessage(e.target.value)} />
+          <Btn className="mt-4" onClick={send} disabled={!target || busy}>
+            {busy ? 'Envoi…' : target ? `Envoyer à ${target.display_name}` : 'Choisis un proche'}
           </Btn>
         </>
       )}
@@ -241,7 +249,7 @@ export function ThoughtSheet({ onClose, to }: { onClose: () => void; to?: Member
 
 // ───────── Attentions reçues ─────────
 
-export function Incoming() {
+export function Incoming({ onClose }: {onClose?: () => void}) {
   const { state, run } = useHome()
   const [reply, setReply] = useState<string | null | undefined>(undefined)
   const drawings = useUnseenDrawings(state)
@@ -252,7 +260,7 @@ export function Incoming() {
   useEffect(() => {
     if (id && kind) feel(kind)
   }, [id, kind])
-  const sheet = reply !== undefined && <DrawSheet to={reply} onClose={() => setReply(undefined)} />
+  const sheet = reply !== undefined && <DrawSheet to={reply} onClose={() => {setReply(undefined); onClose?.()}} />
   if (!t) {
     const d = drawings[0]
     if (!d || reply !== undefined) return sheet || null
@@ -260,7 +268,8 @@ export function Incoming() {
       <IncomingDrawing
         d={d}
         more={drawings.length - 1}
-        onSeen={() => markDrawingsSeen([d.id])}
+        onLater={onClose}
+        onSeen={() => {markDrawingsSeen([d.id]); onClose?.()}}
         onReply={() => {
           markDrawingsSeen([d.id])
           setReply(d.to_member ? d.from_member : null)
@@ -272,12 +281,14 @@ export function Incoming() {
   if (!from) return null
   const th = thoughtOf(t.kind)
   const art = `geste-${t.kind}`
-  const seen = () => run((api) => api.markSeen([t.id]))
-  const back = () =>
-    run(async (api) => {
+  const seen = async () => {if(await run((api) => api.markSeen([t.id]))) onClose?.()}
+  const back = async () => {
+    const ok = await run(async (api) => {
       await api.markSeen([t.id])
       await api.sendThought(state.family.id, state.me.id, from.id, 'calin')
     }, `Câlin envoyé à ${from.display_name}`)
+    if(ok) onClose?.()
+  }
 
   if (reply !== undefined) return sheet || null
   return (
@@ -295,6 +306,7 @@ export function Incoming() {
           {from.display_name} {th.said}
         </p>
         {t.message && <p className="mt-3 rounded-[18px] bg-carte px-4 py-3 text-corps">« {t.message} »</p>}
+        {onClose && <button onClick={onClose} className="mb-2 min-h-11 text-sous text-teinte-fonce">Plus tard</button>}
         <Btn className="mt-5" onClick={back}>Renvoyer un câlin</Btn>
         <Btn kind="gris" className="mt-2" onClick={seen}>
           {unseen.length > 1 ? `Suivant (${unseen.length - 1} de plus)` : 'Merci'}

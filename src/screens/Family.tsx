@@ -5,7 +5,7 @@ import { careTodo } from '../components/care'
 import { DrawingsSheet, DrawingWidget, DrawSheet } from '../components/drawing'
 import { eventArt, MoodSheet } from '../components/sheets'
 import { JoinRequests } from '../components/requests'
-import { Art, Avatar, Btn, choisir, confirmer, Rond, Row, Screen, Section, Sheet } from '../components/ui'
+import { Art, Avatar, Btn, choisir, confirmer, Rond, Row, Screen, Section, Segments, Sheet } from '../components/ui'
 import { CARE, DECOS, moodOf, PLAN_LIMITS } from '../lib/data'
 import { select } from '../lib/haptic'
 import { copy, shareInvite } from '../lib/share'
@@ -191,6 +191,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
     if (ok) void run((a) => a.renewInvite(family.id), 'Nouveau code créé')
   }
 
+  const [section, setSection] = useState<'proches' | 'maison' | 'reglages'>('proches')
   const [petit, setPetit] = useState<null | { m?: Member; name: string; avatar: string; color: string }>(null)
   const [humeurDe, setHumeurDe] = useState<Member | null>(null)
 
@@ -250,7 +251,8 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
       <Screen title="Notre famille" trailing={<Rond label="Inviter un proche" tint onClick={invite}><Share size={18} strokeWidth={2.4} /></Rond>}>
         <p className="px-5 pb-5 text-sous text-brume">Votre cercle, votre maison, vos habitudes.</p>
         <div className="mx-5 mb-5"><Btn onClick={invite}>Inviter un proche</Btn></div>
-        {api.mode === 'local' && (
+        <div className="mx-5 mb-5"><Segments value={section} onChange={setSection} options={[{key:'proches',label:'Mes proches'},{key:'maison',label:'La maison'},{key:'reglages',label:'Réglages'}]} /></div>
+        {section === 'reglages' && api.mode === 'local' && (
           <div className="mx-4 mb-3 mt-1 rounded-[16px] bg-peche-doux px-4 py-3">
             <p className="text-note">
               <span className="font-semibold">Mode démo.</span> Cette maison vit uniquement sur cet appareil, avec trois proches fictifs pour essayer.
@@ -266,6 +268,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
           </div>
         )}
 
+        {section === 'proches' && <>
         {state.requests.length > 0 && (
           <>
             <p className="entete mt-2">{state.requests.length > 1 ? `${state.requests.length} demandes pour entrer` : 'Une demande pour entrer'}</p>
@@ -369,6 +372,8 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
           <span>Le code permet seulement de demander à entrer. {whoAccepts}{admin ? ' Touche un membre pour nommer un autre responsable ou le retirer.' : ''}</span>
         </p>
 
+        </>}
+        {section === 'maison' && <>
         <Section title="Widgets">
           <p className="-mt-1.5 mb-3 px-5 text-sous text-brume">Aperçu en direct de ce que chacun verra sur son écran d’accueil.</p>
           <Widgets onDraw={() => setDessin({ to: null })} onOpen={(d) => setDessins(d)} />
@@ -421,6 +426,8 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
         </div>
         <p className="px-8 pt-2 text-note text-brume">Chaque maison garde ses photos et ses informations séparées.</p>
 
+        </>}
+        {section === 'reglages' && <>
         <p className="entete mt-6">Réglages</p>
         <div className="groupe mx-4 shadow-carte">
           <Row icon={<CircleHelp size={17} strokeWidth={2.4} />} tint="#F58B5C" label="Comment ça marche" onClick={onGuide} />
@@ -440,6 +447,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
           />
         </div>
         <p className="mt-6 text-center text-legende text-pale">NIDOO · sans publicité, sans revente de données</p>
+        </>}
       </Screen>
 
       {sheet === 'profil' && (

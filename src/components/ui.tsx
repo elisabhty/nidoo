@@ -117,21 +117,39 @@ export function Page({ title, back = 'Retour', onClose, trailing, children }: { 
 export function Sheet({ title, onClose, children, tall = false }: { title: string; onClose: () => void; children: ReactNode; tall?: boolean }) {
   const [dy, setDy] = useState(0)
   const start = useRef<number | null>(null)
+  const root = useRef<HTMLDivElement>(null)
+  const panel = useRef<HTMLDivElement>(null)
+  const close = useRef(onClose)
+  close.current = onClose
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const frame = requestAnimationFrame(() => panel.current?.focus({preventScroll:true}))
+    const onKey = (e: KeyboardEvent) => {
+      const dialogs = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"], [role="alertdialog"]')).filter(el => el.getClientRects().length > 0)
+      if (dialogs[dialogs.length - 1] !== root.current) return
+      if (e.key === 'Escape') { e.preventDefault(); close.current(); return }
+      if (e.key !== 'Tab') return
+      const controls = Array.from(panel.current?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href], [tabindex="0"]') ?? []).filter(el => el.getClientRects().length > 0)
+      if (!controls.length) { e.preventDefault(); return }
+      const first = controls[0], last = controls[controls.length - 1]
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === panel.current)) {e.preventDefault(); last.focus()}
+      else if (!e.shiftKey && (document.activeElement === last || document.activeElement === panel.current)) {e.preventDefault(); first.focus()}
+    }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+    return () => {cancelAnimationFrame(frame); window.removeEventListener('keydown',onKey); if(previous?.isConnected) previous.focus({preventScroll:true})}
+  }, [])
   const end = () => {
     if (dy > 110) onClose()
     start.current = null
     setDy(0)
   }
   return (
-    <div className="absolute inset-0 z-40 flex flex-col justify-end" role="dialog" aria-modal="true" aria-label={title}>
+    <div ref={root} className="absolute inset-0 z-40 flex flex-col justify-end" role="dialog" aria-modal="true" aria-label={title}>
       <button className="anim-fondu absolute inset-0 bg-black/30" style={{ opacity: Math.max(0.3, 1 - dy / 400) }} onClick={onClose} aria-label="Fermer" />
       <div
-        className={`anim-monte relative flex flex-col rounded-t-feuille bg-fond shadow-[0_-10px_40px_rgba(29,26,43,0.18)] ${tall ? 'h-[92%]' : 'max-h-[92%]'}`}
+        ref={panel}
+        tabIndex={-1}
+        className={`anim-monte relative outline-none flex flex-col rounded-t-feuille bg-fond shadow-[0_-10px_40px_rgba(29,26,43,0.18)] ${tall ? 'h-[92%]' : 'max-h-[92%]'}`}
         style={{ paddingBottom: 'calc(var(--sab) + 14px)', transform: dy ? `translateY(${dy}px)` : undefined, transition: start.current === null ? 'transform 0.35s var(--ressort)' : 'none' }}
       >
         <div
@@ -150,7 +168,7 @@ export function Sheet({ title, onClose, children, tall = false }: { title: strin
             <button
               onClick={onClose}
               onPointerDown={(e) => e.stopPropagation()}
-              className="presse absolute right-4 flex h-[30px] w-[30px] items-center justify-center rounded-full bg-remplissage text-brume"
+              className="presse absolute right-4 flex h-11 w-11 items-center justify-center rounded-full bg-remplissage text-brume"
               aria-label="Fermer"
             >
               <X size={16} strokeWidth={2.8} />

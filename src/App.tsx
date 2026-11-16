@@ -1,6 +1,6 @@
-import { BookHeart, CalendarDays, House as HouseIcon, Sparkles, UsersRound } from 'lucide-react'
+import { BookHeart, CalendarDays, House as HouseIcon, Sparkles, UsersRound, ChevronLeft, Pencil } from 'lucide-react'
 import { useState } from 'react'
-import { DrawingBanner, useUnseenDrawings } from './components/drawing'
+import { DrawingBanner, DrawSheet, useUnseenDrawings } from './components/drawing'
 import Guide from './components/Guide'
 import { Incoming } from './components/sheets'
 import { ActionSheetHost, Btn, Toasts } from './components/ui'
@@ -16,14 +16,13 @@ import Waiting from './screens/Waiting'
 
 const GUIDE = 'nidoo.guide.vu'
 
-export type Tab = 'maison' | 'moments' | 'jouer' | 'organiser' | 'famille'
+export type Tab = 'maison' | 'moments' | 'organiser' | 'famille'
 /** « fil » ouvre l'onglet Dossiers directement sur le fil de la famille. */
-export type Go = Tab | 'fil'
+export type Go = Tab | 'fil' | 'jouer' | 'recus'
 
 const TABS: { key: Tab; label: string; icon: typeof HouseIcon }[] = [
   { key: 'maison', label: 'Maison', icon: HouseIcon },
   { key: 'moments', label: 'Souvenirs', icon: BookHeart },
-  { key: 'jouer', label: 'Moments', icon: Sparkles },
   { key: 'organiser', label: 'Organiser', icon: CalendarDays },
   { key: 'famille', label: 'Famille', icon: UsersRound },
 ]
@@ -40,12 +39,19 @@ function Splash({ children }: { children?: React.ReactNode }) {
 export default function App() {
   const { status, error, state, retry, requests } = useStore()
   const [tab, setTab] = useState<Tab>('maison')
+  const [visited, setVisited] = useState<Tab[]>(['maison'])
+  const navigate = (next: Tab) => { setVisited(current => current.includes(next) ? current : [...current, next]); setTab(next) }
+  const [showIncoming, setShowIncoming] = useState(false)
+  const [compose, setCompose] = useState(false)
+  const [activity, setActivity] = useState(false)
   const [seg, setSeg] = useState<DossiersSeg>('dossiers')
   const go = (g: Go) => {
+    if (g === 'recus') {setShowIncoming(true); return}
+    if (g === 'jouer') { setActivity(true); return }
     if (g === 'fil') {
       setSeg('fil')
-      setTab('moments')
-    } else setTab(g)
+      navigate('moments')
+    } else navigate(g)
   }
   const [guide, setGuide] = useState(() => {
     try {
@@ -80,11 +86,10 @@ export default function App() {
         {status === 'ready' && state && (
           <>
             <div className="h-full" key={state.family.id}>
-              {tab === 'maison' && <Home go={go} />}
-              {tab === 'moments' && <Dossiers seg={seg} setSeg={setSeg} />}
-              {tab === 'jouer' && <Play />}
-              {tab === 'organiser' && <Organize />}
-              {tab === 'famille' && <Family onGuide={() => setGuide(true)} />}
+              <div hidden={tab !== 'maison'} className="h-full"><Home go={go} active={tab === 'maison'} /></div>
+              {visited.includes('moments') && <div hidden={tab !== 'moments'} className="h-full"><Dossiers seg={seg} setSeg={setSeg} /></div>}
+              {visited.includes('organiser') && <div hidden={tab !== 'organiser'} className="h-full"><Organize /></div>}
+              {visited.includes('famille') && <div hidden={tab !== 'famille'} className="h-full"><Family onGuide={() => setGuide(true)} /></div>}
             </div>
 
             {/* Barre d'onglets flottante en verre */}
@@ -96,13 +101,13 @@ export default function App() {
                     key={t.key}
                     onClick={() => {
                       select()
-                      setTab(t.key)
+                      navigate(t.key)
                     }}
                     aria-current={on ? 'page' : undefined}
                     className={`relative flex h-full flex-1 flex-col items-center justify-center gap-[3px] rounded-full transition-colors duration-200 ${on ? 'bg-encre/[0.07] text-teinte' : 'text-encre/70'}`}
                   >
                     <t.icon size={23} strokeWidth={on ? 2.4 : 2} fill={on ? 'currentColor' : 'none'} fillOpacity={on ? 0.18 : 0} />
-                    <span className={`text-[10px] leading-none tracking-normal ${on ? 'font-semibold' : 'font-medium'}`}>{t.label}</span>
+                    <span className={`text-[12px] leading-none tracking-normal ${on ? 'font-semibold' : 'font-medium'}`}>{t.label}</span>
                     {((t.key === 'maison' && unseen > 0) || (t.key === 'famille' && state.requests.length > 0)) && !on && (
                       <span className="absolute right-[24%] top-2 h-2.5 w-2.5 rounded-full bg-rouge ring-2 ring-white" />
                     )}
@@ -111,8 +116,14 @@ export default function App() {
               })}
             </nav>
 
-            {tab === 'maison' && !guide && <Incoming />}
-            {tab !== 'maison' && !guide && <DrawingBanner onOpen={() => setTab('maison')} />}
+            {tab !== 'maison' && !guide && !activity && <button onClick={() => setCompose(true)} className="presse absolute right-5 z-30 flex min-h-11 items-center gap-2 rounded-full bg-teinte px-4 text-sous font-semibold text-white shadow-flottant" style={{bottom:'calc(var(--sab) + 84px)'}}><Pencil size={17} />Une attention</button>}
+            {compose && <DrawSheet onClose={() => setCompose(false)} />}
+            {activity && <div className="absolute inset-0 z-40 flex flex-col bg-fond" role="dialog" aria-modal="true" aria-label="À vivre ensemble" style={{paddingTop:'var(--sat)'}}>
+              <button onClick={() => setActivity(false)} className="presse flex min-h-[52px] shrink-0 items-center gap-1 px-4 text-corps text-teinte-fonce"><ChevronLeft size={22} />Retour à la maison</button>
+              <div className="min-h-0 flex-1"><Play /></div>
+            </div>}
+            {tab === 'maison' && showIncoming && !guide && !activity && <Incoming onClose={() => setShowIncoming(false)} />}
+            {tab !== 'maison' && !guide && <DrawingBanner onOpen={() => navigate('maison')} />}
             {guide && <Guide onClose={closeGuide} />}
           </>
         )}

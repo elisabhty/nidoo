@@ -234,24 +234,30 @@ const TOOLS: { key: DrawTool; label: string; icon: typeof Pencil }[] = [
   { key: 'gomme', label: 'Gomme', icon: Eraser },
 ]
 
+const attentionDrafts = new Map<string, { strokes: Stroke[]; pic: {blob: Blob; url: string} | null; bg: string; py: number; to: string | null }>()
+
 export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | null; onClose: () => void }) {
   const { state, run, toast } = useHome()
   const { me, members, family } = state
   const others = members.filter((m) => m.id !== me.id)
-  const [to, setTo] = useState<string | null>(initialTo)
-  const [strokes, setStrokes] = useState<Stroke[]>([])
+  const draftKey = `${family.id}:${me.id}:${initialTo ?? 'famille'}`
+  const draft = attentionDrafts.get(draftKey)
+  const [to, setTo] = useState<string | null>(draft?.to ?? initialTo)
+  const [phase, setPhase] = useState<'destinataire' | 'format' | 'edition'>(() => draft?.strokes.length || draft?.pic ? 'edition' : initialTo ? 'format' : 'destinataire')
+  const [sent, setSent] = useState(false)
+  const [strokes, setStrokes] = useState<Stroke[]>(() => draft?.strokes ?? [])
   const [tool, setTool] = useState<Outil>('feutre')
   // la photo de fond (facultative) et la hauteur gardée
-  const [pic, setPic] = useState<{ blob: Blob; url: string } | null>(null)
-  const [py, setPy] = useState(0.5)
+  const [pic, setPic] = useState<{ blob: Blob; url: string } | null>(() => draft?.pic ?? null)
+  const [py, setPy] = useState(draft?.py ?? 0.5)
   const img = usePhoto(pic?.url)
   const camera = useRef<HTMLInputElement>(null)
   const gallery = useRef<HTMLInputElement>(null)
   const drag = useRef<{ id: number; y: number; py: number } | null>(null)
-  useEffect(() => () => void (pic && URL.revokeObjectURL(pic.url)), [pic])
+
   const [size, setSize] = useState<0 | 1 | 2>(1)
   const [color, setColor] = useState(INKS[1])
-  const [bg, setBg] = useState(PAPERS[0].bg)
+  const [bg, setBg] = useState(draft?.bg ?? PAPERS[0].bg)
   const [busy, setBusy] = useState(false)
   const base = useRef<HTMLCanvasElement>(null)
   const live = useRef<HTMLCanvasElement>(null)
@@ -268,23 +274,26 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
   // Toile du dessous : la photo ou le papier, et les traits terminés.
   useEffect(() => {
     if (base.current) paint(fit(base.current), { v: 1, bg, s: strokes, py }, Infinity, true, img)
-  }, [strokes, bg, img, py])
+  }, [strokes, bg, img, py, phase])
   useEffect(() => {
     const ro = new ResizeObserver(() => base.current && paint(fit(base.current), { v: 1, bg, s: strokes, py }, Infinity, true, img))
     if (base.current) ro.observe(base.current)
     return () => ro.disconnect()
-  }, [strokes, bg, img, py])
+  }, [strokes, bg, img, py, phase])
 
   const pick = async (file?: File) => {
     if (!file) return
     try {
       const blob = await compressImage(file, 1400, 0.82)
+      if (pic) URL.revokeObjectURL(pic.url)
       setPic({ blob, url: URL.createObjectURL(blob) })
       setPy(0.5)
       if (tool === 'gomme') setTool('feutre')
       success()
+      return true
     } catch (e) {
       toast(errorText(e), 'err')
+      return false
     }
   }
   const photoMenu = async () => {
@@ -312,10 +321,17 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
     return [Math.round(((e.clientX - r.left) / r.width) * DRAW_W), Math.round(((e.clientY - r.top) / r.height) * DRAW_H)] as const
   }
 
+  useEffect(() => {
+    if (!sent) attentionDrafts.set(draftKey, {strokes, pic, bg, py, to})
+  }, [draftKey, strokes, pic, bg, py, to, sent])
+
   const recipient = to ? members.find((m) => m.id === to) : null
   const empty = !strokes.length && !pic
   const send = async () => {
     if (empty || busy) return
+    if (to && !recipient) { toast('Ce proche ne fait plus partie de la maison. Choisis un autre destinataire.', 'err'); setPhase('destinataire'); return }
+    const confirmed = to ? true : await confirmer({title: recipient ? `Envoyer à ${recipient.display_name} ?` : 'Envoyer à toute la famille ?', message: recipient ? 'Cette attention sera partagée uniquement avec ce proche.' : 'Tous les membres de cette maison pourront voir cette attention.', confirm: 'Envoyer mon attention'})
+    if (!confirmed) return
     setBusy(true)
     const what = pic ? (strokes.length ? 'Photo dessinée envoyée' : 'Photo envoyée') : 'Dessin envoyé'
     const ok = await run(
@@ -325,42 +341,41 @@ export function DrawSheet({ to: initialTo = null, onClose }: { to?: string | nul
     setBusy(false)
     if (ok) {
       success()
-      onClose()
+      attentionDrafts.delete(draftKey)
+      setSent(true)
     }
   }
 
+  if (sent) return <Sheet title="Attention envoyée" onClose={onClose}>
+    <div className="flex flex-col items-center py-8 text-center"><img src="./art/geste-coeur.webp" alt="" className="h-24 w-24 object-contain" /><h3 className="mt-5 font-rond text-titre1">Un petit geste qui compte.</h3><p className="mt-3 text-corps text-brume">{recipient ? `Ton attention est envoyée à ${recipient.display_name}.` : 'Ton attention est envoyée à toute la famille.'}</p></div><Btn onClick={onClose}>C’est fait</Btn>
+  </Sheet>
+
+  if (phase === 'destinataire') return <Sheet title="À qui penses-tu ?" onClose={onClose}>
+    <p className="mb-5 text-corps text-brume">Choisis à qui laisser une petite attention.</p>
+    <div className="space-y-2">
+      {others.map(m => <button key={m.id} onClick={() => {setTo(m.id); setPhase('format')}} className="presse flex min-h-[72px] w-full items-center gap-4 rounded-[20px] bg-white p-3 text-left"><Avatar m={m} size={46} /><span className="text-corps font-semibold">{m.display_name}</span></button>)}
+      <button onClick={() => {setTo(null); setPhase('format')}} className="presse flex min-h-[72px] w-full items-center gap-4 rounded-[20px] bg-teinte-doux p-3 text-left"><UsersRound size={34} className="text-teinte-fonce" /><span><span className="block text-corps font-semibold">Toute la famille</span><span className="text-note text-brume">Visible par les membres de cette maison</span></span></button>
+    </div>
+  </Sheet>
+
+  if (phase === 'format') return <Sheet title={recipient ? `Pour ${recipient.display_name}` : 'Pour toute la famille'} onClose={onClose}>
+    <button onClick={() => setPhase('destinataire')} className="mb-4 min-h-11 text-sous font-semibold text-teinte-fonce">Changer de destinataire</button>
+    <h3 className="mb-2 font-rond text-titre1">Un petit geste, à ta façon.</h3>
+    <p className="mb-6 text-corps text-brume">Commence avec une photo ou une feuille blanche. Tu pourras dessiner sur la photo si tu en as envie.</p>
+    <Btn onClick={() => {setPhase('edition'); setTool('feutre')}}><Pencil size={20} />Faire un dessin</Btn>
+    <Btn kind="teinte" className="mt-3" onClick={() => gallery.current?.click()}><Images size={20} />Choisir une photo</Btn>
+    <Btn kind="gris" className="mt-3" onClick={() => camera.current?.click()}><Camera size={20} />Prendre une photo</Btn>
+    <input ref={gallery} type="file" accept="image/*" hidden onChange={e => { const file=e.target.files?.[0]; if(file) void pick(file).then(ok => { if(ok) setPhase('edition') }); e.target.value='' }} />
+    <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={e => { const file=e.target.files?.[0]; if(file) void pick(file).then(ok => { if(ok) setPhase('edition') }); e.target.value='' }} />
+  </Sheet>
+
   return (
-    <Sheet title="Créer une attention" onClose={onClose} tall>
+    <Sheet title="Créer une attention" onClose={() => { if (!busy) onClose() }} tall>
+      <p className="mb-3 text-note text-brume">Ton brouillon reste disponible tant que l’application reste ouverte.</p>
       <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={(e) => void pick(e.target.files?.[0]).then(() => (e.target.value = ''))} />
       <input ref={gallery} type="file" accept="image/*" hidden onChange={(e) => void pick(e.target.files?.[0]).then(() => (e.target.value = ''))} />
+      <button onClick={() => setPhase('destinataire')} className="mb-3 min-h-11 text-sous font-semibold text-teinte-fonce">{recipient ? `Pour ${recipient.display_name}` : 'Pour toute la famille'} · Modifier</button>
       {/* pour qui */}
-      <div ref={chips} className="no-bar -mx-5 flex gap-2 overflow-x-auto px-5 pb-1">
-        {[null, ...others.map((m) => m.id)].map((id) => {
-          const m = id ? members.find((x) => x.id === id)! : null
-          const on = to === id
-          return (
-            <button
-              key={id ?? 'famille'}
-              onClick={() => {
-                select()
-                setTo(id)
-              }}
-              aria-pressed={on}
-              className={`presse flex h-10 shrink-0 items-center gap-1.5 rounded-full pl-1 pr-3.5 text-sous font-semibold transition-colors ${on ? 'bg-teinte text-white' : 'bg-carte text-encre shadow-carte'}`}
-            >
-              {m ? (
-                <Avatar m={m} size={32} />
-              ) : (
-                <span className={`flex h-8 w-8 items-center justify-center rounded-full ${on ? 'bg-white/20' : 'bg-teinte-doux text-teinte'}`}>
-                  <UsersRound size={16} strokeWidth={2.4} />
-                </span>
-              )}
-              {m ? m.display_name : 'Toute la famille'}
-            </button>
-          )
-        })}
-      </div>
-
       {/* une photo en fond, ou le papier */}
       <div className="mt-3 flex gap-2">
         <button
@@ -593,7 +608,7 @@ export function DrawingsSheet({ start, onClose, onDraw }: { start?: Drawing; onC
   const [id, setId] = useState(start?.id ?? drawings[0]?.id)
   const [play, setPlay] = useState(1)
   const d = drawings.find((x) => x.id === id) ?? drawings[0]
-  useEffect(() => markDrawingsSeen(drawings.map((x) => x.id)), [drawings])
+  useEffect(() => { if (d) markDrawingsSeen([d.id]) }, [d?.id])
   if (!d) return null
   const { from, fromName, toName } = forWhom(d, me, members)
   const mine = d.from_member === me.id
@@ -674,7 +689,7 @@ export function DrawingsSheet({ start, onClose, onDraw }: { start?: Drawing; onC
 // ═════════════════════════ Réception ═════════════════════════
 
 /** Le dessin arrive : il se dessine tout seul, puis on peut répondre. */
-export function IncomingDrawing({ d, more, onReply, onSeen }: { d: Drawing; more: number; onReply: () => void; onSeen: () => void }) {
+export function IncomingDrawing({ d, more, onReply, onSeen, onLater }: { d: Drawing; more: number; onReply: () => void; onSeen: () => void; onLater?: () => void }) {
   const { state } = useHome()
   const { from, fromName } = forWhom(d, state.me, state.members)
   useEffect(() => success(), [d.id])
@@ -691,6 +706,7 @@ export function IncomingDrawing({ d, more, onReply, onSeen }: { d: Drawing; more
         <div className="mt-4 overflow-hidden rounded-[24px] shadow-carte ring-1 ring-black/5" style={{ aspectRatio: RATIO, background: d.data.bg }}>
           <DrawingCanvas data={d.data} id={d.id} play={1} photo={d.photo_url} label={`${whatOf(d)} de ${fromName}`} />
         </div>
+        {onLater && <button onClick={onLater} className="mt-2 min-h-11 text-sous text-teinte-fonce">Plus tard</button>}
         <Btn className="mt-4" onClick={onReply}>
           <Camera size={17} strokeWidth={2.4} />
           <Pencil size={15} strokeWidth={2.4} />
