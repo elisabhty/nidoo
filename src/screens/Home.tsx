@@ -240,20 +240,14 @@ export default function Home({ go }: { go: (t: Go) => void }) {
         >
           <div className="px-5">
             <p className="text-sous font-medium text-brume">{greeting()} {me.display_name}</p>
-            <h1 className="break-words font-rond text-grand">Famille {family.name}</h1>
+            <h1 className="break-words font-rond text-grand">Notre maison</h1>
+            <button onClick={() => go('famille')} className="presse mt-3 inline-flex min-h-11 items-center gap-2 rounded-full bg-teinte-doux px-4 text-sous font-semibold text-teinte-fonce">Famille {family.name}<ChevronRight size={16} /></button>
           </div>
 
-          <JoinRequests className="mt-3" />
+
 
           {/* Notre petit monde : la maison, son niveau et la prochaine surprise */}
-          <div className="groupe mx-4 mt-4 p-3 shadow-carte">
-            <div className="flex items-center justify-between px-1.5 pb-2.5 pt-0.5">
-              <p className="font-rond text-titre3">Notre petit monde</p>
-              <span className="flex items-center gap-1.5">
-                <span className="rounded-full bg-remplissage px-2.5 py-1 text-legende font-semibold text-brume">{SEASON_LABEL[now]}</span>
-                <span className="rounded-full bg-teinte-doux px-2.5 py-1 text-legende font-semibold text-teinte-fonce">Niveau {level}</span>
-              </span>
-            </div>
+          <div className="mx-4 mt-5">
             <div ref={houseRef} className="overflow-hidden rounded-[22px]">
               <House
                 type={family.house_type}
@@ -271,54 +265,26 @@ export default function Home({ go }: { go: (t: Go) => void }) {
                 onPet={petAnimal}
               />
             </div>
-            <p className="px-1.5 pt-2 text-note text-brume">
-              {home.length === members.length ? 'Tout le monde a partagé son humeur aujourd’hui. ' : home.length ? `${home.length} sur ${members.length} ont partagé leur humeur aujourd’hui. ` : ''}
-              Touche un proche pour lui envoyer un câlin{myMood ? '.' : ', ou toi pour partager ton humeur.'}
-              {todo.length > 0 && ` ${careHint(todo)}`}
-            </p>
-            <button
-              onClick={() => {
-                tap()
-                setSheet({ k: 'decor' })
-              }}
-              className="presse block w-full px-1.5 pb-1 pt-3 text-left"
-            >
-              <span className="flex items-center justify-between gap-2 text-sous font-medium">
-                <span className="min-w-0 flex-1">
-                  {!nextDeco
-                    ? 'Votre maison est complète, bravo à toute la famille !'
-                    : toGo > 0
-                      ? `Plus que ${toGo} étoile${toGo > 1 ? 's' : ''} avant la prochaine surprise`
-                      : `De quoi installer une nouvelle décoration : ${nextDeco.name}`}
-                </span>
-                <ChevronRight size={17} strokeWidth={2.6} className="shrink-0 text-pale" />
-              </span>
-              {nextDeco && (
-                <span className="mt-2 block h-[7px] overflow-hidden rounded-full bg-remplissage">
-                  <span className="block h-full rounded-full bg-teinte transition-[width] duration-700" style={{ width: `${Math.min(100, (family.stars / nextDeco.cost) * 100)}%` }} />
-                </span>
-              )}
-              <span className="mt-1.5 block text-note text-brume">Chaque petit geste embellit votre maison.</span>
-            </button>
           </div>
-
-          {/* les trois gestes du quotidien */}
-          <div className="mx-4 mt-3 grid grid-cols-2 gap-2.5">
-            {tiles.map((t) => (
-              <button
-                key={t.label}
-                onClick={() => {
-                  tap()
-                  t.on()
-                }}
-                className="presse groupe flex h-[104px] flex-col items-center justify-center gap-1.5 shadow-carte"
-              >
-                <span className="flex h-[52px] items-center">{t.icon}</span>
-                <span className="text-sous font-semibold">{t.label}</span>
+          <div className="no-bar mx-5 mt-5 flex gap-5 overflow-x-auto pb-2" aria-label="Les humeurs de la famille">
+            {members.map((m) => (
+              <button key={m.id} onClick={() => setSheet(m.id === me.id ? { k: 'humeur' } : { k: 'pensee', to: m })} className="presse flex w-[68px] shrink-0 flex-col items-center gap-1">
+                <Avatar m={m} size={58} mood />
+                <span className="w-full truncate text-sous font-semibold">{m.id === me.id ? 'Moi' : m.display_name}</span>
+                <span className="w-full truncate text-note text-brume">{isToday(m.mood_at) && m.mood ? moodOf(m.mood)?.label ?? 'À partager' : 'Mon humeur'}</span>
               </button>
             ))}
           </div>
+          <div className="mx-5 mt-4">
+            <button onClick={() => setSheet({ k: 'dessin' })} className="presse flex min-h-[54px] w-full items-center justify-center rounded-full bg-teinte text-corps font-semibold text-white">Créer une attention</button>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <button onClick={() => setSheet({ k: 'humeur' })} className="presse min-h-[50px] rounded-[18px] bg-teinte-doux text-sous font-semibold text-teinte-fonce">Mon humeur</button>
+              <button onClick={() => setSheet({ k: 'pensee' })} className="presse min-h-[50px] rounded-[18px] bg-teinte-doux text-sous font-semibold text-teinte-fonce">Un câlin</button>
+            </div>
+          </div>
 
+          <button onClick={() => setSheet({ k: 'decor' })} className="presse mx-5 mt-4 flex min-h-11 items-center gap-2 text-sous text-teinte-fonce">Décorer notre maison <ChevronRight size={16} /></button>
+          {state.requests.length > 0 && <button onClick={() => go('famille')} className="presse mx-5 mt-2 min-h-11 text-sous text-brume">{state.requests.length} demande(s) à examiner <ChevronRight className="inline" size={16} /></button>}
           <Section title="Aujourd’hui en famille" action={<Lien onClick={() => go('organiser')}>Voir tout</Lien>}>
             <div className="groupe mx-4 shadow-carte">
               {today.length === 0 && <p className="px-4 py-4 text-sous text-brume">Rien de prévu aujourd’hui. Profitez-en !</p>}

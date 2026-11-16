@@ -1,5 +1,5 @@
 import { ChevronLeft, Copy, Share } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import House from '../components/House'
 import { HousePicker, ProfilePicker } from '../components/pickers'
 import { Btn } from '../components/ui'
@@ -26,6 +26,14 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
   const [avatar, setAvatar] = useState(() => encodeLook(randomLook()))
   const [color, setColor] = useState('lavande')
   const [busy, setBusy] = useState(false)
+  const container = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!container.current) return
+    container.current.scrollTop = 0
+    const heading = container.current.querySelector('h1')
+    heading?.setAttribute('tabindex', '-1')
+    heading?.focus({ preventScroll: true })
+  }, [step])
   const [created, setCreated] = useState<{ id: string; code: string } | null>(null)
 
   // Dès que le code est complet, on montre la maison qu'il ouvre.
@@ -86,10 +94,11 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
     else if (step === 'accueil' && onCancel) onCancel()
     else setStep('accueil')
   }
+  const progress = step === 'maison' || step === 'code' ? 1 : step === 'profil' ? 2 : step === 'invite' ? 3 : 0
   const showBack = (step !== 'accueil' || !!onCancel) && step !== 'invite'
 
   return (
-    <div className="no-bar flex h-full flex-col overflow-y-auto bg-fond px-5" style={{ paddingTop: 'var(--sat)', paddingBottom: 'calc(var(--sab) + 18px)' }}>
+    <div ref={container} className="no-bar flex h-full flex-col overflow-y-auto bg-fond px-5" style={{ paddingTop: 'var(--sat)', paddingBottom: 'calc(var(--sab) + 18px)' }}>
       <div className="flex h-[52px] shrink-0 items-center">
         {showBack && (
           <button onClick={back} className="presse -ml-2 flex h-11 items-center gap-0.5 pr-3 text-corps text-teinte" aria-label="Retour">
@@ -98,12 +107,26 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
         )}
       </div>
 
+      {progress > 0 && (
+        <ol aria-label="Étapes de démarrage" className="mb-5 grid grid-cols-3 gap-2">
+          {[path === 'creer' ? 'Maison' : 'Invitation', 'Personnage', 'Bienvenue'].map((label, i) => (
+            <li key={label} aria-current={progress === i + 1 ? 'step' : undefined} className={`text-note font-semibold ${progress >= i + 1 ? 'text-teinte-fonce' : 'text-[#625A75]'}`}>
+              <span aria-hidden="true" className={`mb-2 block h-1 rounded-full ${progress >= i + 1 ? 'bg-teinte' : 'bg-remplissage'}`} />
+              {i + 1}. {label}
+            </li>
+          ))}
+        </ol>
+      )}
       {step === 'accueil' && (
         <div className="anim-entre flex flex-1 flex-col">
-          <div className="flex flex-1 flex-col items-center justify-center pb-6 text-center">
-            <img src="./panda.webp" alt="Nidoo, le panda roux" className="anim-flotte h-[168px] w-[168px] rounded-[38px] shadow-[0_24px_50px_-18px_rgba(102,70,204,0.55)]" />
-            <h1 className="mt-8 font-rond text-[40px] font-bold leading-none tracking-[-0.5px]">NIDOO</h1>
-            <p className="mt-3 max-w-[260px] text-titre3 font-normal text-brume">Le petit chez-nous qui tient dans un widget.</p>
+          <div className="flex flex-1 flex-col items-center justify-center pb-6 pt-3 text-center">
+            <img src="./panda.webp" alt="Nidoo, le panda roux" className="anim-flotte h-[132px] w-[132px] rounded-[30px] shadow-[0_24px_50px_-18px_rgba(102,70,204,0.55)]" />
+            <h1 className="outline-none mt-6 font-rond text-[40px] font-bold leading-none tracking-[-0.5px]">NIDOO</h1>
+            <p className="mt-3 max-w-[290px] font-rond text-titre2">Un petit chez-vous, même à distance.</p>
+            <p className="mt-3 max-w-[290px] text-corps text-[#625A75]">Partagez vos humeurs, vos photos et de petites attentions dans la maison de votre famille.</p>
+            <div className="onboarding-preview mt-5 w-full max-w-[300px] overflow-hidden rounded-groupe shadow-carte" role="img" aria-label="Aperçu de votre maison virtuelle">
+              <House type="maison" items={[]} phase="jour" className="!aspect-[2/1]" />
+            </div>
           </div>
           <Btn onClick={() => { setPath('creer'); setStep('maison') }}>Créer notre maison</Btn>
           <Btn kind="teinte" className="mt-2.5" onClick={() => { setPath('rejoindre'); setStep('code') }}>J’ai un code d’invitation</Btn>
@@ -112,11 +135,11 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
 
       {step === 'maison' && (
         <div className="anim-entre flex flex-1 flex-col">
-          <h1 className="font-rond text-grand">Votre maison</h1>
+          <h1 className="outline-none font-rond text-grand">Votre maison</h1>
           <p className="mt-1 text-sous text-brume">Donnez-lui un nom et choisissez votre petit chez-vous.</p>
           <div className="groupe mt-5 flex items-center gap-2 px-4">
             <span className="text-corps text-brume">Famille</span>
-            <input className="h-[52px] min-w-0 flex-1 bg-transparent text-corps font-semibold outline-none placeholder:font-normal placeholder:text-pale" placeholder="Martin" maxLength={32} value={family} onChange={(e) => setFamily(e.target.value)} autoFocus />
+            <input aria-label="Nom de la famille" autoComplete="off" enterKeyHint="next" className="h-[52px] min-w-0 flex-1 bg-transparent text-corps font-semibold outline-none placeholder:font-normal placeholder:text-pale" placeholder="Martin" maxLength={32} value={family} onChange={(e) => setFamily(e.target.value)} />
           </div>
           <HousePicker value={houseType} onChange={setHouseType} />
           <div className="flex-1" />
@@ -126,10 +149,11 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
 
       {step === 'code' && (
         <div className="anim-entre flex flex-1 flex-col">
-          <h1 className="font-rond text-grand">Ton code</h1>
+          <h1 className="outline-none font-rond text-grand">Ton code</h1>
           <p className="mt-1 text-sous text-brume">Six caractères, envoyés par un proche. Un responsable de la famille acceptera ta demande avant que tu entres.</p>
           <input
             className="mt-5 h-[68px] w-full rounded-groupe bg-carte text-center font-rond text-[30px] font-semibold uppercase tracking-[0.3em] outline-none placeholder:text-pale focus:ring-2 focus:ring-teinte/40"
+            aria-label="Code d’invitation à six caractères"
             placeholder="······"
             maxLength={6}
             autoCapitalize="characters"
@@ -159,11 +183,11 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
 
       {step === 'profil' && (
         <div className="anim-entre flex flex-1 flex-col">
-          <h1 className="font-rond text-grand">Et toi ?</h1>
-          <p className="mb-4 mt-1 text-sous text-brume">Choisis comment ta famille te verra dans la maison.</p>
-          <ProfilePicker name={name} setName={setName} avatar={avatar} setAvatar={setAvatar} color={color} setColor={setColor} />
+          <h1 className="outline-none font-rond text-grand">Et toi ?</h1>
+          <p className="mb-4 mt-1 text-sous text-brume">Un prénom suffit pour commencer. Ton personnage pourra évoluer avec toi.</p>
+          <ProfilePicker compact name={name} setName={setName} avatar={avatar} setAvatar={setAvatar} color={color} setColor={setColor} />
           <div className="flex-1" />
-          <Btn className="mt-6" onClick={finish} disabled={busy || !name.trim()}>
+          <Btn className="mt-6 shrink-0" onClick={finish} disabled={busy || !name.trim()}>
             {busy ? 'Un instant…' : path === 'creer' ? 'Construire la maison' : 'Demander à entrer'}
           </Btn>
         </div>
@@ -174,7 +198,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
           <div className="mx-auto w-full overflow-hidden rounded-[28px] shadow-carte">
             <House type={houseType} items={[]} />
           </div>
-          <h1 className="mt-6 font-rond text-titre1">La maison est prête</h1>
+          <h1 className="outline-none mt-6 font-rond text-titre1">La maison est prête</h1>
           <p className="mx-auto mt-1.5 max-w-[300px] text-sous text-brume">Envoie ce code à tes proches. Chaque personne qui le tape t’envoie une demande : c’est toi qui acceptes. Il reste valable 7 jours.</p>
           <button
             onClick={async () => (await copy(created.code)) && toast('Code copié')}

@@ -1,4 +1,4 @@
-import { Dices } from 'lucide-react'
+import { ChevronDown, Dices } from 'lucide-react'
 import { useState } from 'react'
 import { COLOR_KEYS, COLORS, HOUSES } from '../lib/data'
 import { select, tap } from '../lib/haptic'
@@ -12,11 +12,12 @@ type Onglet = 'cheveux' | 'visage' | 'yeux' | 'details' | 'tenue'
 
 /** Le créateur de personnage : un même visage pour tous, et chacun choisit ce qui le rend unique. */
 export function ProfilePicker({
-  name, setName, avatar, setAvatar, color, setColor, placeholder = 'Ton prénom ou ton surnom',
-}: { name: string; setName: (v: string) => void; avatar: string; setAvatar: (v: string) => void; color: string; setColor: (v: string) => void; placeholder?: string }) {
+  name, setName, avatar, setAvatar, color, setColor, placeholder = 'Ton prénom ou ton surnom', compact = false,
+}: { name: string; setName: (v: string) => void; avatar: string; setAvatar: (v: string) => void; color: string; setColor: (v: string) => void; placeholder?: string; compact?: boolean }) {
   const look = lookOf(avatar)
   const [tab, setTab] = useState<Onglet>('cheveux')
   const [hop, setHop] = useState(0)
+  const [expanded, setExpanded] = useState(!compact)
   const set = (patch: Partial<Look>) => {
     select()
     setAvatar(encodeLook({ ...look, ...patch }))
@@ -84,8 +85,16 @@ export function ProfilePicker({
         </button>
       </div>
 
-      <input className="champ mt-3 !bg-carte text-center font-rond text-titre3" placeholder={placeholder} maxLength={24} value={name} onChange={(e) => setName(e.target.value)} />
+      <input aria-label={placeholder} autoComplete="given-name" enterKeyHint="done" className="champ mt-3 !bg-carte text-center font-rond text-titre3" placeholder={placeholder} maxLength={24} value={name} onChange={(e) => setName(e.target.value)} />
 
+      {compact && (
+        <button type="button" onClick={() => setExpanded((v) => !v)} aria-expanded={expanded} aria-controls="onboarding-character-options" className="presse mt-3 flex min-h-11 items-center justify-center gap-2 rounded-full bg-teinte-doux px-4 text-sous font-semibold text-teinte-fonce">
+          {expanded ? 'Réduire les options' : 'Personnaliser mon personnage'}
+          <ChevronDown size={18} className={expanded ? 'rotate-180' : ''} />
+        </button>
+      )}
+      {compact && !expanded && <p className="mt-2 text-center text-note text-[#625A75]">Tu pourras le modifier dans Famille à tout moment.</p>}
+      <div id={compact ? 'onboarding-character-options' : undefined} hidden={!expanded}>
       {/* les grands, les moyens, les petits */}
       <div className="mt-3 grid grid-cols-4 gap-2">
         {AGES.map((label, i) => {
@@ -184,6 +193,7 @@ export function ProfilePicker({
           </>
         )}
       </div>
+      </div>
     </>
   )
 }
@@ -203,7 +213,7 @@ export function HousePicker({ value, onChange }: { value: HouseType; onChange: (
         >
           <House type={h.key} items={[]} phase="jour" className="!aspect-[1/1]" bare />
           <span className={`mt-2 block text-sous ${value === h.key ? 'font-semibold text-teinte-fonce' : 'font-medium'}`}>{h.label}</span>
-          <span className="block px-1 text-mini text-brume">{h.hint}</span>
+          <span className="block px-1 text-note text-[#625A75]">{h.hint}</span>
         </button>
       ))}
     </div>
