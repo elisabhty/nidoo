@@ -95,12 +95,38 @@ export type FolderCover = { blob: Blob } | { path: string } | null
 export type Reaction = { moment_id: string; member_id: string; emoji: string }
 
 /** Dessins : enregistrés trait par trait sur une feuille de 1000 × DRAW_H (forme d'un widget moyen). */
-export type DrawTool = 'crayon' | 'feutre' | 'arcenciel' | 'paillettes' | 'coeurs' | 'gomme'
+/** Dessiner à deux : une invitation reçue. */
+export type LiveInvite = { session: string; from: string; to: string; at: number }
+/** Ce qui passe entre les deux téléphones pendant qu'on dessine à deux. */
+export type LiveEvent =
+  /** je suis là (le premier arrivé renvoie alors toute la feuille) */
+  | { t: 'hello'; who: string }
+  | { t: 'bye'; who: string }
+  /** des points d'un trait en cours (le premier envoi porte l'outil, la couleur et l'épaisseur) */
+  | { t: 'pt'; who: string; id: string; s?: { o: DrawTool; c: string; w: number }; p: number[] }
+  | { t: 'end'; who: string; id: string }
+  | { t: 'undo'; who: string; id: string }
+  /** les stickers, en entier */
+  | { t: 'k'; who: string; k: Sticker[] }
+  /** toute la feuille, pour celui qui arrive (ou après « tout effacer ») */
+  | { t: 'state'; who: string; s: (Stroke & { id: string })[]; k: Sticker[]; bg: string; fr?: string; col?: string }
+  | { t: 'fond'; who: string; bg: string; fr?: string }
+  /** le dessin est envoyé : la séance est finie */
+  | { t: 'fin'; who: string }
+export interface LiveRoom {
+  send(e: LiveEvent): void
+  leave(): void
+}
+
+export type DrawTool = 'crayon' | 'feutre' | 'arcenciel' | 'paillettes' | 'coeurs' | 'remplir' | 'gomme'
 export type Stroke = { o: DrawTool; c: string; w: number; p: number[] }
 /** Un sticker collé : i = sa clé (« coeur », « mot:coucou »…), x/y = son centre, s = sa largeur (unités de la feuille), r = sa rotation en degrés */
-export type Sticker = { i: string; x: number; y: number; s: number; r: number }
-/** py : hauteur gardée de la photo de fond (0 : le haut, 1 : le bas) ; k : les stickers, collés par-dessus le dessin */
-export type DrawingData = { v: 1; bg: string; s: Stroke[]; py?: number; k?: Sticker[] }
+export type Sticker = { i: string; x: number; y: number; s: number; r: number; /** mot écrit soi-même (i = « mot:perso ») */ t?: string; /** sa couleur */ c?: number }
+/**
+ * py : hauteur gardée de la photo de fond (0 : le haut, 1 : le bas) ; k : les stickers, collés par-dessus le dessin ;
+ * fr : le cadre ; col : la page de coloriage (son trait passe par-dessus les couleurs)
+ */
+export type DrawingData = { v: 1; bg: string; s: Stroke[]; py?: number; k?: Sticker[]; fr?: string; col?: string }
 export type Drawing = {
   id: string
   family_id: string
@@ -268,6 +294,12 @@ export interface Backend {
   /** Rattache une adresse e-mail au compte pour le retrouver sur un autre téléphone. */
   linkEmail(email: string): Promise<void>
   accountEmail(): Promise<string | null>
+  /** Dessiner à deux : inviter un proche sur une feuille partagée (renvoie le numéro de la séance). */
+  inviteLive(familyId: string, from: string, to: string): Promise<string>
+  /** Être prévenu quand un proche nous invite à dessiner à deux. */
+  onLiveInvite(familyId: string, me: string, cb: (inv: LiveInvite) => void): () => void
+  /** Rejoindre la feuille partagée : on y envoie et on y reçoit les traits en direct. */
+  joinLive(familyId: string, session: string, me: string, on: (e: LiveEvent) => void): LiveRoom
   /** Mode démo uniquement : installe toutes les décorations, ou revient à la maison de départ. */
   demoDecos?(familyId: string, all: boolean): Promise<void>
 }

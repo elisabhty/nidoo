@@ -1,8 +1,9 @@
-import { RotateCw, X } from 'lucide-react'
+import { Check, RotateCw, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { CADRES, peindreCadre } from '../lib/cadres'
 import { FILTRES, type FiltreKey } from '../lib/filtres'
 import { select, tap } from '../lib/haptic'
-import { CATS, largeurDepart, nomSticker, stickerImgUrl, stickerSrc } from '../lib/stickers'
+import { CATS, cleSticker, COULEURS_MOT, largeurDepart, MAX_MOT, nomDe, nomSticker, PERSO, stickerImgUrl, stickerSrc } from '../lib/stickers'
 import type { Sticker } from '../lib/types'
 
 // ═════════════════════════ Les stickers posés, qu'on déplace du doigt ═════════════════════════
@@ -177,20 +178,21 @@ export function StickerStage({
   return (
     <div ref={box} className="pointer-events-none absolute inset-0">
       {k.map((st, i) => {
-        const url = stickerImgUrl(st.i)
+        const cle = cleSticker(st)
+        const url = stickerImgUrl(cle)
         if (!url) {
-          stickerSrc(st.i, () => bump((n) => n + 1))
+          stickerSrc(cle, () => bump((n) => n + 1))
           return null
         }
         const on = sel === i
         return (
           <div
-            key={`${i}-${st.i}`}
+            key={`${i}-${cle}`}
             className="pointer-events-auto absolute touch-none select-none"
             style={{ left: `${(st.x / W) * 100}%`, top: `${(st.y / H) * 100}%`, width: `${(st.s / W) * 100}%`, transform: `translate(-50%, -50%) rotate(${st.r}deg)` }}
             onPointerDown={(e) => start(i, e)}
             role="img"
-            aria-label={`Sticker ${nomSticker(st.i)}`}
+            aria-label={`Sticker ${nomDe(st)}`}
           >
             <img src={url} alt="" draggable={false} className="pointer-events-none block w-full" style={{ filter: 'drop-shadow(0 1.5px 3px rgba(29,26,43,0.24))' }} />
             {on && (
@@ -231,11 +233,22 @@ export function StickerStage({
 
 // ═════════════════════════ La planche de stickers ═════════════════════════
 
-export function StickerTray({ onPick, onClose }: { onPick: (key: string) => void; onClose: () => void }) {
-  const [cat, setCat] = useState(CATS[0].key)
+export function StickerTray({ onPick, onClose, start }: { onPick: (key: string, t?: string, c?: number) => void; onClose: () => void; start?: string }) {
+  const [cat, setCat] = useState(start ?? CATS[0].key)
   const [, bump] = useState(0)
   const items = CATS.find((c) => c.key === cat)?.items ?? []
   const mots = cat === 'mots'
+  // le mot qu'on écrit soi-même, et sa couleur
+  const [mot, setMot] = useState('')
+  const [couleur, setCouleur] = useState(0)
+  const apercu = mot.trim() ? stickerImgUrl(cleSticker({ i: PERSO, t: mot.trim(), c: couleur })) : null
+  if (mot.trim() && !apercu) stickerSrc(cleSticker({ i: PERSO, t: mot.trim(), c: couleur }), () => bump((n) => n + 1))
+  const coller = () => {
+    if (!mot.trim()) return
+    tap()
+    onPick(PERSO, mot.trim(), couleur)
+    setMot('')
+  }
   return (
     <div className="anim-fondu mt-3 rounded-[22px] bg-carte p-2.5 shadow-carte">
       <div className="flex items-center gap-2">
@@ -258,6 +271,51 @@ export function StickerTray({ onPick, onClose }: { onPick: (key: string) => void
           Fermer
         </button>
       </div>
+      {mots && (
+        <div className="mt-2 rounded-[16px] bg-fond p-2">
+          <div className="flex items-center gap-2">
+            <input
+              className="champ !h-10 min-w-0 flex-1 !rounded-full !bg-carte !px-3.5 !text-sous"
+              placeholder="Écris ton mot…"
+              maxLength={MAX_MOT}
+              value={mot}
+              onChange={(e) => setMot(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && coller()}
+              enterKeyHint="done"
+              aria-label="Ton mot"
+            />
+            <button
+              onClick={coller}
+              disabled={!mot.trim()}
+              className="presse flex h-10 shrink-0 items-center gap-1 rounded-full bg-teinte px-3.5 text-sous font-semibold text-white disabled:opacity-40"
+            >
+              <Check size={16} strokeWidth={2.8} /> Coller
+            </button>
+          </div>
+          <div className="mt-2 flex items-center gap-1.5">
+            {COULEURS_MOT.map(([c, d], i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  select()
+                  setCouleur(i)
+                }}
+                aria-label={`Couleur du mot ${i + 1}`}
+                aria-pressed={couleur === i}
+                className="flex h-8 w-8 items-center justify-center rounded-full"
+                style={{ boxShadow: couleur === i ? `0 0 0 2px #FFFFFF, 0 0 0 4px ${d}` : undefined }}
+              >
+                <span className="h-6 w-6 rounded-full" style={{ background: `linear-gradient(180deg, ${c}, ${d})` }} />
+              </button>
+            ))}
+          </div>
+          {apercu && (
+            <div className="mt-2 flex h-16 items-center justify-center">
+              <img src={apercu} alt="" className="max-h-full max-w-full object-contain" />
+            </div>
+          )}
+        </div>
+      )}
       <div className={`mt-2 grid ${mots ? 'grid-cols-3' : 'grid-cols-5'} max-h-[200px] gap-1.5 overflow-y-auto`}>
         {items.map((key) => {
           const url = stickerImgUrl(key)
@@ -282,14 +340,15 @@ export function StickerTray({ onPick, onClose }: { onPick: (key: string) => void
 }
 
 /** Un nouveau sticker, posé vers le milieu, un peu de travers comme collé à la main. */
-export function nouveauSticker(key: string, W: number, H: number, deja: number): Sticker {
+export function nouveauSticker(key: string, W: number, H: number, deja: number, t?: string, c?: number): Sticker {
   const j = deja % 5
   return {
     i: key,
     x: Math.round(W / 2 + [0, -0.18, 0.18, -0.1, 0.1][j] * W),
     y: Math.round(H / 2 + [0, -0.1, 0.1, 0.16, -0.16][j] * H),
-    s: Math.round(largeurDepart(key) * (W / 1000)),
+    s: Math.round(largeurDepart(key, t) * (W / 1000)),
     r: Math.round((Math.random() * 20 - 10) * 10) / 10,
+    ...(key === PERSO ? { t, c: c ?? 0 } : {}),
   }
 }
 
@@ -314,6 +373,59 @@ export function FilterRow({ f, setF, vignettes, busy }: { f: FiltreKey; setF: (f
               {vignettes ? <img src={vignettes[x.key]} alt="" className="h-full w-full object-cover" /> : null}
             </span>
             <span className={`text-legende ${on ? 'font-semibold text-teinte-fonce' : 'text-brume'}`}>{x.label}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ═════════════════════════ Les cadres sur une photo ═════════════════════════
+
+/** Le cadre dessiné par-dessus l'aperçu d'une photo (W × H unités, 1000 de large). */
+export function CadreCanvas({ fr, W, H }: { fr?: string; W: number; H: number }) {
+  const ref = useRef<HTMLCanvasElement>(null)
+  const [n, bump] = useState(0)
+  useEffect(() => {
+    const c = ref.current
+    if (!c) return
+    const draw = () => {
+      const r = c.getBoundingClientRect()
+      const dpr = Math.min(window.devicePixelRatio || 1, 3)
+      c.width = Math.max(1, Math.round(r.width * dpr))
+      c.height = Math.max(1, Math.round(r.height * dpr))
+      const ctx = c.getContext('2d')!
+      ctx.setTransform(c.width / W, 0, 0, c.width / W, 0, 0)
+      ctx.clearRect(0, 0, W, H)
+      peindreCadre(ctx, fr, W, H, () => bump((x) => x + 1))
+    }
+    draw()
+    const ro = new ResizeObserver(draw)
+    ro.observe(c)
+    return () => ro.disconnect()
+  }, [fr, W, H, n])
+  return <canvas ref={ref} className="pointer-events-none absolute inset-0 h-full w-full" />
+}
+
+export function CadreRow({ fr, setFr, vignettes }: { fr?: string; setFr: (k?: string) => void; vignettes: Record<string, string> | null }) {
+  return (
+    <div className="no-bar -mx-5 flex gap-2.5 overflow-x-auto px-5 py-1">
+      {CADRES.map((x) => {
+        const on = (fr ?? 'aucun') === x.key
+        return (
+          <button
+            key={x.key}
+            onClick={() => {
+              select()
+              setFr(x.key === 'aucun' ? undefined : x.key)
+            }}
+            aria-pressed={on}
+            className="flex w-14 shrink-0 flex-col items-center gap-1"
+          >
+            <span className={`block h-14 w-12 overflow-hidden rounded-[10px] bg-remplissage ${on ? 'ring-[2.5px] ring-teinte ring-offset-2 ring-offset-fond' : 'ring-1 ring-black/5'}`}>
+              {vignettes ? <img src={vignettes[x.key]} alt="" className="h-full w-full object-cover" /> : null}
+            </span>
+            <span className={`w-full truncate text-center text-legende ${on ? 'font-semibold text-teinte-fonce' : 'text-brume'}`}>{x.label}</span>
           </button>
         )
       })}

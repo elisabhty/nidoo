@@ -7,9 +7,11 @@ import { useHome } from '../lib/store'
 import type { EventKind, FamEvent, Member, Sticker, ThoughtKind } from '../lib/types'
 import { chargerImage, photoFinale, vignettesFiltres, type FiltreKey } from '../lib/filtres'
 import { MAX_STICKERS } from '../lib/stickers'
-import { FilterRow, nouveauSticker, StickerStage, StickerTray } from './stickers'
+import { CadreCanvas, CadreRow, FilterRow, nouveauSticker, StickerStage, StickerTray } from './stickers'
+import { vignettesCadres } from '../lib/cadres'
 import { compressImage, errorText, isToday, timeLabel } from '../lib/util'
-import { DrawSheet, IncomingDrawing, markDrawingsSeen, useUnseenDrawings } from './drawing'
+import { IncomingDrawing, markDrawingsSeen, useUnseenDrawings } from './drawing'
+import { DrawSheet } from './planche'
 import { Art, Avatar, Btn, confirmer, Envol, Segments, Sheet } from './ui'
 
 // ───────── Humeur du jour ─────────
@@ -78,6 +80,9 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
   const [stickers, setStickers] = useState<Sticker[]>([])
   const [sel, setSel] = useState<number | null>(null)
   const [tray, setTray] = useState(false)
+  const [fr, setFr] = useState<string | undefined>()
+  const [onglet, setOnglet] = useState<'filtres' | 'cadres'>('filtres')
+  const [vCadres, setVCadres] = useState<Record<string, string> | null>(null)
   const hist = useRef<Sticker[][]>([])
   const [, setHistN] = useState(0)
   const [body, setBody] = useState('')
@@ -100,6 +105,11 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
       setOrig(blob)
       setShown(blob)
       setF('aucun')
+      setFr(undefined)
+      chargerImage(blob)
+        .then((im) => vignettesCadres(1000, Math.round(1000 / (im.naturalWidth / im.naturalHeight)), im, 90).finally(() => URL.revokeObjectURL(im.src)))
+        .then(setVCadres)
+        .catch(() => setVCadres(null))
       setStickers([])
       hist.current = []
       setHistN(0)
@@ -122,10 +132,10 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
     hist.current.push(stickers)
     setHistN(hist.current.length)
   }
-  const addSticker = (key: string) => {
+  const addSticker = (key: string, t?: string, c?: number) => {
     if (stickers.length >= MAX_STICKERS) return toast('Ta photo est couverte de stickers !', 'err')
     snap()
-    setStickers([...stickers, nouveauSticker(key, SW, SH, stickers.length)])
+    setStickers([...stickers, nouveauSticker(key, SW, SH, stickers.length, t, c)])
     setSel(stickers.length)
     setTray(false)
   }
@@ -133,7 +143,7 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
     setBusy(true)
     let blob: Blob | undefined
     try {
-      blob = orig ? await photoFinale(orig, f, stickers) : undefined
+      blob = orig ? await photoFinale(orig, f, stickers, fr) : undefined
     } catch (e) {
       toast(errorText(e), 'err')
       setBusy(false)
@@ -172,6 +182,7 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
             }}
           >
             <img src={preview} alt="Aperçu de la photo" className="absolute inset-0 h-full w-full object-cover" />
+            <CadreCanvas fr={fr} W={SW} H={SH} />
             <StickerStage
               W={SW}
               H={SH}
@@ -231,8 +242,27 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
             <StickerTray onPick={addSticker} onClose={() => setTray(false)} />
           ) : (
             <div className="mt-3">
-              <p className="mb-1 px-1 text-note font-medium text-brume">Filtre</p>
-              <FilterRow f={f} setF={(k) => void filtrer(k)} vignettes={vignettes} />
+              <div className="mb-1.5 flex gap-1.5 px-1">
+                {(
+                  [
+                    ['filtres', 'Filtres'],
+                    ['cadres', 'Cadres'],
+                  ] as const
+                ).map(([k, label]) => (
+                  <button
+                    key={k}
+                    onClick={() => {
+                      select()
+                      setOnglet(k)
+                    }}
+                    aria-pressed={onglet === k}
+                    className={`h-8 rounded-full px-3.5 text-note font-semibold transition-colors ${onglet === k ? 'bg-teinte text-white' : 'bg-remplissage text-encre'}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {onglet === 'filtres' ? <FilterRow f={f} setF={(k) => void filtrer(k)} vignettes={vignettes} /> : <CadreRow fr={fr} setFr={setFr} vignettes={vCadres} />}
             </div>
           )}
         </>

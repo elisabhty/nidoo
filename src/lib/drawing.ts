@@ -1,3 +1,5 @@
+import { peindreCadre } from './cadres'
+import { pageColoriage, remplirZone, type Page } from './coloriages'
 import { drawStickers } from './stickers'
 import type { DrawingData, DrawTool, Stroke } from './types'
 
@@ -22,6 +24,7 @@ export const WIDTHS: Record<DrawTool, [number, number, number]> = {
   arcenciel: [9, 18, 34],
   paillettes: [14, 26, 46],
   coeurs: [28, 44, 68],
+  remplir: [1, 1, 1],
   gomme: [26, 52, 96],
 }
 
@@ -190,6 +193,14 @@ function fancy(ctx: CanvasRenderingContext2D, s: Stroke, n: number) {
   })
 }
 
+// La page de coloriage du dessin en cours de peinture (pour le pot de peinture).
+let page: { key: string; p: Page } | null = null
+export function setPageCourante(key: string | undefined, onLoad?: () => void) {
+  const p = key ? pageColoriage(key, onLoad) : null
+  page = key && p ? { key, p } : null
+  return page
+}
+
 /**
  * Trace un trait (ou ses `n` premiers points) dans un contexte déjà mis à l'échelle de la feuille.
  * La gomme efface pour de vrai (on revoit la photo ou le papier dessous) ; en aperçu, elle se montre en blanc voilé.
@@ -197,6 +208,11 @@ function fancy(ctx: CanvasRenderingContext2D, s: Stroke, n: number) {
 export function strokePath(ctx: CanvasRenderingContext2D, s: Stroke, _bg: string, n = s.p.length / 2, live = false) {
   const p = s.p
   if (n < 1) return
+  if (s.o === 'remplir') {
+    // pot de peinture : toute la zone du coloriage sous le point
+    if (page) remplirZone(ctx, page.key, page.p, s.p[0], s.p[1], s.c, DRAW_W, DRAW_H)
+    return
+  }
   ctx.save()
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
@@ -291,6 +307,9 @@ export function paint(
       ctx.fillRect(0, 0, DRAW_W, DRAW_H)
     }
   }
+  // le cadre, sous les traits (on peut écrire sur le bas d'un Polaroid)
+  if (d.fr) peindreCadre(ctx, d.fr, DRAW_W, DRAW_H, opts.onLoad)
+  const pg = setPageCourante(d.col, opts.onLoad)
   const l = layerOf(c)
   const lc = l.getContext('2d')!
   lc.setTransform(1, 0, 0, 1, 0, 0)
@@ -307,6 +326,9 @@ export function paint(
   ctx.setTransform(1, 0, 0, 1, 0, 0)
   ctx.drawImage(l, 0, 0)
   ctx.restore()
+  // le trait du coloriage, par-dessus les couleurs
+  if (pg) ctx.drawImage(pg.p.art, 0, 0, DRAW_W, DRAW_H)
+  page = null
   if (d.k?.length && opts.stickers !== false) drawStickers(ctx, d.k, opts.stickers ?? 1, opts.onLoad)
 }
 

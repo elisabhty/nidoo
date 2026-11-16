@@ -2,7 +2,8 @@ import { ChevronRight } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { pettedToday, useCare, usePet } from '../components/care'
 import { DecorPage, GoneSheet, useGone } from '../components/decor'
-import { DrawingsSheet, DrawSheet, useUnseenDrawings } from '../components/drawing'
+import { DrawingsSheet, useUnseenDrawings } from '../components/drawing'
+import { DrawSheet } from '../components/planche'
 import House, { type HouseScene } from '../components/House'
 import { useLieux } from '../components/lieux'
 import { PetFigure } from '../components/pet'
@@ -20,7 +21,7 @@ type Open =
   | null
   | { k: 'humeur' }
   | { k: 'pensee'; to?: Member }
-  | { k: 'dessin'; to?: string | null }
+  | { k: 'dessin'; to?: string | null; carte?: string }
   | { k: 'dessins'; start?: Drawing }
   | { k: 'etoiles' }
   | { k: 'decor'; food?: boolean }
@@ -57,6 +58,15 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
     .slice(0, 6)
     .map((x) => x.url)
   const now = season()
+  // un anniversaire aujourd'hui : on propose la carte toute prête, avec le prénom
+  const anniv = state.events
+    .filter((e) => e.kind === 'anniversaire' && isToday(nextOccurrence(e.starts_at, e.yearly).toISOString()))
+    .map((e) => {
+      const m = others.find((o) => e.members?.includes(o.id)) ?? others.find((o) => e.title.toLowerCase().includes(o.display_name.toLowerCase()))
+      const nom = m?.display_name ?? e.title.replace(/^anniversaire\s+(de\s+|d['’])?/i, '')
+      return { e, m, nom }
+    })
+    .filter((x) => !x.e.members?.includes(me.id) || x.m)[0]
   const care = useCare(() => setSheet({ k: 'decor', food: true }))
   const petAnimal = usePet()
   const petted = pettedToday(state.starLog, me.id)
@@ -189,6 +199,22 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
               </button>
             ))}
           </div>
+          {anniv && others.length > 0 && (
+            <button
+              onClick={() => {
+                tap()
+                setSheet({ k: 'dessin', to: anniv.m?.id ?? null, carte: 'anniversaire' })
+              }}
+              className="presse mx-5 mt-4 flex w-[calc(100%-2.5rem)] items-center gap-3 rounded-[24px] bg-[#FFE9EF] p-3 pr-4 text-left shadow-carte"
+            >
+              {anniv.m ? <Avatar m={anniv.m} size={48} /> : <Art name="picto-gateau" size={48} />}
+              <span className="min-w-0 flex-1">
+                <span className="block text-appel font-semibold">C’est l’anniversaire de {anniv.nom} !</span>
+                <span className="block text-note text-brume">{anniv.m ? 'Envoie-lui une carte toute prête' : 'Envoie une carte à la famille'}</span>
+              </span>
+              <img src="./art/stickers/gateau.webp" alt="" className="h-12 w-12 shrink-0 rotate-6 object-contain" />
+            </button>
+          )}
           <div className="mx-5 mt-4">
             <button onClick={() => others.length ? setSheet({ k: 'dessin' }) : go('famille')} className="presse ios-primary flex min-h-[54px] w-full items-center justify-center rounded-full text-corps font-semibold text-white">{others.length ? 'Créer une attention' : 'Inviter un proche'}</button>
 
@@ -202,7 +228,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
 
       {sheet?.k === 'humeur' && <MoodSheet onClose={() => setSheet(null)} />}
       {sheet?.k === 'pensee' && <ThoughtSheet to={sheet.to} onClose={() => setSheet(null)} />}
-      {sheet?.k === 'dessin' && <DrawSheet to={sheet.to} onClose={() => setSheet(null)} />}
+      {sheet?.k === 'dessin' && <DrawSheet to={sheet.to} carte={sheet.carte} onClose={() => setSheet(null)} />}
       {sheet?.k === 'dessins' && <DrawingsSheet start={sheet.start} onClose={() => setSheet(null)} onDraw={(to) => setSheet({ k: 'dessin', to })} />}
       {sheet?.k === 'etoiles' && (
         <StarsSheet

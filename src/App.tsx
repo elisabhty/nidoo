@@ -1,6 +1,7 @@
 import { BookHeart, CalendarDays, House as HouseIcon, UsersRound, ChevronLeft } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { DrawingBanner, useUnseenDrawings } from './components/drawing'
+import { LiveInvites } from './components/planche'
 import Guide from './components/Guide'
 import { Incoming } from './components/sheets'
 import { ActionSheetHost, Btn, Toasts } from './components/ui'
@@ -134,6 +135,7 @@ export default function App() {
             {tab === 'maison' && showIncoming && !guide && !activity && <Incoming onClose={() => setShowIncoming(false)} />}
             {tab !== 'maison' && !guide && <DrawingBanner onOpen={() => navigate('maison')} />}
             {guide && <Guide onClose={closeGuide} />}
+            <LiveInvites />
           </>
         )}
         <ActionSheetHost />

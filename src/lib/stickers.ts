@@ -48,8 +48,49 @@ export const NOMS: Record<string, string> = {
 }
 export const nomSticker = (k: string) => (k.startsWith('mot:') ? (MOTS[k.slice(4)]?.t.replace('\n', ' ') ?? 'Petit mot') : (NOMS[k] ?? 'Sticker'))
 
+// ───────── Les mots qu'on écrit soi-même ─────────
+
+export const PERSO = 'mot:perso'
+export const MAX_MOT = 40
+/** Les couleurs des mots écrits soi-même : la couleur du milieu, puis le liseré foncé. */
+export const COULEURS_MOT: [string, string][] = [
+  ['#FF8FB1', '#D6407A'],
+  ['#FF6B6B', '#C92A2A'],
+  ['#FFA06B', '#D9480F'],
+  ['#FFC53D', '#E07B00'],
+  ['#7BD389', '#2F8F46'],
+  ['#6FC3FF', '#1F6FC7'],
+  ['#A58BFF', '#5B3CC4'],
+  ['#5ED3C9', '#0C8599'],
+]
+
+/** Coupe un mot en lignes de 13 lettres environ (3 lignes au plus), en gardant les retours à la ligne voulus. */
+export function lignesMot(t: string): string[] {
+  const out: string[] = []
+  for (const para of t.trim().split('\n')) {
+    let cur = ''
+    for (const w of para.split(/\s+/).filter(Boolean)) {
+      if (cur && (cur + ' ' + w).length > 13) {
+        out.push(cur)
+        cur = w
+      } else cur = cur ? `${cur} ${w}` : w
+    }
+    if (cur) out.push(cur)
+  }
+  return out.slice(0, 3)
+}
+
+/** La clé de dessin d'un sticker : sa clé, ou son texte et sa couleur pour un mot écrit soi-même. */
+export const cleSticker = (st: Pick<Sticker, 'i' | 't' | 'c'>) => (st.i === PERSO ? `perso:${st.c ?? 0}:${(st.t ?? '').slice(0, MAX_MOT)}` : st.i)
+export const nomDe = (st: Pick<Sticker, 'i' | 't'>) => (st.i === PERSO ? (st.t ?? 'Petit mot').replace(/\n/g, ' ') : nomSticker(st.i))
+
 /** Largeur de départ d'un sticker (unités de la feuille, 1000 de large). */
-export function largeurDepart(k: string) {
+export function largeurDepart(k: string, t?: string) {
+  if (k === PERSO) {
+    const l = lignesMot(t ?? '')
+    const long = Math.max(0, ...l.map((x) => x.length))
+    return Math.round(Math.min(420, Math.max(200, long * 30)))
+  }
   if (!k.startsWith('mot:')) return 200
   const m = MOTS[k.slice(4)]
   return m && m.t.includes('\n') ? 330 : 300
@@ -65,8 +106,16 @@ const FONT = 'ui-rounded, "SF Pro Rounded", "Nunito Variable", "Arial Rounded MT
 
 /** Les petits mots : lettres rondes et grasses, dégradé, liseré foncé et gros bord blanc de sticker. */
 function motCanvas(k: string): HTMLCanvasElement {
-  const m = MOTS[k] ?? { t: k, c: '#FF8FB1', d: '#D6407A' }
-  const lines = m.t.split('\n')
+  let m = MOTS[k] ?? { t: k, c: '#FF8FB1', d: '#D6407A' }
+  let lines = m.t.split('\n')
+  if (k.startsWith('perso:')) {
+    // perso:<couleur>:<texte>
+    const [, ci, ...rest] = k.split(':')
+    const [c, d] = COULEURS_MOT[Number(ci)] ?? COULEURS_MOT[0]
+    m = { t: rest.join(':'), c, d }
+    lines = lignesMot(m.t)
+    if (!lines.length) lines = ['…']
+  }
   const fs = 120
   const lh = fs * 1.02
   const c = document.createElement('canvas')
@@ -124,6 +173,7 @@ export function stickerSrc(k: string, onLoad?: () => void): Src | null {
       subs?.forEach((f) => f())
     }
     if (k.startsWith('mot:')) void fontsReady().then(() => done(motCanvas(k.slice(4))))
+    else if (k.startsWith('perso:')) void fontsReady().then(() => done(motCanvas(k)))
     else {
       const img = new Image()
       img.decoding = 'async'
@@ -148,7 +198,7 @@ export function ratioSticker(k: string) {
 /** Une URL affichable dans une balise <img> (les petits mots deviennent une image). */
 const dataUrls = new Map<string, string>()
 export function stickerImgUrl(k: string): string | null {
-  if (!k.startsWith('mot:')) return stickerUrl(k)
+  if (!k.startsWith('mot:') && !k.startsWith('perso:')) return stickerUrl(k)
   const s = ready.get(k)
   if (!s) return null
   let u = dataUrls.get(k)
@@ -172,7 +222,8 @@ export function drawStickers(ctx: CanvasRenderingContext2D, k: Sticker[], pop = 
   let ok = true
   const n = k.length
   k.forEach((st, j) => {
-    const src = stickerSrc(st.i, onLoad)
+    const cle = cleSticker(st)
+    const src = stickerSrc(cle, onLoad)
     if (!src) {
       ok = false
       return
@@ -185,7 +236,7 @@ export function drawStickers(ctx: CanvasRenderingContext2D, k: Sticker[], pop = 
       sc = easeBack(t)
     }
     const w = st.s * sc
-    const h = w * ratioSticker(st.i)
+    const h = w * ratioSticker(cle)
     ctx.save()
     // une petite ombre douce, comme un vrai sticker collé (les ombres du canvas ne suivent pas l'échelle)
     const m = ctx.getTransform()
@@ -204,6 +255,6 @@ export function drawStickers(ctx: CanvasRenderingContext2D, k: Sticker[], pop = 
 /** Tous les stickers d'un dessin chargés d'avance (pour l'aperçu des envois). */
 export function prechargerStickers(k: Sticker[] | undefined, onLoad: () => void) {
   let manque = 0
-  for (const st of k ?? []) if (!stickerSrc(st.i, onLoad)) manque++
+  for (const st of k ?? []) if (!stickerSrc(cleSticker(st), onLoad)) manque++
   return manque === 0
 }

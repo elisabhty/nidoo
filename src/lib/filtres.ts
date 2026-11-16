@@ -1,3 +1,4 @@
+import { peindreCadre } from './cadres'
 import { drawStickers, prechargerStickers } from './stickers'
 import type { Sticker } from './types'
 
@@ -103,8 +104,8 @@ const versBlob = (c: HTMLCanvasElement, q = 0.88) =>
  * La photo telle qu'elle partira : filtrée, avec ses stickers collés par-dessus.
  * Les stickers sont en unités d'une feuille de 1000 de large (la hauteur suit la photo).
  */
-export async function photoFinale(blob: Blob, f: FiltreKey, k: Sticker[] = []): Promise<Blob> {
-  if (f === 'aucun' && !k.length) return blob
+export async function photoFinale(blob: Blob, f: FiltreKey, k: Sticker[] = [], cadre?: string): Promise<Blob> {
+  if (f === 'aucun' && !k.length && !cadre) return blob
   const img = await chargerImage(blob)
   const c = document.createElement('canvas')
   c.width = img.naturalWidth
@@ -116,6 +117,22 @@ export async function photoFinale(blob: Blob, f: FiltreKey, k: Sticker[] = []): 
     const data = ctx.getImageData(0, 0, c.width, c.height)
     appliquerFiltre(data, f)
     ctx.putImageData(data, 0, 0)
+  }
+  if (cadre) {
+    const z = c.width / 1000
+    const H = c.height / z
+    ctx.setTransform(z, 0, 0, z, 0, 0)
+    // le cadre peut avoir besoin d'images (fleurs, ballons) : on attend qu'elles soient là
+    await new Promise<void>((res) => {
+      const essai = () => {
+        const t = document.createElement('canvas').getContext('2d')!
+        if (peindreCadre(t, cadre, 1000, H, essai)) res()
+      }
+      essai()
+      setTimeout(res, 4000)
+    })
+    peindreCadre(ctx, cadre, 1000, H)
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
   }
   if (k.length) {
     // les images des stickers sont déjà là (on vient de les montrer) ; au cas où, on attend qu'elles arrivent

@@ -139,6 +139,7 @@ const ERRORS: Record<string, string> = {
   PLUS_D_ENGRAIS: 'Plus d’engrais : il y en a à la supérette.',
   PARCELLE_VIDE: 'Rien à récolter ici.',
   PAS_ENCORE_MUR: 'Pas encore mûr : encore quelques arrosages.',
+  RESEAU: 'Impossible de joindre ton proche pour l’instant. Vérifie ta connexion et réessaie.',
 }
 /** Le jour d'il y a n jours, au format AAAA-MM-JJ. */
 export const daysAgoKey = (n: number) => todayKey(new Date(Date.now() - n * 86400000))

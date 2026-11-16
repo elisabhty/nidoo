@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { SUPABASE_KEY, SUPABASE_URL } from '../config'
-import type { Answer, Backend, HouseCare, Pet, Plot, Circle, Drawing, DrawingData, FamEvent, Family, FamilyState, Folder, JoinRequest, MyRequest, FolderItem, FolderMember, ListItem, Member, Moment, Reaction, StarEntry, Thought } from './types'
+import type { RealtimeChannel } from '@supabase/supabase-js'
+import type { Answer, Backend, HouseCare, Pet, Plot, Circle, Drawing, DrawingData, FamEvent, Family, FamilyState, Folder, JoinRequest, LiveEvent, LiveInvite, MyRequest, FolderItem, FolderMember, ListItem, Member, Moment, Reaction, StarEntry, Thought } from './types'
 import { compressImage, daysAgoKey, todayKey, uid } from './util'
 import { emptyCounts, type WeeklyCounts } from './weekly'
 
@@ -15,6 +16,34 @@ export function createSupabaseBackend(): Backend {
   })
   let userId = ''
   const traits = new Map<string, DrawingData>()
+  // Un seul canal privé par famille pour les invitations à dessiner à deux.
+  const canaux = new Map<string, Promise<RealtimeChannel>>()
+  const ecouteurs = new Map<string, Set<(m: { payload: LiveInvite }) => void>>()
+  const canalFamille = (fid: string, ecoute?: (m: { payload: LiveInvite }) => void) => {
+    if (ecoute) {
+      if (!ecouteurs.has(fid)) ecouteurs.set(fid, new Set())
+      ecouteurs.get(fid)!.add(ecoute)
+    }
+    let p = canaux.get(fid)
+    if (!p) {
+      p = sb.realtime.setAuth().then(
+        () =>
+          new Promise<RealtimeChannel>((res, rej) => {
+            const ch = sb.channel(`nidoo:famille:${fid}`, { config: { private: true, broadcast: { self: false } } })
+            ch.on('broadcast', { event: 'invite' }, (m) => ecouteurs.get(fid)?.forEach((f) => f(m as unknown as { payload: LiveInvite })))
+            ch.subscribe((st) => {
+              if (st === 'SUBSCRIBED') res(ch)
+              else if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT') {
+                canaux.delete(fid)
+                rej(new Error('RESEAU'))
+              }
+            })
+          }),
+      )
+      canaux.set(fid, p)
+    }
+    return p
+  }
 
   return {
     mode: 'supabase',
@@ -198,6 +227,56 @@ export function createSupabaseBackend(): Backend {
       ch.subscribe()
       return () => {
         void sb.removeChannel(ch)
+      }
+    },
+
+    // ───── Dessiner à deux : canaux privés de Supabase Realtime (règles dans 0014_dessin_a_deux.sql) ─────
+    async inviteLive(fid, from, to) {
+      const session = uid()
+      const ch = await canalFamille(fid)
+      const r = await ch.send({ type: 'broadcast', event: 'invite', payload: { session, from, to, at: Date.now() } satisfies LiveInvite })
+      if (r !== 'ok') throw new Error('RESEAU')
+      return session
+    },
+    onLiveInvite(fid, me, cb) {
+      let ch: RealtimeChannel | null = null
+      let off = false
+      const ecoute = (m: { payload: LiveInvite }) => {
+        const inv = m.payload
+        if (inv?.to === me && Date.now() - inv.at < 120000) cb(inv)
+      }
+      void canalFamille(fid, ecoute)
+        .then((c) => {
+          if (off) return
+          ch = c
+        })
+        .catch(() => undefined)
+      return () => {
+        off = true
+        if (ch) ecouteurs.get(fid)?.delete(ecoute)
+      }
+    },
+    joinLive(fid, session, me, on) {
+      const ch = sb.channel(`nidoo:dessin:${fid}:${session}`, { config: { private: true, broadcast: { self: false } } })
+      ch.on('broadcast', { event: 'live' }, (m) => on(m.payload as LiveEvent))
+      let pret = false
+      const file: LiveEvent[] = []
+      void sb.realtime.setAuth().then(() =>
+        ch.subscribe((st) => {
+          if (st !== 'SUBSCRIBED') return
+          pret = true
+          for (const e of file.splice(0)) void ch.send({ type: 'broadcast', event: 'live', payload: e })
+        }),
+      )
+      void me
+      return {
+        send(e) {
+          if (pret) void ch.send({ type: 'broadcast', event: 'live', payload: e })
+          else file.push(e)
+        },
+        leave() {
+          setTimeout(() => void sb.removeChannel(ch), 300)
+        },
       }
     },
 

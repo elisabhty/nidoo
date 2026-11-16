@@ -1,7 +1,7 @@
 import { ANIMALS, CARE, DECOS, FOOD, GONE_AFTER, PET_COST, PLAN_LIMITS, plantOf, shopItem, THOUGHTS } from './data'
 import { demoDrawing, type DemoArt } from './drawing'
 import { DEMO_LOOKS } from './look'
-import type { Backend, Drawing, Family, FamilyState, Folder, FolderItem, JoinRequest, Member, Moment, MyRequest, ThoughtKind } from './types'
+import type { Backend, Drawing, Family, FamilyState, Folder, FolderItem, JoinRequest, LiveEvent, Member, Moment, MyRequest, Sticker, ThoughtKind } from './types'
 import { blobToDataUrl, compressImage, daysAgoKey, todayKey, uid } from './util'
 import { challenge, nextReward, WEEKLY, weekIndex, weekKey, weekStart, type WeeklyCounts, type WeeklyKey } from './weekly'
 
@@ -12,6 +12,8 @@ type Raw = Omit<FamilyState, 'me' | 'weekly' | 'houseSince'> & { houseSince?: Re
 type Pending = MyRequest & { profile: { displayName: string; avatar: string; color: string } }
 type Db = { userId: string; families: Record<string, Raw>; pending?: Pending[] }
 const KEY = 'nidoo.demo.v2'
+/** Dessiner à deux en démo : la séance et le proche invité. */
+const seances = new Map<string, string>()
 const DINER = 'Chez Papa, à partir de 19 h 30. Chacun apporte un plat : Léa s’occupe du dessert, Mamie Jo du gratin.'
 
 
@@ -944,6 +946,58 @@ export function createLocalBackend(): Backend {
     async accountEmail() {
       return null
     },
+    // ───── Dessiner à deux, en démo : le proche invité arrive et dessine pour de vrai sous tes yeux ─────
+    async inviteLive(_fid, _from, to) {
+      const session = uid()
+      seances.set(session, to)
+      return session
+    },
+    onLiveInvite() {
+      return () => {}
+    },
+    joinLive(fid, session, me, on) {
+      const who = seances.get(session)
+      const timers: number[] = []
+      let fini = false
+      let leurs: Sticker[] = []
+      const later = (ms: number, f: () => void) => timers.push(window.setTimeout(() => !fini && f(), ms))
+      if (who && who !== me) {
+        // un dessin de démo, tracé petit à petit sur la droite de la feuille
+        const arts: DemoArt[] = ['fleur', 'soleil', 'coeurs', 'maison']
+        const art = demoDrawing(arts[Math.floor(Math.random() * arts.length)], Date.now() % 997)
+        const tr = (p: number[]) => p.map((v, i) => Math.round(i % 2 ? 60 + v * 0.75 : 470 + v * 0.5))
+        let t = 1800
+        later(t, () => on({ t: 'hello', who }))
+        t += 900
+        art.s.forEach((s, j) => {
+          const id = `demo-${session}-${j}`
+          const p = tr(s.p)
+          const w = Math.max(6, Math.round(s.w * 0.6))
+          for (let i = 0; i < p.length; i += 8) {
+            const part = p.slice(i, i + 8)
+            const first = i === 0
+            later(t, () => on({ t: 'pt', who, id, ...(first ? { s: { o: s.o, c: s.c, w } } : {}), p: part }))
+            t += 45
+          }
+          later(t, () => on({ t: 'end', who, id }))
+          t += 420
+        })
+        // pour finir, il colle un petit cœur à côté de ce que tu as mis
+        later(t + 600, () => on({ t: 'k', who, k: [...leurs, { i: 'coeur', x: 900, y: 90, s: 120, r: 12 }] }))
+      }
+      return {
+        send(e: LiveEvent) {
+          if (e.t === 'k' || e.t === 'state') leurs = e.k
+          if (e.t === 'fin') fini = true
+        },
+        leave() {
+          fini = true
+          timers.forEach((x) => window.clearTimeout(x))
+          void fid
+        },
+      }
+    },
+
     async demoDecos(fid, all) {
       const f = fam(fid)
       f.houseItems = all ? DECOS.map((d) => d.key) : ['fleurs']
