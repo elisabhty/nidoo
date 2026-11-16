@@ -59,17 +59,31 @@ export type Look = {
   p: number // tétine (bébé)
   v?: number // accessoire de la boutique (0 : aucun)
   k?: number // la figurine choisie (1…), 0 : celle qui ressemble le plus à l'ancien personnage dessiné
+  // personnaliser la figurine (0 : comme elle est)
+  q?: number // teint
+  x?: number // couleur des cheveux ou du voile
+  y?: number // couleur des yeux
+  n?: number // nez
+  u?: number // bouche
+  j?: number // lunettes
+  w?: number // couleur des lunettes
+  z?: number // blush
 }
-const KEYS: (keyof Look)[] = ['s', 'h', 'c', 'e', 'g', 'b', 'm', 'f', 'o', 'l', 't', 'a', 'p', 'v', 'k']
-const MAX: Required<Look> = { s: SKINS.length, h: HAIRSTYLES.length, c: HAIR_COLORS.length, e: EYES.length, g: GLASSES.length, b: BEARDS.length, m: MOLES.length, f: 2, o: 2, l: 2, t: TOPS.length, a: AGES.length, p: 2, v: ACCESSORIES.length, k: 256 }
+const KEYS: (keyof Look)[] = ['s', 'h', 'c', 'e', 'g', 'b', 'm', 'f', 'o', 'l', 't', 'a', 'p', 'v', 'k', 'q', 'x', 'y', 'n', 'u', 'j', 'w', 'z']
+/** Les champs de l'ancien personnage dessiné : inutiles une fois la figurine choisie. */
+const LEGACY: (keyof Look)[] = ['s', 'h', 'c', 'e', 'g', 'b', 'm', 'o', 't', 'p']
+const MAX: Required<Look> = { s: SKINS.length, h: HAIRSTYLES.length, c: HAIR_COLORS.length, e: EYES.length, g: GLASSES.length, b: BEARDS.length, m: MOLES.length, f: 2, o: 2, l: 6, t: TOPS.length, a: AGES.length, p: 2, v: ACCESSORIES.length, k: 256, q: 9, x: 12, y: 7, n: 4, u: 5, j: 4, w: 6, z: 3 }
 
-export const encodeLook = (l: Look) => `perso:${KEYS.map((k) => `${k}${l[k] ?? 0}`).join('.')}`
+export const encodeLook = (l: Look) =>
+  `perso:${KEYS.filter((k) => !(l.k && LEGACY.includes(k)) && (k.match(/[qxynujwz]/) ? l[k] : true))
+    .map((k) => `${k}${l[k] ?? 0}`)
+    .join('.')}`
 
 /** Lit un personnage ; un ancien avatar (animal) devient un personnage stable tiré de son identifiant. */
 export function lookOf(avatar: string | undefined, seed = ''): Look {
   if (avatar?.startsWith('perso:')) {
     // les champs ajoutés plus tard (taille, tétine) valent « adulte, sans » par défaut
-    const out: Look = { ...randomLook(avatar), a: 0, p: 0, v: 0, k: 0 }
+    const out: Look = { ...randomLook(avatar), a: 0, p: 0, v: 0, k: 0, l: 0 }
     for (const part of avatar.slice(6).split('.')) {
       const k = part[0] as keyof Look
       const v = Number(part.slice(1))

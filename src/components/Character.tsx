@@ -1,6 +1,8 @@
-import { useId, type ReactNode } from 'react'
+import { useEffect, useId, useState, type ReactNode } from 'react'
 import { ACCESSORIES, EYES, HAIR_COLORS, HAIRSTYLES, SKINS, TOPS, type Look } from '../lib/look'
-import { accessoryOf, accPlace, accTop, CH, CW, persoOf } from '../lib/persos'
+import { cachedSrc, LEVRES, labHex, MONTURES, pixelKey, renderPerso, skinLab } from '../lib/personnalise'
+import { accessoryOf, accPlace, accTop, CH, CW, persoOf, type Perso } from '../lib/persos'
+import { VISAGES } from '../lib/visages'
 
 // Un personnage de la famille : une figurine en feutrine qui lui ressemble (public/art/persos),
 // avec l'accessoire acheté à la boutique. L'ancien personnage dessiné en SVG reste plus bas (CharacterSvg).
@@ -22,8 +24,137 @@ type Props = {
   blush?: boolean
 }
 
+/** L'image de la figurine, recolorée si on a changé sa peau, ses cheveux ou ses yeux. */
+function usePersoSrc(p: Perso, look: Look) {
+  const key = pixelKey(p, look)
+  const base = `./art/persos/${p.id}.webp`
+  const [src, setSrc] = useState(() => (key ? cachedSrc(key) ?? base : base))
+  useEffect(() => {
+    if (!key) return setSrc(base)
+    let live = true
+    const hit = cachedSrc(key)
+    if (hit) setSrc(hit)
+    else
+      renderPerso(p, look)
+        .then((u) => live && setSrc(u))
+        .catch(() => live && setSrc(base))
+    return () => {
+      live = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, base])
+  return src
+}
+
+/** Ce qui se dessine sur le visage : nez, bouche, taches de rousseur, blush, lunettes (toile 300x440). */
+export function FaceExtras({ p, look }: { p: Perso; look: Look }) {
+  const v = VISAGES[p.id]
+  if (!v) return null
+  const n = v.bouche ? look.n ?? 0 : 0
+  const u = v.bouche ? look.u ?? 0 : 0
+  const j = look.j ?? 0
+  const z = look.z ?? 0
+  const f = look.f ?? 0
+  if (!n && !u && !j && !z && !f) return null
+  const [lx0, ly0, rx0, ry0, r0] = v.e
+  const lx = lx0 * CW, ly = ly0 * CH, rx = rx0 * CW, ry = ry0 * CH, r = r0 * CW
+  const d = rx - lx
+  const ex = (lx + rx) / 2, ey = (ly + ry) / 2
+  const skin = skinLab(p, look)
+  const shade = labHex([skin[0] - 14, skin[1] + 4, skin[2] + 2])
+  const light = labHex([Math.min(96, skin[0] + 8), skin[1] - 2, skin[2] - 4])
+  const base = labHex(skin)
+  const lip = (look.l ?? 0) > 0 ? labHex(LEVRES[(look.l ?? 1) - 1].lab) : '#5A2A2A'
+  const mx = v.mo[0] * CW, my = v.mo[1] * CH
+  const mw = Math.max(v.mo[2] * CW, d * 0.34)
+  const nx = v.no[0] * CW, ny = v.no[1] * CH
+  const frame = MONTURES[look.w ?? 0]?.hex ?? MONTURES[0].hex
+  const R = r * 2.05
+  const id = p.id
+  const lens = (cx: number, cy: number, side: number) =>
+    j === 1 ? (
+      <circle cx={cx} cy={cy} r={R} />
+    ) : j === 2 ? (
+      <rect x={cx - R * 1.12} y={cy - R * 0.9} width={R * 2.24} height={R * 1.8} rx={R * 0.38} />
+    ) : (
+      <path d={`M${cx - R * 1.1 * side} ${cy - R * 0.2} Q${cx - R * 1.15 * side} ${cy + R * 0.95} ${cx} ${cy + R * 0.9} Q${cx + R * 1.1 * side} ${cy + R * 0.85} ${cx + R * 1.12 * side} ${cy - R * 0.35} L${cx + R * 1.35 * side} ${cy - R * 1.0} Q${cx + R * 0.2 * side} ${cy - R * 0.95} ${cx - R * 1.1 * side} ${cy - R * 0.2} Z`} />
+    )
+  return (
+    <svg viewBox={`0 0 ${CW} ${CH}`} className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true">
+      <defs>
+        <radialGradient id={`bl${id}`}>
+          <stop offset="0" stopColor="#FF6F91" stopOpacity={z === 2 ? 0.75 : 0.45} />
+          <stop offset="1" stopColor="#FF6F91" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id={`ne${id}`} cx="0.4" cy="0.35">
+          <stop offset="0" stopColor={light} />
+          <stop offset="0.6" stopColor={base} />
+          <stop offset="1" stopColor={shade} />
+        </radialGradient>
+      </defs>
+      {z > 0 &&
+        [lx - d * 0.06, rx + d * 0.06].map((cx, i) => <ellipse key={i} cx={cx} cy={ey + d * 0.42} rx={d * 0.17} ry={d * 0.1} fill={`url(#bl${id})`} />)}
+      {f > 0 &&
+        [-1, 1].map((side) =>
+          [
+            [0, 0],
+            [0.07, 0.03],
+            [-0.06, 0.04],
+            [0.03, 0.08],
+            [-0.03, -0.03],
+            [0.1, -0.02],
+          ].map(([dx, dy], i) => (
+            <circle key={`${side}${i}`} cx={(side < 0 ? lx : rx) + side * d * 0.02 + dx * d * side} cy={ey + d * 0.36 + dy * d} r={d * 0.016} fill="#9A5A3A" opacity={0.55} />
+          )),
+        )}
+      {n === 1 && <ellipse cx={nx} cy={ny} rx={d * 0.075} ry={d * 0.06} fill={`url(#ne${id})`} />}
+      {n === 2 && <ellipse cx={nx} cy={ny + d * 0.01} rx={d * 0.11} ry={d * 0.085} fill={`url(#ne${id})`} />}
+      {n === 3 && (
+        <>
+          <ellipse cx={nx} cy={ny - d * 0.01} rx={d * 0.08} ry={d * 0.07} fill={`url(#ne${id})`} />
+          <ellipse cx={nx - d * 0.03} cy={ny + d * 0.035} rx={d * 0.014} ry={d * 0.01} fill={shade} />
+          <ellipse cx={nx + d * 0.03} cy={ny + d * 0.035} rx={d * 0.014} ry={d * 0.01} fill={shade} />
+        </>
+      )}
+      {u === 1 && (
+        <>
+          <path d={`M${mx - mw * 0.5} ${my - mw * 0.08} Q${mx} ${my - mw * 0.02} ${mx + mw * 0.5} ${my - mw * 0.08} Q${mx + mw * 0.42} ${my + mw * 0.55} ${mx} ${my + mw * 0.58} Q${mx - mw * 0.42} ${my + mw * 0.55} ${mx - mw * 0.5} ${my - mw * 0.08} Z`} fill="#5A2626" stroke={lip} strokeWidth={mw * 0.07} strokeLinejoin="round" />
+          <ellipse cx={mx} cy={my + mw * 0.38} rx={mw * 0.24} ry={mw * 0.13} fill="#F07A8C" />
+        </>
+      )}
+      {u === 2 && <path d={`M${mx - mw * 0.32} ${my} Q${mx} ${my + mw * 0.32} ${mx + mw * 0.32} ${my}`} fill="none" stroke={lip} strokeWidth={mw * 0.1} strokeLinecap="round" />}
+      {u === 3 && (
+        <>
+          <ellipse cx={mx} cy={my + mw * 0.12} rx={mw * 0.26} ry={mw * 0.3} fill="#5A2626" stroke={lip} strokeWidth={mw * 0.06} />
+          <ellipse cx={mx} cy={my + mw * 0.27} rx={mw * 0.16} ry={mw * 0.1} fill="#F07A8C" />
+        </>
+      )}
+      {u === 4 && (
+        <>
+          <ellipse cx={mx} cy={my + mw * 0.02} rx={mw * 0.16} ry={mw * 0.1} fill={(look.l ?? 0) > 0 ? lip : '#C8566A'} />
+          <ellipse cx={mx} cy={my + mw * 0.16} rx={mw * 0.15} ry={mw * 0.1} fill={(look.l ?? 0) > 0 ? lip : '#C8566A'} />
+          <path d={`M${mx - mw * 0.12} ${my + mw * 0.09} L${mx + mw * 0.12} ${my + mw * 0.09}`} stroke="#7A2A3A" strokeWidth={mw * 0.03} strokeLinecap="round" />
+        </>
+      )}
+      {j > 0 && (
+        <g fill="rgba(255,255,255,0.14)" stroke={frame} strokeWidth={r * 0.36} strokeLinejoin="round">
+          {lens(lx, ly, -1)}
+          {lens(rx, ry, 1)}
+          <path d={`M${lx + R * (j === 2 ? 1.12 : 1)} ${ey - r * 0.2} Q${ex} ${ey - r * 0.9} ${rx - R * (j === 2 ? 1.12 : 1)} ${ey - r * 0.2}`} fill="none" />
+          <path d={`M${lx - R * (j === 2 ? 1.12 : 1)} ${ly - r * 0.3} L${lx - R * 1.25 - d * 0.12} ${ly - r * 0.6} M${rx + R * (j === 2 ? 1.12 : 1)} ${ry - r * 0.3} L${rx + R * 1.25 + d * 0.12} ${ry - r * 0.6}`} fill="none" />
+          <g fill="none" stroke="#FFFFFF" strokeOpacity={0.3} strokeWidth={r * 0.12}>
+            {lens(lx, ly, -1)}
+            {lens(rx, ry, 1)}
+          </g>
+        </g>
+      )}
+    </svg>
+  )
+}
+
 export function Character({ look, mood = null, bust = false, extras = false, className = '', pose, blush = false }: Props) {
   const p = persoOf(look)
+  const src = usePersoSrc(p, look)
   const acc = accessoryOf(look)
   const pl = acc ? accPlace(p, acc) : null
   const [t, h, x, c, , bx0, by0, bs0] = p.m
@@ -33,7 +164,8 @@ export function Character({ look, mood = null, bust = false, extras = false, cla
   // la figurine, l'accessoire et les petits signes de l'humeur, dans la toile 300x440
   const figure = (
     <>
-      <img src={`./art/persos/${p.id}.webp`} alt="" draggable={false} className="absolute inset-0 h-full w-full select-none" />
+      <img src={src} alt="" draggable={false} className="absolute inset-0 h-full w-full select-none" />
+      <FaceExtras p={p} look={look} />
       {blush && (
         <>
           {[-1, 1].map((side) => (
