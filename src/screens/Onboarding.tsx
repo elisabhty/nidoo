@@ -184,7 +184,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
       {step === 'profil' && (
         <div className="anim-entre flex flex-1 flex-col">
           <h1 className="outline-none font-rond text-grand">Et toi ?</h1>
-          <p className="mb-4 mt-1 text-sous text-brume">Un prénom suffit pour commencer. Ton personnage pourra évoluer avec toi.</p>
+          <p className="mb-4 mt-1 text-sous text-brume">Ton prénom, et le personnage qui te ressemble. Tu pourras le changer à tout moment.</p>
           <ProfilePicker compact name={name} setName={setName} avatar={avatar} setAvatar={setAvatar} color={color} setColor={setColor} />
           <div className="flex-1" />
           <Btn className="mt-6 shrink-0" onClick={finish} disabled={busy || !name.trim()}>

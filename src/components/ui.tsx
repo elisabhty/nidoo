@@ -7,6 +7,7 @@ import type { Member } from '../lib/types'
 import { lookOf } from '../lib/look'
 import { isToday } from '../lib/util'
 import { Character } from './Character'
+import { Smiley } from './Smiley'
 
 /** Illustration 3D de la bibliothèque NIDOO (public/art). */
 export function Art({ name, size, className = '', alt = '' }: { name: string; size?: number; className?: string; alt?: string }) {
@@ -26,6 +27,12 @@ export function Avatar({ m, size = 44, mood = false, ring = false }: { m: Pick<M
       >
         <Character look={look} mood={md} bust still={size < 44} className="block h-full w-full" blinkDelay={(size % 7) * 0.6} />
       </span>
+      {/* l'humeur du jour, en petit smiley sur la pastille */}
+      {md && size >= 36 && (
+        <span className="absolute -bottom-0.5 -right-0.5 flex rounded-full bg-white p-[1.5px] shadow-[0_2px_5px_rgba(29,26,43,0.18)]">
+          <Smiley mood={md} size={Math.round(size * 0.34)} />
+        </span>
+      )}
     </span>
   )
 }

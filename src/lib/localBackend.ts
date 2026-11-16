@@ -102,8 +102,9 @@ function migrate(f: Raw, userId: string) {
   f.moments = keep
   if (!f.dossiersDemo) demoDossiers(f)
   // Les proches fictifs passent des animaux aux personnages.
-  for (const m of f.members) if (!m.avatar.startsWith('perso:') && DEMO_LOOKS[m.display_name] && m.user_id !== userId) m.avatar = DEMO_LOOKS[m.display_name]
-  for (const r of f.requests ?? []) if (!r.avatar.startsWith('perso:') && DEMO_LOOKS[r.display_name]) r.avatar = DEMO_LOOKS[r.display_name]
+  // les proches de la démo prennent leur figurine (et les anciens personnages dessinés de la démo aussi)
+  for (const m of f.members) if (DEMO_LOOKS[m.display_name] && m.user_id !== userId && !/\.k[1-9]/.test(m.avatar)) m.avatar = DEMO_LOOKS[m.display_name]
+  for (const r of f.requests ?? []) if (DEMO_LOOKS[r.display_name] && !/\.k[1-9]/.test(r.avatar)) r.avatar = DEMO_LOOKS[r.display_name]
   // La guirlande lumineuse a quitté la boutique : ses étoiles sont rendues.
   if (f.houseItems.includes('guirlande')) {
     f.houseItems = f.houseItems.filter((k) => k !== 'guirlande')

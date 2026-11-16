@@ -1,8 +1,102 @@
 import { useId, type ReactNode } from 'react'
 import { ACCESSORIES, EYES, HAIR_COLORS, HAIRSTYLES, SKINS, TOPS, type Look } from '../lib/look'
+import { accessoryOf, accPlace, accTop, CH, CW, persoOf } from '../lib/persos'
 
-// Un personnage de la famille, dessiné en SVG : un même visage pour tous, et ce qui rend chacun unique.
-// Son visage change avec son humeur du jour (sourire, yeux fermés, sourcils froncés, larme…).
+// Un personnage de la famille : une figurine en feutrine qui lui ressemble (public/art/persos),
+// avec l'accessoire acheté à la boutique. L'ancien personnage dessiné en SVG reste plus bas (CharacterSvg).
+
+type Props = {
+  look: Look
+  mood?: string | null
+  /** buste : la tête et les épaules, pour les pastilles rondes */
+  bust?: boolean
+  /** larme, goutte, « z » : seulement dans la maison */
+  extras?: boolean
+  size?: number
+  className?: string
+  blinkDelay?: number
+  still?: boolean
+  /** bras grands ouverts pour un câlin */
+  pose?: 'calin'
+  /** joues toutes roses (après un bisou) */
+  blush?: boolean
+}
+
+export function Character({ look, mood = null, bust = false, extras = false, className = '', pose, blush = false }: Props) {
+  const p = persoOf(look)
+  const acc = accessoryOf(look)
+  const pl = acc ? accPlace(p, acc) : null
+  const [t, h, x, c, , bx0, by0, bs0] = p.m
+  const R = CH / CW
+  const hw = h * R
+  const at = pl ? accTop(pl) : 0
+  // la figurine, l'accessoire et les petits signes de l'humeur, dans la toile 300x440
+  const figure = (
+    <>
+      <img src={`./art/persos/${p.id}.webp`} alt="" draggable={false} className="absolute inset-0 h-full w-full select-none" />
+      {blush && (
+        <>
+          {[-1, 1].map((side) => (
+            <span
+              key={side}
+              className="absolute rounded-[50%]"
+              style={{ left: `${(x + side * hw * 0.24 - hw * 0.09) * 100}%`, top: `${(t + h * 0.7) * 100}%`, width: `${hw * 0.18 * 100}%`, height: `${((hw * 0.11) / R) * 100}%`, background: 'radial-gradient(closest-side, rgba(255,110,140,0.75), rgba(255,110,140,0))' }}
+            />
+          ))}
+        </>
+      )}
+      {pl && (
+        <img
+          src={`./art/persos/acc-${acc}.webp`}
+          alt=""
+          draggable={false}
+          className="absolute max-w-none select-none"
+          style={{ width: `${pl.w * 100}%`, left: `${(pl.x - pl.w / 2) * 100}%`, top: `${at * 100}%` }}
+        />
+      )}
+      {extras && mood === 'triste' && (
+        <span className="perso-larme absolute block rounded-[50%_50%_50%_50%/60%_60%_40%_40%] bg-[#8FD3FF]" style={{ left: `${(x - hw * 0.2) * 100}%`, top: `${(t + h * 0.72) * 100}%`, width: `${hw * 0.07 * 100}%`, height: `${((hw * 0.1) / R) * 100}%` }} />
+      )}
+      {extras && mood === 'stresse' && (
+        <span className="perso-goutte absolute block rounded-[50%_50%_50%_50%/60%_60%_40%_40%] bg-[#8FD3FF]" style={{ left: `${(x + c * 0.42) * 100}%`, top: `${(t + h * 0.3) * 100}%`, width: `${hw * 0.08 * 100}%`, height: `${((hw * 0.11) / R) * 100}%` }} />
+      )}
+      {extras && mood === 'fatigue' && (
+        <span className="absolute font-rond font-bold text-[#7B6FB0]" style={{ left: `${(x + c * 0.4) * 100}%`, top: `${(t - h * 0.02) * 100}%`, fontSize: '0.55em', animation: 'flotte 2.6s ease-in-out infinite' }}>
+          z
+        </span>
+      )}
+    </>
+  )
+
+  if (bust) {
+    // le cadre du buste, agrandi vers le haut si un chapeau dépasse
+    let bx = bx0 * CW
+    let by = by0 * CH
+    let bs = bs0 * CW
+    if (pl && at * CH < by) {
+      const extra = by - at * CH + 4
+      by -= extra
+      bs += extra
+      bx -= extra / 2
+    }
+    return (
+      <span className={`relative block overflow-hidden ${className}`} style={{ aspectRatio: '1 / 1' }}>
+        <span className="absolute block" style={{ width: `${(CW / bs) * 100}%`, left: `${(-bx / bs) * 100}%`, top: `${(-by / bs) * 100}%`, aspectRatio: `${CW} / ${CH}` }}>
+          {figure}
+        </span>
+      </span>
+    )
+  }
+  // en pied ; un chapeau qui dépasse agrandit la boîte vers le haut, la figurine reste posée en bas
+  const over = pl ? Math.max(0, -at) : 0
+  return (
+    <span className={`relative block ${className}`} style={{ aspectRatio: `${CW} / ${CH * (1 + over)}`, transform: pose === 'calin' ? 'scale(1.04, 0.98)' : undefined, transformOrigin: '50% 100%' }}>
+      <span className="absolute inset-x-0 bottom-0 block" style={{ aspectRatio: `${CW} / ${CH}` }}>
+        {figure}
+      </span>
+    </span>
+  )
+}
 
 function shade(hex: string, k: number): string {
   const n = parseInt(hex.slice(1), 16)
@@ -167,7 +261,7 @@ function body(age: number, top: string, skin: string, pose?: 'calin') {
   )
 }
 
-export function Character({
+export function CharacterSvg({
   look, mood = null, bust = false, extras = false, size, className = '', blinkDelay = 0, still = false, pose, blush = false,
 }: {
   look: Look

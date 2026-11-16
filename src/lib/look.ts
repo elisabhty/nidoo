@@ -58,9 +58,10 @@ export type Look = {
   a: number // taille : adulte, ado, enfant, bébé
   p: number // tétine (bébé)
   v?: number // accessoire de la boutique (0 : aucun)
+  k?: number // la figurine choisie (1…), 0 : celle qui ressemble le plus à l'ancien personnage dessiné
 }
-const KEYS: (keyof Look)[] = ['s', 'h', 'c', 'e', 'g', 'b', 'm', 'f', 'o', 'l', 't', 'a', 'p', 'v']
-const MAX: Required<Look> = { s: SKINS.length, h: HAIRSTYLES.length, c: HAIR_COLORS.length, e: EYES.length, g: GLASSES.length, b: BEARDS.length, m: MOLES.length, f: 2, o: 2, l: 2, t: TOPS.length, a: AGES.length, p: 2, v: ACCESSORIES.length }
+const KEYS: (keyof Look)[] = ['s', 'h', 'c', 'e', 'g', 'b', 'm', 'f', 'o', 'l', 't', 'a', 'p', 'v', 'k']
+const MAX: Required<Look> = { s: SKINS.length, h: HAIRSTYLES.length, c: HAIR_COLORS.length, e: EYES.length, g: GLASSES.length, b: BEARDS.length, m: MOLES.length, f: 2, o: 2, l: 2, t: TOPS.length, a: AGES.length, p: 2, v: ACCESSORIES.length, k: 256 }
 
 export const encodeLook = (l: Look) => `perso:${KEYS.map((k) => `${k}${l[k] ?? 0}`).join('.')}`
 
@@ -68,7 +69,7 @@ export const encodeLook = (l: Look) => `perso:${KEYS.map((k) => `${k}${l[k] ?? 0
 export function lookOf(avatar: string | undefined, seed = ''): Look {
   if (avatar?.startsWith('perso:')) {
     // les champs ajoutés plus tard (taille, tétine) valent « adulte, sans » par défaut
-    const out: Look = { ...randomLook(avatar), a: 0, p: 0, v: 0 }
+    const out: Look = { ...randomLook(avatar), a: 0, p: 0, v: 0, k: 0 }
     for (const part of avatar.slice(6).split('.')) {
       const k = part[0] as keyof Look
       const v = Number(part.slice(1))
@@ -102,15 +103,16 @@ export function randomLook(seed?: string): Look {
     a: 0,
     p: 0,
     v: 0,
+    k: 0,
   }
 }
 
 /** Les proches fictifs du mode démo. */
 export const DEMO_LOOKS: Record<string, string> = {
-  'Mamie Jo': encodeLook({ s: 1, h: 6, c: 6, e: 3, g: 1, b: 0, m: 3, f: 0, o: 1, l: 1, t: 4, a: 0, p: 0 }),
-  Papa: encodeLook({ s: 2, h: 1, c: 1, e: 0, g: 0, b: 1, m: 0, f: 0, o: 0, l: 0, t: 3, a: 0, p: 0 }),
-  Léa: encodeLook({ s: 0, h: 4, c: 5, e: 2, g: 0, b: 0, m: 0, f: 1, o: 1, l: 0, t: 2, a: 1, p: 0 }),
-  'Cousin Hugo': encodeLook({ s: 5, h: 9, c: 0, e: 0, g: 2, b: 0, m: 0, f: 0, o: 0, l: 0, t: 1, a: 0, p: 0 }),
-  Noé: encodeLook({ s: 2, h: 2, c: 2, e: 1, g: 0, b: 0, m: 0, f: 1, o: 0, l: 0, t: 5, a: 2, p: 0 }),
-  'Bébé Lou': encodeLook({ s: 1, h: 12, c: 3, e: 3, g: 0, b: 0, m: 0, f: 0, o: 0, l: 0, t: 4, a: 3, p: 1 }),
+  'Mamie Jo': encodeLook({ s: 1, h: 6, c: 6, e: 3, g: 1, b: 0, m: 3, f: 0, o: 1, l: 1, t: 4, a: 0, p: 0, k: 20 }),
+  Papa: encodeLook({ s: 2, h: 1, c: 1, e: 0, g: 0, b: 1, m: 0, f: 0, o: 0, l: 0, t: 3, a: 0, p: 0, k: 26 }),
+  Léa: encodeLook({ s: 0, h: 4, c: 5, e: 2, g: 0, b: 0, m: 0, f: 1, o: 1, l: 0, t: 2, a: 1, p: 0, k: 50 }),
+  'Cousin Hugo': encodeLook({ s: 5, h: 9, c: 0, e: 0, g: 2, b: 0, m: 0, f: 0, o: 0, l: 0, t: 1, a: 0, p: 0, k: 28 }),
+  Noé: encodeLook({ s: 2, h: 2, c: 2, e: 1, g: 0, b: 0, m: 0, f: 1, o: 0, l: 0, t: 5, a: 2, p: 0, k: 62 }),
+  'Bébé Lou': encodeLook({ s: 1, h: 12, c: 3, e: 3, g: 0, b: 0, m: 0, f: 0, o: 0, l: 0, t: 4, a: 3, p: 1, k: 73 }),
 }
