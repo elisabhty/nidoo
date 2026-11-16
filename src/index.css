@@ -131,3 +131,37 @@ button:focus-visible, a:focus-visible { outline: 3px solid #6646CC; outline-offs
 @media (prefers-reduced-motion: no-preference) {
   [aria-current="page"] { transition: background-color 180ms ease, color 180ms ease; }
 }
+
+/* iOS surface and control language, shared across the app. */
+.ios-primary {
+  background: linear-gradient(180deg, #7C5DDF 0%, #6948CF 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 4px 12px -6px rgba(87,55,182,.38);
+}
+.ios-segments { background: rgba(106,91,146,.09); box-shadow: inset 0 1px 2px rgba(29,26,43,.025); }
+.ios-tabbar {
+  background: rgba(255,255,255,.8);
+  border: 1px solid rgba(255,255,255,.85);
+  box-shadow: 0 10px 36px -12px rgba(40,27,70,.22), inset 0 1px 0 rgba(255,255,255,.95);
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+}
+.ios-tab-selection {
+  position: absolute; left: 6px; top: 6px; bottom: 6px;
+  width: calc((100% - 12px) / 4); border-radius: 999px;
+  background: #EEE9FA;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.8);
+  transition: transform 320ms var(--ressort);
+}
+.ios-sheet { border: 1px solid rgba(255,255,255,.7); box-shadow: 0 -12px 60px -20px rgba(29,26,43,.2); }
+@supports (corner-shape: squircle) {
+  .groupe, .ios-sheet { corner-shape: squircle; }
+}
+input, textarea { caret-color: #7050D5; }
+::selection { background: #DDD2FA; color: #28174C; }
+@media (prefers-reduced-transparency: reduce) {
+  .ios-tabbar, .verre { background: #FFFFFF; backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ios-tab-selection { transition: none; }
+}
+.ios-tabbar[hidden] { display: none; }

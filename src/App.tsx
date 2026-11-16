@@ -1,9 +1,10 @@
-import { BookHeart, CalendarDays, House as HouseIcon, Sparkles, UsersRound, ChevronLeft, Pencil } from 'lucide-react'
-import { useState } from 'react'
+import { BookHeart, CalendarDays, House as HouseIcon, UsersRound, ChevronLeft, Pencil } from 'lucide-react'
+import { useRef, useState } from 'react'
 import { DrawingBanner, DrawSheet, useUnseenDrawings } from './components/drawing'
 import Guide from './components/Guide'
 import { Incoming } from './components/sheets'
 import { ActionSheetHost, Btn, Toasts } from './components/ui'
+import { useKeyboardViewport } from './lib/useKeyboardViewport'
 import { select } from './lib/haptic'
 import { useStore } from './lib/store'
 import Family from './screens/Family'
@@ -37,10 +38,19 @@ function Splash({ children }: { children?: React.ReactNode }) {
 }
 
 export default function App() {
+  const keyboard = useKeyboardViewport()
   const { status, error, state, retry, requests } = useStore()
   const [tab, setTab] = useState<Tab>('maison')
   const [visited, setVisited] = useState<Tab[]>(['maison'])
-  const navigate = (next: Tab) => { setVisited(current => current.includes(next) ? current : [...current, next]); setTab(next) }
+  const panes = useRef<HTMLDivElement>(null)
+  const navigate = (next: Tab) => {
+    if(next === tab) {
+      const scroll = Array.from(panes.current?.querySelectorAll<HTMLElement>(`[data-tab="${next}"] .no-bar`) ?? []).find(el => el.getClientRects().length > 0 && el.scrollHeight > el.clientHeight)
+      scroll?.scrollTo({top:0,behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'})
+    }
+    setVisited(current => current.includes(next) ? current : [...current, next])
+    setTab(next)
+  }
   const [showIncoming, setShowIncoming] = useState(false)
   const [compose, setCompose] = useState(false)
   const [activity, setActivity] = useState(false)
@@ -72,8 +82,8 @@ export default function App() {
   const unseen = (state ? state.thoughts.filter((t) => t.to_member === state.me.id && !t.seen_at).length : 0) + drawingsUnseen
 
   return (
-    <div className="flex h-full items-center justify-center">
-      <div className="relative h-full w-full overflow-hidden bg-fond sm:h-[min(880px,96vh)] sm:max-w-[410px] sm:rounded-[48px] sm:shadow-[0_40px_100px_-30px_rgba(29,26,43,0.45)]">
+    <div className="flex items-center justify-center" style={{height:'var(--app-height, 100%)'}} data-keyboard={keyboard || undefined}>
+      <div className="relative h-full w-full overflow-hidden bg-fond sm:h-[min(880px,96vh)] sm:max-w-[410px] sm:rounded-[48px] sm:shadow-[0_40px_100px_-30px_rgba(29,26,43,0.45)]" style={{maxHeight:'100%'}}>
         {status === 'loading' && <Splash />}
         {status === 'error' && (
           <Splash>
@@ -85,15 +95,16 @@ export default function App() {
         {status === 'ready' && !state && (requests.length ? <Waiting /> : <Onboarding />)}
         {status === 'ready' && state && (
           <>
-            <div className="h-full" key={state.family.id}>
-              <div hidden={tab !== 'maison'} className="h-full"><Home go={go} active={tab === 'maison'} /></div>
-              {visited.includes('moments') && <div hidden={tab !== 'moments'} className="h-full"><Dossiers seg={seg} setSeg={setSeg} /></div>}
-              {visited.includes('organiser') && <div hidden={tab !== 'organiser'} className="h-full"><Organize /></div>}
-              {visited.includes('famille') && <div hidden={tab !== 'famille'} className="h-full"><Family onGuide={() => setGuide(true)} /></div>}
+            <div ref={panes} className="h-full" key={state.family.id}>
+              <div id="nidoo-tab-maison" data-tab="maison" hidden={tab !== 'maison'} className="h-full"><Home go={go} active={tab === 'maison'} /></div>
+              {visited.includes('moments') && <div id="nidoo-tab-moments" data-tab="moments" hidden={tab !== 'moments'} className="h-full"><Dossiers seg={seg} setSeg={setSeg} /></div>}
+              {visited.includes('organiser') && <div id="nidoo-tab-organiser" data-tab="organiser" hidden={tab !== 'organiser'} className="h-full"><Organize /></div>}
+              {visited.includes('famille') && <div id="nidoo-tab-famille" data-tab="famille" hidden={tab !== 'famille'} className="h-full"><Family onGuide={() => setGuide(true)} /></div>}
             </div>
 
             {/* Barre d'onglets flottante en verre */}
-            <nav className="verre absolute inset-x-5 z-30 flex h-[62px] items-center rounded-full p-1" style={{ bottom: 'calc(var(--sab) + 8px)' }} aria-label="Navigation principale">
+            <nav hidden={keyboard} className="ios-tabbar absolute inset-x-5 z-30 flex h-[66px] items-center rounded-full p-1.5" style={{ bottom: 'calc(var(--sab) + 8px)' }} aria-label="Navigation principale">
+              <span aria-hidden="true" className="ios-tab-selection" style={{transform:`translateX(${TABS.findIndex(t => t.key === tab) * 100}%)`}} />
               {TABS.map((t) => {
                 const on = tab === t.key
                 return (
@@ -104,7 +115,8 @@ export default function App() {
                       navigate(t.key)
                     }}
                     aria-current={on ? 'page' : undefined}
-                    className={`relative flex h-full flex-1 flex-col items-center justify-center gap-[3px] rounded-full transition-colors duration-200 ${on ? 'bg-encre/[0.07] text-teinte' : 'text-encre/70'}`}
+                    aria-controls={`nidoo-tab-${t.key}`}
+                    className={`relative z-10 flex h-full flex-1 flex-col items-center justify-center gap-[3px] rounded-full transition-colors duration-200 ${on ? 'text-teinte-fonce' : 'text-encre/60'}`}
                   >
                     <t.icon size={23} strokeWidth={on ? 2.4 : 2} fill={on ? 'currentColor' : 'none'} fillOpacity={on ? 0.18 : 0} />
                     <span className={`text-[12px] leading-none tracking-normal ${on ? 'font-semibold' : 'font-medium'}`}>{t.label}</span>
@@ -116,7 +128,7 @@ export default function App() {
               })}
             </nav>
 
-            {tab !== 'maison' && !guide && !activity && <button onClick={() => setCompose(true)} className="presse absolute right-5 z-30 flex min-h-11 items-center gap-2 rounded-full bg-teinte px-4 text-sous font-semibold text-white shadow-flottant" style={{bottom:'calc(var(--sab) + 84px)'}}><Pencil size={17} />Une attention</button>}
+            {tab !== 'maison' && !guide && !activity && !keyboard && <button onClick={() => setCompose(true)} className="presse absolute right-5 z-30 flex min-h-11 items-center gap-2 rounded-full bg-teinte px-4 text-sous font-semibold text-white shadow-flottant" style={{bottom:'calc(var(--sab) + 84px)'}}><Pencil size={17} />Une attention</button>}
             {compose && <DrawSheet onClose={() => setCompose(false)} />}
             {activity && <div className="absolute inset-0 z-40 flex flex-col bg-fond" role="dialog" aria-modal="true" aria-label="À vivre ensemble" style={{paddingTop:'var(--sat)'}}>
               <button onClick={() => setActivity(false)} className="presse flex min-h-[52px] shrink-0 items-center gap-1 px-4 text-corps text-teinte-fonce"><ChevronLeft size={22} />Retour à la maison</button>

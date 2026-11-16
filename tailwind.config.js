@@ -5,14 +5,14 @@ export default {
     extend: {
       colors: {
         // Couleurs système façon iOS, teintées aux couleurs de NIDOO
-        fond: '#F4F1F9', // fond groupé
+        fond: '#F8F7FC', // fond groupé
         carte: '#FFFFFF',
         encre: '#1D1A2B', // label
-        brume: 'rgba(60, 56, 82, 0.62)', // label secondaire
+        brume: 'rgba(60, 56, 82, 0.76)', // label secondaire
         pale: 'rgba(60, 56, 82, 0.32)', // label tertiaire
         trait: 'rgba(60, 56, 82, 0.14)', // séparateur
         remplissage: 'rgba(118, 112, 148, 0.12)', // fill
-        teinte: { DEFAULT: '#7A5AE0', doux: '#EEE8FC', fonce: '#6646CC' },
+        teinte: { DEFAULT: '#7050D5', doux: '#EEE8FC', fonce: '#6646CC' },
         peche: { DEFAULT: '#F58B5C', doux: '#FFEDE2', fonce: '#E26F3C' },
         rouge: '#FF453A',
         vert: '#34C759',
@@ -24,7 +24,7 @@ export default {
       },
       fontSize: {
         // Échelle typographique iOS (Dynamic Type, taille par défaut)
-        grand: ['34px', { lineHeight: '41px', letterSpacing: '-0.4px', fontWeight: '700' }],
+        grand: ['34px', { lineHeight: '41px', letterSpacing: '-0.85px', fontWeight: '750' }],
         titre1: ['28px', { lineHeight: '34px', letterSpacing: '-0.35px', fontWeight: '700' }],
         titre2: ['22px', { lineHeight: '28px', letterSpacing: '-0.3px', fontWeight: '700' }],
         titre3: ['20px', { lineHeight: '25px', letterSpacing: '-0.2px', fontWeight: '600' }],

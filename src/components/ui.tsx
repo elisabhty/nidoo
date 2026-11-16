@@ -66,7 +66,7 @@ export function Screen({ title, trailing, leading, children }: { title: string; 
         style={{ paddingTop: 'calc(var(--sat) + 52px)' }}
         onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 34)}
       >
-        <h1 className="px-5 pb-3 pt-2 font-rond text-grand">{title}</h1>
+        <h1 className="px-5 pb-3 pt-2 tracking-[-0.8px] font-rond text-grand">{title}</h1>
         {children}
       </div>
     </div>
@@ -106,7 +106,7 @@ export function Page({ title, back = 'Retour', onClose, trailing, children }: { 
         style={{ paddingTop: 'calc(var(--sat) + 52px)', paddingBottom: 'calc(var(--sab) + 28px)' }}
         onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 34)}
       >
-        <h1 className="px-5 pb-3 pt-2 font-rond text-grand">{title}</h1>
+        <h1 className="px-5 pb-3 pt-2 tracking-[-0.8px] font-rond text-grand">{title}</h1>
         {children}
       </div>
     </div>
@@ -149,7 +149,7 @@ export function Sheet({ title, onClose, children, tall = false }: { title: strin
       <div
         ref={panel}
         tabIndex={-1}
-        className={`anim-monte relative outline-none flex flex-col rounded-t-feuille bg-fond shadow-[0_-10px_40px_rgba(29,26,43,0.18)] ${tall ? 'h-[92%]' : 'max-h-[92%]'}`}
+        className={`ios-sheet anim-monte relative outline-none flex flex-col rounded-t-feuille bg-fond ${tall ? 'h-[92%]' : 'max-h-[92%]'}`}
         style={{ paddingBottom: 'calc(var(--sab) + 14px)', transform: dy ? `translateY(${dy}px)` : undefined, transition: start.current === null ? 'transform 0.35s var(--ressort)' : 'none' }}
       >
         <div
@@ -185,7 +185,7 @@ export function Btn({
   children, onClick, kind = 'plein', disabled, className = '', type = 'button',
 }: { children: ReactNode; onClick?: () => void; kind?: 'plein' | 'teinte' | 'gris' | 'blanc'; disabled?: boolean; className?: string; type?: 'button' | 'submit' }) {
   const styles = {
-    plein: 'bg-teinte text-white',
+    plein: 'ios-primary text-white',
     teinte: 'bg-teinte-doux text-teinte-fonce',
     gris: 'bg-remplissage text-encre',
     blanc: 'bg-white text-teinte-fonce',
@@ -281,10 +281,10 @@ export function Toasts() {
 export function Segments<T extends string>({ value, onChange, options }: { value: T; onChange: (v: T) => void; options: { key: T; label: string }[] }) {
   const i = Math.max(0, options.findIndex((o) => o.key === value))
   return (
-    <div className="relative flex min-h-11 rounded-full bg-remplissage p-[2px]" role="tablist">
+    <div className="ios-segments relative flex min-h-11 rounded-full p-[3px]" role="tablist">
       <span
-        className="absolute bottom-[2px] top-[2px] rounded-full bg-white shadow-[0_3px_8px_rgba(0,0,0,0.12),0_1px_1px_rgba(0,0,0,0.04)] transition-transform duration-300"
-        style={{ width: `calc((100% - 4px) / ${options.length})`, transform: `translateX(${i * 100}%)`, transitionTimingFunction: 'var(--ressort)' }}
+        className="absolute bottom-[3px] top-[3px] rounded-full bg-white shadow-[0_2px_6px_rgba(29,26,43,0.08)] transition-transform duration-300"
+        style={{ width: `calc((100% - 6px) / ${options.length})`, transform: `translateX(${i * 100}%)`, transitionTimingFunction: 'var(--ressort)' }}
       />
       {options.map((o) => (
         <button
