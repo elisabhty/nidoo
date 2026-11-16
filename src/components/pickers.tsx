@@ -3,7 +3,7 @@ import { useId, useState } from 'react'
 import { COLOR_KEYS, COLORS, HOUSES, shopItem } from '../lib/data'
 import { select, tap } from '../lib/haptic'
 import { ACCESSORIES, AGE_SCALE, encodeLook, lookOf, type Look } from '../lib/look'
-import { BLUSH, BOUCHES, CHEVEUX, labHex, LEVRES, LUNETTES, MONTURES, NEZ, TEINTS, VOILES, YEUX } from '../lib/personnalise'
+import { BLUSH, BOUCHES, CHEVEUX, labHex, LEVRES, LUNETTES, MONTURES, NEZ, nomPeau, peauOf, peauProche, peauxDe, persoImg, skinLab, VOILES, YEUX } from '../lib/personnalise'
 import { GROUPS, PERSOS, persoOf, TONES, type Group, type Perso } from '../lib/persos'
 import { VISAGES } from '../lib/visages'
 import type { HouseType } from '../lib/types'
@@ -34,15 +34,26 @@ export function ProfilePicker({
     set(patch)
     setZoom(true)
   }
-  const pick = (p: Perso) => {
-    set({ k: PERSOS.indexOf(p) + 1, a: p.a, p: 0 })
+  // en changeant de figurine, on garde à peu près la même couleur de peau si on en avait choisi une
+  const pick = (p: Perso, t?: number) => {
+    const q = t ?? (look.q ? peauProche(p, skinLab(mine, look)) : 0)
+    set({ k: PERSOS.indexOf(p) + 1, a: p.a, p: 0, q })
     setZoom(false)
     setHop((n) => n + 1)
   }
   const vis = VISAGES[mine.id]
+  const peaux = peauxDe(mine)
+  const peau = peauOf(mine, look)
   const c = COLORS[color] ?? COLORS.lavande
   // les plus jeunes d'abord, les grands-parents à la fin, chaque fois du teint le plus clair au plus foncé
-  const list = PERSOS.filter((p) => p.g === group && (tone === null || p.t === tone)).sort((p, q) => Number(!!p.s) - Number(!!q.s) || p.t - q.t)
+  // avec un teint choisi : toutes les figurines qui existent dans ce teint, avec leur peau d'origine ou une autre
+  const inTone = (p: Perso): number => {
+    if (tone === null || p.t === tone) return 0
+    const c = peauxDe(p).filter((x) => x.t && x.b === tone)
+    if (!c.length) return -1
+    return (tone === TONES.length - 1 ? c.reduce((a, b) => (b.lab[0] < a.lab[0] ? b : a)) : c[0]).t
+  }
+  const list = PERSOS.filter((p) => p.g === group && inTone(p) >= 0).sort((p, q) => Number(!!p.s) - Number(!!q.s) || Number(p.t !== tone) - Number(q.t !== tone) || p.t - q.t)
   const kids = group === 'fille' || group === 'garcon'
   const [all, setAll] = useState(false)
   // deux rangées d'abord (avec la figurine choisie), le reste sur demande
@@ -173,15 +184,17 @@ export function ProfilePicker({
       <div className="mt-3 grid grid-cols-4 gap-2">
         {shown.map((p) => {
           const on = p.id === mine.id && !!look.k
+          const t = tone === null ? undefined : inTone(p)
+          const img = on ? persoImg(p, peauOf(p, look)) : persoImg(p, t ?? 0)
           return (
             <button
               key={p.id}
-              onClick={() => pick(p)}
+              onClick={() => pick(p, t)}
               aria-pressed={on}
               aria-label={p.label}
               className={`presse relative overflow-hidden rounded-[18px] px-1.5 pb-1 pt-2 transition-shadow ${on ? 'bg-teinte-doux ring-[2.5px] ring-teinte' : 'bg-carte'}`}
             >
-              <img src={`./art/persos/${p.id}.webp`} alt="" loading="lazy" draggable={false} className="block aspect-[300/440] w-full select-none" />
+              <img src={img} alt="" loading="lazy" draggable={false} className="block aspect-[300/440] w-full select-none" />
             </button>
           )
         })}
@@ -233,8 +246,38 @@ export function ProfilePicker({
       <div className="groupe mt-3 p-3.5">
         {tab === 'peau' && (
           <>
-            <p className="mb-2 text-note font-semibold text-brume">Teint</p>
-            {nuancier(TEINTS.map((t) => t.label), TEINTS.map((t) => labHex(t.lab)), look.q ?? 0, (i) => tune({ q: i }), labHex(vis?.sk ?? [75, 12, 28]), 'Le sien')}
+            <p className="mb-2 text-note font-semibold text-brume">Couleur de peau</p>
+            {peaux.length > 1 ? (
+              <div className="flex flex-wrap gap-2.5">
+                {peaux.map((x) => {
+                  const on = peau === x.t
+                  const label = x.t ? nomPeau(x.lab[0]) : 'La sienne'
+                  return x.t ? (
+                    <button
+                      key={x.t}
+                      onClick={() => tune({ q: x.t })}
+                      aria-pressed={on}
+                      aria-label={label}
+                      title={label}
+                      className="presse h-9 w-9 rounded-full"
+                      style={{ background: labHex(x.lab), boxShadow: on ? '0 0 0 2.5px #FFFFFF, 0 0 0 4.5px #7A5AE0' : 'inset 0 0 0 1px rgba(29,26,43,0.12)' }}
+                    />
+                  ) : (
+                    <button
+                      key={0}
+                      onClick={() => tune({ q: 0 })}
+                      aria-pressed={on}
+                      className={`presse flex h-9 items-center gap-1.5 rounded-full pl-1 pr-3 text-note font-semibold ${on ? 'bg-teinte text-white' : 'bg-remplissage text-encre'}`}
+                    >
+                      <span className="h-7 w-7 rounded-full" style={{ background: labHex(x.lab), boxShadow: 'inset 0 0 0 1px rgba(29,26,43,0.12)' }} />
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="text-sous text-brume">Cette figurine n'existe qu'avec cette couleur de peau. Choisis un teint au-dessus de la galerie : toutes les figurines qui existent dans ce teint s'affichent.</p>
+            )}
           </>
         )}
         {tab === 'cheveux' &&

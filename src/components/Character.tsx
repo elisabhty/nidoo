@@ -1,6 +1,6 @@
 import { useEffect, useId, useState, type ReactNode } from 'react'
 import { ACCESSORIES, EYES, HAIR_COLORS, HAIRSTYLES, SKINS, TOPS, type Look } from '../lib/look'
-import { cachedSrc, LEVRES, labHex, MONTURES, pixelKey, renderPerso, skinLab } from '../lib/personnalise'
+import { cachedSrc, LEVRES, labHex, MONTURES, peauOf, persoImg, pixelKey, renderPerso, skinLab } from '../lib/personnalise'
 import { accessoryOf, accPlace, accTop, CH, CW, persoOf, type Perso } from '../lib/persos'
 import { VISAGES } from '../lib/visages'
 
@@ -24,10 +24,10 @@ type Props = {
   blush?: boolean
 }
 
-/** L'image de la figurine, recolorée si on a changé sa peau, ses cheveux ou ses yeux. */
+/** L'image de la figurine (avec la peau choisie), recolorée si on a changé ses cheveux, ses yeux ou sa bouche. */
 function usePersoSrc(p: Perso, look: Look) {
   const key = pixelKey(p, look)
-  const base = `./art/persos/${p.id}.webp`
+  const base = persoImg(p, peauOf(p, look))
   const [src, setSrc] = useState(() => (key ? cachedSrc(key) ?? base : base))
   useEffect(() => {
     if (!key) return setSrc(base)

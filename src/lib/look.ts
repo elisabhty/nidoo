@@ -60,7 +60,7 @@ export type Look = {
   v?: number // accessoire de la boutique (0 : aucun)
   k?: number // la figurine choisie (1…), 0 : celle qui ressemble le plus à l'ancien personnage dessiné
   // personnaliser la figurine (0 : comme elle est)
-  q?: number // teint
+  q?: number // couleur de peau : 0 = la sienne, sinon le numéro de l’image (<id>-t<q>.webp, voir peaux.ts)
   x?: number // couleur des cheveux ou du voile
   y?: number // couleur des yeux
   n?: number // nez
