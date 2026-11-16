@@ -172,39 +172,41 @@ export function renderPerso(p: Perso, look: Look): Promise<string> {
       const ws = m[i] / 255, wh = m[i + 1] / 255, cls = m[i + 2]
       const mouth = cls > 150 && cls < 200
       const iris = cls > 230
+      const brow = cls > 60 && cls < 110
       let wSkin = sT ? ws : 0
-      if (mouth && !feat) wSkin = 0
-      // la raie et le front sous les cheveux : de la peau rangée avec les cheveux
-      if (sT && !wSkin && wh > 0.3 && !mouth && !iris) {
-        const [L0, A0, B0] = rgb2lab(d[i], d[i + 1], d[i + 2])
-        const far0 = Math.hypot((L0 - sk[0]) * 0.25, A0 - sk[1], B0 - sk[2])
-        if (far0 < 14) wSkin = 1 - far0 / 14
-        // un reflet clair de la feutrine sur le front, au milieu de cheveux colorés
-        else if (d[i + 3] > 250 && ha && Math.hypot(ha[1], ha[2]) > 12 && L0 > sk[0] + 6 && Math.hypot(A0, B0) < 16) wSkin = 0.9
-      }
+      // la bouche suit la peau (elle reste plus foncée), sauf si on met du rouge à lèvres
+      const mouthSkin = !!sT && mouth && !feat && !lT
+      if (mouth && !feat) wSkin = mouthSkin ? 1 : 0
       const wHair = hT ? wh : 0
+      const wBrow = hT && brow ? 0.85 : 0
       const wEye = eT && iris ? 1 : 0
       const wLip = lT && mouth && !feat ? 0.85 : 0
-      if (!wSkin && !wHair && !wEye && !wLip) continue
+      if (!wSkin && !wHair && !wEye && !wLip && !wBrow) continue
       const [L, A, B] = rgb2lab(d[i], d[i + 1], d[i + 2])
       let nL = L, nA = A, nB = B
       // garde-fou : un pixel bien trop loin de la peau (une mèche classée peau par erreur) n'est pas recoloré
-      if (wSkin) {
+      if (wSkin && !mouthSkin) {
         const far = Math.hypot(A - sk[1], B - sk[2])
         wSkin *= Math.max(0, Math.min(1, (28 - far) / 10))
       }
       if (wSkin) {
         const k = (sT![0] + 12) / (sk[0] + 12)
-        nL += wSkin * (sT![0] + (L - sk[0]) * Math.min(1.15, Math.max(0.62, k)) - L)
+        nL += wSkin * (sT![0] + (L - sk[0]) * Math.min(1, Math.max(0.62, k)) - L)
         nA += wSkin * (sT![1] + (A - sk[1]) * 0.9 - A)
         nB += wSkin * (sT![2] + (B - sk[2]) * 0.9 - B)
       }
       // garde-fou : la raie, un bout de peau, un bijou classés « cheveux » gardent leur couleur
-      const wH = wHair && ha ? wHair * Math.max(0, Math.min(1, (22 - Math.hypot(A - ha[1], B - ha[2])) / 9)) : 0
+      const wH = wHair && ha ? wHair * Math.max(0, Math.min(1, (26 - Math.hypot(A - ha[1], B - ha[2])) / 9)) : 0
       if (wH && ha) {
         nL += wH * (hT![0] + (L - ha[0]) * hs - nL)
         nA += wH * (hT![1] + (A - ha[1]) * 0.6 - nA)
         nB += wH * (hT![2] + (B - ha[2]) * 0.6 - nB)
+      }
+      // les sourcils prennent la couleur des cheveux
+      if (wBrow) {
+        nL += wBrow * (hT![0] + (L - 50) * 0.35 - nL)
+        nA += wBrow * (hT![1] - nA)
+        nB += wBrow * (hT![2] - nB)
       }
       if (wEye) {
         nL = eT![0] + (L - ir[0]) * 1.1

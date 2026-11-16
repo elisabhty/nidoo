@@ -83,7 +83,7 @@ export const encodeLook = (l: Look) =>
 export function lookOf(avatar: string | undefined, seed = ''): Look {
   if (avatar?.startsWith('perso:')) {
     // les champs ajoutés plus tard (taille, tétine) valent « adulte, sans » par défaut
-    const out: Look = { ...randomLook(avatar), a: 0, p: 0, v: 0, k: 0, l: 0 }
+    const out: Look = { ...randomLook(avatar), a: 0, p: 0, v: 0, k: 0, l: 0, f: 0 }
     for (const part of avatar.slice(6).split('.')) {
       const k = part[0] as keyof Look
       const v = Number(part.slice(1))
@@ -110,7 +110,7 @@ export function randomLook(seed?: string): Look {
     g: r(5) === 0 ? 1 + r(2) : 0,
     b: r(6) === 0 ? 1 + r(3) : 0,
     m: r(4) === 0 ? 1 + r(3) : 0,
-    f: r(5) === 0 ? 1 : 0,
+    f: 0, // les taches de rousseur se choisissent dans « Maquillage »
     o: r(3) === 0 ? 1 : 0,
     l: 0,
     t: r(TOPS.length - 1),

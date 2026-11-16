@@ -77,7 +77,7 @@ for pid, info in CATA.items():
     figH = np.where(A.any(axis=1))[0].max() - t
     # les vêtements : quelques échantillons sur le torse et les jambes
     clo = []
-    for fy, fx in ((0.52, 0), (0.48, -0.12), (0.48, 0.12), (0.62, 0), (0.75, -0.08), (0.75, 0.08), (0.9, -0.08)):
+    for fy, fx in ((0.52, 0), (0.48, -0.12), (0.48, 0.12), (0.58, 0), (0.56, -0.08), (0.56, 0.08)):
         y, x = int(t + figH * fy), int(cx + cw * fx * 2)
         if A[y, x]: clo.append(np.median(L[y - 3: y + 4, x - 3: x + 4].reshape(-1, 3), axis=0))
     clo = [c for c in clo if np.sqrt((((c - skin) * W8) ** 2).sum()) > 6]
@@ -88,7 +88,7 @@ for pid, info in CATA.items():
     hz = A & ~core & (yy < ey + d * 0.2) & (yy >= t) & (dE > 10)
     for e in (el, er):
         hz &= (xx - e[1]) ** 2 + (yy - e[2]) ** 2 > (e[3] * 2.4) ** 2
-    bald = info['c'] == 'chauve' or hz.sum() < 300
+    bald = info['c'] == 'chauve' or hz.sum() < 300 or pid in ('b1', 'b2')
     hair = None
     if not bald:
         S2 = L[hz].astype(np.float32) * np.float32([0.5, 1.2, 1.4])
@@ -101,15 +101,6 @@ for pid, info in CATA.items():
     hseed = [(int(t + hh * 0.06), int(cx)), (int(t + hh * 0.12), int(cx - cw * 0.25)), (int(t + hh * 0.12), int(cx + cw * 0.25))]
     dHs = dist(hair) if not bald else np.full_like(dE, 999.0)
     near = A & (dE < dHs) & (dE < dC)
-    # le visage : dans une ellipse autour des yeux (tout le crâne s'il est chauve), jusqu'au cou
-    top_face = t if bald else ey - d * 0.75
-    cyf, ryf = (top_face + ey + d * 1.25) / 2, (ey + d * 1.25 - top_face) / 2
-    ell = ((xx - ex) / (d * 1.12)) ** 2 + ((yy - cyf) / ryf) ** 2 <= 1
-    face = ell & near & (dE < 20)
-    fl, fn = ndimage.label(face)
-    fseed = fl[int(ey + d * 0.4), int(ex)]
-    face = (fl == fseed) if fseed else face
-    face = ndimage.binary_closing(face, iterations=2) & ell & A & (dE < 24)
     # mains, pieds nus, jambes : des taches bien de la couleur de la peau, sous la tête
     low = A & near & (dE < 11) & (yy > ey + d * 1.3)
     ll, ln = ndimage.label(low)
@@ -122,16 +113,85 @@ for pid, info in CATA.items():
         if 25 < sz < W * H * 0.01 and ((0.42 < fy < 0.72) or (info['a'] >= 2 and fy >= 0.72)):
             body |= comp
     body = ndimage.binary_closing(body, iterations=1) & A & (dE < 15)
-    # les oreilles : de la peau juste à côté du visage
-    ell2 = ((xx - ex) / (d * 1.5)) ** 2 + ((yy - cyf) / ryf) ** 2 <= 1
-    ears = ell2 & near & (dE < 11) & (yy > ey - d * 0.4)
-    skinmask = face | body | ears
-    core2 = (((xx - ex) / (d * 0.92)) ** 2 + ((yy - (ey + d * 0.3)) / (d * 0.85)) ** 2 <= 1) & (yy > ey - er_ * 1.3)
-    eyes_t = np.zeros_like(A)
+    # ── la tête : la peau et les cheveux séparés par GrabCut (couleurs + contours), à partir
+    # de ce qui est sûr (le bas du visage ; le haut de la tête) et de ce qui est probable (l'ovale du visage)
+    small = info['a'] >= 2
+    chin = ey + d * (1.05 if not small else 1.0)
+    headz = A & (yy < chin + d * 0.25) & (yy >= t)
+    gm = np.full((H, W), cv2.GC_BGD, np.uint8)
+    gm[headz] = cv2.GC_PR_BGD
+    rxo, ryo = d * (1.18 if small else 0.98), d * (1.0 if small else 0.92)
+    oval = ((xx - ex) / rxo) ** 2 + ((yy - (ey + d * 0.3)) / ryo) ** 2 <= 1
+    close = hair is not None and np.sqrt((((hair - skin) * W8) ** 2).sum()) < 22
+    gm[oval & headz] = cv2.GC_PR_FGD
+    if bald:
+        gm[headz & (yy < ey) & (dE < 14)] = cv2.GC_PR_FGD
+    core = ((xx - ex) / (d * 0.72)) ** 2 + ((yy - (ey + d * 0.3)) / (d * 0.5)) ** 2 <= 1
+    if info.get('b'):
+        core = ((xx - ex) / (d * 0.45)) ** 2 + ((yy - (ey + d * 0.18)) / (d * 0.16)) ** 2 <= 1
+    gm[core & headz] = cv2.GC_FGD
+    # le front : ce qui a exactement la couleur de la peau au-dessus des yeux, dans l'ovale, est sûrement de la peau
+    if not close:
+        gm[oval & headz & (yy < ey) & (dE < 8) & (dE < dHs - 4)] = cv2.GC_FGD
+    # le milieu du front, s'il ressemble plus à la peau qu'aux cheveux
+    gm[headz & (np.abs(xx - ex) < d * 0.3) & (yy > ey - d * 0.62) & (yy < ey - d * 0.15) & (dE < dHs) & (dE < 12)] = cv2.GC_FGD
+    if not bald:
+        gm[headz & (yy < t + (ey - t) * 0.33)] = cv2.GC_BGD
+        gm[headz & (np.abs(xx - ex) > d * (1.6 if small else 1.3)) & (yy < ey + d * 0.2)] = cv2.GC_BGD
     for e in (el, er):
-        eyes_t |= (xx - e[1]) ** 2 + (yy - e[2]) ** 2 <= (e[3] * 1.15) ** 2
-    hairish = (dHs < dE) & (dE > 14)
-    skinmask |= core2 & A & (dE < 30) & ~eyes_t & ~hairish & ((yy < ey + d * 0.8) | (dE < 16))
+        gm[((xx - e[1]) ** 2 + (yy - e[2]) ** 2 <= (e[3] * 1.3) ** 2) & headz] = cv2.GC_PR_FGD
+    gm[~headz] = cv2.GC_BGD
+    bgdm = np.zeros((1, 65), np.float64); fgdm = np.zeros((1, 65), np.float64)
+    try:
+        cv2.grabCut(cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR), gm, None, bgdm, fgdm, 6, cv2.GC_INIT_WITH_MASK)
+    except cv2.error:
+        pass
+    face = ((gm == cv2.GC_FGD) | (gm == cv2.GC_PR_FGD)) & headz
+    # cheveux presque de la couleur de la peau : la ligne des cheveux est donnée à la main
+    HAIRLINE = {'f07': 0.52}
+    if pid in HAIRLINE:
+        ovb = ((xx - ex) / (d * 1.02)) ** 2 + ((yy - (ey + d * 0.3)) / (d * 0.95)) ** 2 <= 1
+        face = ovb & headz & (yy > ey - d * HAIRLINE[pid]) & (dE < 22)
+    # un visage est symétrique : ce qui est de la peau d'un côté l'est aussi de l'autre (si la couleur suit)
+    xm = np.rint(2 * ex - xx).astype(int)
+    okm = (xm >= 0) & (xm < W)
+    mir = np.zeros_like(face)
+    mir[okm] = face[yy[okm], xm[okm]]
+    face |= mir & headz & (dE < 16) & (dE <= dHs + 4)
+    fl, fn = ndimage.label(face)
+    fseed = fl[int(ey + d * 0.4), int(ex)]
+    face = (fl == fseed) if fseed else face
+    face = ndimage.binary_fill_holes(face) & ((yy < chin) | (dE < 14))
+    # pas plus loin que l'ovale du visage (un peu élargi), sauf les oreilles bien couleur peau
+    inner = ((xx - ex) / (d * 0.8)) ** 2 + ((yy - (ey + d * 0.3)) / (d * 0.72)) ** 2 <= 1
+    # hors du centre du visage, ce qui ressemble nettement plus aux cheveux qu'à la peau retourne aux cheveux
+    if not bald:
+        face &= inner | ~(dHs < dE - 6)
+    ears = headz & ~face & (dE < 10) & near & (yy > ey - d * 0.25) & (yy < ey + d * 0.6) & (np.abs(xx - ex) > d * 0.8) & (np.abs(xx - ex) < d * 1.5)
+    el_, en_ = ndimage.label(ears)
+    touch = ndimage.binary_dilation(face, iterations=2)
+    for i in range(1, en_ + 1):
+        comp = el_ == i
+        if comp.sum() < W * H * 0.004 and (comp & touch).any():
+            face |= comp
+    # les yeux : seulement la tache sombre de l'œil (le tour de l'œil reste de la peau)
+    eyes_t = ndimage.binary_dilation((lab_ == el[4]) | (lab_ == er[4]), iterations=1)
+    # les montures de lunettes ne sont ni de la peau ni des cheveux
+    rims = np.zeros_like(A)
+    if info.get('l'):
+        for e in (el, er):
+            rims |= ((xx - e[1]) ** 2 + (yy - e[2]) ** 2 <= (e[3] * 2.7) ** 2) & (dE > 26)
+    neck = A & (yy >= chin - d * 0.05) & (yy < chin + d * 0.55) & (np.abs(xx - ex) < d * 0.55) & (dE < 14) & (dE <= dHs) & (dE < dC)
+    if not info.get('b'):
+        nl, nn = ndimage.label(neck)
+        tf = ndimage.binary_dilation(face, iterations=3)
+        for i in range(1, nn + 1):
+            comp = nl == i
+            if (comp & tf).any(): face |= comp
+    if info.get('b'):
+        # la barbe et la moustache vont avec les cheveux
+        face &= ~((yy > ey + d * 0.42) & (dE > 13))
+    skinmask = (face & ~eyes_t & ~rims) | body
     cov_core = (((xx - ex) / (d * 0.8)) ** 2 + ((yy - (ey + d * 0.3)) / (d * 0.7)) ** 2 <= 1) & ~eyes_t & A
     COV = round(float((skinmask & cov_core).sum() / max(1, cov_core.sum())), 2)
     # ── la bouche : plus sombre ou plus rouge que la peau, sous les yeux, au milieu
@@ -151,6 +211,10 @@ for pid, info in CATA.items():
             if sc > bs: bs, bestm = sc, i
         mouth = ml == bestm
         mouth = ndimage.binary_dilation(mouth, iterations=1) & (dE > 9)
+    if mouth.any():
+        ys, xs = np.where(mouth)
+        if abs(xs.mean() - ex) > d * 0.15 or not (ey + d * 0.35 < ys.mean() < ey + d * 0.8) or pid in ('ga5',) or info.get('b'):
+            mouth = np.zeros_like(A)
     if mouth.any():
         ys, xs = np.where(mouth); mxc, myc, mw = xs.mean(), ys.mean(), np.ptp(xs) + 1
     else:
@@ -175,14 +239,17 @@ for pid, info in CATA.items():
     hairmask = np.zeros_like(A)
     if not bald and pid not in ('gf6',):
         dH = dHs
-        chin = ey + d * 1.05
         eyes = np.zeros_like(A)
         for e in (el, er):
-            eyes |= (xx - e[1]) ** 2 + (yy - e[2]) ** 2 <= (e[3] * 2.4) ** 2
-        # au-dessus du menton : tout ce qui n'est ni la peau, ni les yeux (et lunettes), ni la bouche
-        upper = (yy < chin) & A & ~skinmask & ~eyes & (dE > 9) & (dH < 32)
-        upper &= ~((xx - ex) ** 2 / (d * 0.5) ** 2 + (yy - (ey + d * 0.6)) ** 2 / (d * 0.35) ** 2 <= 1)
-        # plus bas : les cheveux longs, s'ils ressemblent plus aux cheveux qu'aux vêtements
+            eyes |= (xx - e[1]) ** 2 + (yy - e[2]) ** 2 <= (e[3] * (2.7 if info.get('l') else 1.4)) ** 2
+        mouthzone = ((xx - ex) / (d * 0.45)) ** 2 + ((yy - (ey + d * 0.58)) / (d * 0.3)) ** 2 <= 1
+        # au-dessus du menton : tout ce que GrabCut n'a pas pris pour la peau (sauf yeux, lunettes, bouche)
+        # au-dessus du menton, tout le reste de la tête : les cheveux (sauf un bijou, un bandeau d'une tout autre couleur)
+        lim = chin + (d * 0.5 if info.get('b') else 0)
+        upper = A & (yy < lim) & (yy >= t) & ~skinmask & ~eyes & ~rims & (~mouthzone | (info.get('b') and True))
+        upper &= dH < 55
+        upper &= (yy < chin) | (dH < dC)
+        # plus bas : les cheveux longs (et la barbe), s'ils ressemblent plus aux cheveux qu'aux vêtements
         lower = (yy >= chin) & (yy < t + hh * 2.0) & A & ~skinmask & (dH < 24) & (dH < dC)
         hc = upper | lower
         hl, hn = ndimage.label(hc)
@@ -190,24 +257,37 @@ for pid, info in CATA.items():
         ks = {i + 1 for i, sz in enumerate(sizes) if sz > 150 and (hl == i + 1)[: int(ey)].any()}
         hairmask = np.isin(hl, list(ks))
         hairmask = ndimage.binary_closing(hairmask, iterations=1) & A & ~skinmask
-        # au-dessus du menton, tout pixel de la tête va à la peau ou aux cheveux : la couleur la plus proche,
-        # avec une préférence pour la peau au centre du visage et pour les cheveux autour
-        r = np.sqrt(((xx - ex) / (d * 1.0)) ** 2 + ((yy - (ey + d * 0.25)) / (d * 0.95)) ** 2)
-        cs = dE + 14 * np.maximum(0, r - 0.92)
-        ch = dH + 14 * np.maximum(0, 0.92 - r)
-        mouthzone = ((xx - ex) / (d * 0.45)) ** 2 + ((yy - (ey + d * 0.58)) / (d * 0.3)) ** 2 <= 1
-        head = A & (yy < chin) & (yy >= t) & ~eyes_t & ~mouthzone & (np.minimum(dE, dH) < 42)
-        hairmask = np.where(head, ch < cs, hairmask) & A
-        skinmask = np.where(head, cs <= ch, skinmask) & A
-        # loin du visage, ce n'est de la peau que si c'est vraiment sa couleur (les oreilles)
-        far = head & (r > 1.2) & (dE > 8)
-        hairmask |= far
-        skinmask &= ~far
-        lab_map = np.where(skinmask, 1, np.where(hairmask, 2, 0)).astype(np.uint8)
-        zone = (yy < chin) & A & ~eyes_t
-        sm = ndimage.generic_filter(lab_map, lambda v: np.bincount(v.astype(int), minlength=3)[1:].argmax() + 1 if (v > 0).sum() > 12 else v[len(v) // 2], size=5)
-        hairmask = np.where(zone, sm == 2, hairmask) & A
-        skinmask = np.where(zone, sm == 1, skinmask) & A
+        # les sourcils : la tache allongée la plus nette au-dessus de chaque œil
+        brows = np.zeros_like(A)
+        for e in (el, er):
+            box = (np.abs(xx - e[1]) < d * 0.26) & (yy > e[2] - d * 0.5) & (yy < e[2] - e[3] * 1.2) & A & ~rims & ~hairmask
+            cand = box & (dE > 13)
+            cand = ndimage.binary_opening(cand, iterations=1)
+            bl2, bn2 = ndimage.label(cand)
+            best_b, bsz = None, 0
+            for i in range(1, bn2 + 1):
+                comp = bl2 == i
+                ys_, xs_ = np.where(comp)
+                wd, ht = np.ptp(xs_) + 1, np.ptp(ys_) + 1
+                if comp.sum() > bsz and wd > ht * 1.4 and wd > d * 0.12 and comp.sum() < d * d * 0.06:
+                    best_b, bsz = comp, comp.sum()
+            if best_b is not None:
+                brows |= ndimage.binary_dilation(best_b, iterations=1) & box
+        skinmask &= ~brows
+        gap = A & (yy >= t) & (yy < chin) & ~skinmask & ~hairmask & ~eyes_t & ~rims & ~mouthzone & ~brows
+        for _ in range(6):
+            gs = gap & ndimage.binary_dilation(skinmask) & (dE <= dH)
+            gh = gap & ndimage.binary_dilation(hairmask) & (dH < dE)
+            if not gs.any() and not gh.any(): break
+            skinmask |= gs; hairmask |= gh; gap &= ~(gs | gh)
+        # une mèche claire prise pour une main : elle touche les cheveux, elle y retourne
+        bl, bn = ndimage.label(body)
+        near_h = ndimage.binary_dilation(hairmask, iterations=3)
+        for i in range(1, bn + 1):
+            comp = bl == i
+            if (comp & near_h).any():
+                skinmask &= ~comp
+                hairmask |= comp
     # ── les iris : l'intérieur sombre des yeux, sans le reflet
     iris = np.zeros_like(A)
     for e in (el, er):
@@ -220,6 +300,8 @@ for pid, info in CATA.items():
     mk[..., 1] = (ndimage.gaussian_filter(hairmask.astype(float), 0.7) * 255).clip(0, 255)
     mk[..., 2][mouth] = 170
     mk[..., 2][iris] = 255
+    if not bald and pid not in ('gf6',):
+        mk[..., 2][brows] = 85
     Image.fromarray(mk).save(f'{OUT}/{pid}-m.webp', lossless=True)
     def stats(mask):
         v = L[mask]
