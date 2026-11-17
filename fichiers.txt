@@ -1,9 +1,6 @@
-public/art/stickers/bonhomme-neige.webp HwjbCGmzLgnX8KqlUPr5/thumbnail.webp VSTVqwpuv2WAo_oX4-zP6EsK1Pg=
-public/art/stickers/boule.webp ZVV8eWTW1PeRsz29DQf7/thumbnail.webp 2UTBwhfFVAO6O9VzLP2QEOkgq5M=
-public/art/stickers/cadeau-noel.webp Ge1h75lf2UjYlf9ILyPR/thumbnail.webp CoaP2ncJVZZ9eh5edjph9f6Q9Bw=
-public/art/stickers/chaussette.webp aJq79PWl6a1gVwW5Bh9M/thumbnail.webp kONtOMVGURPvtbXGDRS7jPv8l-8=
-public/art/stickers/etoile-noel.webp fCS596Fx7jVfRGh00sJ7/thumbnail.webp dunprHVzG8sqR7Wl3mzJfzTMjPk=
-public/art/stickers/pain-epice.webp fBuAKcPd7ukuSj5Ie0tX/thumbnail.webp WNUvGvy6E3gnAUT1cWPe-ZUZRN4=
-public/art/stickers/pomme-pin.webp QxRqGn2pcdb4OZHsVHKC/thumbnail.webp Ch5ZZNyLE5XcpXWBxJtLv35tRGY=
-public/art/stickers/sapin.webp 6H8hb214h73OhQcWlyss/thumbnail.webp JlBFJYOC2JI1l_SDnQqqCSWZ3aU=
-public/art/stickers/sucre-orge.webp VWashStSyjlGv0ULj3ts/thumbnail.webp tt_4go5AJ0JGogNdak0knQT5pTI=
+public/art/jeu-annee.webp eFltzPQm8SilO2uQYQFj/thumbnail.webp 2eT8nO4D4hpKLuF_2UGQRaMDKvo=
+public/art/jeu-bataille.webp enicc89tleOtEtFyHLN6/thumbnail.webp dK9Nd0u8G_EWYMr0FvPWXppr14I=
+public/art/jeu-dessin.webp oud1wvg3N1nvhbc39mlJ/thumbnail.webp JVtPs8FRs5z8lGjDk8SzX6PgZEQ=
+public/art/jeu-mot.webp RH7k13IPLp30e8HcjR7K/thumbnail.webp 9VCGqeClsDx9wq-uu_SJV0E3Pts=
+public/art/jeu-quidenous.webp 5iKZuCbCB9J2sz6Lz47u/thumbnail.webp f_N5K7n5eDzt9sRRSIBpwT_dF0w=
+public/art/jeu-telephone.webp XRE48XjMLE7kWzrm73V6/thumbnail.webp uGfJy2q_wEaOctLiAR6mYWS8bIM=
