@@ -1,7 +1,7 @@
 import { ChevronLeft, Copy, Heart, Share } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import House from '../components/House'
-import { HousePicker, ProfilePicker } from '../components/pickers'
+import { HousePicker, ProfileStep } from '../components/pickers'
 import { Btn } from '../components/ui'
 import { success } from '../lib/haptic'
 import { copy, shareInvite } from '../lib/share'
@@ -122,7 +122,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
   const showBack = (step !== 'accueil' || !!onCancel) && step !== 'invite'
 
   return (
-    <div className="flex h-full flex-col bg-fond" style={{ paddingTop: 'var(--sat)' }}>
+    <div data-feuilles className="relative flex h-full flex-col bg-fond" style={{ paddingTop: 'var(--sat)' }}>
     <div ref={container} className="no-bar flex min-h-0 flex-1 flex-col overflow-y-auto px-5" style={{ paddingBottom: step === 'profil' ? '20px' : 'calc(var(--sab) + 18px)' }}>
       <div className="flex h-[52px] shrink-0 items-center">
         {showBack && (
@@ -251,9 +251,9 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
               </div>
             </div>
           )}
-          <h1 className="outline-none font-rond text-grand">Et toi ?</h1>
-          <p className="mb-4 mt-1 text-sous text-brume">Un prénom suffit pour commencer. Ton personnage pourra évoluer avec toi.</p>
-          <ProfilePicker compact collapsible name={name} setName={setName} avatar={avatar} setAvatar={setAvatar} color={color} setColor={setColor} />
+          <h1 className="outline-none font-rond text-grand">Fais comme chez toi</h1>
+          <p className="mb-4 mt-1 text-sous text-brume">Choisis ton prénom et ton personnage. Tu pourras les modifier plus tard.</p>
+          <ProfileStep name={name} setName={setName} avatar={avatar} setAvatar={setAvatar} color={color} setColor={setColor} />
         </div>
       )}
 
@@ -294,7 +294,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
     )}
     {step === 'profil' && (
       <div className="shrink-0 border-t border-trait bg-fond px-5 pt-3" style={{ paddingBottom: 'calc(var(--sab) + 18px)' }}>
-        <p className="mb-2 text-center text-note text-brume">{name.trim() ? 'Tu pourras modifier ton personnage plus tard.' : 'Ajoute ton prénom pour continuer.'}</p>
+        <p className="mb-2 text-center text-note text-brume">{name.trim() ? 'Tout se modifie plus tard, dans Famille.' : 'Ajoute ton prénom pour continuer.'}</p>
         <Btn onClick={finish} disabled={busy || !name.trim()}>
           {busy ? 'Un instant…' : path === 'creer' ? 'Continuer' : 'Demander à entrer'}
         </Btn>

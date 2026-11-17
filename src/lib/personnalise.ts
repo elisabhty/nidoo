@@ -94,8 +94,8 @@ export const MONTURES: { label: string; hex: string }[] = [
   { label: 'Rose', hex: '#E77BA0' },
 ]
 export const LUNETTES = ['Sans', 'Rondes', 'Carrées', 'Papillon']
-export const NEZ = ['Le sien', 'Bouton', 'Rond', 'Retroussé']
-export const BOUCHES = ['La sienne', 'Grand sourire', 'Petit sourire', 'Rire', 'Bisou']
+export const NEZ = ['D’origine', 'Bouton', 'Rond', 'Retroussé']
+export const BOUCHES = ['D’origine', 'Grand sourire', 'Petit sourire', 'Rire', 'Bisou']
 export const BLUSH = ['Sans', 'Léger', 'Bien rose']
 
 // ───────── couleurs ─────────

@@ -1,5 +1,6 @@
-import { ChevronDown, Dices } from 'lucide-react'
-import { useId, useState } from 'react'
+import { Check, Dices, Palette } from 'lucide-react'
+import { useId, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { COLOR_KEYS, COLORS, HOUSES, shopItem } from '../lib/data'
 import { select, tap } from '../lib/haptic'
 import { ACCESSORIES, AGE_SCALE, encodeLook, lookOf, type Look } from '../lib/look'
@@ -10,21 +11,14 @@ import { VISAGES } from '../lib/visages'
 import type { HouseType } from '../lib/types'
 import { Character } from './Character'
 import House from './House'
-import { Segments } from './ui'
+import { Btn, Segments, Sheet } from './ui'
 
-/** Choisir son personnage : la figurine en feutrine qui nous ressemble le plus, sa taille et ce qu'on porte. */
-export function ProfilePicker({
-  name, setName, avatar, setAvatar, color, setColor, placeholder = 'Ton prénom ou ton surnom', compact = false, owned = [], collapsible = false,
-}: { name: string; setName: (v: string) => void; avatar: string; setAvatar: (v: string) => void; color: string; setColor: (v: string) => void; placeholder?: string; compact?: boolean; owned?: string[]; collapsible?: boolean }) {
-  const [expanded, setExpanded] = useState(false)
-  const customizationId = useId()
-  const nameId = useId()
+/** L'état du personnage en cours de choix, partagé entre l'aperçu et les options (écran et fenêtre). */
+function usePerso(avatar: string, setAvatar: (v: string) => void) {
   const look = lookOf(avatar)
   const mine = persoOf(look)
   const [group, setGroup] = useState<Group>(mine.g)
-  const [tone, setTone] = useState<number | null>(null)
   const [hop, setHop] = useState(0)
-  const [tab, setTab] = useState<'peau' | 'cheveux' | 'visage' | 'lunettes' | 'maquillage'>('peau')
   const [zoom, setZoom] = useState(false)
   const set = (patch: Partial<Look>) => {
     select()
@@ -42,18 +36,75 @@ export function ProfilePicker({
     setZoom(false)
     setHop((n) => n + 1)
   }
-  const vis = VISAGES[mine.id]
+  const random = () => {
+    const pool = PERSOS.filter((p) => p.g === group)
+    pick(pool[Math.floor(Math.random() * pool.length)])
+  }
+  return { look, mine, group, setGroup, hop, setHop, zoom, setZoom, set, tune, pick, random }
+}
+type Perso_ = ReturnType<typeof usePerso>
+
+/** Le portrait : la figurine sur son fond. Un tap la fait sauter, le dé en tire une au hasard. */
+function Portrait({ ed, color, size = 206 }: { ed: Perso_; color: string; size?: number }) {
+  const { look, mine, zoom, hop } = ed
+  const c = COLORS[color] ?? COLORS.lavande
+  return (
+    <div className="relative mx-auto shrink-0" style={{ width: size, height: size }}>
+      <span className="absolute inset-[5%] rounded-full" style={{ background: `radial-gradient(circle at 50% 35%, ${c.bg}, ${c.deep})` }} />
+      <span className="absolute bottom-[6%] left-1/2 h-[6%] w-[40%] -translate-x-1/2 rounded-[50%] bg-[#1d1a2b]/15 blur-[3px]" />
+      <button
+        key={hop}
+        onClick={() => {
+          tap()
+          ed.setHop((n) => n + 1)
+        }}
+        className="absolute inset-x-0 bottom-[7%] mx-auto transition-[width] duration-300"
+        style={{ width: zoom ? '84%' : `${54 * AGE_SCALE[look.a]}%`, animation: hop ? 'rebond 0.7s var(--ressort)' : 'pousse 0.6s var(--ressort) both', transformOrigin: '50% 100%' }}
+        aria-label={`Mon personnage : ${mine.label}`}
+      >
+        {zoom ? <Character look={look} bust className="block h-auto w-full overflow-hidden rounded-full" /> : <Character look={look} className="block h-auto w-full" />}
+      </button>
+      {zoom && (
+        <button onClick={() => (tap(), ed.setZoom(false))} className="presse verre absolute bottom-[10%] left-[-14px] h-10 whitespace-nowrap rounded-full px-3 text-note font-bold text-teinte-fonce">
+          Voir en entier
+        </button>
+      )}
+      <button
+        onClick={ed.random}
+        className="presse verre absolute bottom-[10%] right-[-6px] flex h-11 w-11 items-center justify-center rounded-full text-teinte"
+        aria-label="Personnage au hasard"
+        title="Au hasard"
+      >
+        <Dices size={20} strokeWidth={2.2} />
+      </button>
+    </div>
+  )
+}
+
+/** Tout ce qu'on peut choisir : la figurine (par catégorie et couleur de peau), sa taille, les détails, le fond. */
+function PersoOptions({ ed, color, setColor, owned = [] }: { ed: Perso_; color: string; setColor: (v: string) => void; owned?: string[] }) {
+  const { look, mine, group, set, tune, pick } = ed
   const peaux = peauxDe(mine)
   const peau = peauOf(mine, look)
-  const c = COLORS[color] ?? COLORS.lavande
-  // les plus jeunes d'abord, les grands-parents à la fin, chaque fois du teint le plus clair au plus foncé
+  // une seule rangée de couleurs de peau : elle trie la galerie ET habille la figurine choisie
+  const [tone, setTone] = useState<number | null>(() => (peau ? peaux.find((x) => x.t === peau)?.b ?? null : null))
+  const [tab, setTab] = useState<'cheveux' | 'visage' | 'lunettes' | 'maquillage'>('cheveux')
+  const vis = VISAGES[mine.id]
   // avec un teint choisi : toutes les figurines qui existent dans ce teint, avec leur peau d'origine ou une autre
-  const inTone = (p: Perso): number => {
-    if (tone === null || p.t === tone) return 0
-    const c = peauxDe(p).filter((x) => x.t && x.b === tone)
+  const inToneOf = (p: Perso, tn: number | null): number => {
+    if (tn === null || p.t === tn) return 0
+    const c = peauxDe(p).filter((x) => x.t && x.b === tn)
     if (!c.length) return -1
-    return (tone === TONES.length - 1 ? c.reduce((a, b) => (b.lab[0] < a.lab[0] ? b : a)) : c[0]).t
+    return (tn === TONES.length - 1 ? c.reduce((a, b) => (b.lab[0] < a.lab[0] ? b : a)) : c[0]).t
   }
+  const inTone = (p: Perso) => inToneOf(p, tone)
+  const chooseTone = (tn: number | null) => {
+    select()
+    setTone(tn)
+    const t = inToneOf(mine, tn)
+    if (t >= 0 && t !== peau) set({ q: t })
+  }
+  // les plus jeunes d'abord, les grands-parents à la fin, chaque fois du teint le plus clair au plus foncé
   const list = PERSOS.filter((p) => p.g === group && inTone(p) >= 0).sort((p, q) => Number(!!p.s) - Number(!!q.s) || Number(p.t !== tone) - Number(q.t !== tone) || p.t - q.t)
   const kids = group === 'fille' || group === 'garcon'
   const [all, setAll] = useState(false)
@@ -63,6 +114,7 @@ export function ProfilePicker({
   const shown = all || tone !== null || list.length <= 12 ? list : first
   const titre = (t: string) => <p className="mb-2 mt-5 px-1 text-note font-semibold uppercase tracking-[0.02em] text-brume">{t}</p>
   const accs = ACCESSORIES.map((a, i) => ({ a, i })).filter(({ a, i }) => i && owned.includes(`mode:${a}`))
+  const anneau = (on: boolean) => (on ? '0 0 0 2.5px #FFFFFF, 0 0 0 4.5px #7A5AE0' : 'inset 0 0 0 1px rgba(29,26,43,0.12)')
   /** Des pastilles de couleur ; la première (0) garde la couleur d'origine de la figurine. */
   const nuancier = (labels: string[], hexes: string[], value: number, onPick: (i: number) => void, origin?: string, originLabel?: string) => (
     <div className="flex flex-wrap gap-2.5">
@@ -77,21 +129,9 @@ export function ProfilePicker({
           {originLabel}
         </button>
       )}
-      {hexes.map((hex, i) => {
-        const k = originLabel !== undefined ? i + 1 : i + 1
-        const on = value === k
-        return (
-          <button
-            key={labels[i]}
-            onClick={() => onPick(k)}
-            aria-pressed={on}
-            aria-label={labels[i]}
-            title={labels[i]}
-            className="presse h-9 w-9 rounded-full"
-            style={{ background: hex, boxShadow: on ? '0 0 0 2.5px #FFFFFF, 0 0 0 4.5px #7A5AE0' : 'inset 0 0 0 1px rgba(29,26,43,0.12)' }}
-          />
-        )
-      })}
+      {hexes.map((hex, i) => (
+        <button key={labels[i]} onClick={() => onPick(i + 1)} aria-pressed={value === i + 1} aria-label={labels[i]} title={labels[i]} className="presse h-9 w-9 rounded-full" style={{ background: hex, boxShadow: anneau(value === i + 1) }} />
+      ))}
     </div>
   )
   const puces = (labels: string[], value: number, onPick: (i: number) => void) => (
@@ -111,91 +151,42 @@ export function ProfilePicker({
 
   return (
     <>
-      <div className="relative mx-auto h-[206px] w-[206px]">
-        <span className="absolute inset-[5%] rounded-full" style={{ background: `radial-gradient(circle at 50% 35%, ${c.bg}, ${c.deep})` }} />
-        <span className="absolute bottom-[6%] left-1/2 h-[6%] w-[40%] -translate-x-1/2 rounded-[50%] bg-[#1d1a2b]/15 blur-[3px]" />
+      <Segments value={group} onChange={(g) => (select(), ed.setGroup(g))} options={GROUPS} />
+
+      {/* la couleur de peau : une seule rangée, pour trouver plus vite et pour habiller sa figurine */}
+      <div className="mt-3 flex items-center gap-2 px-1" role="group" aria-label="Couleur de peau">
         <button
-          key={hop}
-          onClick={() => {
-            tap()
-            setHop((n) => n + 1)
-          }}
-          className="absolute inset-x-0 bottom-[7%] mx-auto transition-[width] duration-300"
-          style={{ width: zoom ? '84%' : `${54 * AGE_SCALE[look.a]}%`, animation: hop ? 'rebond 0.7s var(--ressort)' : 'pousse 0.6s var(--ressort) both', transformOrigin: '50% 100%' }}
-          aria-label={`Mon personnage : ${mine.label}`}
-        >
-          {zoom ? <Character look={look} bust className="block h-auto w-full overflow-hidden rounded-full" /> : <Character look={look} className="block h-auto w-full" />}
-        </button>
-        {zoom && (
-          <button onClick={() => (tap(), setZoom(false))} className="presse verre absolute bottom-[12%] left-[-4px] h-11 rounded-full px-3 text-note font-semibold text-teinte-fonce">
-            En pied
-          </button>
-        )}
-        <button
-          onClick={() => {
-            const pool = PERSOS.filter((p) => p.g === group)
-            pick(pool[Math.floor(Math.random() * pool.length)])
-          }}
-          className="presse verre absolute bottom-[12%] right-[-4px] flex h-11 w-11 items-center justify-center rounded-full text-teinte"
-          aria-label="Personnage au hasard"
-          title="Au hasard"
-        >
-          <Dices size={20} strokeWidth={2.2} />
-        </button>
-      </div>
-
-      <label htmlFor={nameId} className="mb-1.5 mt-5 px-1 text-note font-semibold text-brume">{placeholder}</label>
-      <input id={nameId} aria-label={placeholder} autoComplete="given-name" enterKeyHint="done" className="champ !bg-carte text-center font-rond text-titre3" placeholder={placeholder} maxLength={24} value={name} onChange={(e) => setName(e.target.value)} />
-
-      {collapsible && (
-        <button type="button" aria-expanded={expanded} aria-controls={customizationId} onClick={() => setExpanded((value) => !value)} className="presse mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-teinte-doux px-4 text-sous font-semibold text-teinte-fonce">
-          {expanded ? 'Réduire la personnalisation' : 'Personnaliser mon personnage'}
-          <ChevronDown size={18} aria-hidden="true" className={`shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`} />
-        </button>
-      )}
-
-      <div id={customizationId} hidden={collapsible && !expanded}>
-
-      <p className={`${compact ? 'mt-4' : 'mt-5'} px-1 text-center text-sous text-brume`}>Choisis le personnage qui te ressemble le plus.</p>
-      <div className="mt-3">
-        <Segments value={group} onChange={(g) => (select(), setGroup(g))} options={GROUPS} />
-      </div>
-
-      {/* le teint, pour trouver plus vite */}
-      <div className="mt-3 flex items-center gap-2 px-1" role="group" aria-label="Teint">
-        <button
-          onClick={() => (select(), setTone(null))}
+          onClick={() => chooseTone(null)}
           aria-pressed={tone === null}
-          className={`presse h-9 rounded-full px-3.5 text-sous font-semibold transition-colors ${tone === null ? 'bg-teinte text-white' : 'bg-remplissage text-encre'}`}
+          className={`presse h-9 shrink-0 rounded-full px-3.5 text-sous font-semibold transition-colors ${tone === null ? 'bg-teinte text-white' : 'bg-remplissage text-encre'}`}
         >
-          Tous
+          D’origine
         </button>
         {TONES.map((hex, i) => (
-          <button
-            key={hex}
-            onClick={() => (select(), setTone(tone === i ? null : i))}
-            aria-pressed={tone === i}
-            aria-label={`Teint ${i + 1}`}
-            className="presse h-9 w-9 shrink-0 rounded-full"
-            style={{ background: hex, boxShadow: tone === i ? '0 0 0 2.5px #FFFFFF, 0 0 0 4.5px #7A5AE0' : 'inset 0 0 0 1px rgba(29,26,43,0.12)' }}
-          />
+          <button key={hex} onClick={() => chooseTone(tone === i ? null : i)} aria-pressed={tone === i} aria-label={`Peau ${nomPeau(peauxDe(PERSOS.find((p) => p.t === i) ?? mine)[0].lab[0]).toLowerCase()}`} className="presse h-9 w-9 shrink-0 rounded-full" style={{ background: hex, boxShadow: anneau(tone === i) }} />
         ))}
       </div>
+      {tone !== null && inToneOf(mine, tone) < 0 && <p className="mt-2 px-1 text-note text-brume">Ta figurine n’existe pas avec cette peau : choisis-en une dans la galerie.</p>}
 
       <div className="mt-3 grid grid-cols-4 gap-2">
         {shown.map((p) => {
-          const on = p.id === mine.id && !!look.k
+          const on = p.id === mine.id
           const t = tone === null ? undefined : inTone(p)
-          const img = on ? persoImg(p, peauOf(p, look)) : persoImg(p, t ?? 0)
+          const img = on ? persoImg(p, peau) : persoImg(p, t ?? 0)
           return (
             <button
               key={p.id}
               onClick={() => pick(p, t)}
               aria-pressed={on}
               aria-label={p.label}
-              className={`presse relative overflow-hidden rounded-[18px] px-1.5 pb-1 pt-2 transition-shadow ${on ? 'bg-teinte-doux ring-[2.5px] ring-teinte' : 'bg-carte'}`}
+              className={`presse relative overflow-hidden rounded-[18px] px-1.5 pb-1 pt-2 transition-shadow ${on ? 'bg-teinte-doux ring-[2.5px] ring-inset ring-teinte' : 'bg-carte'}`}
             >
               <img src={img} alt="" loading="lazy" draggable={false} className="block aspect-[300/440] w-full select-none" />
+              {on && (
+                <span className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-teinte text-white shadow-carte" aria-hidden="true">
+                  <Check size={14} strokeWidth={3.2} />
+                </span>
+              )}
             </button>
           )
         })}
@@ -221,12 +212,10 @@ export function ProfilePicker({
         </>
       )}
 
-
       {titre('Personnaliser')}
       <div className="no-bar -mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5" role="tablist">
         {(
           [
-            ['peau', 'Peau'],
             ['cheveux', mine.c === 'voile' ? 'Voile' : 'Cheveux'],
             ['visage', 'Visage'],
             ['lunettes', 'Lunettes'],
@@ -237,7 +226,7 @@ export function ProfilePicker({
             key={k}
             role="tab"
             aria-selected={tab === k}
-            onClick={() => (select(), setTab(k), setZoom(true))}
+            onClick={() => (select(), setTab(k), ed.setZoom(true))}
             className={`presse h-10 shrink-0 rounded-full px-4 text-sous font-semibold transition-colors ${tab === k ? 'bg-encre text-white' : 'bg-carte text-encre'}`}
           >
             {label}
@@ -245,49 +234,13 @@ export function ProfilePicker({
         ))}
       </div>
       <div className="groupe mt-3 p-3.5">
-        {tab === 'peau' && (
-          <>
-            <p className="mb-2 text-note font-semibold text-brume">Couleur de peau</p>
-            {peaux.length > 1 ? (
-              <div className="flex flex-wrap gap-2.5">
-                {peaux.map((x) => {
-                  const on = peau === x.t
-                  const label = x.t ? nomPeau(x.lab[0]) : 'La sienne'
-                  return x.t ? (
-                    <button
-                      key={x.t}
-                      onClick={() => tune({ q: x.t })}
-                      aria-pressed={on}
-                      aria-label={label}
-                      title={label}
-                      className="presse h-9 w-9 rounded-full"
-                      style={{ background: labHex(x.lab), boxShadow: on ? '0 0 0 2.5px #FFFFFF, 0 0 0 4.5px #7A5AE0' : 'inset 0 0 0 1px rgba(29,26,43,0.12)' }}
-                    />
-                  ) : (
-                    <button
-                      key={0}
-                      onClick={() => tune({ q: 0 })}
-                      aria-pressed={on}
-                      className={`presse flex h-9 items-center gap-1.5 rounded-full pl-1 pr-3 text-note font-semibold ${on ? 'bg-teinte text-white' : 'bg-remplissage text-encre'}`}
-                    >
-                      <span className="h-7 w-7 rounded-full" style={{ background: labHex(x.lab), boxShadow: 'inset 0 0 0 1px rgba(29,26,43,0.12)' }} />
-                      {label}
-                    </button>
-                  )
-                })}
-              </div>
-            ) : (
-              <p className="text-sous text-brume">Cette figurine n'existe qu'avec cette couleur de peau. Choisis un teint au-dessus de la galerie : toutes les figurines qui existent dans ce teint s'affichent.</p>
-            )}
-          </>
-        )}
         {tab === 'cheveux' &&
           (vis?.ha ? (
             <>
               <p className="mb-2 text-note font-semibold text-brume">{mine.c === 'voile' ? 'Couleur du voile' : 'Couleur des cheveux'}</p>
               {mine.c === 'voile'
-                ? nuancier(VOILES.map((t) => t.label), VOILES.map((t) => labHex(t.lab)), look.x ?? 0, (i) => tune({ x: i }), labHex(vis.ha), 'Le sien')
-                : nuancier(CHEVEUX.map((t) => t.label), CHEVEUX.map((t) => labHex(t.lab)), look.x ?? 0, (i) => tune({ x: i }), labHex(vis.ha), 'Les siens')}
+                ? nuancier(VOILES.map((t) => t.label), VOILES.map((t) => labHex(t.lab)), look.x ?? 0, (i) => tune({ x: i }), labHex(vis.ha), 'D’origine')
+                : nuancier(CHEVEUX.map((t) => t.label), CHEVEUX.map((t) => labHex(t.lab)), look.x ?? 0, (i) => tune({ x: i }), labHex(vis.ha), 'D’origine')}
             </>
           ) : (
             <p className="text-sous text-brume">{mine.c === 'chauve' ? 'Pas de cheveux à colorer sur cette figurine.' : 'La couleur de cette coiffure ne se change pas. Choisis une figurine qui en a une autre.'}</p>
@@ -295,7 +248,7 @@ export function ProfilePicker({
         {tab === 'visage' && (
           <>
             <p className="mb-2 text-note font-semibold text-brume">Couleur des yeux</p>
-            {nuancier(YEUX.map((t) => t.label), YEUX.map((t) => labHex(t.lab)), look.y ?? 0, (i) => tune({ y: i }), '#2B2224', 'Les siens')}
+            {nuancier(YEUX.map((t) => t.label), YEUX.map((t) => labHex(t.lab)), look.y ?? 0, (i) => tune({ y: i }), '#2B2224', 'D’origine')}
             {vis?.bouche ? (
               <>
                 <p className="mb-2 mt-4 text-note font-semibold text-brume">Nez</p>
@@ -374,7 +327,7 @@ export function ProfilePicker({
         </>
       )}
 
-      {titre('Couleur de fond')}
+      {titre('Fond du portrait')}
       <div className="flex flex-wrap gap-2.5 px-1">
         {COLOR_KEYS.map((k) => (
           <button
@@ -390,7 +343,67 @@ export function ProfilePicker({
           />
         ))}
       </div>
+    </>
+  )
+}
+
+type ProfileProps = { name: string; setName: (v: string) => void; avatar: string; setAvatar: (v: string) => void; color: string; setColor: (v: string) => void; placeholder?: string; owned?: string[] }
+
+function NameField({ name, setName, placeholder }: { name: string; setName: (v: string) => void; placeholder: string }) {
+  const id = useId()
+  return (
+    <>
+      <label htmlFor={id} className="mb-1.5 mt-5 block px-1 text-note font-semibold text-brume">{placeholder}</label>
+      <input id={id} autoComplete="given-name" enterKeyHint="done" className="champ !bg-carte text-center font-rond text-titre3" placeholder={placeholder} maxLength={24} value={name} onChange={(e) => setName(e.target.value)} />
+    </>
+  )
+}
+
+/** Choisir son personnage dans une fenêtre déjà ouverte (Famille) : l'aperçu, le prénom, puis tous les choix. */
+export function ProfilePicker({ name, setName, avatar, setAvatar, color, setColor, placeholder = 'Ton prénom ou ton surnom', owned = [] }: ProfileProps) {
+  const ed = usePerso(avatar, setAvatar)
+  return (
+    <>
+      <Portrait ed={ed} color={color} />
+      <NameField name={name} setName={setName} placeholder={placeholder} />
+      <div className="mt-5">
+        <PersoOptions ed={ed} color={color} setColor={setColor} owned={owned} />
       </div>
+    </>
+  )
+}
+
+/** Le premier écran du personnage : l'aperçu, le prénom, et les choix dans une fenêtre à part (l'aperçu y reste visible). */
+export function ProfileStep({ name, setName, avatar, setAvatar, color, setColor, placeholder = 'Ton prénom ou ton surnom', owned = [] }: ProfileProps) {
+  const ed = usePerso(avatar, setAvatar)
+  const [open, setOpen] = useState(false)
+  // la fenêtre s'ouvre par-dessus tout l'écran (data-feuilles), pas dans l'étape qui s'anime
+  const here = useRef<HTMLDivElement>(null)
+  const close = () => {
+    setOpen(false)
+    ed.setZoom(false)
+  }
+  const target = here.current?.closest<HTMLElement>('[data-feuilles]') ?? null
+  return (
+    <>
+      <div ref={here}>
+        <Portrait ed={ed} color={color} />
+      </div>
+      <NameField name={name} setName={setName} placeholder={placeholder} />
+      <Btn kind="teinte" className="mt-3" onClick={() => setOpen(true)}>
+        <Palette size={18} strokeWidth={2.4} /> Changer mon personnage
+      </Btn>
+      {open && target && createPortal(
+        <Sheet title="Ton personnage" tall onClose={close} footer={<Btn onClick={close}>Terminer</Btn>}>
+          <div className="sticky top-0 z-10 -mx-5 bg-fond px-5 pb-3" style={{ boxShadow: '0 10px 12px -12px rgba(29,26,43,0.25)' }}>
+            <Portrait ed={ed} color={color} size={156} />
+          </div>
+          <div className="pt-2">
+            <PersoOptions ed={ed} color={color} setColor={setColor} owned={owned} />
+          </div>
+        </Sheet>,
+        target,
+      )}
     </>
   )
 }
