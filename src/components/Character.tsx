@@ -2,7 +2,7 @@ import { useEffect, useId, useState, type ReactNode } from 'react'
 import { ACCESSORIES, EYES, HAIR_COLORS, HAIRSTYLES, SKINS, TOPS, type Look } from '../lib/look'
 import { COULEURS_MONTURE, FORMES_LUNETTES, LUNETTES_IMG } from '../lib/lunettes'
 import { cachedSrc, labHex, peauOf, persoImg, pixelKey, renderPerso, skinLab } from '../lib/personnalise'
-import { accessoryOf, accPieces, accPlace, accTop, CH, CW, persoOf, type Perso } from '../lib/persos'
+import { accessoryOf, accPieces, accPlace, accTop, CH, CW, headCut, persoOf, type Perso } from '../lib/persos'
 import { VISAGES } from '../lib/visages'
 
 // Un personnage de la famille : une figurine en feutrine qui lui ressemble (public/art/persos),
@@ -186,6 +186,7 @@ export function Character({ look, mood = null, bust = false, extras = false, cla
   const acc = accessoryOf(look)
   const pl = acc ? accPlace(p, acc) : null
   const pieces = acc ? accPieces(p, acc) : null
+  const cut = `linear-gradient(to bottom, #000 ${(headCut(p) - 0.02) * 100}%, transparent ${(headCut(p) + 0.006) * 100}%)`
   const [t, h, x, c, , bx0, by0, bs0] = p.m
   const R = CH / CW
   const hw = h * R
@@ -194,7 +195,6 @@ export function Character({ look, mood = null, bust = false, extras = false, cla
   const figure = (
     <>
       <img src={src} alt="" draggable={false} className="absolute inset-0 h-full w-full select-none" />
-      <FaceExtras p={p} look={look} />
       {pieces?.map((pc, i) => (
         <img
           key={i}
@@ -205,6 +205,17 @@ export function Character({ look, mood = null, bust = false, extras = false, cla
           style={{ left: `${pc.l * 100}%`, top: `${pc.t * 100}%`, width: `${pc.w * 100}%`, height: `${pc.h * 100}%`, transform: pc.flip ? 'scaleX(-1)' : undefined }}
         />
       ))}
+      {acc === 'manteau' && (
+        // la tête et les cheveux repassent devant le col, et s'effacent en douceur sur les épaules
+        <img
+          src={src}
+          alt=""
+          draggable={false}
+          className="absolute inset-0 h-full w-full select-none"
+          style={{ WebkitMaskImage: cut, maskImage: cut }}
+        />
+      )}
+      <FaceExtras p={p} look={look} />
       {blush && (
         <>
           {[-1, 1].map((side) => (

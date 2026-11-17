@@ -209,6 +209,9 @@ export const accessoryOf = (look: Look) => ACCESSORIES[look.v ?? 0] ?? ''
 export type AccPiece = { art: string; l: number; t: number; w: number; h: number; flip: boolean }
 const PIECE_AR: Record<string, number> = { boucle: 164 / 110, manteau: 298 / 300, botte: 255 / 150, basket: 234 / 150 }
 
+/** Pour le manteau : la hauteur (fraction de la toile) où la tête redessinée par-dessus s'efface doucement. */
+export const headCut = (p: Perso) => p.m[0] + p.m[1] * 0.915
+
 export function accPieces(p: Perso, acc: string): AccPiece[] | null {
   const [t, h, x, c] = p.m
   const hw = h * R
@@ -221,8 +224,9 @@ export function accPieces(p: Perso, acc: string): AccPiece[] | null {
   if (!body) return null
   const [pl, wl, pr, wr, yb, bx, bw, hy] = body
   if (acc === 'manteau') {
-    const w = bw * 1.24
-    const top = t + h * 0.88
+    // Le manteau monte jusqu'aux épaules ; la tête (et les cheveux) est redessinée par-dessus (voir headCut).
+    const w = bw * 1.3
+    const top = t + h * 0.78
     return [{ art: 'acc-manteau', l: bx - w / 2, t: top, w, h: hy + (yb - hy) * 0.32 - top, flip: false }]
   }
   if (acc === 'bottes' || acc === 'baskets') {
