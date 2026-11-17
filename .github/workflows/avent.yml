@@ -1,0 +1,26 @@
+name: Avent ElevenLabs (temporaire)
+on:
+  push:
+    branches: [tmp-sons-elevenlabs]
+permissions:
+  contents: write
+jobs:
+  telecharger:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Télécharger le sapin, les décorations et le son depuis ElevenLabs
+        run: |
+          mkdir -p public/art public/sons
+          while read -r chemin source sig; do
+            [ -z "$chemin" ] && continue
+            curl -fsSL -o "$chemin" "https://elevenlabsusercontent.com/database/workspace/bcd9f0312f0b417ca75ab531ee6f24f6/content_generation/content_asset/$source?Expires=1794949200&KeyName=assets-cdn-key-1&Signature=$sig"
+            echo "$chemin $(stat -c %s $chemin) octets"
+          done < fichiers.txt
+      - name: Les garder sur cette branche
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public
+          git commit -m "Calendrier de l'Avent : images et son téléchargés"
+          git push origin HEAD:tmp-sons-elevenlabs
