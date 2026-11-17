@@ -1,4 +1,5 @@
 import type { GameKind, GameState } from './jeux'
+import type { MotLigne, MotMoi, PartieKind, PartieState, Secret } from './parties'
 import type { WeeklyState } from './weekly'
 
 export type HouseType = 'maison' | 'appartement' | 'chalet'
@@ -204,6 +205,21 @@ export type Game = {
   /** Memory : les liens des photos, dans l'ordre de state.paths. */
   photos?: (string | null)[]
 }
+/** Un jeu à plusieurs (players[0] l'a lancé). */
+export type Partie = {
+  id: string
+  family_id: string
+  kind: PartieKind
+  players: string[]
+  turn: string | null
+  status: 'en_cours' | 'fini'
+  winner: string | null
+  state: PartieState
+  created_at: string
+  updated_at: string
+  /** Devine l'année : les photos, lisibles par la famille. */
+  photos?: (string | null)[]
+}
 export type StarEntry = { id: string | number; member_id: string | null; reason: string; amount: number; created_at: string }
 
 export type FamilyState = {
@@ -238,6 +254,10 @@ export type FamilyState = {
   weekly: WeeklyState
   /** Les parties en cours, et celles finies depuis moins d'une semaine. */
   games: Game[]
+  /** Les jeux à plusieurs (bataille navale, Qui de nous ?, dessine et devine, devine l'année, téléphone dessiné). */
+  parties: Partie[]
+  /** Le mot mystère du jour : les couleurs des essais de chacun (jamais les lettres). */
+  mot: MotLigne[]
 }
 
 export type Circle = { family: Family; me: Member }
@@ -327,6 +347,15 @@ export interface Backend {
   playGame(game: Game, move: number): Promise<void>
   /** Abandonner la partie : l'autre gagne. */
   quitGame(gameId: string): Promise<void>
+  /** Lancer un jeu à plusieurs ; setup : les questions de Qui de nous ?, les années de devine l'année. */
+  startPartie(familyId: string, kind: PartieKind, players: string[], setup?: Record<string, unknown>, photos?: Blob[]): Promise<string>
+  /** Jouer : un tir, un vote, un dessin, une réponse… */
+  actPartie(partie: Partie, action: Record<string, unknown>): Promise<Record<string, unknown>>
+  /** Ce que je suis seul à voir dans une partie. */
+  secretPartie(partie: Partie): Promise<Secret>
+  quitPartie(partieId: string): Promise<void>
+  motEssai(familyId: string, mot: string): Promise<{ motif: string; trouve: boolean; solution: string | null }>
+  motMesEssais(familyId: string): Promise<MotMoi>
   /** Mode démo uniquement : installe toutes les décorations, ou revient à la maison de départ. */
   demoDecos?(familyId: string, all: boolean): Promise<void>
 }

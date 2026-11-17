@@ -2,7 +2,8 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { SUPABASE_KEY, SUPABASE_URL } from '../config'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { isMemory } from './jeux'
-import type { Answer, Backend, Game, HouseCare, Pet, Plot, Circle, Drawing, DrawingData, FamEvent, Family, FamilyState, Folder, JoinRequest, LiveEvent, LiveInvite, MyRequest, FolderItem, FolderMember, ListItem, Member, Moment, Reaction, StarEntry, Thought } from './types'
+import { jourParis, type AnneeState, type MotLigne, type MotMoi, type Secret } from './parties'
+import type { Answer, Backend, Game, Partie, HouseCare, Pet, Plot, Circle, Drawing, DrawingData, FamEvent, Family, FamilyState, Folder, JoinRequest, LiveEvent, LiveInvite, MyRequest, FolderItem, FolderMember, ListItem, Member, Moment, Reaction, StarEntry, Thought } from './types'
 import { compressImage, daysAgoKey, todayKey, uid } from './util'
 import { emptyCounts, type WeeklyCounts } from './weekly'
 
@@ -125,7 +126,7 @@ export function createSupabaseBackend(): Backend {
       )
       const since = new Date(Date.now() - 14 * 86400000).toISOString()
       const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString()
-      const [family, members, requests, weekly, moments, folders, folderMembers, folderItems, reactions, thoughts, drawings, events, items, answers, house, stars, cares, pets, plots, stock, owned, games] = await Promise.all([
+      const [family, members, requests, weekly, moments, folders, folderMembers, folderItems, reactions, thoughts, drawings, events, items, answers, house, stars, cares, pets, plots, stock, owned, games, jeux2, motJour] = await Promise.all([
         sb.from('families').select('*').eq('id', fid).single(),
         sb.from('members').select('*').eq('family_id', fid).order('joined_at'),
         // Lisibles seulement par les responsables (RLS) : vide pour les autres.
@@ -149,6 +150,9 @@ export function createSupabaseBackend(): Backend {
         sb.from('family_stock').select('item_key, qty').eq('family_id', fid),
         sb.from('shop_items').select('item_key').eq('family_id', fid),
         sb.from('games').select('*').eq('family_id', fid).or(`status.eq.en_cours,updated_at.gt."${weekAgo}"`).order('updated_at', { ascending: false }).limit(40),
+        // Les jeux à plusieurs et le mot mystère : s'ils manquent (base pas encore à jour), l'appli marche sans.
+        sb.from('parties').select('*').eq('family_id', fid).or(`status.eq.en_cours,updated_at.gt."${weekAgo}"`).order('updated_at', { ascending: false }).limit(40),
+        sb.from('mot_essais').select('member_id, motifs, trouve').eq('family_id', fid).eq('day', jourParis()),
       ])
       const pet = ((check(pets) ?? []) as Pet[])[0] ?? null
       const mem = check(members) as Member[]
@@ -189,11 +193,13 @@ export function createSupabaseBackend(): Backend {
       }
       // Memory : les photos des cartes, lisibles par la famille.
       const parties = ((check(games) ?? []) as Game[])
-      const cartes = [...new Set(parties.flatMap((g) => (isMemory(g.state) ? g.state.paths : [])))]
+      const groupes = (jeux2.data ?? []) as Partie[]
+      const cartes = [...new Set([...parties.flatMap((g) => (isMemory(g.state) ? g.state.paths : [])), ...groupes.flatMap((p) => (p.kind === 'annee' ? (p.state as AnneeState).photos : []))])]
       if (cartes.length) {
         const signed = await sb.storage.from('jeux').createSignedUrls(cartes, 3600)
         const byPath = new Map((signed.data ?? []).map((x) => [x.path, x.signedUrl]))
         for (const g of parties) if (isMemory(g.state)) g.photos = g.state.paths.map((p) => byPath.get(p) ?? null)
+        for (const p of groupes) if (p.kind === 'annee') p.photos = (p.state as AnneeState).photos.map((x) => byPath.get(x) ?? null)
       }
       const state: FamilyState = {
         family: check(family) as Family,
@@ -226,13 +232,15 @@ export function createSupabaseBackend(): Backend {
         starLog: (check(stars) ?? []) as StarEntry[],
         cares: (check(cares) ?? []) as HouseCare[],
         games: parties,
+        parties: groupes,
+        mot: (motJour.data ?? []) as MotLigne[],
       }
       return state
     },
 
     subscribe(fid, onChange) {
       const ch = sb.channel(`famille:${fid}`)
-      for (const table of ['members', 'join_requests', 'weekly_rewards', 'moments', 'folders', 'folder_members', 'folder_items', 'reactions', 'thoughts', 'drawings', 'events', 'list_items', 'daily_answers', 'house_items', 'house_care', 'pets', 'garden_plots', 'family_stock', 'shop_items', 'games']) {
+      for (const table of ['members', 'join_requests', 'weekly_rewards', 'moments', 'folders', 'folder_members', 'folder_items', 'reactions', 'thoughts', 'drawings', 'events', 'list_items', 'daily_answers', 'house_items', 'house_care', 'pets', 'garden_plots', 'family_stock', 'shop_items', 'games', 'parties', 'mot_essais']) {
         ch.on('postgres_changes', { event: '*', schema: 'public', table, filter: `family_id=eq.${fid}` }, onChange)
       }
       ch.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'families', filter: `id=eq.${fid}` }, onChange)
@@ -264,6 +272,36 @@ export function createSupabaseBackend(): Backend {
     },
     async quitGame(id) {
       check(await sb.rpc('quit_game', { p_game: id }))
+    },
+    async startPartie(fid, kind, players, setup = {}, photos) {
+      const paths: string[] = []
+      try {
+        for (const p of photos ?? []) {
+          const path = `${fid}/${uid()}.jpg`
+          check(await sb.storage.from('jeux').upload(path, await compressImage(p, 900, 0.82), { contentType: 'image/jpeg' }))
+          paths.push(path)
+        }
+        const config = kind === 'annee' ? { ...setup, photos: paths } : setup
+        return check(await sb.rpc('start_partie', { p_family: fid, p_kind: kind, p_players: players, p_setup: config })) as string
+      } catch (e) {
+        if (paths.length) await sb.storage.from('jeux').remove(paths)
+        throw e
+      }
+    },
+    async actPartie(p, action) {
+      return (check(await sb.rpc('act_partie', { p_partie: p.id, p_action: action })) ?? {}) as Record<string, unknown>
+    },
+    async secretPartie(p) {
+      return (check(await sb.rpc('secret_partie', { p_partie: p.id })) ?? {}) as Secret
+    },
+    async quitPartie(id) {
+      check(await sb.rpc('quit_partie', { p_partie: id }))
+    },
+    async motEssai(fid, mot) {
+      return check(await sb.rpc('mot_essai', { p_family: fid, p_mot: mot })) as { motif: string; trouve: boolean; solution: string | null }
+    },
+    async motMesEssais(fid) {
+      return check(await sb.rpc('mot_mes_essais', { p_family: fid })) as MotMoi
     },
     // ───── Dessiner à deux : canaux privés de Supabase Realtime (règles dans 0014_dessin_a_deux.sql) ─────
     async inviteLive(fid, from, to) {

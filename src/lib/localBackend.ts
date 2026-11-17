@@ -2,6 +2,8 @@ import { ANIMALS, CARE, DECOS, FOOD, GONE_AFTER, PET_COST, PLAN_LIMITS, plantOf,
 import { demoDrawing, type DemoArt } from './drawing'
 import { DEMO_LOOKS } from './look'
 import { applyMove, botMemory, botMorpion, botPuissance4, isMemory, MEMORY_MAX, MEMORY_MIN, newState, shuffledDeck, type Side } from './jeux'
+import { partiesDemo, type Cache, type MotDemo } from './partiesDemo'
+import type { AnneeState } from './parties'
 import type { Backend, Drawing, Game, Family, FamilyState, Folder, FolderItem, JoinRequest, LiveEvent, Member, Moment, MyRequest, Sticker, ThoughtKind } from './types'
 import { blobToDataUrl, compressImage, daysAgoKey, todayKey, uid } from './util'
 import { challenge, nextReward, WEEKLY, weekIndex, weekKey, weekStart, type WeeklyCounts, type WeeklyKey } from './weekly'
@@ -9,7 +11,7 @@ import { challenge, nextReward, WEEKLY, weekIndex, weekKey, weekStart, type Week
 // Mode démo : toute la maison vit sur l'appareil, avec trois proches fictifs
 // qui répondent aux attentions. Même contrat que le backend Supabase.
 
-type Raw = Omit<FamilyState, 'me' | 'weekly' | 'houseSince'> & { houseSince?: Record<string, string> } & { dossiersDemo?: boolean; enfantsDemo?: boolean; weeklyClaims?: Record<string, string> }
+type Raw = Omit<FamilyState, 'me' | 'weekly' | 'houseSince' | 'mot'> & { houseSince?: Record<string, string> } & { caches?: Record<string, Cache>; motDemo?: MotDemo } & { dossiersDemo?: boolean; enfantsDemo?: boolean; weeklyClaims?: Record<string, string> }
   & { jeuxDemo?: boolean; decks?: Record<string, { deck: number[]; pending: number | null }> }
 type Pending = MyRequest & { profile: { displayName: string; avatar: string; color: string } }
 type Db = { userId: string; families: Record<string, Raw>; pending?: Pending[] }
@@ -153,6 +155,7 @@ function migrate(f: Raw, userId: string) {
   f.requests ??= [demoRequest(f.family.id)]
   f.games ??= []
   f.decks ??= {}
+  f.parties ??= []
   if (!f.jeuxDemo) {
     // Léa a lancé un morpion et joué au centre : à toi de répondre.
     f.jeuxDemo = true
@@ -298,6 +301,7 @@ export function createLocalBackend(): Backend {
     f.starLog.unshift({ id: uid(), member_id: memberId, reason, amount, created_at: new Date().toISOString() })
     f.family.stars += amount
   }
+  const pd = partiesDemo({ award, save, myId })
 
   /** joined : on arrive dans une famille existante (Papa en est le responsable), sinon on la crée. */
   function seed(name: string, houseType: Family['house_type'], me: { displayName: string; avatar: string; color: string }, joined = false, fid = uid()): string {
@@ -318,6 +322,7 @@ export function createLocalBackend(): Backend {
       members: [moi, mamie, papa, lea, noe, lou],
       enfantsDemo: true,
       games: [],
+      parties: [],
       requests: joined ? [] : [demoRequest(fid)],
       moments: [
         { id: uid(), family_id: fid, member_id: lea.id, image_path: null, body: 'Devinez qui rentre ce week-end avec un gâteau ?', challenge: null, created_at: iso(55) },
@@ -604,6 +609,7 @@ export function createLocalBackend(): Backend {
       checkGarden(f)
       demoCare(f, me.id)
       for (const g of f.games) botTurn(f, g)
+      pd.bots(f)
       const mine = new Set(f.folderMembers.filter((x) => x.member_id === me.id).map((x) => x.folder_id))
       return structuredClone({
         ...f,
@@ -625,6 +631,12 @@ export function createLocalBackend(): Backend {
         games: f.games
           .filter((g) => g.status === 'en_cours' || Date.now() - new Date(g.updated_at).getTime() < 7 * 86400000)
           .map((g) => ({ ...g, photos: isMemory(g.state) ? g.state.paths : undefined })),
+        parties: f.parties
+          .filter((p) => p.status === 'en_cours' || Date.now() - new Date(p.updated_at).getTime() < 7 * 86400000)
+          .map((p) => ({ ...p, photos: p.kind === 'annee' ? (p.state as AnneeState).photos : undefined })),
+        caches: undefined,
+        motDemo: undefined,
+        mot: pd.motLignes(f),
       })
     },
     subscribe(_fid, onChange) {
@@ -1036,6 +1048,44 @@ export function createLocalBackend(): Backend {
       play(f, g, myId(f), move)
       save()
       botTurn(f, g)
+    },
+    async startPartie(fid, kind, players, setup = {}, photos) {
+      const f = fam(fid)
+      const paths = await Promise.all((photos ?? []).map(async (b) => blobToDataUrl(await compressImage(b, 600, 0.75))))
+      const id = pd.start(f, kind, players, setup, paths)
+      save()
+      pd.bots(f)
+      return id
+    },
+    async actPartie(partie, action) {
+      const f = fam(partie.family_id)
+      const p = f.parties.find((x) => x.id === partie.id)
+      if (!p) throw new Error('PARTIE_INCONNUE')
+      const r = pd.act(f, p, myId(f), action)
+      save()
+      pd.bots(f)
+      return r
+    },
+    async secretPartie(partie) {
+      const f = fam(partie.family_id)
+      const p = f.parties.find((x) => x.id === partie.id)
+      return p ? pd.secret(f, p, myId(f)) : {}
+    },
+    async quitPartie(id) {
+      for (const f of Object.values(db.families)) {
+        if (!f.parties?.some((p) => p.id === id)) continue
+        pd.quit(f, id)
+        save()
+      }
+    },
+    async motEssai(fid, mot) {
+      const f = fam(fid)
+      const r = pd.motEssai(f, mot)
+      save()
+      return r
+    },
+    async motMesEssais(fid) {
+      return pd.motMesEssais(fam(fid))
     },
     async quitGame(id) {
       for (const f of Object.values(db.families)) {

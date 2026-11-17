@@ -152,6 +152,12 @@ const ERRORS: Record<string, string> = {
   MEMORY_TROP_DE_PHOTOS: 'Huit photos au plus pour un memory.',
   MEMORY_PHOTOS: 'Choisis au moins quatre photos pour le memory.',
   PHOTO_INCONNUE: 'Une des photos n’a pas pu être envoyée. Réessaie.',
+  DEJA_TIRE: 'Tu as déjà tiré sur cette case.',
+  JOUEURS: 'Ce jeu ne se joue pas avec ce nombre de joueurs.',
+  ANNEE_INVALIDE: 'Choisis une année entre 1850 et aujourd’hui pour chaque photo.',
+  PERSONNE_N_A_REPONDU: 'Personne n’a encore répondu.',
+  MOT_5_LETTRES: 'Il faut un mot de 5 lettres.',
+  MOT_FINI: 'Tu as fini le mot du jour : rendez-vous demain !',
 }
 /** Le jour d'il y a n jours, au format AAAA-MM-JJ. */
 export const daysAgoKey = (n: number) => todayKey(new Date(Date.now() - n * 86400000))

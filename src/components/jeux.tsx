@@ -4,7 +4,10 @@ import { select, success, tap } from '../lib/haptic'
 import { COLS, dropCell, GAMES, isMemory, MEMORY_MAX, MEMORY_MIN, ROWS, type GameKind, type GridState, type MemoryState } from '../lib/jeux'
 import { jouer } from '../lib/sons'
 import { useHome } from '../lib/store'
-import type { FamilyState, Game, Member } from '../lib/types'
+import type { FamilyState, Game, Member, Partie } from '../lib/types'
+import { aMoi, PARTIES, type PartieKind } from '../lib/parties'
+import { MotCarte, MotPage } from './motmystere'
+import { NewPartie, PartieView, statutPartie } from './parties'
 import { ago, errorText } from '../lib/util'
 import { Avatar, Btn, confirmer, Page, Sheet } from './ui'
 
@@ -16,7 +19,10 @@ const P2 = '#FFC93C' // soleil : l'autre
 const color = (side: number) => (side === 1 ? P1 : P2)
 
 /** Les parties où c'est à moi de jouer. */
-export const myTurns = (state: FamilyState) => state.games.filter((g) => g.status === 'en_cours' && g.turn === state.me.id)
+export const myTurns = (state: FamilyState): (Game | Partie)[] => [
+  ...state.games.filter((g) => g.status === 'en_cours' && g.turn === state.me.id),
+  ...state.parties.filter((p) => aMoi(p, state.me.id)),
+]
 
 const nameOf = (members: Member[], id: string | null, me: string) => (id === me ? 'Toi' : (members.find((m) => m.id === id)?.display_name ?? 'Un proche'))
 
@@ -38,81 +44,109 @@ function statusLine(g: Game, members: Member[], me: string) {
 
 // ───────── La page des jeux ─────────
 
+type Item = { t: 'g'; g: Game } | { t: 'p'; p: Partie }
+const A_DEUX: (GameKind | PartieKind)[] = ['puissance4', 'morpion', 'memory', 'bataille', 'dessin']
+const EN_FAMILLE: PartieKind[] = ['quidenous', 'annee', 'telephone']
+const meta = (k: GameKind | PartieKind) => (k in GAMES ? GAMES[k as GameKind] : PARTIES[k as PartieKind])
+
 export function JeuxPage({ onClose, start }: { onClose: () => void; start?: string }) {
   const { state } = useHome()
   const { members, me } = state
   const [open, setOpen] = useState<string | null>(start ?? null)
   const [nouveau, setNouveau] = useState<{ k: GameKind; against?: string } | null>(null)
-  const mine = state.games.filter((g) => [g.p1, g.p2].includes(me.id))
-  const aMoi = mine.filter((g) => g.status === 'en_cours' && g.turn === me.id)
-  const attente = mine.filter((g) => g.status === 'en_cours' && g.turn !== me.id)
-  const famille = state.games.filter((g) => g.status === 'en_cours' && ![g.p1, g.p2].includes(me.id))
-  const finies = mine.filter((g) => g.status === 'fini').slice(0, 8)
+  const [nouvelle, setNouvelle] = useState<{ k: PartieKind; avec?: string[] } | null>(null)
+  const [mot, setMot] = useState(start === 'mot')
+  const items: Item[] = [...state.games.map((g) => ({ t: 'g' as const, g })), ...state.parties.map((p) => ({ t: 'p' as const, p }))].sort((a, b) =>
+    (b.t === 'g' ? b.g.updated_at : b.p.updated_at).localeCompare(a.t === 'g' ? a.g.updated_at : a.p.updated_at),
+  )
+  const joue = (x: Item) => (x.t === 'g' ? [x.g.p1, x.g.p2].includes(me.id) : x.p.players.includes(me.id))
+  const enCours = (x: Item) => (x.t === 'g' ? x.g.status : x.p.status) === 'en_cours'
+  const aMoiItem = (x: Item) => (x.t === 'g' ? x.g.turn === me.id : aMoi(x.p, me.id))
+  const mine = items.filter(joue)
+  const aJouer = mine.filter((x) => enCours(x) && aMoiItem(x))
+  const attente = mine.filter((x) => enCours(x) && !aMoiItem(x))
+  const famille = items.filter((x) => enCours(x) && !joue(x))
+  const finies = mine.filter((x) => !enCours(x)).slice(0, 8)
   const game = open ? state.games.find((g) => g.id === open) : null
+  const partie = open ? state.parties.find((p) => p.id === open) : null
 
-  const row = (g: Game, i: number, list: Game[]) => {
-    const players = [g.p1, g.p2].includes(me.id) ? [members.find((m) => m.id === (g.p1 === me.id ? g.p2 : g.p1))] : [members.find((m) => m.id === g.p1), members.find((m) => m.id === g.p2)]
-    const mineTurn = g.status === 'en_cours' && g.turn === me.id
+  const row = (x: Item, i: number, list: Item[]) => {
+    const id = x.t === 'g' ? x.g.id : x.p.id
+    const kind = x.t === 'g' ? x.g.kind : x.p.kind
+    const joueurs = x.t === 'g' ? [x.g.p1, x.g.p2] : x.p.players
+    const autres = joue(x) ? joueurs.filter((y) => y !== me.id) : joueurs
+    const mineTurn = enCours(x) && aMoiItem(x)
     return (
       <button
-        key={g.id}
+        key={id}
         onClick={() => {
           tap()
-          setOpen(g.id)
+          setOpen(id)
         }}
         className="presse-ligne flex w-full items-center gap-3 pl-3.5 text-left"
       >
-        <span className="flex -space-x-3">{players.map((m, k) => (m ? <Avatar key={k} m={m} size={40} /> : null))}</span>
+        <span className="flex -space-x-3">
+          {autres.slice(0, 3).map((y) => {
+            const m = members.find((z) => z.id === y)
+            return m ? <Avatar key={y} m={m} size={40} /> : null
+          })}
+        </span>
         <span className={`flex min-w-0 flex-1 items-center gap-2 py-2.5 pr-4 ${i < list.length - 1 ? 'border-b border-trait' : ''}`}>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sous font-semibold">
-              {GAMES[g.kind].name}
-              {[g.p1, g.p2].includes(me.id) ? ` avec ${nameOf(members, g.p1 === me.id ? g.p2 : g.p1, me.id)}` : ` · ${nameOf(members, g.p1, me.id)} et ${nameOf(members, g.p2, me.id)}`}
+              {meta(kind).name}
+              {joue(x) ? ` avec ${autres.map((y) => nameOf(members, y, me.id)).join(', ')}` : ` · ${joueurs.map((y) => nameOf(members, y, me.id)).join(', ')}`}
             </span>
             <span className={`block truncate text-note ${mineTurn ? 'font-semibold text-teinte' : 'text-brume'}`}>
-              {statusLine(g, members, me.id)} · {ago(g.updated_at)}
+              {x.t === 'g' ? statusLine(x.g, members, me.id) : statutPartie(x.p, members, me.id)} · {ago(x.t === 'g' ? x.g.updated_at : x.p.updated_at)}
             </span>
           </span>
-          <img src={`./art/${GAMES[g.kind].art}.webp`} alt="" className="h-10 w-10 shrink-0 object-contain" />
+          <img src={`./art/${meta(kind).art}.webp`} alt="" className="h-10 w-10 shrink-0 object-contain" />
         </span>
       </button>
     )
   }
-  const group = (title: string, list: Game[]) =>
+  const group = (title: string, list: Item[]) =>
     list.length > 0 && (
       <>
         <p className="entete mt-6">{title}</p>
         <div className="groupe mx-4 shadow-carte">{list.map(row)}</div>
       </>
     )
+  const tuile = (k: GameKind | PartieKind) => (
+    <button
+      key={k}
+      onClick={() => {
+        tap()
+        if (k in GAMES) setNouveau({ k: k as GameKind })
+        else setNouvelle({ k: k as PartieKind })
+      }}
+      className="presse groupe flex flex-col items-center px-1.5 pb-3 pt-3 text-center shadow-carte"
+    >
+      <img src={`./art/${meta(k).art}.webp`} alt="" className="h-[64px] w-[64px] object-contain" />
+      <span className="mt-1.5 w-full truncate text-legende font-semibold">{meta(k).name}</span>
+      <span className="w-full truncate text-mini text-brume">{meta(k).hint}</span>
+    </button>
+  )
 
   return (
     <>
       <Page title="Jouer ensemble" onClose={onClose}>
-        <p className="-mt-1 px-5 text-sous text-brume">Chacun joue quand il veut : la partie vous attend. Et si vous êtes là tous les deux, ça se joue en direct.</p>
-        <div className="mx-4 mt-5 grid grid-cols-3 gap-2.5">
-          {(Object.keys(GAMES) as GameKind[]).map((k) => (
-            <button
-              key={k}
-              onClick={() => {
-                tap()
-                setNouveau({ k })
-              }}
-              className="presse groupe flex flex-col items-center px-1.5 pb-3 pt-3 text-center shadow-carte"
-            >
-              <img src={`./art/${GAMES[k].art}.webp`} alt="" className="h-[64px] w-[64px] object-contain" />
-              <span className="mt-1.5 w-full truncate text-legende font-semibold">{GAMES[k].name}</span>
-              <span className="w-full truncate text-mini text-brume">{GAMES[k].hint}</span>
-            </button>
-          ))}
-        </div>
-        {group('À toi de jouer', aMoi)}
+        <p className="-mt-1 px-5 text-sous text-brume">Chacun joue quand il veut : la partie vous attend. Et si vous êtes là en même temps, ça se joue en direct.</p>
+        <MotCarte onOpen={() => setMot(true)} />
+        {group('À toi de jouer', aJouer)}
+        <p className="entete mt-6">À deux</p>
+        <div className="mx-4 grid grid-cols-3 gap-2.5">{A_DEUX.map(tuile)}</div>
+        <p className="entete mt-6">En famille</p>
+        <div className="mx-4 grid grid-cols-3 gap-2.5">{EN_FAMILLE.map(tuile)}</div>
         {group('En attente', attente)}
         {group('Dans la famille', famille)}
         {group('Terminées', finies)}
-        {!mine.length && !famille.length && <p className="mx-8 mt-8 text-center text-note text-brume">Choisis un jeu, puis le proche contre qui jouer. Une partie gagnée rapporte 2 étoiles à la maison.</p>}
+        {!mine.length && !famille.length && <p className="mx-8 mb-4 mt-8 text-center text-note text-brume">Choisis un jeu, puis avec qui jouer. Une partie gagnée rapporte des étoiles à la maison.</p>}
       </Page>
       {game && <GameView game={game} onClose={() => setOpen(null)} onRematch={(k, against) => setNouveau({ k, against })} onOpen={setOpen} />}
+      {partie && <PartieView partie={partie} onClose={() => setOpen(null)} onOpen={setOpen} onNouvelle={(k, avec) => setNouvelle({ k, avec })} />}
+      {mot && <MotPage onClose={() => setMot(false)} />}
       {nouveau && (
         <NewGame
           kind={nouveau.k}
@@ -120,6 +154,17 @@ export function JeuxPage({ onClose, start }: { onClose: () => void; start?: stri
           onClose={() => setNouveau(null)}
           onStarted={(id) => {
             setNouveau(null)
+            setOpen(id)
+          }}
+        />
+      )}
+      {nouvelle && (
+        <NewPartie
+          kind={nouvelle.k}
+          avec={nouvelle.avec}
+          onClose={() => setNouvelle(null)}
+          onStarted={(id) => {
+            setNouvelle(null)
             setOpen(id)
           }}
         />
@@ -481,7 +526,7 @@ function Memory({ st, photos, canPlay, onPlay, members }: { st: MemoryState; pho
 export function JeuxCard({ onOpen }: { onOpen: () => void }) {
   const { state } = useHome()
   const turns = myTurns(state)
-  const live = state.games.filter((g) => g.status === 'en_cours' && [g.p1, g.p2].includes(state.me.id)).length
+  const live = state.games.filter((g) => g.status === 'en_cours' && [g.p1, g.p2].includes(state.me.id)).length + state.parties.filter((p) => p.status === 'en_cours' && p.players.includes(state.me.id)).length
   return (
     <button
       onClick={() => {
@@ -498,7 +543,7 @@ export function JeuxCard({ onOpen }: { onOpen: () => void }) {
       <span className="min-w-0 flex-1">
         <span className="block font-rond text-titre3">Jouer ensemble</span>
         <span className={`block text-note ${turns.length ? 'font-semibold text-teinte' : 'text-brume'}`}>
-          {turns.length ? `${turns.length} partie${turns.length > 1 ? 's' : ''} t’attend${turns.length > 1 ? 'ent' : ''}` : live ? `${live} partie${live > 1 ? 's' : ''} en cours` : 'Puissance 4, morpion, memory photos'}
+          {turns.length ? `${turns.length} partie${turns.length > 1 ? 's' : ''} t’attend${turns.length > 1 ? 'ent' : ''}` : live ? `${live} partie${live > 1 ? 's' : ''} en cours` : 'Mot mystère, bataille navale, Qui de nous ?…'}
         </span>
       </span>
       {turns.length > 0 && <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-rouge px-1.5 text-mini font-bold text-white">{turns.length}</span>}

@@ -110,6 +110,10 @@ export const STAR_REASONS: Record<string, string> = {
   caresse: 'a caressé un animal',
   jeu: 'a joué avec le compagnon',
   partie: 'a gagné une partie',
+  accord: 'était d’accord avec toute la famille',
+  trouve: 'a deviné un dessin',
+  mot: 'a trouvé le mot mystère',
+  album: 'a fini un téléphone dessiné',
   ...Object.fromEntries(['carotte', 'salade', 'tournesol', 'tomate', 'fraise', 'citrouille'].map((k) => [`recolte:${k}`, 'a fait une récolte au potager'])),
   ...Object.fromEntries(Object.entries(CARE).map(([k, c]) => [`soin:${k}`, c.done])),
 }
