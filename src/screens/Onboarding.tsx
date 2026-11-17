@@ -18,7 +18,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
   const urlCode = new URLSearchParams(location.search).get('code')?.toUpperCase() ?? ''
   const [step, setStep] = useState<Step>(urlCode && !onCancel ? 'code' : 'accueil')
   const [path, setPath] = useState<'creer' | 'rejoindre'>(urlCode ? 'rejoindre' : 'creer')
-  const [family, setFamily] = useState('')
+  const [family, setFamily] = useState<string>(T.create.default_name)
   const [houseType, setHouseType] = useState<HouseType>('maison')
   const [code, setCode] = useState(urlCode)
   const [preview, setPreview] = useState<{ name: string; house_type: HouseType; member_count: number } | null>(null)
@@ -190,7 +190,9 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
           <p id="nom-maison-aide" role={nameError || nameTooLong ? 'alert' : undefined} className={`mt-1.5 min-h-[20px] px-1 text-note ${nameError || nameTooLong ? 'text-rouge' : 'text-brume'}`}>
             {nameError || (nameTooLong ? T.create.name_too_long : family.length > NAME_MAX - 10 ? `${family.trim().length}/${NAME_MAX}` : '')}
           </p>
+          <p className="mb-0 mt-3 px-1 text-note font-semibold text-brume">{T.create.decor}</p>
           <HousePicker value={houseType} onChange={setHouseType} />
+          <p className="mt-3 text-center text-note text-brume">{T.create.decor_later}</p>
           <div className="flex-1" />
           <Btn className="mt-6" type="submit" disabled={busy}>
             {busy ? T.create.loading : T.create.submit}
@@ -262,16 +264,19 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
           <div className="mx-auto w-full overflow-hidden rounded-[28px] shadow-carte">
             <House type={houseType} items={[]} />
           </div>
-          <h1 className="outline-none mt-6 font-rond text-titre1">La maison est prête</h1>
-          <p className="mx-auto mt-1.5 max-w-[300px] text-sous text-brume">Envoie ce code à tes proches. Chaque personne qui le tape t’envoie une demande : c’est toi qui acceptes. Il reste valable 7 jours. Tu peux aussi découvrir ta maison et les inviter plus tard depuis Famille.</p>
+          <h1 className="outline-none mx-auto mt-6 max-w-[320px] font-rond text-titre1 [text-wrap:balance]">
+            {T.invite.title.split(/(chez-vous)/).map((x, i) => (x === 'chez-vous' ? <span key={i} className="whitespace-nowrap">{x}</span> : x))}
+          </h1>
+          <p className="mx-auto mt-1.5 max-w-[300px] text-sous text-brume [text-wrap:balance]">{T.invite.description}</p>
           <button
             onClick={async () => (await copy(created.code)) && toast('Code copié')}
             className="presse groupe mx-auto mt-5 flex h-[64px] items-center gap-3 px-6"
             aria-label={`Copier le code ${created.code}`}
           >
-            <span className="font-rond text-[30px] font-semibold tracking-[0.22em]">{created.code}</span>
+            <span className="font-rond text-[30px] font-extrabold tracking-[0.22em]">{created.code}</span>
             <Copy size={18} className="text-teinte" />
           </button>
+          <p className="mt-2 text-note text-brume">{T.invite.code_hint}</p>
           <div className="flex-1" />
           <Btn
             className="mt-6"
@@ -280,9 +285,10 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
               if (r === 'copie') toast('Invitation copiée')
             }}
           >
-            <Share size={18} strokeWidth={2.4} /> Inviter mes proches
+            <Share size={18} strokeWidth={2.4} /> {T.invite.share}
           </Btn>
-          <Btn kind="teinte" className="mt-2.5" onClick={() => void open(created.id).then(() => onCancel?.())}>Entrer dans la maison</Btn>
+          <Btn kind="teinte" className="mt-2.5" onClick={() => void open(created.id).then(() => onCancel?.())}>{T.invite.enter}</Btn>
+          <p className="mt-3 text-note text-brume">{T.invite.later}</p>
         </div>
       )}
     </div>

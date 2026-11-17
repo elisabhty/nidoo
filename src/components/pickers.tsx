@@ -410,7 +410,7 @@ export function ProfileStep({ name, setName, avatar, setAvatar, color, setColor,
 
 export function HousePicker({ value, onChange }: { value: HouseType; onChange: (v: HouseType) => void }) {
   return (
-    <div className="mt-4 grid grid-cols-3 gap-2.5">
+    <div className="mt-2 grid grid-cols-3 gap-2.5">
       {HOUSES.map((h) => (
         <button
           type="button"
@@ -420,9 +420,14 @@ export function HousePicker({ value, onChange }: { value: HouseType; onChange: (
             onChange(h.key)
           }}
           aria-pressed={value === h.key}
-          className={`presse overflow-hidden rounded-[20px] bg-carte pb-2.5 ${value === h.key ? 'ring-2 ring-teinte' : ''}`}
+          className={`presse relative overflow-hidden rounded-[20px] bg-carte pb-2.5 ${value === h.key ? 'ring-[2.5px] ring-inset ring-teinte' : ''}`}
         >
           <House type={h.key} items={[]} phase="jour" className="!aspect-[1/1]" bare />
+          {value === h.key && (
+            <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-teinte text-white shadow-carte" aria-hidden="true">
+              <Check size={14} strokeWidth={3.2} />
+            </span>
+          )}
           <span className={`mt-2 block text-sous ${value === h.key ? 'font-semibold text-teinte-fonce' : 'font-medium'}`}>{h.label}</span>
           <span className="block px-1 text-note text-[#625A75]">{h.hint}</span>
         </button>
