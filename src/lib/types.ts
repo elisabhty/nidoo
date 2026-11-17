@@ -1,3 +1,4 @@
+import type { GameKind, GameState } from './jeux'
 import type { WeeklyState } from './weekly'
 
 export type HouseType = 'maison' | 'appartement' | 'chalet'
@@ -185,6 +186,24 @@ export type HouseCare = { item_key: string; day: string; member_id: string | nul
 export type Pet = { species: string; name: string; love: number; outfit: string | null; bed: string | null; adopted_at: string }
 /** Une parcelle du potager : ce qui y pousse, et combien de fois elle a été arrosée. */
 export type Plot = { plot: number; plant: string; growth: number; planted_at: string }
+/** Une partie entre deux proches (p1 a invité et joue le premier). */
+export type Game = {
+  id: string
+  family_id: string
+  kind: GameKind
+  p1: string
+  p2: string
+  /** À qui de jouer (null : partie finie). */
+  turn: string | null
+  status: 'en_cours' | 'fini'
+  /** Le gagnant ; null si égalité (ou partie en cours). */
+  winner: string | null
+  state: GameState
+  created_at: string
+  updated_at: string
+  /** Memory : les liens des photos, dans l'ordre de state.paths. */
+  photos?: (string | null)[]
+}
 export type StarEntry = { id: string | number; member_id: string | null; reason: string; amount: number; created_at: string }
 
 export type FamilyState = {
@@ -217,6 +236,8 @@ export type FamilyState = {
   starLog: StarEntry[]
   /** Défi de la semaine : progression de toute la famille, et récompense déjà reçue. */
   weekly: WeeklyState
+  /** Les parties en cours, et celles finies depuis moins d'une semaine. */
+  games: Game[]
 }
 
 export type Circle = { family: Family; me: Member }
@@ -300,6 +321,12 @@ export interface Backend {
   onLiveInvite(familyId: string, me: string, cb: (inv: LiveInvite) => void): () => void
   /** Rejoindre la feuille partagée : on y envoie et on y reçoit les traits en direct. */
   joinLive(familyId: string, session: string, me: string, on: (e: LiveEvent) => void): LiveRoom
+  /** Jouer ensemble : lancer une partie contre un proche (au memory, de 4 à 8 photos) ; renvoie la partie. */
+  startGame(familyId: string, opponent: string, kind: GameKind, photos?: Blob[]): Promise<string>
+  /** Un coup : la colonne (Puissance 4), la case (morpion) ou la carte à retourner (memory). */
+  playGame(game: Game, move: number): Promise<void>
+  /** Abandonner la partie : l'autre gagne. */
+  quitGame(gameId: string): Promise<void>
   /** Mode démo uniquement : installe toutes les décorations, ou revient à la maison de départ. */
   demoDecos?(familyId: string, all: boolean): Promise<void>
 }

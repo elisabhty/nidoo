@@ -2,6 +2,7 @@ import { Camera, Check, ChevronRight, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { pettedToday, useCare, usePet } from '../components/care'
 import { DecorPage } from '../components/decor'
+import { JeuxCard } from '../components/jeux'
 import { useLieux } from '../components/lieux'
 import { PetFigure } from '../components/pet'
 import House from '../components/House'
@@ -150,6 +151,7 @@ export default function Play() {
             <button onClick={() => setPhoto(true)} className="presse h-9 shrink-0 rounded-full bg-teinte-doux px-4 text-sous font-semibold text-teinte-fonce">Relever</button>
           )}
         </div>
+        <JeuxCard onOpen={() => lieux.open({ k: 'jeux' })} />
 
         </>}
         {section === 'maison' && <>

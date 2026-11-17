@@ -1,7 +1,8 @@
 import { ANIMALS, CARE, DECOS, FOOD, GONE_AFTER, PET_COST, PLAN_LIMITS, plantOf, shopItem, THOUGHTS } from './data'
 import { demoDrawing, type DemoArt } from './drawing'
 import { DEMO_LOOKS } from './look'
-import type { Backend, Drawing, Family, FamilyState, Folder, FolderItem, JoinRequest, LiveEvent, Member, Moment, MyRequest, Sticker, ThoughtKind } from './types'
+import { applyMove, botMemory, botMorpion, botPuissance4, isMemory, MEMORY_MAX, MEMORY_MIN, newState, shuffledDeck, type Side } from './jeux'
+import type { Backend, Drawing, Game, Family, FamilyState, Folder, FolderItem, JoinRequest, LiveEvent, Member, Moment, MyRequest, Sticker, ThoughtKind } from './types'
 import { blobToDataUrl, compressImage, daysAgoKey, todayKey, uid } from './util'
 import { challenge, nextReward, WEEKLY, weekIndex, weekKey, weekStart, type WeeklyCounts, type WeeklyKey } from './weekly'
 
@@ -9,6 +10,7 @@ import { challenge, nextReward, WEEKLY, weekIndex, weekKey, weekStart, type Week
 // qui répondent aux attentions. Même contrat que le backend Supabase.
 
 type Raw = Omit<FamilyState, 'me' | 'weekly' | 'houseSince'> & { houseSince?: Record<string, string> } & { dossiersDemo?: boolean; enfantsDemo?: boolean; weeklyClaims?: Record<string, string> }
+  & { jeuxDemo?: boolean; decks?: Record<string, { deck: number[]; pending: number | null }> }
 type Pending = MyRequest & { profile: { displayName: string; avatar: string; color: string } }
 type Db = { userId: string; families: Record<string, Raw>; pending?: Pending[] }
 const KEY = 'nidoo.demo.v2'
@@ -149,6 +151,18 @@ function migrate(f: Raw, userId: string) {
   const dentiste = f.events.find((e) => e.title === 'Dentiste de Léa' && e.members === undefined)
   if (dentiste) dentiste.members = f.members.filter((m) => ['Léa', 'Papa'].includes(m.display_name)).map((m) => m.id)
   f.requests ??= [demoRequest(f.family.id)]
+  f.games ??= []
+  f.decks ??= {}
+  if (!f.jeuxDemo) {
+    // Léa a lancé un morpion et joué au centre : à toi de répondre.
+    f.jeuxDemo = true
+    const lea = f.members.find((m) => m.display_name === 'Léa' && m.user_id && m.user_id !== userId)
+    const moi = f.members.find((m) => m.user_id === userId)
+    if (lea && moi) {
+      const g = [0, 0, 0, 0, 1, 0, 0, 0, 0]
+      f.games.unshift({ id: uid(), family_id: f.family.id, kind: 'morpion', p1: lea.id, p2: moi.id, turn: moi.id, status: 'en_cours', winner: null, state: { g, last: 4, line: null }, created_at: iso(40), updated_at: iso(38) })
+    }
+  }
   if (!f.drawings) {
     // Un premier dessin de Léa pour toute la famille, pour voir le widget rempli.
     const lea = f.members.find((m) => m.display_name === 'Léa') ?? f.members[f.members.length - 1]
@@ -236,6 +250,46 @@ export function createLocalBackend(): Backend {
     if (!f) throw new Error('PAS_MEMBRE')
     return f
   }
+  // ───── Jouer ensemble, en démo : les proches répondent après un petit temps de réflexion ─────
+  const play = (f: Raw, g: Game, who: string, move: number) => {
+    if (g.status !== 'en_cours') throw new Error('PARTIE_FINIE')
+    if (g.turn !== who) throw new Error('PAS_TON_TOUR')
+    const side: Side = who === g.p1 ? 1 : 2
+    const d = f.decks?.[g.id]
+    const r = applyMove(g.kind, g.state, side, move, d?.deck, d?.pending ?? null)
+    if (d) d.pending = r.pending
+    g.state = r.state
+    g.updated_at = new Date().toISOString()
+    if (r.next === 'other') g.turn = side === 1 ? g.p2 : g.p1
+    if (r.next === 'end') {
+      g.status = 'fini'
+      g.turn = null
+      g.winner = r.winner === 1 ? g.p1 : r.winner === 2 ? g.p2 : null
+      if (g.winner) award(f, g.winner, 'partie', 2, 5)
+    }
+  }
+  const thinking = new Set<string>()
+  const botTurn = (f: Raw, g: Game) => {
+    if (g.status !== 'en_cours' || !g.turn || g.turn === myId(f) || thinking.has(g.id)) return
+    const bot = g.turn
+    const side: Side = bot === g.p1 ? 1 : 2
+    thinking.add(g.id)
+    window.setTimeout(() => {
+      thinking.delete(g.id)
+      if (g.status !== 'en_cours' || g.turn !== bot) return
+      const st = g.state
+      const d = f.decks?.[g.id]
+      const move = isMemory(st) ? botMemory(st, d?.deck ?? [], d?.pending ?? null) : g.kind === 'puissance4' ? botPuissance4(st.g, side) : botMorpion(st.g, side)
+      try {
+        play(f, g, bot, move)
+      } catch {
+        return
+      }
+      save()
+      botTurn(f, g)
+    }, isMemory(g.state) ? 1100 : 1500)
+  }
+
   const award = (f: Raw, memberId: string, reason: string, amount: number, cap?: number) => {
     if (cap != null) {
       const n = f.starLog.filter((s) => s.member_id === memberId && s.reason === reason && todayKey(new Date(s.created_at)) === todayKey()).length
@@ -263,6 +317,7 @@ export function createLocalBackend(): Backend {
       family: { id: fid, name, house_type: houseType, invite_code: 'DEMO42', plan: 'free', stars: 14, created_by: joined ? papa.user_id! : db.userId, invite_expires_at: inWeek(), food: 0 },
       members: [moi, mamie, papa, lea, noe, lou],
       enfantsDemo: true,
+      games: [],
       requests: joined ? [] : [demoRequest(fid)],
       moments: [
         { id: uid(), family_id: fid, member_id: lea.id, image_path: null, body: 'Devinez qui rentre ce week-end avec un gâteau ?', challenge: null, created_at: iso(55) },
@@ -301,6 +356,7 @@ export function createLocalBackend(): Backend {
       ],
     }
     demoDossiers(db.families[fid])
+    migrate(db.families[fid], db.userId)
     return fid
   }
 
@@ -547,6 +603,7 @@ export function createLocalBackend(): Backend {
       dailyMoods(f)
       checkGarden(f)
       demoCare(f, me.id)
+      for (const g of f.games) botTurn(f, g)
       const mine = new Set(f.folderMembers.filter((x) => x.member_id === me.id).map((x) => x.folder_id))
       return structuredClone({
         ...f,
@@ -563,6 +620,11 @@ export function createLocalBackend(): Backend {
         folderMembers: f.folderMembers.filter((x) => mine.has(x.folder_id)),
         folderItems: f.folderItems.filter((i) => mine.has(i.root_id)).map((i) => ({ ...i, image_url: i.image_path })),
         dossiersDemo: undefined,
+        decks: undefined,
+        jeuxDemo: undefined,
+        games: f.games
+          .filter((g) => g.status === 'en_cours' || Date.now() - new Date(g.updated_at).getTime() < 7 * 86400000)
+          .map((g) => ({ ...g, photos: isMemory(g.state) ? g.state.paths : undefined })),
       })
     },
     subscribe(_fid, onChange) {
@@ -945,6 +1007,51 @@ export function createLocalBackend(): Backend {
     },
     async accountEmail() {
       return null
+    },
+    async startGame(fid, opponent, kind, photos) {
+      const f = fam(fid)
+      const me = myId(f)
+      const opp = f.members.find((m) => m.id === opponent)
+      if (!opp || opp.id === me || !opp.user_id) throw new Error('ADVERSAIRE_INCONNU')
+      const cur = f.games.find((g) => g.kind === kind && g.status === 'en_cours' && [g.p1, g.p2].includes(me) && [g.p1, g.p2].includes(opponent))
+      if (cur) return cur.id
+      let paths: string[] = []
+      if (kind === 'memory') {
+        const n = photos?.length ?? 0
+        if (n < MEMORY_MIN) throw new Error('MEMORY_PHOTOS')
+        if (n > MEMORY_MAX) throw new Error('MEMORY_TROP_DE_PHOTOS')
+        paths = await Promise.all((photos ?? []).map(async (b) => blobToDataUrl(await compressImage(b, 420, 0.7))))
+      }
+      const now = new Date().toISOString()
+      const g: Game = { id: uid(), family_id: fid, kind, p1: me, p2: opponent, turn: me, status: 'en_cours', winner: null, state: newState(kind, paths), created_at: now, updated_at: now }
+      f.games.unshift(g)
+      if (kind === 'memory') (f.decks ??= {})[g.id] = { deck: shuffledDeck(paths.length), pending: null }
+      save()
+      return g.id
+    },
+    async playGame(game, move) {
+      const f = fam(game.family_id)
+      const g = f.games.find((x) => x.id === game.id)
+      if (!g) throw new Error('PARTIE_INCONNUE')
+      play(f, g, myId(f), move)
+      save()
+      botTurn(f, g)
+    },
+    async quitGame(id) {
+      for (const f of Object.values(db.families)) {
+        const g = f.games.find((x) => x.id === id)
+        if (!g) continue
+        const me = myId(f)
+        if (g.status === 'fini' || ![g.p1, g.p2].includes(me)) return
+        g.status = 'fini'
+        g.turn = null
+        g.winner = me === g.p1 ? g.p2 : g.p1
+        g.state = { ...g.state, abandon: true }
+        g.updated_at = new Date().toISOString()
+        save()
+        return
+      }
+      throw new Error('PARTIE_INCONNUE')
     },
     // ───── Dessiner à deux, en démo : le proche invité arrive et dessine pour de vrai sous tes yeux ─────
     async inviteLive(_fid, _from, to) {

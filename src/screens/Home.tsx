@@ -5,6 +5,7 @@ import { DecorPage, GoneSheet, useGone } from '../components/decor'
 import { DrawingsSheet, useUnseenDrawings } from '../components/drawing'
 import { DrawSheet } from '../components/planche'
 import House, { type HouseScene } from '../components/House'
+import { myTurns } from '../components/jeux'
 import { useLieux } from '../components/lieux'
 import { PetFigure } from '../components/pet'
 import { MoodSheet, ThoughtSheet } from '../components/sheets'
@@ -70,6 +71,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
   const care = useCare(() => setSheet({ k: 'decor', food: true }))
   const petAnimal = usePet()
   const petted = pettedToday(state.starLog, me.id)
+  const tours = myTurns(state)
   const lieux = useLieux()
   const gone = useGone()
   // Un câlin envoyé ou reçu se joue dans le jardin : l'un va voir l'autre et le fait vraiment.
@@ -173,7 +175,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
               />
             </div>
           </div>
-          {/* les lieux de la maison : le compagnon, le potager, le centre commercial */}
+          {/* les lieux de la maison : le compagnon, le potager, le centre commercial, les jeux */}
           <div className="no-bar mt-3 flex gap-2 overflow-x-auto px-5" aria-label="Les lieux de la maison">
             {[
               {
@@ -183,14 +185,17 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
               },
               { k: 'potager' as const, label: 'Le potager', icon: <img src={`./art/${state.plots[0] ? state.plots[0].plant : 'plant-pousse'}.webp`} alt="" className="h-[30px] w-[30px]" /> },
               { k: 'centre' as const, label: 'Centre commercial', icon: <img src="./art/centre-commercial.webp" alt="" className="h-[26px] w-[44px] object-contain" /> },
-            ].map((x) => (
+              { k: 'jeux' as const, label: tours.length ? `À toi de jouer (${tours.length})` : 'Jouer ensemble', icon: <img src="./art/jeu-puissance4.webp" alt="" className="h-[30px] w-[30px] object-contain" /> },
+            ]
+              .sort((a, b) => (tours.length ? Number(b.k === 'jeux') - Number(a.k === 'jeux') : 0))
+              .map((x) => (
               <button
                 key={x.k}
                 onClick={() => {
                   tap()
                   lieux.open({ k: x.k })
                 }}
-                className="presse flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-white pl-1.5 pr-3.5 text-sous font-semibold shadow-carte"
+                className={`presse flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-white pl-1.5 pr-3.5 text-sous font-semibold shadow-carte ${x.k === 'jeux' && tours.length ? 'text-teinte-fonce ring-2 ring-inset ring-teinte' : ''}`}
               >
                 {x.icon} {x.label}
               </button>

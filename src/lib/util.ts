@@ -140,6 +140,18 @@ const ERRORS: Record<string, string> = {
   PARCELLE_VIDE: 'Rien à récolter ici.',
   PAS_ENCORE_MUR: 'Pas encore mûr : encore quelques arrosages.',
   RESEAU: 'Impossible de joindre ton proche pour l’instant. Vérifie ta connexion et réessaie.',
+  PAS_TON_TOUR: 'Patience, c’est à l’autre de jouer.',
+  COLONNE_PLEINE: 'Cette colonne est pleine, choisis-en une autre.',
+  COUP_INTERDIT: 'Ce coup n’est pas possible.',
+  PARTIE_FINIE: 'Cette partie est terminée.',
+  PARTIE_INCONNUE: 'Cette partie n’existe plus.',
+  PAS_JOUEUR: 'Tu regardes cette partie : seuls les deux joueurs peuvent jouer.',
+  ADVERSAIRE_INCONNU: 'Choisis un proche qui a l’appli sur son téléphone.',
+  JEU_INCONNU: 'Ce jeu n’existe pas.',
+  TROP_DE_PARTIES: 'Beaucoup de parties en cours : terminez-en quelques-unes d’abord.',
+  MEMORY_TROP_DE_PHOTOS: 'Huit photos au plus pour un memory.',
+  MEMORY_PHOTOS: 'Choisis au moins quatre photos pour le memory.',
+  PHOTO_INCONNUE: 'Une des photos n’a pas pu être envoyée. Réessaie.',
 }
 /** Le jour d'il y a n jours, au format AAAA-MM-JJ. */
 export const daysAgoKey = (n: number) => todayKey(new Date(Date.now() - n * 86400000))
