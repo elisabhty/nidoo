@@ -217,7 +217,7 @@ export function Btn({
         onClick?.()
       }}
       disabled={disabled}
-      className={`presse flex min-h-[52px] shrink-0 w-full items-center justify-center gap-2 rounded-full px-5 text-corps font-semibold disabled:opacity-35 ${styles} ${className}`}
+      className={`presse flex min-h-[52px] shrink-0 w-full items-center justify-center gap-2 rounded-full px-5 text-corps font-bold disabled:opacity-35 ${styles} ${className}`}
     >
       {children}
     </button>

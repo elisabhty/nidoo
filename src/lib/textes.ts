@@ -4,9 +4,9 @@
 export const ONBOARDING = {
   home: {
     headline: 'Un petit chez-nous, même à distance.',
-    description: 'Une photo, un dessin, un petit mot… Partage tes petites attentions avec tes proches.',
+    description: 'Photos, petits mots, rendez-vous et listes partagées… Votre quotidien se retrouve ici.',
     create_cta: 'Créer notre maison',
-    join_cta: 'J’ai un code d’invitation',
+    join_cta: 'Rejoindre mes proches',
   },
   join: {
     title: 'Rejoindre une maison',

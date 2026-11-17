@@ -73,7 +73,7 @@ export function Smiley({ mood, size = 22 }: { mood: string; size?: number }) {
           <ellipse cx={8.3} cy={11.2} rx={1.3} ry={0.8} fill={INK} />
           <ellipse cx={15.7} cy={11.2} rx={1.3} ry={0.8} fill={INK} />
           {line('M10 16.2 Q12 15.5 14 16.2')}
-          <text x={17.4} y={5.2} fontSize={5.4} fontWeight={800} fill="#6E56CF" fontFamily="ui-rounded, Nunito, sans-serif">z</text>
+          <text x={17.4} y={5.2} fontSize={5.4} fontWeight={800} fill="#6E56CF" fontFamily="'Nunito Variable', Nunito, ui-rounded, sans-serif">z</text>
         </>
       )
       break

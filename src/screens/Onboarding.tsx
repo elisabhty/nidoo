@@ -146,7 +146,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
         <div className="anim-entre flex flex-1 flex-col">
           <div className="onboarding-welcome flex flex-1 flex-col items-center justify-center pb-6 pt-3 text-center">
             <img src="./panda.webp" alt="Nidoo, le panda roux" width={100} height={100} className="onboarding-mascot anim-flotte h-[100px] w-[100px] rounded-[26px] shadow-[0_24px_50px_-18px_rgba(102,70,204,0.55)]" />
-            <p aria-hidden="true" className="mt-4 font-rond text-[32px] font-bold leading-none tracking-[-0.5px]">NIDOO</p>
+            <p aria-hidden="true" className="mt-4 font-rond text-[32px] font-extrabold leading-none tracking-[-0.5px]">NIDOO</p>
             <h1 className="outline-none mt-3 max-w-[310px] font-rond text-titre1">{T.home.headline}</h1>
             <p className="mt-3 max-w-[300px] text-sous text-[#625A75]">{T.home.description}</p>
             <div className="onboarding-preview mt-5 w-full max-w-[300px] overflow-hidden rounded-groupe bg-carte shadow-carte">
@@ -156,7 +156,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
               <div className="flex items-center gap-3 px-4 py-3 text-left">
                 <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teinte-doux text-teinte-fonce"><Heart size={20} /></span>
                 <div>
-                  <p className="text-note text-brume">Un exemple de petite attention</p>
+                  <p className="text-note text-brume">Une petite attention pour toi</p>
                   <p className="font-rond text-appel font-bold">« Je pense à toi »</p>
                 </div>
               </div>

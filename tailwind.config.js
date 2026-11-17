@@ -19,15 +19,16 @@ export default {
         or: '#F5B63B',
       },
       fontFamily: {
-        sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"Inter Variable"', 'system-ui', 'sans-serif'],
-        rond: ['ui-rounded', '"SF Pro Rounded"', '-apple-system', '"Nunito Variable"', 'system-ui', 'sans-serif'],
+        // Nunito partout : des lettres arrondies, comme la maison et le panda (titres 800, textes 400, boutons 700).
+        sans: ['"Nunito Variable"', 'Nunito', 'ui-rounded', '-apple-system', 'system-ui', 'sans-serif'],
+        rond: ['"Nunito Variable"', 'Nunito', 'ui-rounded', '-apple-system', 'system-ui', 'sans-serif'],
       },
       fontSize: {
         // Échelle typographique iOS (Dynamic Type, taille par défaut)
-        grand: ['34px', { lineHeight: '41px', letterSpacing: '-0.85px', fontWeight: '750' }],
-        titre1: ['28px', { lineHeight: '34px', letterSpacing: '-0.35px', fontWeight: '700' }],
-        titre2: ['22px', { lineHeight: '28px', letterSpacing: '-0.3px', fontWeight: '700' }],
-        titre3: ['20px', { lineHeight: '25px', letterSpacing: '-0.2px', fontWeight: '600' }],
+        grand: ['34px', { lineHeight: '41px', letterSpacing: '-0.6px', fontWeight: '800' }],
+        titre1: ['28px', { lineHeight: '34px', letterSpacing: '-0.3px', fontWeight: '800' }],
+        titre2: ['22px', { lineHeight: '28px', letterSpacing: '-0.2px', fontWeight: '800' }],
+        titre3: ['20px', { lineHeight: '25px', letterSpacing: '-0.1px', fontWeight: '700' }],
         corps: ['17px', { lineHeight: '22px', letterSpacing: '-0.2px' }],
         appel: ['16px', { lineHeight: '21px', letterSpacing: '-0.15px' }],
         sous: ['15px', { lineHeight: '20px', letterSpacing: '-0.1px' }],
