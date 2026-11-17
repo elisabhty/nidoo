@@ -7,7 +7,7 @@ const PREF = 'nidoo.sons'
 export type Son =
   | 'geste-calin' | 'geste-bisou' | 'geste-coeur' | 'geste-courage' | 'geste-mot'
   | 'chat' | 'chien' | 'lapin' | 'renard' | 'panda' | 'koala' | 'pingouin' | 'hibou'
-  | 'croquettes' | 'oiseaux' | 'arrosage' | 'etoiles' | 'jouet'
+  | 'croquettes' | 'oiseaux' | 'arrosage' | 'etoiles' | 'jouet' | 'avent'
 
 type Ctx = AudioContext
 let ctx: Ctx | null = null

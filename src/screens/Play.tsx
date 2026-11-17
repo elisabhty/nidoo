@@ -1,5 +1,6 @@
 import { Camera, Check, ChevronRight, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { AventCard } from '../components/avent'
 import { pettedToday, useCare, usePet } from '../components/care'
 import { DecorPage } from '../components/decor'
 import { useLieux } from '../components/lieux'
@@ -150,6 +151,7 @@ export default function Play() {
             <button onClick={() => setPhoto(true)} className="presse h-9 shrink-0 rounded-full bg-teinte-doux px-4 text-sous font-semibold text-teinte-fonce">Relever</button>
           )}
         </div>
+        <AventCard onOpen={() => lieux.open({ k: 'avent' })} />
 
         </>}
         {section === 'maison' && <>

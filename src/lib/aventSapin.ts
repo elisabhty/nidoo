@@ -1,0 +1,28 @@
+// Généré par scripts/avent_sapin.py : où se pose la décoration de chaque case sur le sapin (en % de l'image).
+export const DECO_TAILLE = 15.5 // largeur d'une décoration, en % de la largeur du sapin
+export const DECO_PLACES: [number, number][] = [
+  [49.5, 69.4],
+  [51.5, 21.7],
+  [73.8, 46.7],
+  [32.0, 47.2],
+  [87.4, 68.3],
+  [17.5, 69.4],
+  [43.7, 35.0],
+  [65.0, 31.7],
+  [68.0, 63.3],
+  [53.4, 50.0],
+  [33.0, 66.7],
+  [60.2, 42.2],
+  [39.8, 54.4],
+  [74.8, 72.2],
+  [54.4, 62.2],
+  [42.7, 27.2],
+  [62.1, 70.6],
+  [66.0, 52.2],
+  [54.4, 28.3],
+  [79.6, 62.8],
+  [43.7, 46.7],
+  [27.2, 72.2],
+  [39.8, 71.7],
+  [43.7, 65.0],
+]

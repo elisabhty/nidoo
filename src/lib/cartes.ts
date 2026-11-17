@@ -85,7 +85,7 @@ export const CARTES: Carte[] = [
       bg: NUIT,
       s: [],
       fr: 'noel',
-      k: [st('etoile', 175, 140, 120, -10), st('cadeau', 820, 310, 170, 8), mot(nom ? `Joyeux Noël\n${nom} !` : 'Joyeux Noël !', 1, 490, 245, 400, -3)],
+      k: [st('sapin', 165, 300, 175, -5), st('etoile-noel', 175, 100, 90, -12), st('boule', 840, 115, 85, 10), st('cadeau-noel', 830, 320, 165, 8), mot(nom ? `Joyeux Noël\n${nom} !` : 'Joyeux Noël !', 1, 495, 245, 380, -3)],
     }),
   },
   {

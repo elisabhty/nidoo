@@ -1,0 +1,24 @@
+name: Vérification (branches)
+
+# Sur les branches autres que main : vérifie que l'app se construit
+# (types + build), sans rien mettre en ligne.
+
+on:
+  push:
+    branches-ignore: [main, gh-pages, tmp-*]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verifier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build

@@ -1,5 +1,6 @@
 import { ChevronRight } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { aventHint, useAvent } from '../components/avent'
 import { pettedToday, useCare, usePet } from '../components/care'
 import { DecorPage, GoneSheet, useGone } from '../components/decor'
 import { DrawingsSheet, useUnseenDrawings } from '../components/drawing'
@@ -10,6 +11,7 @@ import { PetFigure } from '../components/pet'
 import { MoodSheet, ThoughtSheet } from '../components/sheets'
 import { StarsSheet } from '../components/stars'
 import { Art, Avatar } from '../components/ui'
+import type { AventAction } from '../lib/avent'
 import { moodOf } from '../lib/data'
 import { feel, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
@@ -70,7 +72,20 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
   const care = useCare(() => setSheet({ k: 'decor', food: true }))
   const petAnimal = usePet()
   const petted = pettedToday(state.starLog, me.id)
-  const lieux = useLieux()
+  const lieux = useLieux(aventAction)
+  const av = useAvent()
+  const caseDuJour = av.visible && av.aOuvrir.includes(av.today)
+  // Le bouton d'une case du calendrier de l'Avent : on ferme le calendrier pour ouvrir le bon endroit
+  // (les lieux, eux, s'empilent par-dessus : en revenant, on retrouve le calendrier).
+  function aventAction(a: AventAction) {
+    if (a === 'compagnon' || a === 'potager' || a === 'centre') return lieux.open({ k: a })
+    lieux.closeAll()
+    if (a === 'attention') setSheet({ k: 'dessin' })
+    else if (a === 'carte') setSheet({ k: 'dessin', carte: 'noel' })
+    else if (a === 'humeur') setSheet({ k: 'humeur' })
+    else if (a === 'souvenirs') go('moments')
+    else go('organiser')
+  }
   const gone = useGone()
   // Un câlin envoyé ou reçu se joue dans le jardin : l'un va voir l'autre et le fait vraiment.
   useEffect(() => {
@@ -173,9 +188,12 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
               />
             </div>
           </div>
-          {/* les lieux de la maison : le compagnon, le potager, le centre commercial */}
+          {/* les lieux de la maison : le compagnon, le potager, le centre commercial (et l'Avent en décembre) */}
           <div className="no-bar mt-3 flex gap-2 overflow-x-auto px-5" aria-label="Les lieux de la maison">
             {[
+              ...(av.visible
+                ? [{ k: 'avent' as const, label: caseDuJour ? 'Case du jour' : 'Calendrier de l’Avent', icon: <img src="./art/avent-sapin-mini.webp" alt="" className="h-[32px] w-[32px] object-contain" /> }]
+                : []),
               {
                 k: 'compagnon' as const,
                 label: state.pet ? state.pet.name : 'Un compagnon',
@@ -190,7 +208,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
                   tap()
                   lieux.open({ k: x.k })
                 }}
-                className="presse flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-white pl-1.5 pr-3.5 text-sous font-semibold shadow-carte"
+                className={`presse flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-white pl-1.5 pr-3.5 text-sous font-semibold shadow-carte ${x.k === 'avent' && caseDuJour ? 'text-[#2F7A57] ring-2 ring-inset ring-[#7BC9A0]' : ''}`}
               >
                 {x.icon} {x.label}
               </button>
@@ -205,6 +223,23 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
               </button>
             ))}
           </div>
+          {caseDuJour && (
+            <button
+              onClick={() => {
+                tap()
+                lieux.open({ k: 'avent' })
+              }}
+              className="presse mx-5 mt-4 flex w-[calc(100%-2.5rem)] items-center gap-3 rounded-[24px] p-3 pr-4 text-left shadow-carte"
+              style={{ background: 'linear-gradient(160deg, #E8F5EE, #F3EEFF)' }}
+            >
+              <img src="./art/avent-sapin-mini.webp" alt="" className="h-12 w-12 shrink-0 object-contain" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-appel font-semibold">{aventHint(av)}</span>
+                <span className="block text-note text-brume">Ouvre-la pour décorer le sapin de la famille</span>
+              </span>
+              <img src={`./art/avent-cadeau.webp`} alt="" className="h-11 w-11 shrink-0 rotate-6 object-contain" />
+            </button>
+          )}
           {anniv && others.length > 0 && (
             <button
               onClick={() => {

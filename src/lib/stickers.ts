@@ -26,11 +26,14 @@ const MOTS: Record<string, { t: string; c: string; d: string }> = {
   wouah: { t: 'Wouah !', c: '#5ED3C9', d: '#0C8599' },
   courage: { t: 'Courage !', c: '#8CE07F', d: '#2B8A3E' },
   fier: { t: 'Trop fier\nde toi', c: '#7FB8FF', d: '#1C5FB8' },
+  noel: { t: 'Joyeux\nNoël', c: '#FF6B6B', d: '#B02A37' },
+  fetes: { t: 'Bonnes\nfêtes', c: '#7BD389', d: '#2F8F46' },
 }
 
 export const CATS: Cat[] = [
   { key: 'amour', label: 'Amour', items: ['coeur', 'coeurs', 'bisou', 'lettre', 'maison', 'pouce'] },
   { key: 'mots', label: 'Petits mots', items: Object.keys(MOTS).map((k) => `mot:${k}`) },
+  { key: 'noel', label: 'Noël', items: ['sapin', 'boule', 'etoile-noel', 'cadeau-noel', 'chaussette', 'sucre-orge', 'pain-epice', 'bonhomme-neige', 'pomme-pin', 'mot:noel', 'mot:fetes'] },
   { key: 'fete', label: 'Fête', items: ['ballons', 'gateau', 'cadeau', 'chapeau', 'couronne', 'notes', 'cupcake'] },
   { key: 'deguise', label: 'Déguisements', items: ['lunettes', 'moustache', 'oreilles', 'noeud', 'fleurs', 'couronne', 'chapeau'] },
   { key: 'nature', label: 'Nature', items: ['soleil', 'arcenciel', 'nuage', 'fleur', 'lune', 'etoile', 'papillon', 'coccinelle', 'trefle', 'avion'] },
@@ -45,6 +48,8 @@ export const NOMS: Record<string, string> = {
   soleil: 'Soleil', arcenciel: 'Arc-en-ciel', nuage: 'Nuage', fleur: 'Fleur', lune: 'Lune', etoile: 'Étoile', papillon: 'Papillon', coccinelle: 'Coccinelle', trefle: 'Trèfle', avion: 'Avion en papier',
   panda: 'Panda roux', chat: 'Chat', chien: 'Chien', patte: 'Patte',
   glace: 'Glace', cafe: 'Café', cookie: 'Cookie', pizza: 'Pizza',
+  sapin: 'Sapin', boule: 'Boule de Noël', 'etoile-noel': 'Étoile du sapin', 'cadeau-noel': 'Cadeau de Noël', chaussette: 'Chaussette de Noël',
+  'sucre-orge': 'Sucre d’orge', 'pain-epice': 'Bonhomme en pain d’épice', 'bonhomme-neige': 'Bonhomme de neige', 'pomme-pin': 'Pomme de pin',
 }
 export const nomSticker = (k: string) => (k.startsWith('mot:') ? (MOTS[k.slice(4)]?.t.replace('\n', ' ') ?? 'Petit mot') : (NOMS[k] ?? 'Sticker'))
 

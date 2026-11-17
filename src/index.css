@@ -85,6 +85,7 @@ input[type='date'], input[type='time'] { -webkit-appearance: none; appearance: n
 @keyframes marche { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(var(--mx, 8px)); } }
 @keyframes sautille { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-9%); } 55% { transform: translateY(0); } }
 @keyframes oscille { 0%, 100% { transform: rotate(-2.5deg); } 50% { transform: rotate(2.5deg); } }
+@keyframes caseDuJour { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
 @keyframes derive { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(8px, -6px); } }
 
 .anim-monte { animation: monte 0.5s var(--ressort) both; }
