@@ -43,9 +43,14 @@ function audio(): Ctx | null {
 
 // iOS ne laisse jouer un son qu'après un premier toucher : on réveille l'audio à ce moment-là.
 if (typeof window !== 'undefined') {
+  let ready = false
   const wake = () => {
     const c = audio()
     if (c && c.state !== 'running') void c.resume().catch(() => undefined)
+    if (!ready) {
+      ready = true
+      precharger('geste-calin', 'geste-bisou', 'geste-coeur', 'geste-courage', 'geste-mot')
+    }
   }
   window.addEventListener('pointerdown', wake, { passive: true })
   window.addEventListener('touchend', wake, { passive: true })

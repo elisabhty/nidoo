@@ -93,9 +93,15 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
     const r = houseRef.current?.getBoundingClientRect()
     if (r && (r.top < 60 || r.bottom > window.innerHeight - 90)) houseRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     setScene({ id: t.id, from: t.from_member, to: t.to_member, kind: t.kind })
-    const v = window.setTimeout(() => feel(t.kind), 1300)
-    return () => window.clearTimeout(v)
   }, [state.thoughts, sheet, scene, me.id, active])
+  // Le geste se sent (et s'entend) au moment où il se fait, chez les deux.
+  // (Avant, ce minuteur vivait dans l'effet du dessus et setScene l'annulait aussitôt.)
+  const sceneKind = scene?.kind
+  useEffect(() => {
+    if (!sceneKind) return
+    const v = window.setTimeout(() => feel(sceneKind), 1300)
+    return () => window.clearTimeout(v)
+  }, [scene?.id, sceneKind])
 
   return (
     <>
