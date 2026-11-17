@@ -4,14 +4,16 @@ import { DEMO_LOOKS } from './look'
 import { applyMove, botMemory, botMorpion, botPuissance4, isMemory, MEMORY_MAX, MEMORY_MIN, newState, shuffledDeck, type Side } from './jeux'
 import { partiesDemo, type Cache, type MotDemo } from './partiesDemo'
 import type { AnneeState } from './parties'
-import type { Backend, Drawing, Game, Family, FamilyState, Folder, FolderItem, JoinRequest, LiveEvent, Member, Moment, MyRequest, Sticker, ThoughtKind } from './types'
+import { etoilesDe, parisToday } from './avent'
+import type { AdventDoor, AppFlag, Backend, Drawing, Game, Family, FamilyState, Folder, FolderItem, JoinRequest, LiveEvent, Member, Moment, MyRequest, Sticker, ThoughtKind } from './types'
 import { blobToDataUrl, compressImage, daysAgoKey, todayKey, uid } from './util'
 import { challenge, nextReward, WEEKLY, weekIndex, weekKey, weekStart, type WeeklyCounts, type WeeklyKey } from './weekly'
 
 // Mode démo : toute la maison vit sur l'appareil, avec trois proches fictifs
 // qui répondent aux attentions. Même contrat que le backend Supabase.
 
-type Raw = Omit<FamilyState, 'me' | 'weekly' | 'houseSince' | 'mot'> & { houseSince?: Record<string, string> } & { caches?: Record<string, Cache>; motDemo?: MotDemo } & { dossiersDemo?: boolean; enfantsDemo?: boolean; weeklyClaims?: Record<string, string> }
+type Raw = Omit<FamilyState, 'me' | 'weekly' | 'houseSince' | 'mot' | 'flags' | 'advent'> & { houseSince?: Record<string, string>; advent?: AdventDoor[] }
+  & { caches?: Record<string, Cache>; motDemo?: MotDemo } & { dossiersDemo?: boolean; enfantsDemo?: boolean; weeklyClaims?: Record<string, string>; aventDemo?: number }
   & { jeuxDemo?: boolean; decks?: Record<string, { deck: number[]; pending: number | null }> }
 type Pending = MyRequest & { profile: { displayName: string; avatar: string; color: string } }
 type Db = { userId: string; families: Record<string, Raw>; pending?: Pending[] }
@@ -22,6 +24,26 @@ const DINER = 'Chez Papa, à partir de 19 h 30. Chacun apporte un plat : Léa s�
 
 
 const iso = (minsAgo: number) => new Date(Date.now() - minsAgo * 60000).toISOString()
+/** En démo, le calendrier de l'Avent suit la même période qu'en vrai : du 1er décembre au 1er janvier (heure de Paris). */
+function demoFlag(): AppFlag {
+  const { y, m } = parisToday()
+  const an = m <= 2 ? y - 1 : y
+  return { enabled: true, starts_at: `${an}-12-01T00:00:00+01:00`, ends_at: `${an + 1}-01-01T00:00:00+01:00` }
+}
+/** En démo, les proches ont déjà ouvert les cases d'avant (sauf une, à rattraper). */
+function demoAdvent(f: Raw, meId: string) {
+  const { y, m, d } = parisToday()
+  if (m !== 12 || f.aventDemo === y) return
+  f.aventDemo = y
+  f.advent ??= []
+  const proches = f.members.filter((x) => x.user_id && x.id !== meId)
+  const today = Math.min(d, 24)
+  for (let k = 1; k < today; k++) {
+    if (k === today - 2 || f.advent.some((x) => x.year === y && x.day === k) || !proches.length) continue
+    const who = proches[k % proches.length]
+    f.advent.push({ year: y, day: k, opened_by: who.id, opened_at: new Date(Date.UTC(y, 11, k, 8 + (k % 10))).toISOString() })
+  }
+}
 const inWeek = () => new Date(Date.now() + 7 * 86400000).toISOString()
 const newCode = () => Array.from({ length: 6 }, () => 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 31)]).join('')
 // Un cousin qui a tapé le code et attend qu'on lui ouvre : pour voir l'acceptation en mode démo.
@@ -610,6 +632,7 @@ export function createLocalBackend(): Backend {
       demoCare(f, me.id)
       for (const g of f.games) botTurn(f, g)
       pd.bots(f)
+      demoAdvent(f, me.id)
       const mine = new Set(f.folderMembers.filter((x) => x.member_id === me.id).map((x) => x.folder_id))
       return structuredClone({
         ...f,
@@ -637,6 +660,9 @@ export function createLocalBackend(): Backend {
         caches: undefined,
         motDemo: undefined,
         mot: pd.motLignes(f),
+        aventDemo: undefined,
+        flags: { avent: demoFlag() },
+        advent: f.advent ?? [],
       })
     },
     subscribe(_fid, onChange) {
@@ -985,6 +1011,20 @@ export function createLocalBackend(): Backend {
       award(f, myId(f), `recolte:${p.plant}`, info.reward)
       save()
       return info.reward
+    },
+    async openAdvent(fid, day) {
+      const f = fam(fid)
+      const { y, m, d } = parisToday()
+      const flag = demoFlag()
+      if (Date.now() < Date.parse(flag.starts_at!) || Date.now() >= Date.parse(flag.ends_at!)) throw new Error('AVENT_FERME')
+      if (!(day >= 1 && day <= 24)) throw new Error('CASE_INCONNUE')
+      if (m !== 12 || d < day) throw new Error('CASE_PAS_ENCORE')
+      f.advent ??= []
+      if (f.advent.some((x) => x.year === y && x.day === day)) return
+      const me = myId(f)
+      f.advent.push({ year: y, day, opened_by: me, opened_at: new Date().toISOString() })
+      award(f, me, 'avent', etoilesDe(day))
+      save()
     },
     async unlock(fid, key) {
       const f = fam(fid)

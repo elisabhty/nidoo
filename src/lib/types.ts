@@ -258,7 +258,15 @@ export type FamilyState = {
   parties: Partie[]
   /** Le mot mystère du jour : les couleurs des essais de chacun (jamais les lettres). */
   mot: MotLigne[]
+  /** Les interrupteurs à distance (table app_flags), par clé. */
+  flags: Record<string, AppFlag>
+  /** Calendrier de l'Avent : les cases déjà ouvertes par la maison. */
+  advent: AdventDoor[]
 }
+
+/** Un interrupteur à distance : allumé, et éventuellement borné dans le temps. */
+export type AppFlag = { enabled: boolean; starts_at: string | null; ends_at: string | null }
+export type AdventDoor = { year: number; day: number; opened_by: string | null; opened_at: string }
 
 export type Circle = { family: Family; me: Member }
 
@@ -329,6 +337,8 @@ export interface Backend {
   fertilize(familyId: string): Promise<void>
   /** Récolter une parcelle mûre : renvoie les étoiles gagnées. */
   harvest(familyId: string, plot: number): Promise<number>
+  /** Ouvre une case du calendrier de l'Avent (pour toute la maison). */
+  openAdvent(familyId: string, day: number): Promise<void>
   unlock(familyId: string, key: string): Promise<void>
   /** Réclame la récompense du défi de la semaine ; renvoie la décoration offerte (ou « etoiles »). */
   claimWeekly(familyId: string): Promise<string>

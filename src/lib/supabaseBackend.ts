@@ -3,7 +3,7 @@ import { SUPABASE_KEY, SUPABASE_URL } from '../config'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { isMemory } from './jeux'
 import { jourParis, type AnneeState, type MotLigne, type MotMoi, type Secret } from './parties'
-import type { Answer, Backend, Game, Partie, HouseCare, Pet, Plot, Circle, Drawing, DrawingData, FamEvent, Family, FamilyState, Folder, JoinRequest, LiveEvent, LiveInvite, MyRequest, FolderItem, FolderMember, ListItem, Member, Moment, Reaction, StarEntry, Thought } from './types'
+import type { AdventDoor, AppFlag, Answer, Backend, Game, Partie, HouseCare, Pet, Plot, Circle, Drawing, DrawingData, FamEvent, Family, FamilyState, Folder, JoinRequest, LiveEvent, LiveInvite, MyRequest, FolderItem, FolderMember, ListItem, Member, Moment, Reaction, StarEntry, Thought } from './types'
 import { compressImage, daysAgoKey, todayKey, uid } from './util'
 import { emptyCounts, type WeeklyCounts } from './weekly'
 
@@ -126,7 +126,7 @@ export function createSupabaseBackend(): Backend {
       )
       const since = new Date(Date.now() - 14 * 86400000).toISOString()
       const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString()
-      const [family, members, requests, weekly, moments, folders, folderMembers, folderItems, reactions, thoughts, drawings, events, items, answers, house, stars, cares, pets, plots, stock, owned, games, jeux2, motJour] = await Promise.all([
+      const [family, members, requests, weekly, moments, folders, folderMembers, folderItems, reactions, thoughts, drawings, events, items, answers, house, stars, cares, pets, plots, stock, owned, games, jeux2, motJour, flags, advent] = await Promise.all([
         sb.from('families').select('*').eq('id', fid).single(),
         sb.from('members').select('*').eq('family_id', fid).order('joined_at'),
         // Lisibles seulement par les responsables (RLS) : vide pour les autres.
@@ -153,6 +153,9 @@ export function createSupabaseBackend(): Backend {
         // Les jeux à plusieurs et le mot mystère : s'ils manquent (base pas encore à jour), l'appli marche sans.
         sb.from('parties').select('*').eq('family_id', fid).or(`status.eq.en_cours,updated_at.gt."${weekAgo}"`).order('updated_at', { ascending: false }).limit(40),
         sb.from('mot_essais').select('member_id, motifs, trouve').eq('family_id', fid).eq('day', jourParis()),
+        // Les interrupteurs à distance et l'Avent : s'ils manquent, l'appli marche quand même (sans calendrier).
+        sb.from('app_flags').select('key, enabled, starts_at, ends_at'),
+        sb.from('advent_doors').select('year, day, opened_by, opened_at').eq('family_id', fid),
       ])
       const pet = ((check(pets) ?? []) as Pet[])[0] ?? null
       const mem = check(members) as Member[]
@@ -234,13 +237,15 @@ export function createSupabaseBackend(): Backend {
         games: parties,
         parties: groupes,
         mot: (motJour.data ?? []) as MotLigne[],
+        flags: Object.fromEntries(((flags.data ?? []) as ({ key: string } & AppFlag)[]).map(({ key, ...f }) => [key, f])),
+        advent: (advent.data ?? []) as AdventDoor[],
       }
       return state
     },
 
     subscribe(fid, onChange) {
       const ch = sb.channel(`famille:${fid}`)
-      for (const table of ['members', 'join_requests', 'weekly_rewards', 'moments', 'folders', 'folder_members', 'folder_items', 'reactions', 'thoughts', 'drawings', 'events', 'list_items', 'daily_answers', 'house_items', 'house_care', 'pets', 'garden_plots', 'family_stock', 'shop_items', 'games', 'parties', 'mot_essais']) {
+      for (const table of ['members', 'join_requests', 'weekly_rewards', 'moments', 'folders', 'folder_members', 'folder_items', 'reactions', 'thoughts', 'drawings', 'events', 'list_items', 'daily_answers', 'house_items', 'house_care', 'pets', 'garden_plots', 'family_stock', 'shop_items', 'games', 'parties', 'mot_essais', 'advent_doors']) {
         ch.on('postgres_changes', { event: '*', schema: 'public', table, filter: `family_id=eq.${fid}` }, onChange)
       }
       ch.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'families', filter: `id=eq.${fid}` }, onChange)
@@ -552,6 +557,9 @@ export function createSupabaseBackend(): Backend {
     },
     async harvest(fid, plot) {
       return check(await sb.rpc('harvest', { p_family: fid, p_plot: plot })) as number
+    },
+    async openAdvent(fid, day) {
+      check(await sb.rpc('open_advent_door', { p_family: fid, p_day: day }))
     },
     async unlock(fid, key) {
       check(await sb.rpc('unlock_item', { p_family: fid, p_key: key }))
