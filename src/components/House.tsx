@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { success, tap } from '../lib/haptic'
+import { jouer, sonCompagnon } from '../lib/sons'
 import { ANIMALS, CARE, moodOf, petStage, plantArt } from '../lib/data'
 import type { HouseCare, HouseType, Member, Pet, Plot } from '../lib/types'
 import { AGE_SCALE, lookOf } from '../lib/look'
@@ -168,6 +169,7 @@ export default function House({
   }
   const [pets, setPets] = useState<{ key: string; id: number; n: number }[]>([])
   const stroke = (key: string) => {
+    jouer(key === 'compagnon' ? sonCompagnon(pet?.species) : 'oiseaux')
     const id = Date.now()
     setPets((p) => [...p.filter((x) => x.key !== key), { key, id, n: 0 }])
     void onPet?.(key).then((n) => n && setPets((p) => p.map((x) => (x.id === id ? { ...x, n } : x))))
@@ -178,6 +180,7 @@ export default function House({
       const fresh = cares.filter((c) => c.day === today && CARE[c.item_key] && !seenCares.current!.has(careId(c)))
       if (fresh.length) {
         success()
+        jouer('etoiles', 0.6)
         setGains((g) => [...g, ...fresh.map((c) => ({ key: c.item_key, id: `${careId(c)}:${Date.now()}`, n: CARE[c.item_key].stars }))])
       }
     }

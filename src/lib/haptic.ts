@@ -1,5 +1,6 @@
 import { Capacitor } from '@capacitor/core'
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics'
+import { jouer, sonGeste } from './sons'
 
 // Retours haptiques iOS ; sans effet sur le web.
 const native = Capacitor.isNativePlatform()
@@ -24,7 +25,9 @@ const VIBRATE: Record<string, number[]> = {
   courage: [60, 60, 60, 60, 140],
   mot: [25, 50, 25],
 }
+// …et s'entend : chaque attention a aussi son petit son (voir sons.ts).
 export function feel(kind: string) {
+  jouer(sonGeste(kind))
   const steps = FEEL[kind] ?? FEEL.coeur
   if (native) {
     let at = 0

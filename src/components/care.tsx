@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import { ANIMALS, CARE, GONE_AFTER, type Care } from '../lib/data'
 import { tap, warn } from '../lib/haptic'
+import { jouer } from '../lib/sons'
 import { teinteMain } from '../lib/personnalise'
 import { useHome, useStore } from '../lib/store'
 import type { HouseCare, Pet, StarEntry } from '../lib/types'
@@ -75,6 +76,7 @@ export function useCare(onEmpty?: () => void) {
     }
     busy.current.add(key)
     tap()
+    jouer(CARE[key]?.kind === 'arroser' ? 'arrosage' : 'croquettes')
     void run((api) => api.care(state.family.id, key)).finally(() => busy.current.delete(key))
   }
 }

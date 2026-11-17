@@ -2,6 +2,7 @@ import { Check, Lock, Sprout } from 'lucide-react'
 import { useState } from 'react'
 import { DECOS, PLANTS, plantArt, plantOf, plantStage, STAGE_LABEL, type Shop } from '../lib/data'
 import { success, tap } from '../lib/haptic'
+import { jouer } from '../lib/sons'
 import { useHome } from '../lib/store'
 import { todayKey } from '../lib/util'
 import { CareIcon, useCare } from './care'
@@ -132,6 +133,7 @@ export function PotagerPage({ onClose, onShop }: { onClose: () => void; onShop: 
                             const ok = await run((a) => a.harvest(family.id, n), `Récolte : +${info.reward} étoiles`)
                             if (ok) {
                               success()
+                              jouer('etoiles')
                               setCheer({ plot: n, n: Date.now() })
                             }
                           }}

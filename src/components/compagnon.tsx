@@ -2,6 +2,7 @@ import { Check, ChevronRight, Heart, Lock, PenLine, TriangleAlert } from 'lucide
 import { useEffect, useState, type ReactNode } from 'react'
 import { FOOD, LOVE, nextStage, PET_COST, petStage, SHOP, shopItem, SPECIES, type Shop } from '../lib/data'
 import { success, tap, warn } from '../lib/haptic'
+import { jouer, sonCompagnon } from '../lib/sons'
 import { useHome } from '../lib/store'
 import type { Pet } from '../lib/types'
 import { todayKey } from '../lib/util'
@@ -54,6 +55,7 @@ function Adopt() {
               key={x.key}
               onClick={() => {
                 tap()
+                jouer(sonCompagnon(x.key))
                 setSpecies(x.key)
               }}
               aria-pressed={on}
@@ -154,6 +156,7 @@ function PetView({ pet, onShop }: { pet: Pet; onShop: (shop: Shop) => void }) {
     if (stage.key !== lastStage) {
       if (PETSTAGE_ORDER.indexOf(stage.key) > PETSTAGE_ORDER.indexOf(lastStage)) {
         success()
+        jouer('etoiles')
         setGrown(stage.label)
         window.setTimeout(() => setGrown(null), 3200)
       }
@@ -178,6 +181,7 @@ function PetView({ pet, onShop }: { pet: Pet; onShop: (shop: Shop) => void }) {
   }
   const caress = async () => {
     tap()
+    jouer(sonCompagnon(pet.species))
     const id = Date.now()
     setFx((all) => [...all, { id, kind: 'caresse', love: 0, stars: 0 }])
     const n = await stroke('compagnon')
@@ -189,11 +193,15 @@ function PetView({ pet, onShop }: { pet: Pet; onShop: (shop: Shop) => void }) {
       return
     }
     tap()
+    jouer('croquettes')
+    window.setTimeout(() => jouer(sonCompagnon(pet.species), 0.8), 900)
     play({ kind: 'friandise', love: LOVE.treat, stars: 0 })
     await run((a) => a.giveTreat(family.id))
   }
   const playWith = async (toy: string) => {
     tap()
+    jouer('jouet')
+    window.setTimeout(() => jouer(sonCompagnon(pet.species), 0.8), 700)
     const id = Date.now()
     setFx((all) => [...all, { id, kind: 'jeu', love: 0, stars: 0, toy }])
     try {

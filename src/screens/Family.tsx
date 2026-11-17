@@ -1,4 +1,4 @@
-import { Baby, Check, CircleHelp, Clock, Copy, Crown, House as HouseIcon, LogOut, Mail, Pencil, Plus, RefreshCw, Share, ShieldCheck, UserRound } from 'lucide-react'
+import { Baby, Check, CircleHelp, Clock, Copy, Crown, House as HouseIcon, LogOut, Mail, Pencil, Plus, RefreshCw, Share, ShieldCheck, UserRound, Volume2 } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import House from '../components/House'
 import { careFor, careTodo, gardenKeys } from '../components/care'
@@ -6,9 +6,10 @@ import { DrawingsSheet, DrawingWidget } from '../components/drawing'
 import { DrawSheet } from '../components/planche'
 import { eventArt, MoodSheet } from '../components/sheets'
 import { JoinRequests } from '../components/requests'
-import { Art, Avatar, Btn, choisir, confirmer, Rond, Row, Screen, Section, Segments, Sheet } from '../components/ui'
+import { Art, Avatar, Btn, choisir, confirmer, Rond, Row, Screen, Section, Segments, Sheet, Switch } from '../components/ui'
 import { CARE, DECOS, moodOf, PLAN_LIMITS } from '../lib/data'
 import { select } from '../lib/haptic'
+import { activerSons, jouer, sonsActives } from '../lib/sons'
 import { copy, shareInvite } from '../lib/share'
 import { useHome } from '../lib/store'
 import type { Drawing, HouseType, Member } from '../lib/types'
@@ -433,6 +434,7 @@ export default function Family({ onGuide, onActivities }: { onGuide: () => void;
         <p className="entete mt-6">Réglages</p>
         <div className="groupe mx-4 shadow-carte">
           <Row icon={<CircleHelp size={17} strokeWidth={2.4} />} tint="#F58B5C" label="Comment ça marche" onClick={onGuide} />
+          <SonsRow />
           <Row icon={<UserRound size={17} strokeWidth={2.4} />} label="Mon personnage" value={me.display_name} onClick={() => setSheet('profil')} last={api.mode !== 'supabase'} />
           {api.mode === 'supabase' && <Row icon={<Mail size={16} strokeWidth={2.4} />} tint="#5AA3E0" label="Sauvegarder mon compte" value={linked ? 'Activé' : undefined} onClick={() => setSheet('compte')} last />}
         </div>
@@ -576,5 +578,29 @@ export default function Family({ onGuide, onActivities }: { onGuide: () => void;
       )}
       {humeurDe && <MoodSheet member={humeurDe} onClose={() => setHumeurDe(null)} />}
     </>
+  )
+}
+
+/** Les sons de la maison (gestes, compagnon, jardin) : on peut les couper. */
+function SonsRow() {
+  const [on, setOn] = useState(sonsActives)
+  return (
+    <Row
+      icon={<Volume2 size={17} strokeWidth={2.4} />}
+      tint="#E77BA0"
+      label="Sons"
+      hint="Câlins, compagnon, jardin"
+      value={
+        <Switch
+          on={on}
+          label="Sons de la maison"
+          onChange={(v) => {
+            activerSons(v)
+            setOn(v)
+            if (v) jouer('geste-coeur')
+          }}
+        />
+      }
+    />
   )
 }

@@ -28,7 +28,7 @@ export default function Guide({ onClose }: { onClose: () => void }) {
       <div className="anim-fondu absolute inset-0 bg-black/35 backdrop-blur-md" />
       <div className="anim-monte relative rounded-t-feuille bg-fond px-6 pt-3" style={{ paddingBottom: 'calc(var(--sab) + 18px)' }}>
         <div className="mx-auto h-[5px] w-9 rounded-full bg-pale" />
-        <button onClick={onClose} className="presse absolute right-5 top-4 text-corps text-teinte">Passer</button>
+        <button onClick={onClose} className="presse absolute right-5 top-4 z-10 text-corps text-teinte">Passer</button>
         <div key={i} className="anim-entre flex min-h-[330px] flex-col items-center pt-9 text-center">
           {step.art === 'panda' ? (
             <img src="./panda.webp" alt="" className="h-[124px] w-[124px] rounded-[30px] shadow-carte" />
