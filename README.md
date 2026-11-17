@@ -56,9 +56,9 @@ Sans clés Supabase, l'app démarre en **mode démo** : la maison vit sur l'appa
 
 ## Brancher Supabase
 
-1. Créer un projet Supabase et y exécuter, dans l'ordre, `supabase/migrations/0001_nidoo.sql`, `0002_dossiers.sql`, `0003_dessins.sql`, `0004_invitations.sql`, `0005_defis.sql`, `0006_personnages.sql`, `0007_sans_guirlande.sql`, `0008_enfants.sql`, `0009_instants.sql`, `0010_soins.sql`, `0011_animaux.sql`, `0012_compagnon.sql`, `0013_stickers.sql` puis `0014_dessin_a_deux.sql` (et, dans Realtime > Settings, n'accepter que les canaux privés).
+1. Créer un projet Supabase et y exécuter, dans l'ordre, `supabase/migrations/0001_nidoo.sql`, `0002_dossiers.sql`, `0003_dessins.sql`, `0004_invitations.sql`, `0005_defis.sql`, `0006_personnages.sql`, `0007_sans_guirlande.sql`, `0008_enfants.sql`, `0009_instants.sql`, `0010_soins.sql`, `0011_animaux.sql`, `0012_compagnon.sql`, `0013_stickers.sql`, `0014_dessin_a_deux.sql` puis `0015_plant_info_search_path.sql` (et, dans Realtime > Settings, n'accepter que les canaux privés).
 2. Dans Authentication > Sign In / Providers, activer **Allow anonymous sign-ins** (chaque téléphone reçoit un compte invisible, rattachable ensuite à un e-mail depuis « Notre famille »).
-3. Copier `.env.example` en `.env.production` (et `.env.local` pour le dev) avec l'URL du projet et la clé publishable.
+3. Le projet de production (`udhxnxuhyziuiwqotgle`) est déjà branché dans `.env.production`. Pour un autre projet, copier `.env.example` en `.env.production` (et `.env.local` pour le dev) avec l'URL du projet et la clé publishable.
 
 Toutes les tables sont protégées par RLS : on ne lit que les données des familles dont on est membre. Les étoiles sont attribuées par des triggers côté base, et les décorations achetées par la fonction `unlock_item`, pour que rien ne se triche depuis l'app. Les photos du fil vont dans un bucket privé `moments`, celles des dossiers dans un bucket privé `dossiers` dont chaque fichier est rangé sous l'identifiant du dossier racine : la base et le stockage vérifient tous deux l'appartenance au dossier.
 
