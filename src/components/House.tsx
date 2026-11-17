@@ -609,6 +609,9 @@ export default function House({
 
 // Où se tient chacun : dans le jardin, devant la porte d'entrée, ou à une fenêtre du bas.
 type Where = 'jardin' | 'porte' | 'fenetre'
+/** La largeur d'une grande personne au jardin, en % du décor. */
+const TAILLE = 15.5
+
 /** x, y : position dans le décor (en %) ; pour une fenêtre, y est le rebord et w la largeur du cadre. */
 type At = { x: number; y: number; k: number; where: Where; w?: number }
 type Placed = { p: HousePerson; at: At; i: number; scale: number }
@@ -678,7 +681,7 @@ function Jardin({
   const thrown = live && (fromWin || toWin)
   const doing = live && act === 'geste' ? scene!.kind : null
   const R = op.R
-  const height = (x: Placed, k = x.at.k) => (x.at.where === 'fenetre' ? (x.at.w ?? 10) * R * 1.08 : 14 * k * x.scale * s * 1.6 * R)
+  const height = (x: Placed, k = x.at.k) => (x.at.where === 'fenetre' ? (x.at.w ?? 10) * R * 1.08 : TAILLE * k * x.scale * s * 1.6 * R)
   // où va celui qui envoie (s'il bouge)
   const dest: At | null = !live || fromWin ? null : toWin ? { x: live.to.at.x, y: op.ground, k: 1, where: 'jardin' } : { ...live.to.at, x: live.to.at.x + live.side * 8 * live.to.at.k * s, where: 'jardin' }
   // le trajet du geste lancé (bas → fenêtre, ou fenêtre → bas)
@@ -707,9 +710,10 @@ function Jardin({
             <span className="absolute -bottom-[3px] left-1/2 -z-10 h-[7px] w-[7px] -translate-x-1/2 rotate-45 bg-white" />
           </span>
         ) : p.me ? (
-          <span className="relative mb-[3px] whitespace-nowrap rounded-full bg-teinte px-[7px] py-[2px] text-[10px] font-semibold leading-[14px] text-white shadow-[0_3px_8px_rgba(102,70,204,0.35)]" style={{ animation: 'flotte 3.6s ease-in-out infinite' }}>
-            + Mon humeur
-            <span className="absolute -bottom-[3px] left-1/2 h-[7px] w-[7px] -translate-x-1/2 rotate-45 bg-teinte" />
+          // près d'un bord du décor, la bulle se cale du côté intérieur pour rester entière
+          <span className={`relative mb-[3px] whitespace-nowrap rounded-full bg-teinte px-[7px] py-[2px] text-[10px] font-bold leading-[14px] text-white shadow-[0_3px_8px_rgba(102,70,204,0.35)] ${at.x < 24 ? 'self-start' : at.x > 76 ? 'self-end' : ''}`} style={{ animation: 'flotte 3.6s ease-in-out infinite' }}>
+            Comment vas-tu ?
+            <span className={`absolute -bottom-[3px] h-[7px] w-[7px] rotate-45 bg-teinte ${at.x < 24 ? 'left-[22%]' : at.x > 76 ? 'right-[22%]' : 'left-1/2 -translate-x-1/2'}`} />
           </span>
         ) : null
         const click = () => {
@@ -754,7 +758,7 @@ function Jardin({
             style={{
               left: `${pos.x}%`,
               bottom: `${pos.y}%`,
-              width: `${14 * pos.k * scale * s}%`,
+              width: `${TAILLE * pos.k * scale * s}%`,
               zIndex: isFrom ? 9 : at.where === 'porte' ? 6 : pos.k < 1 ? 7 : 8,
               transition: 'left 1.3s ease-in-out, bottom 1.3s ease-in-out, width 1.3s ease-in-out',
             }}
@@ -767,7 +771,7 @@ function Jardin({
               <span className="absolute bottom-[0.5%] left-1/2 h-[6%] w-[70%] -translate-x-1/2 rounded-[50%] bg-[#1d1a2b]/20 blur-[2px]" />
               <span key={hop || (isTo && thrown && doing) ? `${poke?.n ?? 0}${doing ?? ''}` : 0} className="block" style={{ animation: hop || (isTo && thrown && doing) ? 'rebond 0.7s var(--ressort)' : undefined, transformOrigin: '50% 100%' }}>
                 <span
-                  className={`block transition-[filter,opacity,transform] duration-500 ${p.me && !md && !isFrom && !isTo ? 'opacity-60 grayscale' : ''}`}
+                  className="block transition-transform duration-500"
                   style={{
                     animation: walking ? 'sautille 0.42s ease-in-out infinite' : lookUp || (doing === 'courage' && isFrom) ? 'sautille 0.5s ease-in-out infinite' : MOVES[p.mood ?? ''] ?? `respire ${3 + (i % 3) * 0.6}s ease-in-out infinite`,
                     transform: lookUp ? `rotate(${live!.side * 6}deg)` : lean ? `rotate(${lean}deg)` : undefined,

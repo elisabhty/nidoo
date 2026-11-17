@@ -1,4 +1,4 @@
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Compass } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { aventHint, useAvent } from '../components/avent'
 import { pettedToday, useCare, usePet } from '../components/care'
@@ -11,10 +11,11 @@ import { useLieux } from '../components/lieux'
 import { PetFigure } from '../components/pet'
 import { MoodSheet, ThoughtSheet } from '../components/sheets'
 import { StarsSheet } from '../components/stars'
-import { Art, Avatar } from '../components/ui'
+import { Art, Avatar, Sheet } from '../components/ui'
 import type { AventAction } from '../lib/avent'
 import { moodOf } from '../lib/data'
 import { feel, tap } from '../lib/haptic'
+import { shareInvite } from '../lib/share'
 import { useHome } from '../lib/store'
 import type { Drawing, Member } from '../lib/types'
 import { familyLabel, greeting, isToday, nextOccurrence, season } from '../lib/util'
@@ -28,6 +29,7 @@ type Open =
   | { k: 'dessins'; start?: Drawing }
   | { k: 'etoiles' }
   | { k: 'decor'; food?: boolean }
+  | { k: 'explorer' }
 
 export function upcoming(events: ReturnType<typeof useHome>['state']['events'], limit = 3) {
   const start = new Date()
@@ -42,7 +44,7 @@ export function upcoming(events: ReturnType<typeof useHome>['state']['events'], 
 const PLAYED = 'nidoo.scenes.jouees'
 
 export default function Home({ go, active = true }: { go: (t: Go) => void; active?: boolean }) {
-  const { state } = useHome()
+  const { state, toast } = useHome()
   const [sheet, setSheet] = useState<Open>(null)
   const [scene, setScene] = useState<HouseScene | null>(null)
   const houseRef = useRef<HTMLDivElement>(null)
@@ -52,6 +54,11 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
   const pendingThoughts = state.thoughts.filter(t => t.to_member === me.id && !t.seen_at)
   const nextSender = pendingThoughts[pendingThoughts.length - 1]?.from_member ?? received[0]?.from_member
   const others = members.filter((m) => m.id !== me.id)
+  const inviter = async () => {
+    tap()
+    if (!family.invite_code || new Date(family.invite_expires_at).getTime() < Date.now()) return go('famille')
+    if ((await shareInvite(family.name, family.invite_code)) === 'copie') toast('Invitation copiée')
+  }
   // les photos partagées avec toute la famille (fil et instants), les plus récentes d'abord
   const photos = [
     ...state.moments.filter((m) => m.image_url).map((m) => ({ at: m.created_at, url: m.image_url! })),
@@ -77,8 +84,6 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
   const lieux = useLieux(aventAction)
   const av = useAvent()
   const caseDuJour = av.visible && av.aOuvrir.includes(av.today)
-  // Les lieux qui attendent quelque chose passent devant : la case du jour, puis « À toi de jouer ».
-  const urgence = (k: string) => (k === 'avent' && caseDuJour ? 2 : k === 'jeux' && tours.length ? 1 : 0)
   // Le bouton d'une case du calendrier de l'Avent : on ferme le calendrier pour ouvrir le bon endroit
   // (les lieux, eux, s'empilent par-dessus : en revenant, on retrouve le calendrier).
   function aventAction(a: AventAction) {
@@ -148,8 +153,8 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
         </div>
 
         <div
-          className="no-bar h-full overflow-y-auto overscroll-contain pb-[120px]"
-          style={{ paddingTop: 'calc(var(--sat) + 56px)' }}
+          className="no-bar h-full overflow-y-auto overscroll-contain"
+          style={{ paddingTop: 'calc(var(--sat) + 56px)', paddingBottom: 'calc(var(--sab) + 136px)' }}
           onScroll={(e) => {
             const y = e.currentTarget.scrollTop
             setScrolled(y > 60)
@@ -166,7 +171,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
 
           {received.length > 0 || pendingThoughts.length > 0 ? <button onClick={() => go('recus')} className="presse mx-5 mt-5 flex w-[calc(100%-2.5rem)] items-center gap-3 rounded-[22px] bg-teinte-doux p-4 text-left">
             <Art name="geste-coeur" size={36} /><span className="flex-1"><span className="block text-corps font-semibold">{members.find(m => m.id === nextSender)?.display_name ?? 'Un proche'} pense à toi</span><span className="mt-1 block text-sous text-brume">Découvrir son attention</span></span><ChevronRight size={20} />
-          </button> : others.length === 0 ? <div className="mx-5 mt-5 rounded-[24px] bg-white p-5 shadow-carte"><h2 className="font-rond text-titre2">Votre histoire commence ici.</h2><p className="mt-2 text-corps text-brume">Ta maison est prête. Invite un proche pour commencer à vous laisser des attentions.</p></div> : null}
+          </button> : null}
 
           {/* La maison et les proches restent au cœur de l’accueil. */}
           <div className="mx-4 mt-5">
@@ -192,44 +197,45 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
               />
             </div>
           </div>
-          {/* les lieux de la maison : le compagnon, le potager, le centre commercial, les jeux (et l'Avent en décembre) */}
+          {/* ce qui attend (la case du jour, « À toi de jouer »), puis tout le reste rangé dans « Explorer » */}
           <div className="no-bar mt-3 flex gap-2 overflow-x-auto px-5" aria-label="Les lieux de la maison">
             {[
-              ...(av.visible
-                ? [{ k: 'avent' as const, label: caseDuJour ? 'Case du jour' : 'Calendrier de l’Avent', icon: <img src="./art/avent-sapin-mini.webp" alt="" className="h-[32px] w-[32px] object-contain" /> }]
-                : []),
-              {
-                k: 'compagnon' as const,
-                label: state.pet ? state.pet.name : 'Un compagnon',
-                icon: state.pet ? <PetFigure pet={state.pet} className="w-[30px]" /> : <img src="./art/pet-chat.webp" alt="" className="h-[30px] w-[30px]" />,
-              },
-              { k: 'potager' as const, label: 'Le potager', icon: <img src={`./art/${state.plots[0] ? state.plots[0].plant : 'plant-pousse'}.webp`} alt="" className="h-[30px] w-[30px]" /> },
-              { k: 'centre' as const, label: 'Centre commercial', icon: <img src="./art/centre-commercial.webp" alt="" className="h-[26px] w-[44px] object-contain" /> },
-              { k: 'jeux' as const, label: tours.length ? `À toi de jouer (${tours.length})` : 'Jouer ensemble', icon: <img src="./art/jeu-puissance4.webp" alt="" className="h-[30px] w-[30px] object-contain" /> },
-            ]
-              .sort((a, b) => urgence(b.k) - urgence(a.k))
-              .map((x) => (
+              ...(caseDuJour ? [{ k: 'avent' as const, label: 'Case du jour', icon: <img src="./art/avent-sapin-mini.webp" alt="" className="h-[32px] w-[32px] object-contain" /> }] : []),
+              ...(tours.length ? [{ k: 'jeux' as const, label: `À toi de jouer (${tours.length})`, icon: <img src="./art/jeu-puissance4.webp" alt="" className="h-[30px] w-[30px] object-contain" /> }] : []),
+            ].map((x) => (
               <button
                 key={x.k}
                 onClick={() => {
                   tap()
                   lieux.open({ k: x.k })
                 }}
-                className={`presse flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-white pl-1.5 pr-3.5 text-sous font-semibold shadow-carte ${x.k === 'jeux' && tours.length ? 'text-teinte-fonce ring-2 ring-inset ring-teinte' : ''} ${x.k === 'avent' && caseDuJour ? 'text-[#2F7A57] ring-2 ring-inset ring-[#7BC9A0]' : ''}`}
+                className={`presse flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-white pl-1.5 pr-3.5 text-sous font-semibold shadow-carte ${x.k === 'jeux' ? 'text-teinte-fonce ring-2 ring-inset ring-teinte' : 'text-[#2F7A57] ring-2 ring-inset ring-[#7BC9A0]'}`}
               >
                 {x.icon} {x.label}
               </button>
             ))}
+            <button
+              onClick={() => {
+                tap()
+                setSheet({ k: 'explorer' })
+              }}
+              className="presse flex h-11 shrink-0 items-center gap-2 rounded-full bg-white pl-3 pr-4 text-sous font-semibold shadow-carte"
+            >
+              <Compass size={20} strokeWidth={2.2} className="text-teinte" /> Explorer
+            </button>
           </div>
-          <div className="no-bar mx-5 mt-4 flex gap-5 overflow-x-auto pb-2" aria-label="Les humeurs de la famille">
-            {members.map((m) => (
-              <button key={m.id} onClick={() => setSheet(m.id === me.id ? { k: 'humeur' } : { k: 'pensee', to: m })} className="presse flex w-[68px] shrink-0 flex-col items-center gap-1">
-                <Avatar m={m} size={58} mood />
-                <span className="w-full truncate text-sous font-semibold">{m.id === me.id ? 'Moi' : m.display_name}</span>
-                <span className="w-full truncate text-note text-brume">{isToday(m.mood_at) && m.mood ? moodOf(m.mood)?.label ?? 'À partager' : m.id === me.id ? 'Mon humeur' : 'Faire signe'}</span>
-              </button>
-            ))}
-          </div>
+          {/* les proches : choisir quelqu'un, avec son prénom et son humeur (moi, je suis dans le jardin) */}
+          {others.length > 0 && (
+            <div className="no-bar mx-5 mt-4 flex gap-5 overflow-x-auto pb-2" aria-label="Les humeurs de la famille">
+              {others.map((m) => (
+                <button key={m.id} onClick={() => setSheet({ k: 'pensee', to: m })} className="presse flex w-[68px] shrink-0 flex-col items-center gap-1">
+                  <Avatar m={m} size={58} mood />
+                  <span className="w-full truncate text-sous font-semibold">{m.display_name}</span>
+                  <span className="w-full truncate text-note text-brume">{isToday(m.mood_at) && m.mood ? moodOf(m.mood)?.label ?? 'À partager' : 'Faire signe'}</span>
+                </button>
+              ))}
+            </div>
+          )}
           {caseDuJour && (
             <button
               onClick={() => {
@@ -263,13 +269,20 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
               <img src="./art/stickers/gateau.webp" alt="" className="h-12 w-12 shrink-0 rotate-6 object-contain" />
             </button>
           )}
-          <div className="mx-5 mt-4">
-            <button onClick={() => others.length ? setSheet({ k: 'dessin' }) : go('famille')} className="presse ios-primary flex min-h-[54px] w-full items-center justify-center rounded-full text-corps font-semibold text-white">{others.length ? 'Créer une attention' : 'Inviter un proche'}</button>
-
-          </div>
-
-          <p className="mx-5 mt-3 text-center text-note text-brume">Touche un proche pour lui faire signe.</p>
-          <button onClick={() => go('moments')} className="presse mx-5 mt-5 flex min-h-11 w-[calc(100%-2.5rem)] items-center justify-center gap-2 text-sous text-teinte-fonce">Retrouver nos souvenirs <ChevronRight size={16} /></button>
+          {others.length ? (
+            <>
+              <div className="mx-5 mt-4">
+                <button onClick={() => setSheet({ k: 'dessin' })} className="presse ios-primary flex min-h-[54px] w-full items-center justify-center rounded-full text-corps font-bold text-white">Créer une attention</button>
+              </div>
+              <p className="mx-5 mt-3 text-center text-note text-brume">Touche un proche pour lui faire signe.</p>
+            </>
+          ) : (
+            <div className="mx-5 mt-4 text-center">
+              <p className="font-rond text-titre3">Tout commence avec un proche</p>
+              <button onClick={() => void inviter()} className="presse ios-primary mt-3 flex min-h-[54px] w-full items-center justify-center rounded-full text-corps font-bold text-white">Inviter mes proches</button>
+            </div>
+          )}
+          <button onClick={() => go('moments')} className="presse mx-5 mt-4 flex min-h-11 w-[calc(100%-2.5rem)] items-center justify-center gap-1 text-sous font-semibold text-teinte-fonce">Nos souvenirs <ChevronRight size={16} /></button>
 
         </div>
       </div>
@@ -283,6 +296,33 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
           onClose={() => setSheet(null)}
           onDecorate={() => setSheet({ k: 'decor' })}
         />
+      )}
+      {sheet?.k === 'explorer' && (
+        <Sheet title="Explorer" onClose={() => setSheet(null)}>
+          <div className="grid grid-cols-2 gap-2.5 pb-2">
+            {[
+              ...(av.visible ? [{ k: 'avent' as const, label: 'Calendrier de l’Avent', hint: caseDuJour ? 'La case du jour t’attend' : 'Une case par jour', icon: <img src="./art/avent-sapin-mini.webp" alt="" className="h-14 w-14 object-contain" /> }] : []),
+              { k: 'jeux' as const, label: 'Jouer ensemble', hint: tours.length ? `À toi de jouer (${tours.length})` : 'À deux ou en famille', icon: <img src="./art/jeu-puissance4.webp" alt="" className="h-14 w-14 object-contain" /> },
+              { k: 'compagnon' as const, label: state.pet ? state.pet.name : 'Un compagnon', hint: state.pet ? 'Le compagnon de la maison' : 'Adopter un animal', icon: state.pet ? <PetFigure pet={state.pet} className="w-14" /> : <img src="./art/pet-chat.webp" alt="" className="h-14 w-14 object-contain" /> },
+              { k: 'potager' as const, label: 'Le potager', hint: 'Planter et récolter', icon: <img src={`./art/${state.plots[0] ? state.plots[0].plant : 'plant-pousse'}.webp`} alt="" className="h-14 w-14 object-contain" /> },
+              { k: 'centre' as const, label: 'Centre commercial', hint: 'Déco, vêtements, animalerie', icon: <img src="./art/centre-commercial.webp" alt="" className="h-14 w-[84px] object-contain" /> },
+            ].map((x) => (
+              <button
+                key={x.k}
+                onClick={() => {
+                  tap()
+                  setSheet(null)
+                  lieux.open({ k: x.k })
+                }}
+                className="presse flex flex-col items-center gap-1 rounded-[22px] bg-carte px-2 pb-3 pt-4 text-center shadow-carte"
+              >
+                {x.icon}
+                <span className="mt-1 text-sous font-bold">{x.label}</span>
+                <span className="text-note text-brume">{x.hint}</span>
+              </button>
+            ))}
+          </div>
+        </Sheet>
       )}
       {sheet?.k === 'decor' && <DecorPage food={sheet.food} onClose={() => setSheet(null)} />}
       {!sheet && gone && (

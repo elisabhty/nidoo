@@ -12,6 +12,11 @@ const EARN: { icon: ReactNode; label: string; stars: number; limit?: string }[] 
   { icon: <Art name="geste-calin" size={40} />, label: 'Envoyer un câlin', stars: 1, limit: 'jusqu’à 5 par jour' },
   { icon: <DoodleIcon size={34} />, label: 'Envoyer un dessin', stars: 1, limit: 'jusqu’à 5 par jour' },
   { icon: <Art name="picto-missions" size={40} />, label: 'Terminer une mission', stars: 1 },
+  { icon: <img src="./art/jeu-puissance4.webp" alt="" className="h-9 w-9 object-contain" />, label: 'Gagner une partie', stars: 2, limit: 'jusqu’à 5 par jour' },
+  { icon: <img src="./art/jeu-mot.webp" alt="" className="h-9 w-9 object-contain" />, label: 'Trouver le mot mystère', stars: 2, limit: 'une fois par jour' },
+  { icon: <img src="./art/jeu-dessin.webp" alt="" className="h-9 w-9 object-contain" />, label: 'Deviner un dessin', stars: 1, limit: 'jusqu’à 10 par jour' },
+  { icon: <img src="./art/jeu-quidenous.webp" alt="" className="h-9 w-9 object-contain" />, label: 'Être tous d’accord à Qui de nous ?', stars: 1, limit: 'jusqu’à 10 par jour' },
+  { icon: <img src="./art/avent-sapin-mini.webp" alt="" className="h-9 w-9 object-contain" />, label: 'Ouvrir une case du calendrier de l’Avent', stars: 1, limit: 'en décembre · 3 étoiles le 24' },
   { icon: <CareIcon k="chat" size={32} />, label: 'Nourrir le compagnon ou les oiseaux', stars: 3, limit: 'une fois par jour chacun · un repas de croquettes' },
   { icon: <CareIcon k="fleurs" size={32} />, label: 'Arroser les fleurs ou le potager', stars: 1, limit: 'une fois par jour chacun, pour toute la famille' },
   { icon: <HandIcon size={32} />, label: 'Caresser le compagnon ou les oiseaux', stars: 1, limit: 'une fois par jour, pour chacun' },
@@ -29,7 +34,7 @@ export function StarsSheet({ onClose, onDecorate }: { onClose: () => void; onDec
       <div className="flex flex-col items-center text-center">
         <Art name="picto-etoile" size={64} className="anim-flotte" />
         <p className="mt-1 font-rond text-titre1">{family.stars} étoile{family.stars > 1 ? 's' : ''}</p>
-        <p className="mt-1 max-w-[290px] text-sous text-brume">Elles appartiennent à toute la famille. On les gagne ensemble et on les dépense pour embellir la maison.</p>
+        <p className="mt-1 max-w-[290px] text-sous text-brume">Elles appartiennent à toute la famille : chaque petit geste en rapporte, et on les dépense ensemble pour décorer la maison.</p>
       </div>
 
       <p className="entete mt-5 !px-1">Comment en gagner</p>
