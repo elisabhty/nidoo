@@ -3,6 +3,7 @@
 // Repères m (fractions de la toile 300x440) : haut de la tête, hauteur de la tête, centre, largeur du crâne,
 // largeur de la chevelure, puis le cadre du buste (x, y, côté).
 
+import { CORPS } from './corps'
 import { ACCESSORIES, HAIR_COLORS, HAIRSTYLES, type Look } from './look'
 
 export type Group = 'femme' | 'homme' | 'fille' | 'garcon' | 'bebe'
@@ -201,3 +202,37 @@ export function accTop(pl: AccPlace) {
 }
 
 export const accessoryOf = (look: Look) => ACCESSORIES[look.v ?? 0] ?? ''
+
+/** Les vêtements de la boutique faits de plusieurs pièces (une boucle à chaque oreille, une chaussure à chaque pied)
+ *  ou étirés sur le corps (le manteau) : chaque pièce a sa boîte (fractions de la toile) et peut être retournée.
+ *  Les repères du corps viennent de scripts/corps_personnages.py (src/lib/corps.ts). */
+export type AccPiece = { art: string; l: number; t: number; w: number; h: number; flip: boolean }
+const PIECE_AR: Record<string, number> = { boucle: 164 / 110, manteau: 298 / 300, botte: 255 / 150, basket: 234 / 150 }
+
+export function accPieces(p: Perso, acc: string): AccPiece[] | null {
+  const [t, h, x, c] = p.m
+  const hw = h * R
+  const body = CORPS[p.id]
+  if (acc === 'boucles') {
+    const w = hw * 0.12
+    const hgt = (w * PIECE_AR.boucle) / R
+    return [-1, 1].map((side) => ({ art: 'acc-boucle', l: x + side * c * 0.48 - w / 2, t: t + h * 0.68, w, h: hgt, flip: side > 0 }))
+  }
+  if (!body) return null
+  const [pl, wl, pr, wr, yb, bx, bw, hy] = body
+  if (acc === 'manteau') {
+    const w = bw * 1.24
+    const top = t + h * 0.88
+    return [{ art: 'acc-manteau', l: bx - w / 2, t: top, w, h: hy + (yb - hy) * 0.32 - top, flip: false }]
+  }
+  if (acc === 'bottes' || acc === 'baskets') {
+    const art = acc === 'bottes' ? 'botte' : 'basket'
+    const k = acc === 'bottes' ? 1.12 : 1.2
+    return ([[pl, wl, false], [pr, wr, true]] as const).map(([cx, fw, flip]) => {
+      const w = fw * k
+      const hgt = (w * PIECE_AR[art]) / R
+      return { art: `acc-${art}`, l: cx - w / 2, t: yb + 0.006 - hgt, w, h: hgt, flip }
+    })
+  }
+  return null
+}

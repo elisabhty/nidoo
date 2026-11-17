@@ -256,5 +256,9 @@ export const SHOP: ShopItem[] = [
   { key: 'mode:lunettes', name: 'Lunettes de star', cost: 12, art: 'mode-lunettes', shop: 'boutique', group: 'Accessoires' },
   { key: 'mode:fleurs', name: 'Couronne de fleurs', cost: 15, art: 'mode-fleurs', shop: 'boutique', group: 'Chapeaux' },
   { key: 'mode:couronne', name: 'Couronne dorée', cost: 30, art: 'mode-couronne', shop: 'boutique', group: 'Chapeaux' },
+  { key: 'mode:boucles', name: 'Boucles d’oreilles cœur', cost: 10, art: 'mode-boucles', shop: 'boutique', group: 'Accessoires' },
+  { key: 'mode:manteau', name: 'Manteau à brandebourgs', cost: 25, art: 'mode-manteau', shop: 'boutique', group: 'Manteaux' },
+  { key: 'mode:bottes', name: 'Bottes de pluie', cost: 14, art: 'mode-bottes', shop: 'boutique', group: 'Chaussures' },
+  { key: 'mode:baskets', name: 'Baskets roses', cost: 12, art: 'mode-baskets', shop: 'boutique', group: 'Chaussures' },
 ]
 export const shopItem = (k: string) => SHOP.find((i) => i.key === k)
