@@ -247,7 +247,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
             >
               <span className="flex">
                 {['pet-chat', 'plant-pousse'].map((a, i) => (
-                  <img key={a} src={`./art/${a}.webp`} alt="" className={`h-8 w-8 rounded-full bg-white object-contain p-0.5 ring-2 ring-[#7A5AE0] ${i ? '-ml-3.5' : ''}`} />
+                  <img key={a} src={`./art/${a}.webp`} alt="" className={`h-8 w-8 rounded-full bg-white object-contain p-0.5 ring-2 ring-[#7A5AE0] ${i ? '-ml-1.5' : ''}`} />
                 ))}
               </span>
               Explorer

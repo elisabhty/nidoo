@@ -25,7 +25,7 @@ export function Avatar({ m, size = 44, mood = false, ring = false }: { m: Pick<M
         className="block h-full w-full overflow-hidden rounded-full"
         style={{ background: `linear-gradient(160deg, ${c.bg}, ${c.deep})`, boxShadow: ring ? `0 0 0 2.5px #fff, 0 0 0 5px ${c.ring}` : 'inset 0 0 0 0.5px rgba(29,26,43,0.06)' }}
       >
-        <Character look={look} mood={md} bust still={size < 44} className="block h-full w-full" blinkDelay={(size % 7) * 0.6} />
+        <Character look={look} mood={md} bust recul={1.22} still={size < 44} className="block h-full w-full" blinkDelay={(size % 7) * 0.6} />
       </span>
       {/* l'humeur du jour, en petit smiley sur la pastille */}
       {md && size >= 36 && (

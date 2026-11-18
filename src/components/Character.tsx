@@ -23,6 +23,8 @@ type Props = {
   pose?: 'calin'
   /** joues toutes roses (après un bisou) */
   blush?: boolean
+  /** buste vu d'un peu plus loin (1.2 = 20 % de recul) : toute la tête et un peu plus des épaules */
+  recul?: number
 }
 
 /** L'image de la figurine (avec la peau choisie), recolorée si on a changé ses cheveux, ses yeux ou sa bouche. */
@@ -180,7 +182,7 @@ export function FaceExtras({ p, look }: { p: Perso; look: Look }) {
   )
 }
 
-export function Character({ look, mood = null, bust = false, extras = false, className = '', pose, blush = false }: Props) {
+export function Character({ look, mood = null, bust = false, extras = false, className = '', pose, blush = false, recul = 1 }: Props) {
   const p = persoOf(look)
   const src = usePersoSrc(p, look)
   const acc = accessoryOf(look)
@@ -260,6 +262,13 @@ export function Character({ look, mood = null, bust = false, extras = false, cla
       by -= extra
       bs += extra
       bx -= extra / 2
+    }
+    if (recul > 1) {
+      // on recule : un peu d'air au-dessus des cheveux, le reste pour les épaules
+      const extra = bs * (recul - 1)
+      bs += extra
+      bx -= extra / 2
+      by -= extra * 0.3
     }
     return (
       <span className={`relative block overflow-hidden ${className}`} style={{ aspectRatio: '1 / 1' }}>
