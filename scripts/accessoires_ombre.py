@@ -5,7 +5,7 @@ sous les lunettes, sous le chapeau, entre les pans de l'écharpe…
 On enlève les pixels gris (peu colorés, assez clairs) reliés au fond transparent. Le pompon du bonnet
 est protégé ; la couronne de fleurs ne garde que son arc de devant.
 À lancer une seule fois, sur les images d'origine (git show fdfa56f:public/art/persos/acc-*.webp).
-Usage : python3 scripts/accessoires_ombre.py [dossier_sortie]
+Usage : python3 scripts/accessoires_ombre.py [dossier_origine] [dossier_sortie] [noms…]
 """
 import sys
 from pathlib import Path
@@ -30,6 +30,18 @@ def nettoie(nom: str, im: Image.Image) -> Image.Image:
     H = a.shape[0]
     if nom == 'bonnet':
         gris[: int(H * 0.4)] = False  # le pompon
+    if nom == 'echarpe':
+        # l'écharpe était vue d'en haut : un anneau dont on voyait le trou, comme un beignet posé sur
+        # la poitrine. On retire l'arrière de l'anneau et son ouverture : il reste le devant enroulé,
+        # qui remonte un peu de chaque côté du cou, et les deux pans.
+        yy, xx = np.mgrid[0:H, 0 : a.shape[1]]
+        cx, cy, ra, rb = 152, 50, 56, 34  # l'ouverture de l'anneau
+        trou = ((xx - cx) / ra) ** 2 + ((yy - cy) / rb) ** 2 < 1
+        cote = np.abs(xx - cx) - ra
+        dos = (yy < cy + 16 * np.clip(cote / 50, 0, None) ** 2) & ~((yy >= cy) & (cote < 0))
+        coupe = np.where(trou | dos, 0, 255).astype(np.uint8)
+        coupe = np.array(Image.fromarray(coupe).filter(ImageFilter.GaussianBlur(1.2)))
+        al = np.minimum(al, coupe)
     if nom == 'fleurs':
         # les pétales blancs des pâquerettes : clairs et tout près d'un cœur jaune ou d'une feuille
         colore = (sat > 0.35) & ~vide
@@ -59,9 +71,12 @@ def nettoie(nom: str, im: Image.Image) -> Image.Image:
 
 
 if __name__ == '__main__':
-    sortie = Path(sys.argv[1]) if len(sys.argv) > 1 else DOSSIER
+    # python3 scripts/accessoires_ombre.py [dossier_origine] [dossier_sortie] [noms…]
+    source = Path(sys.argv[1]) if len(sys.argv) > 1 else DOSSIER
+    sortie = Path(sys.argv[2]) if len(sys.argv) > 2 else DOSSIER
+    noms = sys.argv[3:] or NOMS
     sortie.mkdir(parents=True, exist_ok=True)
-    for nom in NOMS:
-        f = DOSSIER / f'acc-{nom}.webp'
+    for nom in noms:
+        f = source / f'acc-{nom}.webp'
         nettoie(nom, Image.open(f)).save(sortie / f.name, quality=92, method=6)
         print('propre :', f.name)

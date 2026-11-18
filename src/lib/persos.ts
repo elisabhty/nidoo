@@ -168,7 +168,7 @@ export function nearest(look: Look): Perso {
 
 /** Les accessoires de la boutique, posés sur la figurine : largeur et position (fractions de la toile). */
 export type AccPlace = { w: number; x: number; y: number; anchor: 'bottom' | 'center' | 'top'; ar: number }
-const AR: Record<string, number> = { bonnet: 1.062, casquette: 0.802, paille: 0.7, fleurs: 0.361, echarpe: 1, couronne: 1.017, noeud: 0.604 }
+const AR: Record<string, number> = { bonnet: 1.062, casquette: 0.802, paille: 0.7, fleurs: 0.361, echarpe: 0.842, couronne: 1.017, noeud: 0.604 }
 
 export function accPlace(p: Perso, acc: string): AccPlace | null {
   const [t, h, x, c] = p.m
@@ -196,9 +196,12 @@ export function accPlace(p: Perso, acc: string): AccPlace | null {
       return { w: Math.min(c * 0.55, hw * 0.5), x: ex, y: t + (ey - t) * 0.3, anchor: 'bottom', ar }
     case 'noeud':
       return { w: hw * 0.42, x: x + c * 0.36, y: t + h * 0.2, anchor: 'center', ar }
-    // l'écharpe : la boucle juste sous le menton, les pans sur la poitrine
-    case 'echarpe':
-      return { w: d * 2.15, x: ex, y: chin - dy * 0.12, anchor: 'top', ar }
+    // l'écharpe : le creux du tour de cou juste sous le menton (il est à 36/250 du haut de l'image),
+    // les côtés remontent le long du cou, les pans tombent sur la poitrine
+    case 'echarpe': {
+      const w = d * 2.6
+      return { w, x: ex, y: chin + dy * 0.04 - ((w * ar) / R) * (36 / 250), anchor: 'top', ar }
+    }
     default:
       // les lunettes de soleil se dessinent avec le visage (voir FaceExtras)
       return null
