@@ -94,7 +94,7 @@ const LEAVES = ['#E8833A', '#D9572B', '#F2B33D', '#B5532A', '#E9A23B']
 const PETALS = ['#F9C4D5', '#FDE6EE', '#F4A9C2', '#FFFFFF']
 
 export default function House({
-  type, items, className = '', phase = dayPhase(), bare = false, season = seasonOf(), photos = [], people = [], onPerson, scene = null, onSceneEnd, ratio, cares, onCare, since, petted = true, onPet, pet = null, plots = [], gold = false,
+  type, items, className = '', phase = dayPhase(), bare = false, season = seasonOf(), photos = [], onPhoto, onAddPhoto, people = [], onPerson, scene = null, onSceneEnd, ratio, cares, onCare, since, petted = true, onPet, pet = null, plots = [], gold = false,
 }: {
   type: HouseType
   items: string[]
@@ -105,6 +105,10 @@ export default function House({
   season?: Season
   /** Les dernières photos partagées, accrochées au fil avec des pinces à linge. */
   photos?: string[]
+  /** toucher une photo accrochée (pour la remplacer ou la décrocher) */
+  onPhoto?: (i: number) => void
+  /** une place libre sur la corde : un cadre vide « + » pour accrocher une photo */
+  onAddPhoto?: () => void
   /** La famille devant la maison, chacun avec son humeur. */
   people?: HousePerson[]
   onPerson?: (m: Member) => void
@@ -566,30 +570,61 @@ export default function House({
         ))}
 
       {/* le fil à photos : un cordon noir sur toute la largeur, les photos tenues par des pinces à linge en bois */}
-      {!bare && photos.length > 0 && (
+      {!bare && (photos.length > 0 || onAddPhoto) && (
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[40%]" style={{ zIndex: 8 }}>
           <svg viewBox="0 0 100 40" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden>
             <path d="M-2 3 Q 50 17 102 3" fill="none" stroke="#1D1A2B" strokeWidth={2} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
           </svg>
-          {photos.slice(0, 6).map((src, i, all) => {
-            const x = ((i + 1) / (all.length + 1)) * 100
-            const t = (x + 2) / 104
-            const y = 3 + 28 * t * (1 - t) // le creux du cordon à cet endroit (sur 40)
-            const r = [-5, 4, -3, 5, -4, 3][i]
-            return (
-              <span key={src.slice(-32) + i} className="absolute -translate-x-1/2" style={{ left: `${x}%`, top: `${(y / 40) * 100}%`, width: `${11.5 * s}%` }}>
-                <span className="block origin-top" style={{ animation: `balance ${4.2 + (i % 3) * 0.9}s ease-in-out ${-i * 0.7}s infinite` }}>
-                  <span className="block bg-white p-[7%] pb-[22%] shadow-[0_5px_12px_rgba(29,26,43,0.28)]" style={{ transform: `translateY(14%) rotate(${r}deg)`, transformOrigin: '50% 0' }}>
-                    <img src={src} alt="" className="block aspect-square w-full object-cover" />
-                  </span>
-                  {/* la pince à linge en bois */}
-                  <span className="absolute left-1/2 top-[-9%] block h-[34%] w-[22%] -translate-x-1/2 rounded-[2px] shadow-[0_1px_2px_rgba(29,26,43,0.35)]" style={{ background: 'linear-gradient(90deg, #C98F55 0%, #E7BD86 45%, #D7A267 100%)' }}>
-                    <span className="absolute inset-x-0 top-[42%] h-[14%] bg-[#8E5E33]/70" />
+          {(() => {
+            const shown = photos.slice(0, 6)
+            // une place libre (si on peut encore accrocher) : un cadre vide avec un +, au bout de la corde
+            const slots: (string | null)[] = onAddPhoto && shown.length < 6 ? [...shown, null] : shown
+            return slots.map((src, i, all) => {
+              const x = ((i + 1) / (all.length + 1)) * 100
+              const t = (x + 2) / 104
+              const y = 3 + 28 * t * (1 - t) // le creux du cordon à cet endroit (sur 40)
+              const r = [-5, 4, -3, 5, -4, 3, -2][i]
+              const cadre = src ? (
+                <span className="block bg-white p-[7%] pb-[22%] shadow-[0_5px_12px_rgba(29,26,43,0.28)]" style={{ transform: `translateY(14%) rotate(${r}deg)`, transformOrigin: '50% 0' }}>
+                  <img src={src} alt="" className="block aspect-square w-full object-cover" />
+                </span>
+              ) : (
+                <span className="block rounded-[3px] border-[1.5px] border-dashed border-white/85 bg-white/20 p-[7%] pb-[22%] backdrop-blur-[2px]" style={{ transform: `translateY(14%) rotate(${r}deg)`, transformOrigin: '50% 0' }}>
+                  <span className="flex aspect-square w-full items-center justify-center text-white">
+                    <svg viewBox="0 0 24 24" className="h-[55%] w-[55%]" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" aria-hidden>
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
                   </span>
                 </span>
-              </span>
-            )
-          })}
+              )
+              const touche = src ? onPhoto && (() => onPhoto(i)) : onAddPhoto
+              return (
+                <span key={(src ?? 'libre').slice(-32) + i} className="absolute -translate-x-1/2" style={{ left: `${x}%`, top: `${(y / 40) * 100}%`, width: `${11.5 * s}%` }}>
+                  <span className="block origin-top" style={{ animation: `balance ${4.2 + (i % 3) * 0.9}s ease-in-out ${-i * 0.7}s infinite` }}>
+                    {touche ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          touche()
+                        }}
+                        className="presse pointer-events-auto block w-full"
+                        aria-label={src ? `Photo ${i + 1} accrochée : la remplacer ou la décrocher` : 'Accrocher une photo dans la maison'}
+                      >
+                        {cadre}
+                      </button>
+                    ) : (
+                      cadre
+                    )}
+                    {/* la pince à linge en bois */}
+                    <span className="pointer-events-none absolute left-1/2 top-[-9%] block h-[34%] w-[22%] -translate-x-1/2 rounded-[2px] shadow-[0_1px_2px_rgba(29,26,43,0.35)]" style={{ background: 'linear-gradient(90deg, #C98F55 0%, #E7BD86 45%, #D7A267 100%)' }}>
+                      <span className="absolute inset-x-0 top-[42%] h-[14%] bg-[#8E5E33]/70" />
+                    </span>
+                  </span>
+                </span>
+              )
+            })
+          })()}
         </div>
       )}
 

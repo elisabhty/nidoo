@@ -1,4 +1,4 @@
-import { CalendarDays, Camera, ChevronRight, Heart, MessageCircleHeart, Mic, Minus, Plus } from 'lucide-react'
+import { CalendarDays, Camera, ChevronRight, Heart, MessageCircleHeart, Mic } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useAvent } from '../components/avent'
 import { DefisDuJour, QuestionSheet } from '../components/defis'
@@ -15,7 +15,7 @@ import { useLieux } from '../components/lieux'
 import { PetFigure } from '../components/pet'
 import { ComposeSheet, EventDetailSheet, MoodSheet, ThoughtSheet } from '../components/sheets'
 import { StarsSheet } from '../components/stars'
-import { Art, Avatar, Sheet } from '../components/ui'
+import { Art, Avatar, choisir, Sheet } from '../components/ui'
 import type { AventAction } from '../lib/avent'
 import { challengeOfDay, moodOf } from '../lib/data'
 import { feel, tap } from '../lib/haptic'
@@ -37,7 +37,7 @@ type Open =
   | { k: 'explorer' }
   | { k: 'question' }
   | { k: 'defiPhoto' }
-  | { k: 'photosMaison'; mode:'add'|'remove' }
+  | { k: 'photosMaison'; mode: 'add' | 'replace'; index?: number }
   | { k: 'mot' }
   | { k: 'evenement'; e: FamEvent }
 
@@ -54,7 +54,7 @@ export function upcoming(events: ReturnType<typeof useHome>['state']['events'], 
 const PLAYED = 'nidoo.scenes.jouees'
 
 export default function Home({ go, active = true }: { go: (t: Go) => void; active?: boolean }) {
-  const { state, toast } = useHome()
+  const { state, toast, run } = useHome()
   const [sheet, setSheet] = useState<Open>(null)
   const [explorerVu, setExplorerVu] = useState(() => {
     try {
@@ -76,7 +76,18 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
     if (!family.invite_code || new Date(family.invite_expires_at).getTime() < Date.now()) return go('famille')
     if ((await shareInvite(family.name, family.invite_code)) === 'copie') toast('Invitation copiée')
   }
-  const photos = selectedHousePhotos(housePhotoSources(state),family.house_photo_ids).map(p => p.url)
+  const accrochees = selectedHousePhotos(housePhotoSources(state), family.house_photo_ids)
+  const photos = accrochees.map((p) => p.url)
+  // toucher une photo de la corde : la remplacer, ou la décrocher (elle reste dans le fil)
+  const surPhoto = async (i: number) => {
+    tap()
+    const c = await choisir({ title: 'Cette photo de la maison', message: 'Elle reste dans le fil même si tu la décroches.', actions: [{ label: 'Remplacer par une autre' }, { label: 'Décrocher', destructive: true }] })
+    if (c === 0) setSheet({ k: 'photosMaison', mode: 'replace', index: i })
+    if (c === 1) {
+      const ids = accrochees.map((p) => p.id).filter((_, j) => j !== i)
+      await run((a) => a.updateFamily(family.id, { house_photo_ids: ids }), 'Photo décrochée')
+    }
+  }
   const now = season()
   // un anniversaire aujourd'hui : on propose la carte toute prête, avec le prénom
   const anniv = state.events
@@ -188,15 +199,16 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
           {/* La maison et les proches restent au cœur de l’accueil. */}
           <div className="mx-4 mt-5">
             <div ref={houseRef} className="relative overflow-hidden rounded-[22px]">
-              <div className="absolute right-2 top-[34%] z-20 flex gap-1" role="group" aria-label="Photos accrochées dans la maison">
-                <button disabled={!photos.length} onClick={() => setSheet({k:'photosMaison',mode:'remove'})} aria-label="Retirer des photos de la maison" className="presse verre flex h-11 w-11 items-center justify-center rounded-full text-encre disabled:opacity-40"><Minus size={19} /></button>
-                <button onClick={() => setSheet({k:'photosMaison',mode:'add'})} aria-label="Ajouter des photos à la maison" className="presse verre flex h-11 w-11 items-center justify-center rounded-full text-encre"><Plus size={19} /></button>
-              </div>
               <House
                 className="!aspect-[16/10]"
                 type={family.house_type}
                 items={houseItems}
                 photos={photos}
+                onPhoto={(i) => void surPhoto(i)}
+                onAddPhoto={() => {
+                  tap()
+                  setSheet({ k: 'photosMaison', mode: 'add' })
+                }}
                 season={now}
                 people={members.map((m) => ({ m, mood: isToday(m.mood_at) ? m.mood : null, label: m.id === me.id ? 'Moi' : m.display_name, me: m.id === me.id }))}
                 onPerson={(m) => setSheet(m.id === me.id ? { k: 'humeur' } : { k: 'pensee', to: m })}
@@ -364,7 +376,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
         />
       )}
       {sheet?.k === 'question' && <QuestionSheet onClose={() => setSheet(null)} />}
-      {sheet?.k === 'photosMaison' && <HousePhotosSheet mode={sheet.mode} onClose={() => setSheet(null)} />}
+      {sheet?.k === 'photosMaison' && <HousePhotosSheet mode={sheet.mode} index={sheet.index} onClose={() => setSheet(null)} />}
       {sheet?.k === 'defiPhoto' && <ComposeSheet challenge={challengeOfDay()} onClose={() => setSheet(null)} />}
       {sheet?.k === 'evenement' && <EventDetailSheet event={sheet.e} onClose={() => setSheet(null)} />}
       {sheet?.k === 'mot' && <MotPage onClose={() => setSheet(null)} />}

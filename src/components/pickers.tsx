@@ -3,10 +3,10 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { COLOR_KEYS, COLORS, HOUSES, shopItem } from '../lib/data'
 import { select, tap } from '../lib/haptic'
-import { ACCESSORIES, AGE_SCALE, encodeLook, enlever, lookOf, mettre, portes, toutEnlever, type Look } from '../lib/look'
+import { ACCESSORIES, AGE_SCALE, encodeLook, enlever, lookOf, mettre, porteA, portes, toutEnlever, type Look } from '../lib/look'
 import { BLUSH, BOUCHES, CHEVEUX, labHex, LUNETTES, MONTURES, NEZ, nomPeau, peauOf, peauProche, peauxDe, persoImg, skinLab, VOILES, YEUX } from '../lib/personnalise'
 import { COULEURS_MONTURE, FORMES_LUNETTES } from '../lib/lunettes'
-import { GROUPS, PERSOS, persoOf, type Group, type Perso } from '../lib/persos'
+import { accPlace, accTop, CH, CW, GROUPS, PERSOS, persoOf, type Group, type Perso } from '../lib/persos'
 import { VISAGES } from '../lib/visages'
 import type { HouseType } from '../lib/types'
 import { Character } from './Character'
@@ -42,21 +42,50 @@ type Perso_ = ReturnType<typeof usePerso>
 function Portrait({ ed, color, size = 206 }: { ed: Perso_; color: string; size?: number }) {
   const { look, mine, zoom } = ed
   const c = COLORS[color] ?? COLORS.lavande
+  // Un seul personnage, en pied : le zoom l'agrandit en douceur vers son visage (une transformation animée),
+  // au lieu de remplacer l'image par un portrait d'un coup.
+  const R = CH / CW
+  const [, , , , , bx0, by0, bs0] = mine.m
+  const tete = porteA(look, 'T')
+  const pl = tete ? accPlace(mine, tete) : null
+  const at = pl ? accTop(pl) : 0
+  // le cadre du visage (en largeurs de figurine), agrandi vers le haut si un chapeau dépasse
+  let bx = bx0, by = by0 * R, bs = bs0
+  if (pl && at < by0) {
+    const extra = (by0 - at) * R + 4 / CW
+    by -= extra
+    bs += extra
+    bx -= extra / 2
+  }
+  const over = pl ? Math.max(0, -at) : 0
+  const wf = size * 0.54 * (AGE_SCALE[look.a] ?? 1)
+  const he = wf * R * (1 + over)
+  const left = (size - wf) / 2, top = size * 0.93 - he
+  const ox = (bx + bs / 2) * wf, oy = (R * over + by + bs / 2) * wf
+  const k = (size * 0.84) / (bs * wf)
+  const transform = zoom ? `translate(${size / 2 - (left + ox)}px, ${size * 0.51 - (top + oy)}px) scale(${k})` : 'none'
+  const doux = 'cubic-bezier(0.22, 0.8, 0.24, 1)'
   return (
     <div className="relative mx-auto shrink-0" style={{ width: size, height: size }}>
       <span className="absolute inset-[5%] rounded-full" style={{ background: `radial-gradient(circle at 50% 35%, ${c.bg}, ${c.deep})` }} />
-      <span className="absolute bottom-[6%] left-1/2 h-[6%] w-[40%] -translate-x-1/2 rounded-[50%] bg-[#1d1a2b]/15 blur-[3px]" />
+      <span className="absolute bottom-[6%] left-1/2 h-[6%] w-[40%] -translate-x-1/2 rounded-[50%] bg-[#1d1a2b]/15 blur-[3px] transition-opacity duration-300" style={{ opacity: zoom ? 0 : 1 }} />
       <button
         onClick={() => {
           tap()
           ed.setZoom(v => !v)
         }}
-        className="absolute inset-x-0 bottom-[7%] mx-auto transition-[width] duration-300"
-        style={{ width: zoom ? '84%' : `${54 * AGE_SCALE[look.a]}%`, transformOrigin: '50% 100%' }}
+        className="absolute inset-0 block"
+        // zoomé, le personnage est découpé dans le rond (le découpage s'anime avec lui)
+        style={{ clipPath: zoom ? 'circle(42% at 50% 51%)' : 'circle(75% at 50% 50%)', transition: `clip-path 0.45s ${doux}` }}
         aria-label={`${zoom ? 'Voir le personnage en entier' : 'Zoomer sur le personnage'} : ${mine.label}`}
         aria-pressed={zoom}
       >
-        {zoom ? <Character look={look} bust className="block h-auto w-full overflow-hidden rounded-full" /> : <Character look={look} className="block h-auto w-full" />}
+        <span
+          className="absolute block"
+          style={{ left, top, width: wf, transform, transformOrigin: `${ox}px ${oy}px`, transition: `transform 0.45s ${doux}, left 0.3s ${doux}, top 0.3s ${doux}, width 0.3s ${doux}` }}
+        >
+          <Character look={look} className="block h-auto w-full" />
+        </span>
       </button>
       <button
         onClick={() => { tap(); ed.setZoom(v => !v) }}

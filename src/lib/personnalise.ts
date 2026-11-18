@@ -176,8 +176,21 @@ export function renderPerso(p: Perso, look: Look): Promise<string> {
     cv.height = H
     const ctx = cv.getContext('2d', { willReadFrequently: true })!
     ctx.drawImage(base, 0, 0)
-    // un autre nez ou une autre bouche : on efface d'abord ceux de la figurine
-    if (patch) ctx.drawImage(patch, v.p[0], v.p[1])
+    // un autre nez ou une autre bouche : on efface d'abord ceux de la figurine — seulement ce qui change
+    // (la pièce efface le nez et la bouche ; changer le nez seul ne doit pas enlever la bouche, et inversement)
+    if (patch) {
+      const nez = (look.n ?? 0) > 0, bouche = (look.u ?? 0) > 0
+      const milieu = ((v.no[1] + v.mo[1]) / 2) * H
+      ctx.save()
+      if (nez !== bouche) {
+        ctx.beginPath()
+        if (nez) ctx.rect(0, 0, W, milieu)
+        else ctx.rect(0, milieu, W, H - milieu)
+        ctx.clip()
+      }
+      ctx.drawImage(patch, v.p[0], v.p[1])
+      ctx.restore()
+    }
     const img = ctx.getImageData(0, 0, W, H)
     const mc = document.createElement('canvas')
     mc.width = W
