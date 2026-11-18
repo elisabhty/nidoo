@@ -9,7 +9,7 @@ export async function loadTs(path) {
   const source = readFileSync(filename, 'utf8')
   const { outputText } = ts.transpileModule(source, {
     fileName: filename,
-    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+    compilerOptions: { module: 99, target: 9 },
   })
   // Les modules testés n'ont que des imports TypeScript de types, supprimés à la transpilation.
   return import('data:text/javascript;base64,' + Buffer.from(outputText).toString('base64'))
