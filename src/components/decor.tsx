@@ -10,7 +10,7 @@ import { useLieux } from './lieux'
 import { PetFigure } from './pet'
 import House from './House'
 import { StarsSheet } from './stars'
-import { Art, Btn, Page, Sheet } from './ui'
+import { Art, Btn, confirmerAchat, Page, Sheet } from './ui'
 
 // La boutique de la maison : une page à part, qui glisse par-dessus l'écran.
 // Les animaux et les plantes vivent avec la famille : avant de les installer,
@@ -129,7 +129,8 @@ export function DecorPage({ onClose, food: forFood = false }: { onClose: () => v
                 </div>
                 <button
                   disabled={!canFood}
-                  onClick={() => {
+                  onClick={async () => {
+                    if (!(await confirmerAchat('un sac de croquettes', FOOD.cost))) return
                     success()
                     void run((api) => api.buyFood(family.id), `Un sac de croquettes : +${FOOD.meals} repas`)
                   }}
@@ -202,7 +203,7 @@ export function DecorPage({ onClose, food: forFood = false }: { onClose: () => v
                     ) : (
                       <button
                         disabled={!can}
-                        onClick={() => (c ? (tap(), setAdopt(d)) : void install(d))}
+                        onClick={async () => (c ? (tap(), setAdopt(d)) : (await confirmerAchat(d.name.toLowerCase(), d.cost)) && void install(d))}
                         className={`presse mt-1.5 flex h-[26px] items-center gap-1 rounded-full px-2.5 text-legende font-semibold disabled:opacity-100 ${can ? 'bg-teinte text-white' : 'bg-remplissage text-brume'}`}
                         aria-label={`${d.name} : ${d.cost} étoiles`}
                       >

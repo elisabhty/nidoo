@@ -151,7 +151,7 @@ function PersoOptions({ ed, color, setColor, owned = [] }: { ed: Perso_; color: 
           D’origine
         </button>
         {TONES.map((hex, i) => (
-          <button key={hex} onClick={() => chooseTone(tone === i ? null : i)} aria-pressed={tone === i} aria-label={`Peau ${nomPeau(peauxDe(PERSOS.find((p) => p.t === i) ?? mine)[0].lab[0]).toLowerCase()}`} className="presse h-9 w-9 shrink-0 rounded-full" style={{ background: hex, boxShadow: anneau(tone === i) }} />
+          <button key={hex} onClick={() => chooseTone(tone === i ? null : i)} aria-pressed={tone === i} aria-label={`Peau ${nomPeau(peauxDe(PERSOS.find((p) => p.t === i) ?? mine)[0].lab[0]).toLowerCase()} (teinte ${i + 1})`} className="presse h-9 w-9 shrink-0 rounded-full" style={{ background: hex, boxShadow: anneau(tone === i) }} />
         ))}
       </div>
       {tone !== null && inToneOf(mine, tone) < 0 && <p className="mt-2 px-1 text-note text-brume">Ta figurine n’existe pas avec cette peau : choisis-en une dans la galerie.</p>}
@@ -325,7 +325,7 @@ function PersoOptions({ ed, color, setColor, owned = [] }: { ed: Perso_; color: 
               setColor(k)
             }}
             aria-pressed={color === k}
-            aria-label={`Fond ${k}`}
+            aria-label={`Fond ${NOMS_FONDS[k] ?? k}`}
             className="presse h-9 w-9 rounded-full"
             style={{ background: `linear-gradient(160deg, ${COLORS[k].bg}, ${COLORS[k].ring})`, boxShadow: color === k ? `0 0 0 2.5px #FFFFFF, 0 0 0 4.5px ${COLORS[k].ring}` : undefined }}
           />
@@ -348,6 +348,9 @@ function NameField({ name, setName, placeholder }: { name: string; setName: (v: 
 }
 
 /** Choisir son personnage dans une fenêtre déjà ouverte (Famille) : l'aperçu, le prénom, puis tous les choix. */
+/** Les noms des fonds de portrait, dits à VoiceOver avec leurs accents. */
+const NOMS_FONDS: Record<string, string> = { peche: 'pêche', lavande: 'lavande', menthe: 'menthe', ciel: 'ciel', soleil: 'soleil', rose: 'rose', sauge: 'sauge', corail: 'corail' }
+
 export function ProfilePicker({ name, setName, avatar, setAvatar, color, setColor, placeholder = 'Ton prénom ou ton surnom', owned = [] }: ProfileProps) {
   const ed = usePerso(avatar, setAvatar)
   return (

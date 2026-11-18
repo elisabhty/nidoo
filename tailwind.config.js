@@ -9,7 +9,7 @@ export default {
         carte: '#FFFFFF',
         encre: '#1D1A2B', // label
         brume: 'rgba(60, 56, 82, 0.76)', // label secondaire
-        pale: 'rgba(60, 56, 82, 0.32)', // label tertiaire
+        pale: 'rgba(60, 56, 82, 0.56)', // label tertiaire (assez foncé pour se lire : heures, indications)
         trait: 'rgba(60, 56, 82, 0.14)', // séparateur
         remplissage: 'rgba(118, 112, 148, 0.12)', // fill
         teinte: { DEFAULT: '#7050D5', doux: '#EEE8FC', fonce: '#6646CC' },

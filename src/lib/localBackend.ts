@@ -9,7 +9,7 @@ import type { AdventDoor, AppFlag, Backend, Drawing, Ecrit, Game, Family, Family
 import { blobToDataUrl, compressImage, daysAgoKey, todayKey, uid } from './util'
 import { challenge, nextReward, WEEKLY, weekIndex, weekKey, weekStart, type WeeklyCounts, type WeeklyKey } from './weekly'
 
-// Mode démo : toute la maison vit sur l'appareil, avec trois proches fictifs
+// Mode démo : toute la maison vit sur l'appareil, avec des proches fictifs
 // qui répondent aux attentions. Même contrat que le backend Supabase.
 
 type Raw = Omit<FamilyState, 'me' | 'weekly' | 'houseSince' | 'mot' | 'flags' | 'advent'> & { houseSince?: Record<string, string>; advent?: AdventDoor[] }
@@ -20,7 +20,41 @@ type Db = { userId: string; families: Record<string, Raw>; pending?: Pending[] }
 const KEY = 'nidoo.demo.v2'
 /** Dessiner à deux en démo : la séance et le proche invité. */
 const seances = new Map<string, string>()
-const DINER = 'Chez Papa, à partir de 19 h 30. Chacun apporte un plat : Léa s’occupe du dessert, Mamie Jo du gratin.'
+const DINER = 'À partir de 19 h 30. Chacun apporte un plat : Léa s’occupe du dessert, Mamie Jo du gratin.'
+
+// Démo : ce que répondent les proches fictifs à la question du jour (des réponses qui collent à la question).
+const REPONSES_QUESTIONS: Record<string, string[]> = {
+  q01: ['Le gratin dauphinois du dimanche', 'La soupe de Mamie quand il pleut'],
+  q02: ['La Bretagne, quand on a raté le ferry !', 'Le camping dans les Landes'],
+  q03: ['Papa, sans aucun doute', 'Léa sous la douche…'],
+  q04: ['« On n’est pas pressés »', '« Qui a pris mon chargeur ? »'],
+  q05: ['Le Roi Lion', 'Les Visiteurs, évidemment'],
+  q06: ['Les crêpes du mercredi', 'Le chocolat chaud de Mamie'],
+  q07: ['Noé, au Uno', 'Papa au Monopoly'],
+  q08: ['L’Écosse !', 'Un chalet à la montagne'],
+  q09: ['Le vase cassé, c’était moi…', 'Les bonbons cachés sous mon lit'],
+  q10: ['« Les Champs-Élysées »', 'Une chanson de Goldman'],
+  q11: ['Le dessin de Noé', 'Un rayon de soleil ce matin'],
+  q12: ['Le vieux fauteuil de Papi', 'L’album photo rouge'],
+  q13: ['Mamie Jo, son gratin !', 'Papa et ses crêpes'],
+  q14: ['La galette des rois tous ensemble', 'Les crêpes de la Chandeleur'],
+  q15: ['Le pull de Noël qui clignote', 'Une plante en plastique'],
+  q16: ['Une famille de pingouins, toujours collés !', 'Des loutres : on joue tout le temps'],
+  q17: ['« Petit loup »', '« Mon poussin »'],
+  q18: ['Grasse matinée, puis crêpes', 'Une balade et un bon goûter'],
+  q19: ['Léa, et de loin !', 'Papa avec sa barbe'],
+  q20: ['La patience de Mamie', 'L’humour de Papa'],
+  q21: ['Le gâteau tombé par terre à Noël', 'Papa dans la piscine tout habillé'],
+  q22: ['Celle de la plage en 2019', 'Le mariage de tonton'],
+  q23: ['Mamie qui jongle !', 'Noé qui imite tout le monde'],
+  q24: ['La mousse au chocolat', 'Le fraisier de Mamie'],
+  q25: ['Le tricot avec Mamie', 'Les tours de magie de Papa'],
+  q26: ['Cache-cache dans le jardin', 'Le Uno, tous les soirs'],
+  q27: ['« Mange, tu es tout maigre ! »', '« De mon temps… »'],
+  q28: ['Papa, toujours', 'Moi… pardon !'],
+  q29: ['La maison de Mamie à Annecy', 'La plage en Bretagne'],
+  q30: ['Pour le dîner de dimanche', 'Pour les petits messages du matin'],
+}
 
 
 const iso = (minsAgo: number) => new Date(Date.now() - minsAgo * 60000).toISOString()
@@ -385,7 +419,7 @@ export function createLocalBackend(): Backend {
       drawings: [{ id: uid(), family_id: fid, from_member: lea.id, to_member: null, data: demoDrawing('coeurs', 3), created_at: iso(150) }],
       events: [
         { id: uid(), family_id: fid, title: 'Anniversaire de Mamie Jo', kind: 'anniversaire', starts_at: inDays(4), all_day: true, yearly: true, created_by: papa.id },
-        { id: uid(), family_id: fid, title: 'Dîner tous ensemble', kind: 'evenement', starts_at: inDays(1, 19, 30), all_day: false, yearly: false, created_by: lea.id, lieu: 'Chez Mamie Jo, 12 rue des Lilas, Annecy', description: DINER },
+        { id: uid(), family_id: fid, title: 'Dîner tous ensemble', kind: 'evenement', starts_at: inDays(1, 19, 30), all_day: false, yearly: false, created_by: lea.id, lieu: 'Chez Papa, 3 rue des Lilas, Annecy', description: DINER },
         { id: uid(), family_id: fid, title: 'Dentiste de Léa', kind: 'rdv', starts_at: inDays(2, 14, 0), all_day: false, yearly: false, created_by: lea.id, lieu: 'Cabinet du Dr Martin, Annecy', members: [lea.id, papa.id] },
       ],
       items: [
@@ -431,14 +465,15 @@ export function createLocalBackend(): Backend {
   // Démo : chaque matin, les proches fictifs donnent leur humeur du jour (toujours la même pour un jour donné).
   const MOOD_NOTES: Record<string, string[]> = {
     heureux: ['Belle journée !', 'Rien ne peut m’arrêter'], serein: ['Tranquille', 'Thé et plaid'], motive: ['Séance de sport ce matin', 'Plein de projets'],
-    fete: ['Ce soir on fête ça', 'Anniversaire d’une amie'], fatigue: ['Nuit trop courte', 'Grosse semaine'], stresse: ['Rendu à finir', 'Examen demain'],
+    fete: ['Ce soir on fête ça', 'Anniversaire d’une amie'], fatigue: ['Nuit trop courte', 'Grosse semaine'], stresse: ['Rendu à finir', 'Grosse journée'],
     nostalgique: ['Je trie de vieilles photos', 'Ça me rappelle l’été'], triste: ['Petit coup de mou', 'Journée grise'],
   }
   function dailyMoods(f: Raw) {
     const day = todayKey()
     const keys = Object.keys(MOOD_NOTES)
     for (const m of f.members) {
-      if (m.user_id === db.userId || (m.mood_at && todayKey(new Date(m.mood_at)) === day)) continue
+      // les enfants sans téléphone (Noé, Bébé Lou) n'ont pas d'humeur d'adulte au hasard
+      if (m.user_id === db.userId || !m.user_id || (m.mood_at && todayKey(new Date(m.mood_at)) === day)) continue
       const h = [...(day + m.id)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7)
       const mood = keys[h % keys.length]
       const at = new Date()
@@ -881,6 +916,11 @@ export function createLocalBackend(): Backend {
     async updateEvent(id, patch) {
       for (const f of Object.values(db.families)) {
         const e = f.events.find((x) => x.id === id)
+        if (e && patch.title !== undefined) e.title = patch.title.trim()
+        if (e && patch.kind !== undefined) e.kind = patch.kind
+        if (e && patch.starts_at !== undefined) e.starts_at = patch.starts_at
+        if (e && patch.all_day !== undefined) e.all_day = patch.all_day
+        if (e && patch.yearly !== undefined) e.yearly = patch.yearly
         if (e && patch.description !== undefined) e.description = patch.description?.trim() || null
         if (e && patch.lieu !== undefined) e.lieu = patch.lieu?.trim() || null
         if (e && patch.members) e.members = f.members.filter((m) => patch.members!.includes(m.id)).map((m) => m.id)
@@ -918,7 +958,7 @@ export function createLocalBackend(): Backend {
       if (!answer.trim() && !image) throw new Error('REPONSE_VIDE')
       f.answers.push({ id: uid(), member_id: memberId, day, question_key: questionKey, answer: answer.trim(), photo_path: image ? await photo(image) : null })
       award(f, memberId, 'question', 2, 1)
-      const samples = ['Le gratin de Mamie, sans hésiter', 'Les crêpes du dimanche !', 'Bonne question… je réfléchis encore']
+      const samples = REPONSES_QUESTIONS[questionKey] ?? ['Bonne question… je réfléchis encore', 'Je te dis ça ce soir !']
       f.members.filter((m) => m.user_id !== db.userId).slice(0, 2).forEach((m, i) => {
         if (!f.answers.some((a) => a.member_id === m.id && a.day === day)) {
           f.answers.push({ id: uid(), member_id: m.id, day, question_key: questionKey, answer: samples[i % samples.length] })

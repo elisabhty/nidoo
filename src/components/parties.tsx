@@ -26,7 +26,7 @@ import { useHome } from '../lib/store'
 import type { Member, Partie } from '../lib/types'
 import { errorText } from '../lib/util'
 import { Ardoise, DessinVue } from './ardoise'
-import { Avatar, Btn, confirmer, Page, Sheet } from './ui'
+import { Avatar, Btn, confirmer, Confettis, LigneSous, Page, Sheet } from './ui'
 
 // Les jeux à plusieurs : bataille navale, Qui de nous ?, dessine et devine, devine l'année, téléphone dessiné.
 // Chacun joue quand il veut ; ce qui doit rester caché (bateaux, mot à dessiner, votes, années, carnets)
@@ -53,6 +53,7 @@ export function statutPartie(p: Partie, members: Member[], me: string) {
     return p.winner === me ? 'Tu as gagné !' : `${nom(members, p.winner, me)} a gagné`
   }
   if (aMoi(p, me)) return 'À toi de jouer'
+  if (PARTIES[p.kind].max === 2 && p.turn && p.turn !== me) return `Au tour de ${nom(members, p.turn, me)}`
   const att = attendus(p).filter((x) => x !== me)
   return att.length ? `En attente de ${noms(att, members, me)}` : 'En cours'
 }
@@ -304,11 +305,12 @@ export function PartieView({ partie: p, onClose, onOpen, onNouvelle }: { partie:
   }
   const att = attendus(p)
   const deux = PARTIES[p.kind].max === 2
+  const finiAuDebut = useRef(p.status === 'fini')
 
   return (
     <Page title={PARTIES[p.kind].name} onClose={onClose} scrollKey={p.id}>
       <style>{CSS}</style>
-      <div className="no-bar mx-4 flex gap-2 overflow-x-auto pb-1">
+      <div className="mx-4 flex flex-wrap justify-center gap-2 pb-1">
         {p.players.map((x) => {
           const m = members.find((y) => y.id === x)
           const doit = p.status === 'en_cours' && att.includes(x)
@@ -325,12 +327,17 @@ export function PartieView({ partie: p, onClose, onOpen, onNouvelle }: { partie:
           )
         })}
       </div>
+      {p.status === 'en_cours' && !deux && <p className="mt-1 text-center text-mini text-brume">Entouré : doit jouer · ✓ : a déjà joué</p>}
       <p className={`mt-4 px-4 text-center font-rond text-titre3 ${aMoi(p, me.id) ? 'text-teinte-fonce' : ''}`}>{statutPartie(p, members, me.id)}</p>
+      {p.status === 'fini' && p.winner && !(p.state as { abandon?: boolean }).abandon && (
+        <LigneSous>{p.winner === me.id ? 'Bravo ! +2 étoiles pour la maison' : 'Bien joué ! La maison gagne quand même 2 étoiles'}</LigneSous>
+      )}
+      {p.status === 'fini' && p.winner === me.id && !(p.state as { abandon?: boolean }).abandon && !finiAuDebut.current && <Confettis />}
       {msg && <p className="anim-pop mx-auto mt-2 w-fit rounded-full bg-teinte px-4 py-1.5 text-sous font-semibold text-white">{msg}</p>}
 
       <div className="mx-4 mt-4">
-        {p.kind === 'bataille' && <Bataille p={p} sec={sec} me={me.id} busy={busy} act={act} dire={dire} />}
-        {p.kind === 'quidenous' && <QuiDeNous p={p} sec={sec} me={me.id} members={members} busy={busy} act={act} />}
+        {p.kind === 'bataille' && <Bataille p={p} sec={sec} me={me.id} members={members} busy={busy} act={act} dire={dire} />}
+        {p.kind === 'quidenous' && <QuiDeNous p={p} sec={sec} me={me.id} members={members} busy={busy} act={act} dire={dire} />}
         {p.kind === 'dessin' && <DessineDevine p={p} sec={sec} me={me.id} members={members} busy={busy} act={act} dire={dire} />}
         {p.kind === 'annee' && <DevineAnnee p={p} sec={sec} me={me.id} members={members} busy={busy} act={act} />}
         {p.kind === 'telephone' && <Telephone p={p} sec={sec} me={me.id} members={members} busy={busy} act={act} />}
@@ -338,6 +345,11 @@ export function PartieView({ partie: p, onClose, onOpen, onNouvelle }: { partie:
 
       <div className="mx-4 mb-4 mt-6 flex flex-col gap-2.5">
         {p.status === 'fini' && playing && <Btn onClick={() => void revanche()}>{deux ? 'Revanche' : 'Rejouer'}</Btn>}
+        {p.status === 'fini' && (
+          <Btn kind="gris" onClick={onClose}>
+            Autres jeux
+          </Btn>
+        )}
         {p.status === 'en_cours' && playing && (
           <Btn
             kind="gris"
@@ -368,13 +380,13 @@ type Props = { p: Partie; sec: Secret; me: string; busy: boolean; act: (a: Recor
 
 // ───────── Bataille navale ─────────
 
-function Plateau({ tirs, flotte, coules, dernier, onTir, titre }: { tirs: number[]; flotte?: number[][]; coules: number[][]; dernier?: number | null; onTir?: (c: number) => void; titre: string }) {
+function Plateau({ tirs, flotte, coules, dernier, onTir, titre, petit }: { tirs: number[]; flotte?: number[][]; coules: number[][]; dernier?: number | null; onTir?: (c: number) => void; titre: string; petit?: boolean }) {
   const bateau = new Set((flotte ?? []).flat())
   const coule = new Set(coules.flat())
   return (
     <div>
       <p className="mb-1.5 text-center text-note font-semibold uppercase tracking-[0.04em] text-brume">{titre}</p>
-      <div className="mx-auto grid max-w-[360px] gap-[3px] rounded-[18px] p-2" style={{ gridTemplateColumns: `repeat(${BN}, 1fr)`, background: 'linear-gradient(160deg, #8EC9F2, #5B9FE0)', boxShadow: '0 8px 20px rgba(40,100,180,0.25)' }}>
+      <div className={`mx-auto grid gap-[3px] rounded-[18px] p-2 ${petit ? 'max-w-[230px]' : 'max-w-[360px]'}`} style={{ gridTemplateColumns: `repeat(${BN}, 1fr)`, background: 'linear-gradient(160deg, #8EC9F2, #5B9FE0)', boxShadow: '0 8px 20px rgba(40,100,180,0.25)' }}>
         {tirs.map((v, i) => {
           const b = bateau.has(i)
           const k = coule.has(i)
@@ -398,7 +410,7 @@ function Plateau({ tirs, flotte, coules, dernier, onTir, titre }: { tirs: number
   )
 }
 
-function Bataille({ p, sec, me, busy, act, dire }: Props) {
+function Bataille({ p, sec, me, members, busy, act, dire }: Props) {
   const s = p.state as BatailleState
   const side = p.players.indexOf(me) + 1
   const other = 3 - side
@@ -416,7 +428,7 @@ function Bataille({ p, sec, me, busy, act, dire }: Props) {
     const pret = s.pret[side - 1]
     return (
       <div>
-        <Plateau titre="Ta flotte" tirs={sesTirs} flotte={sec.flotte} coules={[]} />
+        <Plateau titre="Tes bateaux" tirs={sesTirs} flotte={sec.flotte} coules={[]} />
         {!pret ? (
           <div className="mt-4 flex gap-2.5">
             <Btn kind="teinte" className="flex-1" disabled={busy} onClick={() => void act({ t: 'melanger' }).then(() => tap())}>
@@ -427,7 +439,7 @@ function Bataille({ p, sec, me, busy, act, dire }: Props) {
             </Btn>
           </div>
         ) : (
-          <p className="mt-4 text-center text-note text-brume">Ta flotte est prête. La bataille commence dès que l’autre est prêt aussi.</p>
+          <p className="mt-4 text-center text-note text-brume">Tes bateaux sont prêts. La bataille commence dès que l’autre est prêt aussi.</p>
         )}
       </div>
     )
@@ -453,8 +465,13 @@ function Bataille({ p, sec, me, busy, act, dire }: Props) {
   const coulesChezMoi = (side === 1 ? s.s1 : s.s2).length
   return (
     <div className="flex flex-col gap-5">
-      <Plateau titre={`Sa flotte · ${coulesChezLui} coulé${coulesChezLui > 1 ? 's' : ''} sur 4`} tirs={mesTirs} coules={other === 1 ? s.s1 : s.s2} dernier={s.dernier?.par === side ? s.dernier.c : null} onTir={monTour ? (c) => void tir(c) : undefined} />
-      <Plateau titre={`Ta flotte · ${coulesChezMoi} coulé${coulesChezMoi > 1 ? 's' : ''} sur 4`} tirs={sesTirs} flotte={sec.flotte} coules={side === 1 ? s.s1 : s.s2} dernier={s.dernier?.par === other ? s.dernier.c : null} />
+      {p.status === 'en_cours' && (
+        <p className="-mb-2 text-center text-note text-brume">
+          {monTour ? 'Touche une case de la grande grille pour tirer.' : 'Tu tireras au prochain tour.'} ● dans l’eau · ✕ touché · rouge : coulé
+        </p>
+      )}
+      <Plateau titre={`Les bateaux de ${nom(members ?? [], p.players[other - 1], me)} · ${coulesChezLui} coulé${coulesChezLui > 1 ? 's' : ''} sur 4`} tirs={mesTirs} coules={other === 1 ? s.s1 : s.s2} dernier={s.dernier?.par === side ? s.dernier.c : null} onTir={monTour ? (c) => void tir(c) : undefined} />
+      <Plateau petit titre={`Tes bateaux · ${coulesChezMoi} coulé${coulesChezMoi > 1 ? 's' : ''} sur 4`} tirs={sesTirs} flotte={sec.flotte} coules={side === 1 ? s.s1 : s.s2} dernier={s.dernier?.par === other ? s.dernier.c : null} />
     </div>
   )
 }
@@ -476,7 +493,7 @@ function Carte({ m, me, face = true, on = false, dim = false, small = false, onC
       {face && m ? (
         <>
           <Avatar m={m} size={small ? 42 : 64} />
-          <span className="w-full truncate text-center text-sous font-semibold">{m.id === me ? 'Moi' : small ? m.display_name.split(' ')[0] : m.display_name}</span>
+          <span className="w-full truncate text-center text-sous font-semibold">{m.id === me ? 'Moi' : m.display_name}</span>
         </>
       ) : (
         <span className="font-rond text-[40px] font-bold text-white/90">?</span>
@@ -486,7 +503,7 @@ function Carte({ m, me, face = true, on = false, dim = false, small = false, onC
   )
 }
 
-function QuiDeNous({ p, sec, me, members = [], busy, act }: Props) {
+function QuiDeNous({ p, sec, me, members = [], busy, act, dire }: Props) {
   const s = p.state as QdnState
   const n = p.players.length
   const joueurs = p.players.map((x) => members.find((m) => m.id === x))
@@ -497,6 +514,7 @@ function QuiDeNous({ p, sec, me, members = [], busy, act }: Props) {
   const vote = async (cible: string) => {
     select()
     const r = await act({ t: 'vote', cible })
+    if (r && !r.revele) dire?.('C’est noté ! Ton choix reste secret.')
     if (r?.revele && r.accord) jouer('etoiles', 0.6)
   }
 
@@ -507,7 +525,7 @@ function QuiDeNous({ p, sec, me, members = [], busy, act }: Props) {
       <div className="groupe mt-4 p-3.5 shadow-carte">
         <p className="text-note font-semibold uppercase tracking-[0.04em] text-brume">{titre}</p>
         <p className="mt-0.5 font-rond text-appel">
-          {quiDeNous(n)} {QUESTIONS_QDN[r.q] ?? '…'} ?
+          {quiDeNous(n)} {QUESTIONS_QDN[r.q] ?? '…'}{'\u00a0'}?
         </p>
         <div className="mt-3 grid grid-cols-4 gap-2">
           {[...parCible.entries()]
@@ -557,7 +575,7 @@ function QuiDeNous({ p, sec, me, members = [], busy, act }: Props) {
           Question {s.i + 1} sur {s.q.length}
         </p>
         <p className="mt-1 font-rond text-titre2">
-          {quiDeNous(n)} {QUESTIONS_QDN[s.q[s.i]] ?? '…'} ?
+          {quiDeNous(n)} {QUESTIONS_QDN[s.q[s.i]] ?? '…'}{'\u00a0'}?
         </p>
       </div>
       {playing && !aVote && <p className="mt-4 text-center text-sous text-brume">Touche la carte de ton choix : personne ne la verra avant que tout le monde ait choisi.</p>}

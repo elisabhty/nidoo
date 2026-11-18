@@ -195,7 +195,10 @@ function Liste({ kind }: { kind: ListKind }) {
     if (!t || addingItem) return
     setAddingItem(true)
     const added = await run((api) => api.addItem(family.id, me.id, kind, t, tache ? to : null))
-    if (added) setTitle((current) => current.trim() === t ? '' : current)
+    if (added) {
+      setTitle((current) => (current.trim() === t ? '' : current))
+      if (tache) setTo(null) // la mission suivante repart « pour tous » : pas de mauvaise personne par erreur
+    }
     setAddingItem(false)
   }
 
@@ -267,7 +270,19 @@ function Liste({ kind }: { kind: ListKind }) {
                   <span className="block h-[24px] w-[24px] rounded-full border-[1.5px] border-pale" />
                 </button>
                 <div className={`flex min-h-[50px] min-w-0 flex-1 items-center gap-2 py-2 pr-3 ${k < todo.length - 1 ? 'border-b border-trait' : ''}`}>
-                  <span className="min-w-0 flex-1 text-corps">{i.title}</span>
+                  {editing ? (
+                    <span className="min-w-0 flex-1 text-corps">{i.title}</span>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        success()
+                        void run((api) => api.toggleItem(i, me.id), tache ? 'Mission accomplie, 1 étoile gagnée' : undefined)
+                      }}
+                      className="min-w-0 flex-1 text-left text-corps"
+                    >
+                      {i.title}
+                    </button>
+                  )}
                   {who && <Avatar m={who} size={28} />}
                   {editing && <button onClick={() => run((api) => api.deleteItem(i.id))} className="presse min-h-11 px-2 text-note text-brume" aria-label={`Supprimer ${i.title}`}>
                     Retirer
@@ -295,12 +310,18 @@ function Liste({ kind }: { kind: ListKind }) {
             </button>}
           </div>
           <div className="groupe mx-4 shadow-carte">
-            {done.map((i, k) => (
-              <button key={i.id} onClick={() => run((api) => api.toggleItem(i, me.id))} className="presse-ligne flex w-full items-center gap-3 pl-4 text-left">
-                <span className="flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full bg-teinte text-white"><Check size={15} strokeWidth={3.2} /></span>
-                <span className={`min-w-0 flex-1 py-3.5 pr-4 text-corps text-pale line-through ${k < done.length - 1 ? 'border-b border-trait' : ''}`}>{i.title}</span>
-              </button>
-            ))}
+            {done.map((i, k) => {
+              const who = members.find((m) => m.id === i.assigned_to)
+              return (
+                <button key={i.id} onClick={() => run((api) => api.toggleItem(i, me.id))} className="presse-ligne flex w-full items-center gap-3 pl-4 text-left">
+                  <span className="flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full bg-teinte text-white"><Check size={15} strokeWidth={3.2} /></span>
+                  <span className={`flex min-w-0 flex-1 items-center gap-2 py-3 pr-3 ${k < done.length - 1 ? 'border-b border-trait' : ''}`}>
+                    <span className="min-w-0 flex-1 text-corps text-pale line-through">{i.title}</span>
+                    {who && <span className="opacity-70"><Avatar m={who} size={26} /></span>}
+                  </span>
+                </button>
+              )
+            })}
           </div>
         </>
       )}

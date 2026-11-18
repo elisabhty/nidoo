@@ -263,7 +263,8 @@ export function StickerTray({ onPick, onClose, start }: { onPick: (key: string, 
   return (
     <div className="anim-fondu mt-3 rounded-[22px] bg-carte p-2.5 shadow-carte">
       <div className="flex items-center gap-2">
-        <div className="no-bar -ml-1 flex flex-1 gap-1.5 overflow-x-auto px-1 py-0.5">
+        {/* un fondu à droite : on voit qu'il y a d'autres catégories en faisant glisser */}
+        <div className="no-bar -ml-1 flex flex-1 gap-1.5 overflow-x-auto px-1 py-0.5 pr-6" style={{ maskImage: 'linear-gradient(to right, #000 85%, transparent)', WebkitMaskImage: 'linear-gradient(to right, #000 85%, transparent)' }}>
           {CATS.map((c) => (
             <button
               key={c.key}
@@ -272,13 +273,13 @@ export function StickerTray({ onPick, onClose, start }: { onPick: (key: string, 
                 setCat(c.key)
               }}
               aria-pressed={cat === c.key}
-              className={`h-8 shrink-0 rounded-full px-3 text-note font-semibold transition-colors ${cat === c.key ? 'bg-teinte text-white' : 'bg-remplissage text-encre'}`}
+              className={`h-9 shrink-0 rounded-full px-3.5 text-note font-semibold transition-colors ${cat === c.key ? 'bg-teinte text-white' : 'bg-remplissage text-encre'}`}
             >
               {c.label}
             </button>
           ))}
         </div>
-        <button onClick={onClose} className="h-8 shrink-0 rounded-full px-2 text-note font-semibold text-teinte-fonce">
+        <button onClick={onClose} className="h-9 shrink-0 rounded-full px-2 text-note font-semibold text-teinte-fonce">
           Fermer
         </button>
       </div>

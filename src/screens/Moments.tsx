@@ -49,7 +49,7 @@ function Texte({ body, mine }: { body: string; mine: boolean }) {
     <p className="whitespace-pre-wrap break-words text-appel">
       {morceaux.map((x, k) =>
         typeof x === 'string' ? (
-          x
+          x.replace(/ ([?!:;»])/g, '\u00a0$1').replace(/« /g, '«\u00a0') // pas de « ? » tout seul en début de ligne
         ) : (
           <a key={k} href={x.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className={`underline decoration-2 underline-offset-2 ${mine ? 'text-white' : 'text-teinte-fonce'}`}>
             {x.txt}
@@ -396,7 +396,7 @@ function Saisie({ onPhoto, envoyer }: { onPhoto: (f: File) => void; envoyer: (m:
       setEnreg(e)
       signal('vocal')
     } catch {
-      toast('Autorise le micro pour envoyer un vocal.', 'err')
+      toast('Pour envoyer un vocal, autorise le micro : Réglages de l’iPhone › NIDOO › Micro.', 'err')
     }
   }
   const arreter = async (e: Enreg, garder: boolean) => {

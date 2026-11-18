@@ -328,7 +328,7 @@ export interface Backend {
   sendDrawing(familyId: string, from: string, to: string | null, data: DrawingData, photo?: Blob | null): Promise<void>
   deleteDrawing(id: string): Promise<void>
   addEvent(familyId: string, memberId: string, e: NewEvent): Promise<void>
-  updateEvent(id: string, patch: { lieu?: string | null; description?: string | null; members?: string[] }): Promise<void>
+  updateEvent(id: string, patch: Partial<NewEvent>): Promise<void>
   deleteEvent(id: string): Promise<void>
   addItem(familyId: string, memberId: string, kind: ListKind, title: string, assignedTo?: string | null): Promise<void>
   toggleItem(item: ListItem, memberId: string): Promise<void>

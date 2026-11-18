@@ -528,6 +528,11 @@ export function createSupabaseBackend(): Backend {
         await sb
           .from('events')
           .update({
+            ...(patch.title !== undefined ? { title: patch.title.trim().slice(0, 60) } : {}),
+            ...(patch.kind !== undefined ? { kind: patch.kind } : {}),
+            ...(patch.starts_at !== undefined ? { starts_at: patch.starts_at } : {}),
+            ...(patch.all_day !== undefined ? { all_day: patch.all_day } : {}),
+            ...(patch.yearly !== undefined ? { yearly: patch.yearly } : {}),
             ...(patch.description !== undefined ? { description: patch.description?.trim() || null } : {}),
             ...(patch.lieu !== undefined ? { lieu: patch.lieu?.trim().slice(0, 200) || null } : {}),
             ...(patch.members ? { members: patch.members } : {}),

@@ -82,8 +82,24 @@ Certaines nouveautés s'allument ou se cachent sans nouvelle version de l'appli,
 
 La limite de membres et de maisons est appliquée côté base selon `families.plan`. L'achat intégré (RevenueCat) reste à brancher.
 
+## Retours des testeurs (18 novembre 2026)
+
+Cinq profils ont parcouru la démo (une maman qui découvre, une grand-mère de 72 ans, une ado joueuse, un papa organisé, une experte UX iOS). Corrigé dans la foulée :
+- l'accueil montre toujours « Jouer ensemble » (« À toi de jouer » quand une partie attend) et le prochain moment de l'agenda, avec l'heure et le lieu ;
+- Souvenirs s'ouvre sur le fil familial ;
+- un événement s'ouvre en lecture, et « Modifier » permet de tout changer (titre, type, jour, heure, lieu, qui, détails), bouton « Enregistrer » toujours visible ;
+- fins de partie : « Bravo ! +2 étoiles pour la maison » (confettis quand on vient de gagner), « Autres jeux » ; le plateau ne saute plus d'un tour à l'autre ;
+- bataille navale : « Les bateaux de Papa » / « Tes bateaux », une aide pour tirer, sa propre grille plus petite ; Qui de nous ? : « C'est noté ! », joueurs sur plusieurs lignes, prénoms entiers ;
+- achats avec les étoiles de la famille : une confirmation avant ;
+- textes plus lisibles (gris tertiaire plus foncé, boutons désactivés lisibles), libellés VoiceOver corrigés ;
+- aperçus des widgets rangés par taille, avec ce que chacun montre ; Famille+ n'annonce plus que ce qui existe ;
+- missions : la personne choisie ne reste plus sélectionnée, une mission faite garde la tête de qui devait la faire ; toucher toute la ligne coche un article.
+
 ## Reste à faire
 
-- Widgets iOS natifs (WidgetKit) alimentés par un App Group : l'app affiche pour l'instant leur aperçu en direct.
+- Widgets iOS natifs (WidgetKit) alimentés par un App Group : l'app affiche pour l'instant leur aperçu en direct. Avec eux, ajouter le guide « Ajoute NIDOO à ton écran d'accueil » (appui long, +, NIDOO).
+- Agenda : rappels et notifications, événements sur plusieurs jours, récurrence, « Ajouter à mon calendrier ».
+- Taille du texte d'iOS (Dynamic Type) : brancher `@capacitor/text-zoom` au démarrage.
+- App Store : « Supprimer mon compte » dans Réglages (règle 5.1.1(v)) et, avec l'achat intégré, les infos d'abonnement, « Restaurer », conditions et confidentialité (règle 3.1.2).
 - Achats intégrés Famille+ et notifications push pour les attentions.
 - Mini-jeux avancés, albums, décorations premium.

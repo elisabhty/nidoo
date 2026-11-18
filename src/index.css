@@ -296,3 +296,13 @@ html, body { overflow: hidden; width: 100%; }
 @media (prefers-reduced-motion: reduce) {
   .anim-envoi, .anim-arrive, .anim-colle, .reflet::after { animation: none; }
 }
+
+/* Un bouton pas encore utilisable reste lisible : il dit ce qu'il manque (« Écris d'abord ce que c'est »). */
+.btn-desactive:disabled { background: #ECEAF3 !important; color: rgba(60, 56, 82, 0.82) !important; box-shadow: none !important; opacity: 1; }
+
+/* Les confettis d'une victoire */
+@keyframes confetti {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(105vh) rotate(540deg); opacity: 0.9; }
+}
+@media (prefers-reduced-motion: reduce) { [style*='confetti'] { display: none; } }

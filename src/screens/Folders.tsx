@@ -69,7 +69,7 @@ function Accueil({ seg, setSeg, onOpen }: { seg: DossiersSeg; setSeg: (s: Dossie
           {seg === 'dossiers' ? 'Les moments que vous aimez retrouver.' : 'Photos, vocaux et petits mots, en direct avec toute la famille.'}
         </p>
         <div className="mx-4 mb-4 mt-3">
-          <Segments value={seg} onChange={setSeg} options={[{ key: 'dossiers', label: 'Albums' }, { key: 'fil', label: 'Fil familial' }]} />
+          <Segments value={seg} onChange={setSeg} options={[{ key: 'fil', label: 'Fil familial' }, { key: 'dossiers', label: 'Albums' }]} />
         </div>
 
         {seg === 'fil' ? (

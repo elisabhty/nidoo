@@ -9,7 +9,7 @@ import { aMoi, PARTIES, type PartieKind } from '../lib/parties'
 import { MotCarte, MotPage } from './motmystere'
 import { NewPartie, PartieView, statutPartie } from './parties'
 import { ago, errorText } from '../lib/util'
-import { Avatar, Btn, confirmer, Page, Sheet } from './ui'
+import { Avatar, Btn, confirmer, Confettis, LigneSous, Page, Sheet } from './ui'
 
 // Jouer ensemble : Puissance 4, morpion et memory photos, contre un proche de la famille.
 // On joue chacun son tour, quand on veut (la partie attend) ; si l'autre est là, ses coups arrivent en direct.
@@ -21,7 +21,7 @@ const color = (side: number) => (side === 1 ? P1 : P2)
 /** Les parties où c'est à moi de jouer. */
 export const myTurns = (state: FamilyState): (Game | Partie)[] => [
   ...state.games.filter((g) => g.status === 'en_cours' && g.turn === state.me.id),
-  ...state.parties.filter((p) => aMoi(p, state.me.id)),
+  ...state.parties.filter((p) => p.kind !== 'annee' && aMoi(p, state.me.id)),
 ]
 
 const nameOf = (members: Member[], id: string | null, me: string) => (id === me ? 'Toi' : (members.find((m) => m.id === id)?.display_name ?? 'Un proche'))
@@ -46,7 +46,7 @@ function statusLine(g: Game, members: Member[], me: string) {
 
 type Item = { t: 'g'; g: Game } | { t: 'p'; p: Partie }
 const A_DEUX: (GameKind | PartieKind)[] = ['puissance4', 'morpion', 'memory', 'bataille', 'dessin']
-// (« Devine l'année » a été retiré du menu ; les parties déjà lancées s'affichent encore.)
+// (« Devine l'année » a été retiré : ses anciennes parties ne s'affichent plus.)
 const EN_FAMILLE: PartieKind[] = ['quidenous', 'telephone']
 const meta = (k: GameKind | PartieKind) => (k in GAMES ? GAMES[k as GameKind] : PARTIES[k as PartieKind])
 
@@ -57,7 +57,7 @@ export function JeuxPage({ onClose, start }: { onClose: () => void; start?: stri
   const [nouveau, setNouveau] = useState<{ k: GameKind; against?: string } | null>(null)
   const [nouvelle, setNouvelle] = useState<{ k: PartieKind; avec?: string[] } | null>(null)
   const [mot, setMot] = useState(start === 'mot')
-  const items: Item[] = [...state.games.map((g) => ({ t: 'g' as const, g })), ...state.parties.map((p) => ({ t: 'p' as const, p }))].sort((a, b) =>
+  const items: Item[] = [...state.games.map((g) => ({ t: 'g' as const, g })), ...state.parties.filter((p) => p.kind !== 'annee').map((p) => ({ t: 'p' as const, p }))].sort((a, b) =>
     (b.t === 'g' ? b.g.updated_at : b.p.updated_at).localeCompare(a.t === 'g' ? a.g.updated_at : a.p.updated_at),
   )
   const joue = (x: Item) => (x.t === 'g' ? [x.g.p1, x.g.p2].includes(me.id) : x.p.players.includes(me.id))
@@ -320,6 +320,7 @@ function GameView({ game: g, onClose, onRematch, onOpen }: { game: Game; onClose
   const [busy, setBusy] = useState(false)
   const playing = [g.p1, g.p2].includes(me.id)
   const myTurn = g.status === 'en_cours' && g.turn === me.id
+  const finiAuDebut = useRef(g.status === 'fini') // les confettis, seulement pour une victoire qu'on vient de vivre
   const p1 = members.find((m) => m.id === g.p1)
   const p2 = members.find((m) => m.id === g.p2)
   const mem = isMemory(g.state) ? g.state : null
@@ -389,8 +390,18 @@ function GameView({ game: g, onClose, onRematch, onOpen }: { game: Game; onClose
         {chip(p2, 2)}
       </div>
       <p className={`mt-4 text-center font-rond text-titre3 ${myTurn ? 'text-teinte-fonce' : ''}`}>{statusLine(g, members, me.id)}</p>
-      {g.status === 'en_cours' && playing && !myTurn && <p className="mt-0.5 text-center text-note text-brume">Pas besoin d’attendre ici : la partie te garde ta place.</p>}
-      {g.status === 'fini' && g.winner === me.id && !(g.state as GridState).abandon && <p className="mt-0.5 text-center text-note text-brume">+2 étoiles pour la maison</p>}
+      <LigneSous>
+        {g.status === 'en_cours' && playing && !myTurn
+          ? 'Pas besoin d’attendre ici : la partie te garde ta place.'
+          : g.status === 'fini' && g.winner && !(g.state as GridState).abandon
+            ? g.winner === me.id
+              ? 'Bravo ! +2 étoiles pour la maison'
+              : 'Bien joué ! La maison gagne quand même 2 étoiles'
+            : g.status === 'fini' && !g.winner && !(g.state as GridState).abandon
+              ? 'Belle partie !'
+              : ''}
+      </LigneSous>
+      {g.status === 'fini' && g.winner === me.id && !(g.state as GridState).abandon && !finiAuDebut.current && <Confettis />}
 
       <div className="mx-4 mt-4">
         {g.kind === 'puissance4' && <Puissance4 st={g.state as GridState} canPlay={myTurn && !busy} onPlay={(c) => void move(c)} />}
@@ -400,6 +411,11 @@ function GameView({ game: g, onClose, onRematch, onOpen }: { game: Game; onClose
 
       <div className="mx-4 mt-6 flex flex-col gap-2.5">
         {g.status === 'fini' && playing && <Btn onClick={() => void rematch()}>Revanche</Btn>}
+        {g.status === 'fini' && (
+          <Btn kind="gris" onClick={onClose}>
+            Autres jeux
+          </Btn>
+        )}
         {g.status === 'en_cours' && playing && (
           <Btn
             kind="gris"

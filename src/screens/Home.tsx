@@ -1,4 +1,4 @@
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, MapPin } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useAvent } from '../components/avent'
 import { DefisDuJour, QuestionSheet, SemaineSheet } from '../components/defis'
@@ -11,7 +11,7 @@ import House, { type HouseScene } from '../components/House'
 import { myTurns } from '../components/jeux'
 import { useLieux } from '../components/lieux'
 import { PetFigure } from '../components/pet'
-import { ComposeSheet, MoodSheet, ThoughtSheet } from '../components/sheets'
+import { ComposeSheet, EventDetailSheet, eventArt, MoodSheet, ThoughtSheet } from '../components/sheets'
 import { StarsSheet } from '../components/stars'
 import { Art, Avatar, Sheet } from '../components/ui'
 import type { AventAction } from '../lib/avent'
@@ -19,8 +19,8 @@ import { challengeOfDay, moodOf } from '../lib/data'
 import { feel, tap } from '../lib/haptic'
 import { shareInvite } from '../lib/share'
 import { useHome } from '../lib/store'
-import type { Drawing, Member } from '../lib/types'
-import { familyLabel, greeting, isToday, nextOccurrence, season } from '../lib/util'
+import type { Drawing, FamEvent, Member } from '../lib/types'
+import { familyLabel, greeting, isToday, nextOccurrence, season, timeLabel } from '../lib/util'
 import type { Go } from '../App'
 
 type Open =
@@ -36,6 +36,7 @@ type Open =
   | { k: 'defiPhoto' }
   | { k: 'mot' }
   | { k: 'semaine' }
+  | { k: 'evenement'; e: FamEvent }
 
 export function upcoming(events: ReturnType<typeof useHome>['state']['events'], limit = 3) {
   const start = new Date()
@@ -45,6 +46,17 @@ export function upcoming(events: ReturnType<typeof useHome>['state']['events'], 
     .filter((x) => x.at >= start)
     .sort((a, b) => a.at.getTime() - b.at.getTime())
     .slice(0, limit)
+}
+
+/** « Aujourd'hui », « Demain », « Samedi », « Samedi 28 novembre »… */
+function quandCourt(at: Date) {
+  const d0 = new Date()
+  d0.setHours(0, 0, 0, 0)
+  const n = Math.round((new Date(at.getFullYear(), at.getMonth(), at.getDate()).getTime() - d0.getTime()) / 86400000)
+  if (n <= 0) return 'Aujourd’hui'
+  if (n === 1) return 'Demain'
+  const j = at.toLocaleDateString('fr-FR', n < 7 ? { weekday: 'long' } : { weekday: 'long', day: 'numeric', month: 'long' })
+  return j.charAt(0).toUpperCase() + j.slice(1)
 }
 
 const PLAYED = 'nidoo.scenes.jouees'
@@ -94,6 +106,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
   const petAnimal = usePet()
   const petted = pettedToday(state.starLog, me.id)
   const tours = myTurns(state)
+  const prochain = upcoming(state.events, 1).find((x) => x.at.getTime() - Date.now() < 14 * 86400000) ?? null
   const lieux = useLieux(aventAction)
   const av = useAvent()
   const caseDuJour = av.visible && av.aOuvrir.includes(av.today)
@@ -177,13 +190,13 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
           <div className="px-5">
             <p className="text-sous font-medium text-brume">{greeting()} {me.display_name}</p>
             <h1 className="break-words font-rond text-grand">Notre maison</h1>
-            <p className="mt-1 text-sous text-brume">{familyLabel(family.name)}</p>
+            {familyLabel(family.name).toLowerCase() !== 'notre maison' && <p className="mt-1 text-sous text-brume">{familyLabel(family.name)}</p>}
           </div>
 
 
 
           {received.length > 0 || pendingThoughts.length > 0 ? <button onClick={() => go('recus')} className="presse mx-5 mt-5 flex w-[calc(100%-2.5rem)] items-center gap-3 rounded-[22px] bg-teinte-doux p-4 text-left">
-            <Art name="geste-coeur" size={36} /><span className="flex-1"><span className="block text-corps font-semibold">{members.find(m => m.id === nextSender)?.display_name ?? 'Un proche'} pense à toi</span><span className="mt-1 block text-sous text-brume">Découvrir son attention</span></span><ChevronRight size={20} />
+            <Art name="geste-coeur" size={36} /><span className="flex-1"><span className="block text-corps font-semibold">{members.find(m => m.id === nextSender)?.display_name ?? 'Un proche'} pense à toi</span><span className="mt-1 block text-sous text-brume">Touche pour voir ce qu’on t’a envoyé</span></span><ChevronRight size={20} />
           </button> : null}
 
           {/* La maison et les proches restent au cœur de l’accueil. */}
@@ -210,10 +223,10 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
               />
             </div>
           </div>
-          {/* « À toi de jouer » quand une partie attend, puis tout le reste rangé dans « Explorer » */}
+          {/* Les jeux toujours à portée (« À toi de jouer » quand une partie attend), puis le reste rangé dans « Explorer » */}
           <div className="no-bar mt-1 flex gap-2 overflow-x-auto px-5 py-2" aria-label="Les lieux de la maison">
             {[
-              ...(tours.length ? [{ k: 'jeux' as const, label: `À toi de jouer (${tours.length})`, icon: <img src="./art/jeu-puissance4.webp" alt="" className="h-[30px] w-[30px] object-contain" /> }] : []),
+              { k: 'jeux' as const, label: tours.length ? `À toi de jouer (${tours.length})` : 'Jouer ensemble', icon: <img src="./art/jeu-puissance4.webp" alt="" className="h-[30px] w-[30px] object-contain" /> },
             ].map((x) => (
               <button
                 key={x.k}
@@ -221,7 +234,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
                   tap()
                   lieux.open({ k: x.k })
                 }}
-                className={`presse flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-white pl-1.5 pr-3.5 text-sous font-semibold shadow-carte ${x.k === 'jeux' ? 'text-teinte-fonce ring-2 ring-inset ring-teinte' : 'text-[#2F7A57] ring-2 ring-inset ring-[#7BC9A0]'}`}
+                className={`presse flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-white pl-1.5 pr-3.5 text-sous font-semibold shadow-carte ${tours.length ? 'text-teinte-fonce ring-2 ring-inset ring-teinte' : 'text-encre'}`}
               >
                 {x.icon} {x.label}
               </button>
@@ -243,7 +256,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
               }}
               className="presse relative flex h-11 shrink-0 items-center gap-2 rounded-full pl-1.5 pr-3 text-sous font-bold text-white shadow-[0_3px_8px_rgba(102,70,204,0.3)]"
               style={{ background: 'linear-gradient(120deg, #8E6CF0, #6646CC)' }}
-              aria-label="Explorer : compagnon, potager, centre commercial et jeux"
+              aria-label="Explorer : compagnon, potager, centre commercial"
             >
               <span className="flex">
                 {['pet-chat', 'plant-pousse'].map((a, i) => (
@@ -255,9 +268,41 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
               {!explorerVu && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 animate-pulse rounded-full bg-[#FF8A7A] ring-2 ring-fond" />}
             </button>
           </div>
+          {/* le prochain moment de l'agenda, d'un coup d'œil (dans les 2 semaines) */}
+          {prochain && (
+            <button
+              onClick={() => {
+                tap()
+                setSheet({ k: 'evenement', e: prochain.e })
+              }}
+              className="presse mx-5 mt-2 flex w-[calc(100%-2.5rem)] items-center gap-3 rounded-[20px] bg-carte p-3 pr-3.5 text-left shadow-carte"
+            >
+              <Art name={eventArt(prochain.e.kind)} size={40} />
+              <span className="min-w-0 flex-1">
+                <span className="block text-note font-semibold text-teinte-fonce">
+                  {quandCourt(prochain.at)}
+                  {prochain.e.all_day ? '' : ` · ${timeLabel(prochain.at)}`}
+                </span>
+                <span className="block truncate text-corps font-semibold">{prochain.e.title}</span>
+                {prochain.e.lieu && (
+                  <span className="flex items-center gap-1 text-note text-brume">
+                    <MapPin size={12} strokeWidth={2.4} className="shrink-0" />
+                    <span className="truncate">{prochain.e.lieu}</span>
+                  </span>
+                )}
+              </span>
+              <ChevronRight size={18} className="shrink-0 text-brume" />
+            </button>
+          )}
           {/* les proches : choisir quelqu'un, avec son prénom et son humeur (moi, je suis dans le jardin) */}
+          {others.length > 0 && <p className="mx-5 mt-4 text-note font-semibold text-brume">Touche un proche pour lui faire signe</p>}
           {others.length > 0 && (
-            <div className="no-bar mx-5 mt-2 flex gap-5 overflow-x-auto pb-2" aria-label="Les humeurs de la famille">
+            <div
+              className="no-bar mx-5 mt-2 flex gap-5 overflow-x-auto pb-2"
+              aria-label="Les humeurs de la famille"
+              // un fondu à droite montre qu'il y a d'autres proches en faisant glisser
+              style={others.length > 4 ? { maskImage: 'linear-gradient(to right, #000 82%, transparent)', WebkitMaskImage: 'linear-gradient(to right, #000 82%, transparent)', paddingRight: 24 } : undefined}
+            >
               {others.map((m) => (
                 <button key={m.id} onClick={() => setSheet({ k: 'pensee', to: m })} className="presse flex w-[68px] shrink-0 flex-col items-center gap-1">
                   <Avatar m={m} size={58} mood />
@@ -288,7 +333,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
               <div className="mx-5 mt-4">
                 <button onClick={() => setSheet({ k: 'dessin' })} className="presse ios-primary flex min-h-[54px] w-full items-center justify-center rounded-full text-corps font-bold text-white">Créer une attention</button>
               </div>
-              <p className="mx-5 mt-3 text-center text-note text-brume">Touche un proche pour lui faire signe.</p>
+              <p className="mx-5 mt-2 text-center text-note text-brume">Un dessin, une photo ou une carte, pour un proche ou pour tous.</p>
             </>
           ) : (
             <div className="mx-5 mt-4 text-center">
@@ -321,6 +366,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
       {sheet?.k === 'question' && <QuestionSheet onClose={() => setSheet(null)} />}
       {sheet?.k === 'defiPhoto' && <ComposeSheet challenge={challengeOfDay()} onClose={() => setSheet(null)} />}
       {sheet?.k === 'semaine' && <SemaineSheet onClose={() => setSheet(null)} />}
+      {sheet?.k === 'evenement' && <EventDetailSheet event={sheet.e} onClose={() => setSheet(null)} />}
       {sheet?.k === 'mot' && <MotPage onClose={() => setSheet(null)} />}
       {sheet?.k === 'explorer' && (
         <Sheet title="Explorer" onClose={() => setSheet(null)}>

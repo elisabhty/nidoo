@@ -52,7 +52,7 @@ export default function App() {
     setTab(next)
   }
   const [showIncoming, setShowIncoming] = useState(false)
-  const [seg, setSeg] = useState<DossiersSeg>('dossiers')
+  const [seg, setSeg] = useState<DossiersSeg>('fil') // le fil d'abord : c'est là que la famille se parle tous les jours
   const go = (g: Go) => {
     if (g === 'recus') {setShowIncoming(true); return}
     if (g === 'fil') {

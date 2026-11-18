@@ -217,7 +217,7 @@ export function Btn({
         onClick?.()
       }}
       disabled={disabled}
-      className={`presse flex min-h-[52px] shrink-0 w-full items-center justify-center gap-2 rounded-full px-5 text-corps font-bold disabled:opacity-35 ${styles} ${className}`}
+      className={`presse flex min-h-[52px] shrink-0 w-full items-center justify-center gap-2 rounded-full px-5 text-corps font-bold btn-desactive ${styles} ${className}`}
     >
       {children}
     </button>
@@ -462,3 +462,34 @@ export function ActionSheetHost() {
     </div>
   )
 }
+
+/** Une pluie de confettis (une seule fois), quand on vient de gagner. */
+export function Confettis() {
+  const bouts = useMemo(
+    () =>
+      Array.from({ length: 26 }, (_, i) => ({
+        x: (i * 37) % 100,
+        d: 0.9 + ((i * 13) % 9) / 10,
+        r: (i * 47) % 360,
+        c: ['#8E6CF0', '#F58B5C', '#FFC93C', '#3FBF7F', '#F06BAA', '#5B9FE0'][i % 6],
+        l: (i * 7) % 5,
+      })),
+    [],
+  )
+  return (
+    <div className="pointer-events-none fixed inset-0 z-[70] overflow-hidden" aria-hidden="true">
+      {bouts.map((b, i) => (
+        <span key={i} className="absolute top-[-20px] block h-3 w-2 rounded-[2px]" style={{ left: `${b.x}%`, background: b.c, transform: `rotate(${b.r}deg)`, animation: `confetti ${b.d + 1.2}s ${b.l * 0.08}s cubic-bezier(0.3, 0.6, 0.5, 1) forwards` }} />
+      ))}
+    </div>
+  )
+}
+
+/** Sous le résultat : une phrase qui garde sa place (le plateau ne saute plus d'un tour à l'autre). */
+export function LigneSous({ children }: { children?: ReactNode }) {
+  return <p className="mt-0.5 min-h-[20px] px-6 text-center text-note text-brume">{children}</p>
+}
+
+/** Avant de dépenser les étoiles de toute la famille : une question, pour éviter les achats par erreur. */
+export const confirmerAchat = (nom: string, cout: number) =>
+  confirmer({ title: `Acheter ${nom} ?`, message: `${cout} étoile${cout > 1 ? 's' : ''} de la maison. Elles sont à toute la famille.`, confirm: `Acheter · ${cout} étoile${cout > 1 ? 's' : ''}` })

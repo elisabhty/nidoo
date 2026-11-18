@@ -14,7 +14,7 @@ import { copy, shareInvite } from '../lib/share'
 import { useHome } from '../lib/store'
 import type { Drawing, HouseType, Member } from '../lib/types'
 import { AGES, encodeLook, lookOf, randomLook } from '../lib/look'
-import { dayLabel, errorText, familyLabel, isToday } from '../lib/util'
+import { dayLabel, errorText, familyLabel, isToday, timeLabel } from '../lib/util'
 import { upcoming } from './Home'
 import { HousePicker, ProfilePicker } from '../components/pickers'
 import Onboarding from './Onboarding'
@@ -22,7 +22,7 @@ import Onboarding from './Onboarding'
 type Open = null | 'profil' | 'maison' | 'plus' | 'compte' | 'ajouter'
 
 /** Taille des widgets iOS : petit 158 × 158, moyen 338 × 158, grand 338 × 354. */
-function Tuile({ title, locked, wide, large, children }: { title: string; locked?: boolean; wide?: boolean; large?: boolean; children: ReactNode }) {
+function Tuile({ title, hint, locked, wide, large, children }: { title: string; hint?: string; locked?: boolean; wide?: boolean; large?: boolean; children: ReactNode }) {
   return (
     <div className={`${wide || large ? 'w-[338px]' : 'w-[158px]'} shrink-0`}>
       <div className={`relative ${large ? 'h-[354px]' : 'h-[158px]'} overflow-hidden rounded-[26px] bg-carte shadow-carte`}>
@@ -33,7 +33,8 @@ function Tuile({ title, locked, wide, large, children }: { title: string; locked
           </span>
         )}
       </div>
-      <p className="mt-2 text-center text-note font-medium text-brume">{title}</p>
+      <p className="mt-2 text-center text-note font-semibold text-encre">{title}</p>
+      {hint && <p className="mt-0.5 text-center text-mini leading-snug text-brume">{hint}</p>}
     </div>
   )
 }
@@ -59,14 +60,61 @@ function Widgets({ onDraw, onOpen }: { onDraw: () => void; onOpen: (d: Drawing) 
     .map((x) => x.url)
 
   return (
-    <div className="no-bar flex gap-3.5 overflow-x-auto px-4 pb-2">
-      <Tuile title="Notre maison · moyen" wide>
+    <>
+    <p className="mb-2 px-5 text-note font-semibold text-brume">Petits et moyens · fais glisser pour tous les voir</p>
+    <div className="no-bar flex items-start gap-3.5 overflow-x-auto px-4 pb-2">
+      <Tuile title="Notre maison · moyen" hint="La maison et l’humeur de chacun" wide>
         <House type={family.house_type} items={state.houseItems} people={people} cares={state.cares} since={state.houseSince} pet={state.pet} plots={state.plots} gold={state.owned.includes('gamelle:or')} ratio={338 / 158} className="h-full" />
       </Tuile>
-      <Tuile title="Créer une attention" wide>
+      <Tuile title="Créer une attention · moyen" hint="La dernière attention reçue ; touche-le pour en créer une" wide>
         <DrawingWidget compact onOpen={onOpen} onDraw={onDraw} />
       </Tuile>
-      <Tuile title="Notre maison · grand" large>
+      <Tuile title="À venir · petit" hint="Les deux prochains moments de l’agenda" locked={free}>
+        <div className="flex h-full flex-col justify-start gap-2 p-3.5">
+          <p className="text-mini font-semibold uppercase tracking-wide text-rouge">À venir</p>
+          {next.length ? (
+            next.map(({ e, at }) => (
+              <div key={e.id} className="flex items-center gap-2">
+                <Art name={eventArt(e.kind)} size={24} />
+                <div className="min-w-0">
+                  <p className="truncate text-note font-semibold">{e.title}</p>
+                  <p className="text-mini text-brume">
+                    {dayLabel(at)}
+                    {e.all_day ? '' : ` · ${timeLabel(at)}`}
+                  </p>
+                </div>
+              </div>
+            ))
+          ) : (
+            <p className="text-note text-brume">Rien de prévu</p>
+          )}
+        </div>
+      </Tuile>
+      <Tuile title="Nos missions · petit" hint="Ce qu’il reste à faire" locked={free}>
+        <div className="flex h-full flex-col justify-start gap-2 p-3.5">
+          <p className="text-mini font-semibold uppercase tracking-wide text-teinte">Missions</p>
+          {todo.length ? (
+            todo.map((i) => (
+              <div key={i.id} className="flex items-center gap-2">
+                <span className="h-[15px] w-[15px] shrink-0 rounded-full border-[1.5px] border-pale" />
+                <span className="truncate text-note font-medium">{i.title}</span>
+              </div>
+            ))
+          ) : (
+            <p className="text-note text-brume">Tout est fait</p>
+          )}
+        </div>
+      </Tuile>
+      <Tuile title="Attention reçue · petit" hint="Qui pense à toi aujourd’hui" locked={free}>
+        <div className="flex h-full flex-col items-center justify-center bg-gradient-to-b from-teinte-doux to-peche-doux p-3 text-center">
+          <Art name="geste-coeur" size={62} className="anim-bat" />
+          <p className="mt-2 text-note font-semibold leading-tight">{from ? `${from.display_name} pense à toi` : 'Une attention à découvrir'}</p>
+        </div>
+      </Tuile>
+    </div>
+    <p className="mb-2 mt-4 px-5 text-note font-semibold text-brume">En grand</p>
+    <div className="flex justify-center px-4">
+      <Tuile title="Notre maison · grand" hint="La maison, les photos du fil, les étoiles et ce que le jardin attend" large>
         <div className="flex h-full flex-col">
           <House type={family.house_type} items={state.houseItems} people={people} cares={state.cares} since={state.houseSince} pet={state.pet} plots={state.plots} gold={state.owned.includes('gamelle:or')} photos={photos} />
           <div className="flex min-h-0 flex-1 flex-col justify-center gap-1.5 px-4">
@@ -85,46 +133,8 @@ function Widgets({ onDraw, onOpen }: { onDraw: () => void; onOpen: (d: Drawing) 
           </div>
         </div>
       </Tuile>
-      <Tuile title="À venir" locked={free}>
-        <div className="flex h-full flex-col justify-end gap-2 p-3.5">
-          <p className="text-mini font-semibold uppercase tracking-wide text-rouge">À venir</p>
-          {next.length ? (
-            next.map(({ e, at }) => (
-              <div key={e.id} className="flex items-center gap-2">
-                <Art name={eventArt(e.kind)} size={24} />
-                <div className="min-w-0">
-                  <p className="truncate text-note font-semibold">{e.title}</p>
-                  <p className="text-mini text-brume">{dayLabel(at)}</p>
-                </div>
-              </div>
-            ))
-          ) : (
-            <p className="text-note text-brume">Rien de prévu</p>
-          )}
-        </div>
-      </Tuile>
-      <Tuile title="Nos missions" locked={free}>
-        <div className="flex h-full flex-col justify-end gap-2 p-3.5">
-          <p className="text-mini font-semibold uppercase tracking-wide text-teinte">Missions</p>
-          {todo.length ? (
-            todo.map((i) => (
-              <div key={i.id} className="flex items-center gap-2">
-                <span className="h-[15px] w-[15px] shrink-0 rounded-full border-[1.5px] border-pale" />
-                <span className="truncate text-note font-medium">{i.title}</span>
-              </div>
-            ))
-          ) : (
-            <p className="text-note text-brume">Tout est fait</p>
-          )}
-        </div>
-      </Tuile>
-      <Tuile title="Surprise" locked={free}>
-        <div className="flex h-full flex-col items-center justify-center bg-gradient-to-b from-teinte-doux to-peche-doux p-3 text-center">
-          <Art name="geste-coeur" size={62} className="anim-bat" />
-          <p className="mt-2 text-note font-semibold leading-tight">{from ? `${from.display_name} pense à toi` : 'Une attention à découvrir'}</p>
-        </div>
-      </Tuile>
     </div>
+    </>
   )
 }
 
@@ -257,7 +267,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
         {section === 'reglages' && api.mode === 'local' && (
           <div className="mx-4 mb-3 mt-1 rounded-[16px] bg-peche-doux px-4 py-3">
             <p className="text-note">
-              <span className="font-semibold">Mode démo.</span> Cette maison vit uniquement sur cet appareil, avec trois proches fictifs pour essayer.
+              <span className="font-semibold">Mode démo.</span> Cette maison vit uniquement sur cet appareil, avec des proches fictifs pour essayer.
             </p>
             {api.demoDecos && (
               <button
@@ -286,7 +296,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
             <div className="min-w-0 flex-1">
               <p className="truncate font-rond text-titre3">{familyLabel(family.name)}</p>
               <p className="text-note text-brume">
-                {members.filter((m) => m.user_id).length} sur {limit} membres{members.some((m) => !m.user_id) ? ` + ${members.filter((m) => !m.user_id).length} sans téléphone` : ''} · {family.plan === 'plus' ? 'Famille+' : 'Gratuit'}
+                {members.filter((m) => m.user_id).length} membres avec l’appli (jusqu’à {limit}){members.some((m) => !m.user_id) ? `, ${members.filter((m) => !m.user_id).length} sans téléphone` : ''} · offre {family.plan === 'plus' ? 'Famille+' : 'gratuite'}
               </p>
             </div>
             <button onClick={() => setSheet('maison')} className="presse flex h-9 w-9 items-center justify-center rounded-full bg-remplissage text-teinte" aria-label="Modifier la maison">
@@ -377,7 +387,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
         </>}
         {section === 'maison' && <>
         <Section title="Widgets">
-          <p className="-mt-1.5 mb-3 px-5 text-sous text-brume">Aperçu en direct de ce que chacun verra sur son écran d’accueil.</p>
+          <p className="-mt-1.5 mb-3 px-5 text-sous text-brume">Les widgets montrent la famille sur l’écran d’accueil de l’iPhone, sans ouvrir l’appli. Voici leur aperçu, à jour en direct.</p>
           <Widgets onDraw={() => setDessin({ to: null })} onOpen={(d) => setDessins(d)} />
         </Section>
 
@@ -483,7 +493,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
             <p className="mt-1 max-w-[280px] text-sous text-brume">Une personne s’abonne, toute la maison en profite.</p>
           </div>
           <div className="groupe mt-4">
-            {['Jusqu’à 15 membres dans la maison', 'Tous les widgets et tous les thèmes', 'Albums et souvenirs enrichis', 'Mini-jeux et défis exclusifs', 'Décorations premium', 'Plusieurs maisons familiales'].map((f, i, all) => (
+            {['Jusqu’à 15 membres dans la maison', 'Tous les widgets : À venir, Nos missions, Attention reçue', 'Plusieurs maisons familiales'].map((f, i, all) => (
               <div key={f} className="flex items-center gap-3 pl-4">
                 <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-teinte text-white"><Check size={13} strokeWidth={3.4} /></span>
                 <span className={`flex-1 py-3 pr-4 text-appel ${i < all.length - 1 ? 'border-b border-trait' : ''}`}>{f}</span>
@@ -509,7 +519,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
             ))}
           </div>
           <Btn className="mt-4" disabled>Bientôt disponible sur l’App Store</Btn>
-          <p className="mt-2.5 text-center text-legende text-brume">Sans publicité intrusive ni vente des données familiales.</p>
+          <p className="mt-2.5 text-center text-legende text-brume">Sans publicité, sans revente des données familiales.</p>
         </Sheet>
       )}
 

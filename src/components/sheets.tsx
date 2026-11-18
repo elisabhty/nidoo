@@ -1,15 +1,15 @@
-import { Camera, Images, MapPin, Navigation, Repeat, Sticker as StickerIcon, Trash2, Undo2, Users } from 'lucide-react'
+import { Camera, Images, MapPin, Navigation, PenLine, Repeat, Sticker as StickerIcon, Trash2, Undo2, Users } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { moodOf, MOODS, THOUGHTS, thoughtOf } from '../lib/data'
 import { Smiley } from './Smiley'
-import { feel, select, success } from '../lib/haptic'
+import { feel, select, success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
 import type { EventKind, FamEvent, Member, Sticker, ThoughtKind } from '../lib/types'
 import { chargerImage, photoFinale, vignettesFiltres, type FiltreKey } from '../lib/filtres'
 import { MAX_STICKERS } from '../lib/stickers'
 import { CadreCanvas, CadreRow, FilterRow, nouveauSticker, StickerStage, StickerTray } from './stickers'
 import { vignettesCadres } from '../lib/cadres'
-import { compressImage, errorText, isToday, timeLabel } from '../lib/util'
+import { compressImage, errorText, isToday, nextOccurrence, timeLabel } from '../lib/util'
 import { IncomingDrawing, markDrawingsSeen, useUnseenDrawings } from './drawing'
 import { DrawSheet } from './planche'
 import { Art, Avatar, Btn, confirmer, Envol, Segments, Sheet, Switch } from './ui'
@@ -341,7 +341,7 @@ export function ThoughtSheet({ onClose, to }: { onClose: () => void; to?: Member
   }
 
   return (
-    <Sheet title="On pense à toi" onClose={() => {if(!busy) onClose()}}>
+    <Sheet title="Faire signe" onClose={() => {if(!busy) onClose()}}>
       {others.length === 0 ? (
         <p className="px-4 py-8 text-center text-sous text-brume">Invite d’abord un proche dans la maison pour lui envoyer une attention.</p>
       ) : (
@@ -462,11 +462,11 @@ export function Incoming({ onClose }: {onClose?: () => void}) {
           {from.display_name} {th.said}
         </p>
         {t.message && <p className="mt-3 rounded-[18px] bg-carte px-4 py-3 text-corps">« {t.message} »</p>}
-        {onClose && <button onClick={onClose} className="mb-2 min-h-11 text-sous text-teinte-fonce">Plus tard</button>}
-        <Btn className="mt-5" onClick={back}>Renvoyer un câlin</Btn>
+        <Btn className="mt-5" onClick={back}>Lui renvoyer un câlin</Btn>
         <Btn kind="gris" className="mt-2" onClick={seen}>
-          {unseen.length > 1 ? `Suivant (${unseen.length - 1} de plus)` : 'Merci'}
+          {unseen.length > 1 ? `Suivant (${unseen.length - 1} de plus)` : `Merci, ${from.display_name}`}
         </Btn>
+        {onClose && <button onClick={onClose} className="mt-1 min-h-11 text-sous text-teinte-fonce">Revoir plus tard</button>}
       </div>
     </div>
   )
@@ -552,19 +552,20 @@ export function WhoList({ ids }: { ids: string[] }) {
 }
 
 /** Nouvel événement ; « day » : le jour touché dans la vue de la semaine. */
-export function EventSheet({ onClose, day, kind: kind0 = 'evenement' }: { onClose: () => void; day?: Date; kind?: EventKind }) {
+/** Ajouter un événement, ou en modifier un (titre, type, jour, heure, lieu, qui, détails : tout se change). */
+export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: { onClose: () => void; day?: Date; kind?: EventKind; event?: FamEvent }) {
   const { state, run } = useHome()
-  const [title, setTitle] = useState('')
-  const [kind, setKind] = useState<EventKind>(kind0)
-  const first = day ?? new Date(Date.now() + 86400000)
+  const [title, setTitle] = useState(event?.title ?? '')
+  const [kind, setKind] = useState<EventKind>(event?.kind ?? kind0)
+  const first = event ? new Date(event.starts_at) : (day ?? new Date(Date.now() + 86400000))
   const pad = (n: number) => String(n).padStart(2, '0')
   const [date, setDate] = useState(`${first.getFullYear()}-${pad(first.getMonth() + 1)}-${pad(first.getDate())}`)
   // « Toute la journée » se voit (avant, une case d'heure vide ne disait rien) ; un rendez-vous a une heure
-  const [journee, setJournee] = useState(kind0 !== 'rdv')
-  const [time, setTime] = useState('10:00')
-  const [description, setDescription] = useState('')
-  const [lieu, setLieu] = useState('')
-  const [who, setWho] = useState<string[]>([])
+  const [journee, setJournee] = useState(event ? event.all_day : kind0 !== 'rdv')
+  const [time, setTime] = useState(event && !event.all_day ? `${pad(first.getHours())}:${pad(first.getMinutes())}` : '10:00')
+  const [description, setDescription] = useState(event?.description ?? '')
+  const [lieu, setLieu] = useState(event?.lieu ?? '')
+  const [who, setWho] = useState<string[]>(event?.members ?? [])
   const birthday = kind === 'anniversaire'
   const meta = KINDS.find((k) => k.key === kind)!
   const changeKind = (k: EventKind) => {
@@ -577,9 +578,10 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement' }: { onClos
     const allDay = birthday || journee || !time
     const starts = new Date(`${date}T${allDay ? '09:00' : time}`)
     if (Number.isNaN(starts.getTime())) return
+    const champs = { title: title.trim(), kind, starts_at: starts.toISOString(), all_day: allDay, yearly: birthday, lieu: lieu.trim() || null, description: description.trim() || null, members: who }
     const ok = await run(
-      (api) => api.addEvent(state.family.id, state.me.id, { title: title.trim(), kind, starts_at: starts.toISOString(), all_day: allDay, yearly: birthday, lieu: lieu.trim() || null, description: description.trim() || null, members: who }),
-      'Ajouté à l’agenda',
+      (api) => (event ? api.updateEvent(event.id, champs) : api.addEvent(state.family.id, state.me.id, champs)),
+      event ? 'Événement modifié' : 'Ajouté à l’agenda',
     )
     if (ok) {
       success()
@@ -588,7 +590,15 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement' }: { onClos
   }
 
   return (
-    <Sheet title="Nouvel événement" onClose={onClose}>
+    <Sheet
+      title={event ? 'Modifier l’événement' : 'Nouvel événement'}
+      onClose={onClose}
+      footer={
+        <Btn onClick={save} disabled={!title.trim() || !date}>
+          {!title.trim() ? (birthday ? 'Écris le prénom pour ajouter' : 'Écris d’abord ce que c’est') : event ? 'Enregistrer' : 'Ajouter à l’agenda'}
+        </Btn>
+      }
+    >
       <p className="entete !mt-0 !px-1">C’est quoi ?</p>
       <Segments value={kind} onChange={changeKind} options={KINDS.map((k) => ({ key: k.key, label: k.label }))} />
       <p className="px-1 pt-2 text-note text-brume">{meta.aide}</p>
@@ -636,48 +646,51 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement' }: { onClos
         onChange={(e) => setDescription(e.target.value)}
         aria-label="Détails"
       />
-      <Btn className="mt-4" onClick={save} disabled={!title.trim() || !date}>
-        {title.trim() ? 'Ajouter à l’agenda' : birthday ? 'Écris le prénom pour ajouter' : 'Écris d’abord ce que c’est'}
-      </Btn>
     </Sheet>
   )
 }
 
-/** Un événement ouvert : la date, qui l'a ajouté, et sa description, que chacun peut compléter. */
-export function EventDetailSheet({ event, at, onClose }: { event: FamEvent; at: Date; onClose: () => void }) {
+/** Un événement ouvert, à lire tranquillement : le jour, l'heure, le lieu, qui est concerné, les détails.
+ *  « Modifier » ouvre le formulaire complet ; supprimer demande une confirmation. */
+export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Date; onClose: () => void }) {
   const { state, run } = useHome()
-  const ev = state.events.find((x) => x.id === event.id) ?? event // la version à jour, après un enregistrement
-  const [text, setText] = useState(event.description ?? '')
-  const [lieu, setLieu] = useState(event.lieu ?? '')
-  const [who, setWho] = useState<string[]>(event.members ?? [])
-  const [editWho, setEditWho] = useState(false)
-  const sameWho = who.length === (ev.members ?? []).length && who.every((id) => ev.members?.includes(id))
-  const changed = text.trim() !== (ev.description ?? '').trim() || lieu.trim() !== (ev.lieu ?? '').trim() || !sameWho
-  const author = state.members.find((m) => m.id === event.created_by)
+  const ev = state.events.find((x) => x.id === event.id) ?? event // la version à jour, après une modification
+  const [modif, setModif] = useState(false)
+  const at = nextOccurrence(ev.starts_at, ev.yearly) // recalculé : la date a pu être modifiée
+  const author = state.members.find((m) => m.id === ev.created_by)
   const full = at.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^./, (c) => c.toUpperCase())
   const d0 = new Date()
   d0.setHours(0, 0, 0, 0)
   const diff = Math.round((new Date(at.getFullYear(), at.getMonth(), at.getDate()).getTime() - d0.getTime()) / 86400000)
   const soon = diff === 0 ? 'Aujourd’hui' : diff === 1 ? 'Demain' : diff > 1 && diff <= 30 ? `Dans ${diff} jours` : null
+  if (modif) return <EventSheet event={ev} onClose={() => setModif(false)} />
 
   return (
-    <Sheet title={KINDS.find((k) => k.key === event.kind)?.label ?? 'Événement'} onClose={onClose}>
+    <Sheet title={KINDS.find((k) => k.key === ev.kind)?.label ?? 'Événement'} onClose={onClose}>
       <div className="flex flex-col items-center text-center">
-        <Art name={eventArt(event.kind)} size={72} />
-        <p className="mt-2 font-rond text-titre2">{event.title}</p>
-        <p className="mt-1 text-sous text-brume">
+        <Art name={eventArt(ev.kind)} size={72} />
+        <p className="mt-2 font-rond text-titre2">{ev.title}</p>
+        <p className="mt-1 text-corps text-brume">
           {full}
-          {event.all_day ? ' · toute la journée' : ` · ${timeLabel(at)}`}
+          {ev.all_day ? ' · toute la journée' : ` · ${timeLabel(at)}`}
         </p>
+        <span className="mt-2 flex flex-wrap justify-center gap-1.5">
+          {soon && <span className="rounded-full bg-peche-doux px-2.5 py-1 text-legende font-semibold text-peche-fonce">{soon}</span>}
+          {ev.yearly && (
+            <span className="flex items-center gap-1 rounded-full bg-remplissage px-2.5 py-1 text-legende font-semibold text-brume">
+              <Repeat size={12} strokeWidth={2.6} /> Chaque année
+            </span>
+          )}
+        </span>
         {ev.lieu && (
           <a
             href={lienPlans(ev.lieu)}
             target="_blank"
             rel="noopener noreferrer"
-            className="presse mt-3 flex max-w-full items-center gap-2.5 rounded-[18px] bg-teinte-doux py-2.5 pl-3 pr-4 text-left"
+            className="presse mt-3 flex w-full items-center gap-3 rounded-[18px] bg-teinte-doux py-3 pl-3 pr-4 text-left"
           >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-teinte">
-              <MapPin size={19} />
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-teinte">
+              <MapPin size={20} />
             </span>
             <span className="min-w-0">
               <span className="block break-words text-corps font-semibold text-encre">{ev.lieu}</span>
@@ -687,59 +700,16 @@ export function EventDetailSheet({ event, at, onClose }: { event: FamEvent; at: 
             </span>
           </a>
         )}
-        <span className="mt-2 flex flex-wrap justify-center gap-1.5">
-          {soon && <span className="rounded-full bg-peche-doux px-2.5 py-1 text-legende font-semibold text-peche-fonce">{soon}</span>}
-          {event.yearly && (
-            <span className="flex items-center gap-1 rounded-full bg-remplissage px-2.5 py-1 text-legende font-semibold text-brume">
-              <Repeat size={12} strokeWidth={2.6} /> Chaque année
-            </span>
-          )}
-        </span>
       </div>
 
-      <div className="mt-5 flex items-baseline justify-between px-1">
-        <p className="entete !px-0">Qui est concerné</p>
-        <button
-          onClick={() => {
-            select()
-            setEditWho((v) => !v)
-          }}
-          className="presse pb-1.5 text-sous font-medium text-teinte"
-        >
-          {editWho ? 'Terminé' : 'Modifier'}
-        </button>
-      </div>
-      {editWho ? <WhoPicker value={who} onChange={setWho} /> : <WhoList ids={who} />}
+      <p className="entete mt-5 !px-1">Qui est concerné</p>
+      <WhoList ids={ev.members ?? []} />
 
-      <p className="entete mt-5 !px-1">Lieu</p>
-      <label className="groupe flex items-center gap-3 px-4">
-        <MapPin size={20} className="shrink-0 text-teinte" />
-        <input className="h-[52px] min-w-0 flex-1 bg-transparent text-corps outline-none placeholder:text-pale" placeholder="Ajoute le lieu : une adresse, « chez Mamie »…" maxLength={200} value={lieu} onChange={(e) => setLieu(e.target.value)} aria-label="Lieu de l’événement" />
-      </label>
-
-      <p className="entete mt-5 !px-1">Description</p>
-      <textarea
-        className="groupe block min-h-[120px] w-full resize-none px-4 py-3 text-corps outline-none placeholder:text-pale"
-        placeholder="Ajoute une description : l’heure du départ, qui apporte quoi…"
-        maxLength={500}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        aria-label="Description de l’événement"
-      />
-      <p className="px-1 pt-1.5 text-note text-brume">Toute la famille la voit et peut la compléter.</p>
-      {changed && (
-        <Btn
-          className="mt-3"
-          onClick={async () => {
-            const ok = await run((api) => api.updateEvent(event.id, { lieu: lieu.trim() || null, description: text.trim() || null, members: who }), 'Événement mis à jour')
-            if (ok) {
-              success()
-              setEditWho(false)
-            }
-          }}
-        >
-          Enregistrer
-        </Btn>
+      {ev.description && (
+        <>
+          <p className="entete mt-5 !px-1">Détails</p>
+          <p className="groupe whitespace-pre-wrap break-words px-4 py-3 text-corps">{ev.description}</p>
+        </>
       )}
 
       {author && (
@@ -751,11 +721,21 @@ export function EventDetailSheet({ event, at, onClose }: { event: FamEvent; at: 
         </div>
       )}
       <Btn
-        className="mt-4 !text-rouge"
+        className="mt-4"
+        onClick={() => {
+          tap()
+          setModif(true)
+        }}
+      >
+        <PenLine size={17} strokeWidth={2.4} /> Modifier
+      </Btn>
+      <p className="px-1 pt-1.5 text-center text-note text-brume">Toute la famille voit cet événement et peut le modifier.</p>
+      <Btn
+        className="mt-3 !text-rouge"
         kind="gris"
         onClick={async () => {
-          if (!(await confirmer({ title: `Supprimer « ${event.title} » ?`, message: 'Il disparaîtra de l’agenda de toute la famille.', confirm: 'Supprimer l’événement', destructive: true }))) return
-          if (await run((api) => api.deleteEvent(event.id), 'Événement supprimé')) onClose()
+          if (!(await confirmer({ title: `Supprimer « ${ev.title} » ?`, message: 'Il disparaîtra de l’agenda de toute la famille.', confirm: 'Supprimer l’événement', destructive: true }))) return
+          if (await run((api) => api.deleteEvent(ev.id), 'Événement supprimé')) onClose()
         }}
       >
         <Trash2 size={17} strokeWidth={2.4} /> Supprimer l’événement

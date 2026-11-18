@@ -63,7 +63,8 @@ export function PhotoEditeur({ file, onClose, onSend }: { file: File; onClose: (
   useEffect(() => {
     if (!img || !zone.current) return
     const caler = () => {
-      const r = zone.current!.getBoundingClientRect()
+      if (!zone.current) return
+      const r = zone.current.getBoundingClientRect()
       const s = Math.min(r.width / img.naturalWidth, r.height / img.naturalHeight)
       setTaille({ w: Math.round(img.naturalWidth * s), h: Math.round(img.naturalHeight * s) })
     }
@@ -89,7 +90,7 @@ export function PhotoEditeur({ file, onClose, onSend }: { file: File; onClose: (
   const SH = img ? Math.round((SW * img.naturalHeight) / img.naturalWidth) : SW
 
   const point = (e: React.PointerEvent): [number, number] => {
-    const r = toile.current!.getBoundingClientRect()
+    const r = (toile.current ?? (e.currentTarget as HTMLElement)).getBoundingClientRect()
     return [Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (e.clientY - r.top) / r.height))]
   }
   const redessiner = () => {
@@ -119,7 +120,7 @@ export function PhotoEditeur({ file, onClose, onSend }: { file: File; onClose: (
       setMots((m) => (t ? m.map((x) => (x.id === saisie.id ? { ...x, t, c: couleur } : x)) : m.filter((x) => x.id !== saisie.id)))
     } else if (t) {
       const id = Date.now() + Math.random()
-      setMots((m) => [...m, { id, t, x: 0.5, y: 0.42, c: couleur }])
+      setMots((m) => [...m, { id, t, x: 0.5, y: 0.22, c: couleur }]) // en haut : les stickers, eux, arrivent au milieu
       setGestes((g) => [...g, { k: 'mot', id }])
     }
     setSaisie(null)
@@ -284,13 +285,13 @@ export function PhotoEditeur({ file, onClose, onSend }: { file: File; onClose: (
                 style={{ left: `${m.x * 100}%`, top: `${m.y * 100}%`, background: fond(m.c), color: encre(m.c), touchAction: 'none', pointerEvents: mode === 'dessin' ? 'none' : 'auto' }}
                 onPointerDown={(e) => {
                   e.currentTarget.setPointerCapture(e.pointerId)
-                  const r = e.currentTarget.parentElement!.getBoundingClientRect()
+                  const r = (e.currentTarget.parentElement ?? e.currentTarget).getBoundingClientRect()
                   glisse.current = { id: m.id, dx: (e.clientX - r.left) / r.width - m.x, dy: (e.clientY - r.top) / r.height - m.y, bouge: false }
                 }}
                 onPointerMove={(e) => {
                   const g = glisse.current
                   if (!g || g.id !== m.id) return
-                  const r = e.currentTarget.parentElement!.getBoundingClientRect()
+                  const r = (e.currentTarget.parentElement ?? e.currentTarget).getBoundingClientRect()
                   const x = Math.min(0.97, Math.max(0.03, (e.clientX - r.left) / r.width - g.dx))
                   const y = Math.min(0.96, Math.max(0.04, (e.clientY - r.top) / r.height - g.dy))
                   if (Math.abs(x - m.x) + Math.abs(y - m.y) > 0.005) g.bouge = true

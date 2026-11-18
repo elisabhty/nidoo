@@ -8,7 +8,7 @@ import { BagIcon } from './care'
 import { Character } from './Character'
 import { StarsPill } from './compagnon'
 import { PetFigure } from './pet'
-import { Art, Page, Segments } from './ui'
+import { Art, confirmerAchat, Page, Segments } from './ui'
 
 // Le centre commercial : la supérette (ce qui se mange et ce qui se sème), l'animalerie
 // (le coin, les jeux et les vêtements du compagnon) et la boutique (les accessoires de la famille).
@@ -47,6 +47,7 @@ export function CentrePage({ onClose, start = 'superette' }: { onClose: () => vo
 function useBuy() {
   const { state, run } = useHome()
   return async (it: ShopItem) => {
+    if (!(await confirmerAchat(it.name.toLowerCase(), it.cost))) return
     if (await run((a) => a.buyItem(state.family.id, it.key), it.qty ? `${it.name} : dans le placard` : `${it.name} : à vous !`)) success()
   }
 }
@@ -87,6 +88,7 @@ function Superette() {
               can={canFood}
               label={`Acheter un sac de croquettes : ${FOOD.cost} étoiles`}
               onClick={async () => {
+                if (!(await confirmerAchat('un sac de croquettes', FOOD.cost))) return
                 if (await run((a) => a.buyFood(family.id), `Un sac de croquettes : +${FOOD.meals} repas`)) success()
               }}
             />
