@@ -18,7 +18,6 @@ function usePerso(avatar: string, setAvatar: (v: string) => void) {
   const look = lookOf(avatar)
   const mine = persoOf(look)
   const [group, setGroup] = useState<Group>(mine.g)
-  const [hop, setHop] = useState(0)
   const [zoom, setZoom] = useState(false)
   const set = (patch: Partial<Look>) => {
     select()
@@ -34,29 +33,28 @@ function usePerso(avatar: string, setAvatar: (v: string) => void) {
     const q = t ?? (look.q ? peauProche(p, skinLab(mine, look)) : 0)
     set({ k: PERSOS.indexOf(p) + 1, a: p.a, p: 0, q })
     setZoom(false)
-    setHop((n) => n + 1)
   }
-  return { look, mine, group, setGroup, hop, setHop, zoom, setZoom, set, tune, pick }
+  return { look, mine, group, setGroup, zoom, setZoom, set, tune, pick }
 }
 type Perso_ = ReturnType<typeof usePerso>
 
-/** Le portrait : la figurine sur son fond. Un tap la fait sauter. */
+/** Le portrait : la figurine sur son fond. Un toucher alterne le zoom du visage et la vue entière. */
 function Portrait({ ed, color, size = 206 }: { ed: Perso_; color: string; size?: number }) {
-  const { look, mine, zoom, hop } = ed
+  const { look, mine, zoom } = ed
   const c = COLORS[color] ?? COLORS.lavande
   return (
     <div className="relative mx-auto shrink-0" style={{ width: size, height: size }}>
       <span className="absolute inset-[5%] rounded-full" style={{ background: `radial-gradient(circle at 50% 35%, ${c.bg}, ${c.deep})` }} />
       <span className="absolute bottom-[6%] left-1/2 h-[6%] w-[40%] -translate-x-1/2 rounded-[50%] bg-[#1d1a2b]/15 blur-[3px]" />
       <button
-        key={hop}
         onClick={() => {
           tap()
-          ed.setHop((n) => n + 1)
+          ed.setZoom(v => !v)
         }}
         className="absolute inset-x-0 bottom-[7%] mx-auto transition-[width] duration-300"
-        style={{ width: zoom ? '84%' : `${54 * AGE_SCALE[look.a]}%`, animation: hop ? 'rebond 0.7s var(--ressort)' : 'pousse 0.6s var(--ressort) both', transformOrigin: '50% 100%' }}
-        aria-label={`Mon personnage : ${mine.label}`}
+        style={{ width: zoom ? '84%' : `${54 * AGE_SCALE[look.a]}%`, transformOrigin: '50% 100%' }}
+        aria-label={`${zoom ? 'Voir le personnage en entier' : 'Zoomer sur le personnage'} : ${mine.label}`}
+        aria-pressed={zoom}
       >
         {zoom ? <Character look={look} bust className="block h-auto w-full overflow-hidden rounded-full" /> : <Character look={look} className="block h-auto w-full" />}
       </button>
