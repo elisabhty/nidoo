@@ -10,6 +10,7 @@
 
 import { lookOf, type Look } from './look'
 import { persoOf, type Perso } from './persos'
+import { CORPS } from './corps'
 import { PEAUX, type Peau } from './peaux'
 import { VISAGES } from './visages'
 
@@ -308,5 +309,132 @@ export function renderDessus(p: Perso, src: string, cut: number, mains?: Mains |
   })()
   dessus.set(key, job)
   job.catch(() => dessus.delete(key))
+  return job
+}
+
+/** Changer de bas (jupe, short, robe) : sous l'ourlet `ourlet` (fraction de la toile), le pantalon ou la jupe de
+ *  la figurine est retiré jusqu'aux chaussures, et des jambes nues en feutrine sont redessinées derrière
+ *  (public/art/persos/jambe.webp, prise sur une figurine en short, teintée de la couleur de ses mains).
+ *  Le nouvel habit remplace ainsi son bas au lieu de se poser par-dessus. */
+const JAMBE_LAB: [number, number, number] = [79.1, 10, 26.1]
+const jambes = new Map<string, Promise<string>>()
+const jambesFait = new Map<string, string>()
+export const jambesPret = (src: string, ourlet: number) => jambesFait.get(`${src}|${ourlet.toFixed(3)}`)
+export function renderJambes(p: Perso, src: string, ourlet: number): Promise<string> {
+  const key = `${src}|${ourlet.toFixed(3)}`
+  const hit = jambes.get(key)
+  if (hit) return hit
+  const corps = CORPS[p.id]
+  if (!corps) return Promise.resolve(src)
+  const job = (async () => {
+    const [im, mask, jambe] = await Promise.all([load(src), load(`./art/persos/${p.id}-m.webp`), load('./art/persos/jambe.webp')])
+    const W = im.naturalWidth, H = im.naturalHeight
+    const cv = document.createElement('canvas')
+    cv.width = W
+    cv.height = H
+    const ctx = cv.getContext('2d', { willReadFrequently: true })!
+    ctx.drawImage(mask, 0, 0, W, H)
+    const m = ctx.getImageData(0, 0, W, H).data
+    ctx.clearRect(0, 0, W, H)
+    ctx.drawImage(im, 0, 0)
+    const img = ctx.getImageData(0, 0, W, H)
+    const d = img.data
+    const [pl, wl, pr, wr, yb, , , hy] = corps
+    // la couleur de sa peau, prise sur ses mains (peau, à hauteur des hanches)
+    let sL = 0, sA = 0, sB = 0, n = 0
+    for (let y = Math.round((hy - 0.14) * H); y < Math.min(H, Math.round((hy + 0.12) * H)); y++)
+      for (let x = 0; x < W; x++) {
+        const i = (y * W + x) * 4
+        if (m[i] < 160 || d[i + 3] < 220) continue
+        const [L, A, B] = rgb2lab(d[i], d[i + 1], d[i + 2])
+        sL += L
+        sA += A
+        sB += B
+        n++
+      }
+    const peau: [number, number, number] = n > 20 ? [sL / n, sA / n, sB / n] : VISAGES[p.id]?.sk ?? [75, 12, 28]
+    const y0 = Math.max(0, Math.round((ourlet - 0.025) * H))
+    const ybas = Math.round(yb * H)
+    const pieds = [[pl, wl], [pr, wr]].map(([cx, fw]) => {
+      const x0 = Math.round((cx - fw * 0.36) * W), x1 = Math.round((cx + fw * 0.36) * W)
+      const ligne = (y: number) => {
+        let r = 0, g = 0, b = 0, k = 0
+        for (let x = x0; x <= x1; x++) {
+          const i = (y * W + x) * 4
+          if (d[i + 3] < 200) continue
+          r += d[i]
+          g += d[i + 1]
+          b += d[i + 2]
+          k++
+        }
+        return k ? [r / k, g / k, b / k] : null
+      }
+      // le haut de la chaussure : en remontant depuis la semelle, la première ligne qui n'a plus sa couleur
+      const ref = [0, 0, 0]
+      let kr = 0
+      for (let y = ybas - Math.round(0.03 * H); y < ybas - Math.round(0.012 * H); y++) {
+        const c = ligne(y)
+        if (!c) continue
+        ref[0] += c[0]
+        ref[1] += c[1]
+        ref[2] += c[2]
+        kr++
+      }
+      if (kr) ref.forEach((_, j) => (ref[j] /= kr))
+      let haut = ybas - Math.round(0.06 * H)
+      let ecart = 0
+      for (let y = ybas - Math.round(0.03 * H); y > ybas - Math.round(0.14 * H); y--) {
+        const c = ligne(y)
+        const diff = c ? Math.hypot(c[0] - ref[0], c[1] - ref[1], c[2] - ref[2]) : 999
+        ecart = diff > 55 ? ecart + 1 : 0
+        if (ecart >= 2) {
+          haut = y + 2
+          break
+        }
+      }
+      return { cx, fw, haut }
+    })
+    // on retire l'ancien bas, entre l'ourlet et les chaussures
+    for (const { cx, fw, haut } of pieds) {
+      const x0 = Math.max(0, Math.round((cx - fw * 0.8) * W)), x1 = Math.min(W - 1, Math.round((cx + fw * 0.8) * W))
+      for (let y = y0; y < haut; y++)
+        for (let x = x0; x <= x1; x++) {
+          const i = (y * W + x) * 4
+          // les cheveux qui descendraient jusque-là restent
+          if (m[i + 1] > 128) continue
+          d[i + 3] = 0
+        }
+    }
+    ctx.putImageData(img, 0, 0)
+    // une jambe teintée à la couleur de sa peau
+    const jw = jambe.naturalWidth, jh = jambe.naturalHeight
+    const tc = document.createElement('canvas')
+    tc.width = jw
+    tc.height = jh
+    const tctx = tc.getContext('2d', { willReadFrequently: true })!
+    tctx.drawImage(jambe, 0, 0)
+    const jd = tctx.getImageData(0, 0, jw, jh)
+    for (let i = 0; i < jd.data.length; i += 4) {
+      if (!jd.data[i + 3]) continue
+      const [L, A, B] = rgb2lab(jd.data[i], jd.data[i + 1], jd.data[i + 2])
+      const [r, g, b] = lab2rgb(peau[0] + (L - JAMBE_LAB[0]) * 0.9, peau[1] + (A - JAMBE_LAB[1]) * 0.6, peau[2] + (B - JAMBE_LAB[2]) * 0.6)
+      jd.data[i] = r
+      jd.data[i + 1] = g
+      jd.data[i + 2] = b
+    }
+    tctx.putImageData(jd, 0, 0)
+    // derrière ce qui reste (les chaussures passent devant)
+    ctx.globalCompositeOperation = 'destination-over'
+    for (const { cx, fw, haut } of pieds) {
+      const lw = fw * 0.82 * W
+      ctx.drawImage(tc, cx * W - lw / 2, y0 - 0.01 * H, lw, haut - y0 + 0.02 * H)
+    }
+    ctx.globalCompositeOperation = 'source-over'
+    const url = await new Promise<string>((ok) => cv.toBlob((bl) => ok(bl ? URL.createObjectURL(bl) : cv.toDataURL()), 'image/png'))
+    jambesFait.set(key, url)
+    return url
+  })()
+  jambes.set(key, job)
+  job.catch(() => jambes.delete(key))
   return job
 }

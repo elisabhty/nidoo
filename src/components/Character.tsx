@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
 import { ACCESSORIES, EYES, HAIR_COLORS, HAIRSTYLES, SKINS, TOPS, type Look } from '../lib/look'
 import { COULEURS_MONTURE, FORMES_LUNETTES, LUNETTES_IMG } from '../lib/lunettes'
-import { cachedSrc, dessusPret, labHex, peauOf, persoImg, pixelKey, renderDessus, renderPerso, skinLab, type Mains } from '../lib/personnalise'
+import { cachedSrc, dessusPret, jambesPret, labHex, peauOf, persoImg, pixelKey, renderDessus, renderJambes, renderPerso, skinLab, type Mains } from '../lib/personnalise'
 import { CORPS } from '../lib/corps'
 import { accessoryOf, accPieces, accPlace, accTop, BAS, CH, CW, headCut, menton, persoOf, PIECE_AR, VESTES, type Perso } from '../lib/persos'
 import { VISAGES } from '../lib/visages'
@@ -67,6 +67,26 @@ function useDessus(p: Perso, src: string, cut: number | null, mains: Mains | nul
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src, cut, p.id, mains?.cx, mains?.demi])
+  return url
+}
+
+/** Sous une jupe, un short ou une robe : la figurine sans son ancien bas, avec des jambes nues (src tant que ce n'est pas prêt). */
+function useJambes(p: Perso, src: string, ourlet: number | null) {
+  const [url, setUrl] = useState(() => (ourlet == null ? src : jambesPret(src, ourlet) ?? src))
+  useEffect(() => {
+    if (ourlet == null) return setUrl(src)
+    let live = true
+    const hit = jambesPret(src, ourlet)
+    if (hit) setUrl(hit)
+    else
+      renderJambes(p, src, ourlet)
+        .then((u) => live && setUrl(u))
+        .catch(() => live && setUrl(src))
+    return () => {
+      live = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [src, ourlet, p.id])
   return url
 }
 
@@ -267,10 +287,13 @@ export function FaceExtras({ p, look }: { p: Perso; look: Look }) {
 
 export function Character({ look, mood = null, bust = false, extras = false, className = '', pose, blush = false, recul = 1 }: Props) {
   const p = persoOf(look)
-  const src = usePersoSrc(p, look)
+  const src0 = usePersoSrc(p, look)
   const acc = accessoryOf(look)
   const pl = acc ? accPlace(p, acc) : null
   const pieces = acc ? accPieces(p, acc) : null
+  // une jupe, un short ou une robe remplace son bas : sous l'ourlet, des jambes nues jusqu'aux chaussures
+  const ourlet = acc && BAS.includes(acc) && pieces?.[0] ? pieces[0].t + pieces[0].h : null
+  const src = useJambes(p, src0, ourlet)
   const cut = `linear-gradient(to bottom, #000 ${(headCut(p) - 0.02) * 100}%, transparent ${(headCut(p) + 0.006) * 100}%)`
   const [t, h, x, c, , bx0, by0, bs0] = p.m
   const R = CH / CW

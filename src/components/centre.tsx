@@ -229,10 +229,11 @@ function Boutique() {
   return (
     <>
       <div className="groupe mt-4 flex items-center gap-3 px-3 py-2.5">
-        <span className="block h-[60px] w-[60px] overflow-hidden rounded-[18px] bg-remplissage">
-          <Character look={look} bust className="block h-full w-full" />
+        {/* en pied : on voit aussi la veste, le bas ou les chaussures qu'on porte */}
+        <span className="block w-[60px] shrink-0 rounded-[18px] bg-remplissage px-1 pt-1">
+          <Character look={look} className="block w-full" />
         </span>
-        <p className="min-w-0 flex-1 text-sous">Ce que la famille achète ici, chacun peut le porter : depuis cette page pour toi, ou dans « Mon personnage ».</p>
+        <p className="min-w-0 flex-1 text-sous">Ce que la famille achète ici, chacun peut le porter : depuis cette page pour toi, ou dans « Mon personnage ».</p>
         {current && (
           <button onClick={() => put(null)} className="presse shrink-0 rounded-full bg-remplissage px-3 py-1.5 text-legende font-semibold text-brume">
             Enlever
@@ -249,12 +250,14 @@ function Boutique() {
               const v = ACCESSORIES.indexOf(it.key.slice('mode:'.length))
               return (
                 <div key={it.key} className={`groupe flex flex-col items-center px-1.5 pb-2.5 pt-3 text-center shadow-carte ${worn ? 'ring-2 ring-teinte' : ''}`}>
-                  {mine ? (
+                  {/* ce qui se porte sur la tête ou le visage : en aperçu sur son personnage ; le reste (vestes, bas, chaussures)
+                      ne se verrait pas dans ce petit buste, on garde l'image de l'habit */}
+                  {mine && (g === 'Chapeaux' || g === 'Accessoires') ? (
                     <span className="block h-[58px] w-[58px] overflow-hidden rounded-[16px] bg-remplissage">
                       <Character look={{ ...look, v }} bust still className="block h-full w-full" />
                     </span>
                   ) : (
-                    <Art name={it.art} size={58} className={family.stars < it.cost ? 'opacity-55' : ''} />
+                    <Art name={it.art} size={58} className={!mine && family.stars < it.cost ? 'opacity-55' : ''} />
                   )}
                   <span className="mt-1.5 line-clamp-2 flex min-h-[32px] items-center text-legende font-medium">{it.name}</span>
                   {mine ? (
