@@ -3,18 +3,18 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { FolderCover, MemberStack } from '../components/folder'
-import { DrawingCanvas, DrawingsSheet } from '../components/drawing'
 import { DrawSheet } from '../components/planche'
 import { ComposeSheet } from '../components/sheets'
 import { Art, Avatar, Btn, choisir, confirmer, Rond, Screen, SearchField, Segments, Sheet, Vide } from '../components/ui'
 import { contentLine, folderStats, membersOf, plural, subtreeIds, whoText } from '../lib/folders'
 import { select, success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
-import type { Drawing, Folder, FolderItem } from '../lib/types'
+import type { Folder, FolderItem } from '../lib/types'
 import { ago, compressImage, errorText } from '../lib/util'
 import Fil from './Moments'
 
-export type DossiersSeg = 'dossiers' | 'fil' | 'attentions'
+// (« Attentions » a quitté Souvenirs : les attentions se revoient depuis les widgets.)
+export type DossiersSeg = 'dossiers' | 'fil'
 
 // ═════════════════════════ L'onglet ═════════════════════════
 
@@ -51,10 +51,6 @@ function Accueil({ seg, setSeg, onOpen }: { seg: DossiersSeg; setSeg: (s: Dossie
   const [query, setQuery] = useState('')
   const [compose, setCompose] = useState<null | 'instant' | 'mot'>(null)
   const [creating, setCreating] = useState(false)
-  const [attention, setAttention] = useState<Drawing | null>(null)
-  const [replyTo, setReplyTo] = useState<string | null>(null)
-  useEffect(() => { if (!compose) setReplyTo(null) }, [compose])
-  const [direction, setDirection] = useState<'recues' | 'envoyees'>('recues')
 
   const roots = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -85,24 +81,13 @@ function Accueil({ seg, setSeg, onOpen }: { seg: DossiersSeg; setSeg: (s: Dossie
         }
       >
         <p className="-mt-1 px-5 text-sous text-brume">
-          {seg === 'dossiers' ? 'Les moments que vous aimez retrouver.' : seg === 'attentions' ? 'Les petits gestes reçus et envoyés, à revoir quand tu veux.' : 'Les photos, dessins et petits mots envoyés à toute la famille.'}
+          {seg === 'dossiers' ? 'Les moments que vous aimez retrouver.' : 'Les photos, dessins et petits mots envoyés à toute la famille.'}
         </p>
         <div className="mx-4 mb-4 mt-3">
-          <Segments value={seg} onChange={setSeg} options={[{ key: 'dossiers', label: 'Albums' }, { key: 'fil', label: 'Fil familial' }, { key: 'attentions', label: 'Attentions' }]} />
+          <Segments value={seg} onChange={setSeg} options={[{ key: 'dossiers', label: 'Albums' }, { key: 'fil', label: 'Fil familial' }]} />
         </div>
 
-        {seg === 'attentions' ? <>
-          <div className="mx-5 mb-5"><Segments value={direction} onChange={setDirection} options={[{key:'recues',label:'Reçues'},{key:'envoyees',label:'Envoyées'}]} /></div>
-          <div className="space-y-4 px-4">{state.drawings.filter(d => direction === 'envoyees' ? d.from_member === state.me.id : d.from_member !== state.me.id && (!d.to_member || d.to_member === state.me.id)).map(d => {
-            const from = state.members.find(m => m.id === d.from_member)
-            const recipient = state.members.find(m => m.id === d.to_member)
-            return <button key={d.id} onClick={() => setAttention(d)} className="presse block w-full overflow-hidden rounded-[24px] bg-white text-left shadow-carte">
-              <div className="aspect-[16/9] overflow-hidden" style={{background:d.data.bg}}><DrawingCanvas data={d.data} photo={d.photo_url} label="Aperçu de l’attention" className="h-full w-full" /></div>
-              <span className="flex items-center gap-3 p-4">{from && <Avatar m={from} size={36} />}<span><span className="block text-corps font-semibold">{direction === 'recues' ? `De ${from?.display_name ?? 'un proche'}` : `Pour ${recipient?.display_name ?? 'toute la famille'}`}</span><span className="block text-note text-brume">{ago(d.created_at)} · Toucher pour revoir et répondre</span></span></span>
-            </button>
-          })}</div>
-          {!state.drawings.some(d => direction === 'envoyees' ? d.from_member === state.me.id : d.from_member !== state.me.id && (!d.to_member || d.to_member === state.me.id)) && <Vide art="geste-coeur" title={direction === 'recues' ? 'Les petits gestes restent ici' : 'Votre première attention'} text="Une photo ou un dessin suffit pour faire signe à un proche." />}
-        </> : seg === 'fil' ? (
+        {seg === 'fil' ? (
           <Fil onCompose={() => setCompose('instant')} />
         ) : total === 0 ? (
           <Vide art="picto-cadeau" title="Votre premier souvenir commence ici" text="Un dossier rassemble photos, notes et discussion, avec les proches de ton choix. Les autres ne le voient pas.">
@@ -126,8 +111,7 @@ function Accueil({ seg, setSeg, onOpen }: { seg: DossiersSeg; setSeg: (s: Dossie
         )}
       </Screen>
       {compose === 'mot' && <ComposeSheet startWith="mot" onClose={() => setCompose(null)} />}
-      {attention && <DrawingsSheet start={attention} onClose={() => setAttention(null)} onDraw={(to) => {setAttention(null); setReplyTo(to); setCompose('instant')}} />}
-      {compose === 'instant' && <DrawSheet to={replyTo} onClose={() => setCompose(null)} />}
+      {compose === 'instant' && <DrawSheet onClose={() => setCompose(null)} />}
       {creating && <NewFolderSheet onClose={() => setCreating(false)} onCreated={onOpen} />}
     </>
   )
