@@ -231,6 +231,17 @@ export function StickerStage({
   )
 }
 
+/** Un sticker seul, en image (les petits mots sont dessinés par le téléphone : on attend qu'ils soient prêts). */
+export function StickerImg({ cle, className, style }: { cle: string; className?: string; style?: React.CSSProperties }) {
+  const [, bump] = useState(0)
+  const url = stickerImgUrl(cle)
+  useEffect(() => {
+    if (!url) stickerSrc(cle, () => bump((n) => n + 1))
+  }, [cle, url])
+  const nom = cle.startsWith('perso:') ? cle.split(':').slice(2).join(':') : nomSticker(cle)
+  return url ? <img src={url} alt={nom} draggable={false} className={className} style={style} /> : <span className={className} style={{ ...style, aspectRatio: '1' }} />
+}
+
 // ═════════════════════════ La planche de stickers ═════════════════════════
 
 export function StickerTray({ onPick, onClose, start }: { onPick: (key: string, t?: string, c?: number) => void; onClose: () => void; start?: string }) {

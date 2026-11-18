@@ -30,7 +30,11 @@ const MOTS: Record<string, { t: string; c: string; d: string }> = {
   fetes: { t: 'Bonnes\nfêtes', c: '#7BD389', d: '#2F8F46' },
 }
 
+/** Les émojis en feutrine (le panda roux de la maison), pour le fil familial et les dessins. */
+export const EMOJIS = ['panda-rire', 'panda-amour', 'panda-heureux', 'panda-bravo', 'panda-fete', 'panda-serein', 'panda-motive', 'panda-nostalgique', 'panda-fatigue', 'panda-triste', 'panda-stresse']
+
 export const CATS: Cat[] = [
+  { key: 'emojis', label: 'Émojis', items: EMOJIS },
   { key: 'amour', label: 'Amour', items: ['coeur', 'coeurs', 'bisou', 'lettre', 'maison', 'pouce'] },
   { key: 'mots', label: 'Petits mots', items: Object.keys(MOTS).map((k) => `mot:${k}`) },
   { key: 'noel', label: 'Noël', items: ['sapin', 'boule', 'etoile-noel', 'cadeau-noel', 'chaussette', 'sucre-orge', 'pain-epice', 'bonhomme-neige', 'pomme-pin', 'mot:noel', 'mot:fetes'] },
@@ -42,6 +46,8 @@ export const CATS: Cat[] = [
 ]
 
 export const NOMS: Record<string, string> = {
+  'panda-rire': 'Mort de rire', 'panda-amour': 'Amoureux', 'panda-heureux': 'Heureux', 'panda-bravo': 'Bravo', 'panda-fete': 'Fête', 'panda-serein': 'Zen',
+  'panda-motive': 'Motivé', 'panda-nostalgique': 'Nostalgique', 'panda-fatigue': 'Fatigué', 'panda-triste': 'Triste', 'panda-stresse': 'Stressé',
   coeur: 'Cœur', coeurs: 'Deux cœurs', bisou: 'Bisou', lettre: 'Lettre d’amour', maison: 'Maison', pouce: 'Pouce levé',
   ballons: 'Ballons', gateau: 'Gâteau', cadeau: 'Cadeau', chapeau: 'Chapeau de fête', couronne: 'Couronne', notes: 'Notes de musique', cupcake: 'Cupcake',
   lunettes: 'Lunettes cœur', moustache: 'Moustache', oreilles: 'Oreilles de chat', noeud: 'Nœud', fleurs: 'Couronne de fleurs',

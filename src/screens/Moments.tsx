@@ -1,15 +1,17 @@
-import { ArrowUp, ImagePlus, Mic, Pause, Play, Trash2, X } from 'lucide-react'
+import { ArrowUp, ImagePlus, Mic, Pause, Play, Smile, Trash2, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { PhotoEditeur } from '../components/photoEditeur'
+import { StickerImg, StickerTray } from '../components/stickers'
 import { Art, Avatar, confirmer } from '../components/ui'
 import { REACTIONS } from '../lib/data'
 import { select, success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
+import { cleSticker, PERSO } from '../lib/stickers'
 import type { Ecrit, Member, Moment } from '../lib/types'
 
 // Le fil de la famille, comme une discussion : des bulles avec des photos (qu'on peut annoter), du texte,
-// des liens et des vocaux. On voit en direct qui écrit, qui enregistre un vocal, qui choisit une photo.
+// des liens, des vocaux et des stickers en feutrine. On voit en direct qui écrit, qui enregistre un vocal, qui choisit une photo.
 
 const heure = (iso: string) => new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 const jour = (iso: string) => {
@@ -166,6 +168,7 @@ function Bulle({ mo, auteur, mine, premier, dernier, ouvert, onOuvrir, onPhoto }
   const maReaction = rs.find((r) => r.member_id === state.me.id)?.emoji
   const groupes = REACTIONS.map((r) => ({ ...r, n: rs.filter((x) => x.emoji === r.key).length })).filter((r) => r.n > 0)
   const photoSeule = !!mo.image_url && !mo.body && !mo.challenge
+  const stickerSeul = !!mo.sticker && !mo.image_url && !mo.audio_path && !mo.body
   const coin = mine ? (dernier ? 'rounded-[22px] rounded-br-[8px]' : 'rounded-[22px] rounded-r-[10px]') : dernier ? 'rounded-[22px] rounded-bl-[8px]' : 'rounded-[22px] rounded-l-[10px]'
 
   return (
@@ -206,6 +209,19 @@ function Bulle({ mo, auteur, mine, premier, dernier, ouvert, onOuvrir, onPhoto }
           </div>
         )}
         <div className="relative max-w-full">
+        {stickerSeul ? (
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => {
+              tap()
+              onOuvrir()
+            }}
+            className="presse anim-colle py-1"
+          >
+            <StickerImg cle={mo.sticker!} className="block h-auto max-h-[150px] w-[132px] object-contain" style={{ filter: 'drop-shadow(0 4px 8px rgba(29,26,43,0.18))' }} />
+          </div>
+        ) : (
         <div
           role="button"
           tabIndex={0}
@@ -239,6 +255,7 @@ function Bulle({ mo, auteur, mine, premier, dernier, ouvert, onOuvrir, onPhoto }
             </div>
           )}
         </div>
+        )}
         {groupes.length > 0 && (
           <span className={`absolute -bottom-4 flex items-center gap-0.5 rounded-full bg-white px-1.5 py-0.5 shadow-carte ${mine ? 'right-2' : 'left-2'}`}>
             {groupes.map((g) => (
@@ -262,6 +279,7 @@ const FAIT: Record<Ecrit, [string, string]> = {
   texte: ['écrit…', 'écrivent…'],
   vocal: ['enregistre un vocal…', 'enregistrent un vocal…'],
   photo: ['choisit une photo…', 'choisissent une photo…'],
+  sticker: ['choisit un sticker…', 'choisissent un sticker…'],
 }
 
 function Ecrivent({ qui }: { qui: { m: Member; quoi: Ecrit }[] }) {
@@ -284,6 +302,7 @@ function Ecrivent({ qui }: { qui: { m: Member; quoi: Ecrit }[] }) {
         <span className="flex h-10 items-center gap-1.5 rounded-[22px] rounded-bl-[8px] bg-white px-4 shadow-carte">
           {quoi === 'vocal' && <Mic size={15} className="mr-0.5 text-[#E0604F]" style={{ animation: 'scintille 1.2s ease-in-out infinite' }} />}
           {quoi === 'photo' && <ImagePlus size={15} className="mr-0.5 text-teinte" />}
+          {quoi === 'sticker' && <Smile size={15} className="mr-0.5 text-teinte" />}
           {[0, 1, 2].map((k) => (
             <span key={k} className="h-2 w-2 rounded-full bg-brume" style={{ animation: `points 1.2s ${k * 0.18}s ease-in-out infinite` }} />
           ))}
@@ -304,6 +323,7 @@ function Saisie({ onPhoto }: { onPhoto: (f: File) => void }) {
   const [texte, setTexte] = useState('')
   const [envoi, setEnvoi] = useState(false)
   const [enreg, setEnreg] = useState<Enreg | null>(null)
+  const [tiroir, setTiroir] = useState(false)
   const [, tic] = useState(0)
   const zone = useRef<HTMLTextAreaElement>(null)
   const fichier = useRef<HTMLInputElement>(null)
@@ -392,6 +412,12 @@ function Saisie({ onPhoto }: { onPhoto: (f: File) => void }) {
     setEnvoi(false)
   }
 
+  const envoyerSticker = async (key: string, t?: string, c?: number) => {
+    const cle = key === PERSO ? cleSticker({ i: PERSO, t, c }) : key
+    signal(null)
+    if (await run((a) => a.postMoment(family.id, me.id, { sticker: cle.slice(0, 60) }))) success()
+  }
+
   const secondes = enreg ? (Date.now() - enreg.t0) / 1000 : 0
   // La zone qui défile garde 120 px de marge en bas (pour la barre d'onglets) : la barre d'envoi se cale juste au-dessus des onglets.
   return (
@@ -408,6 +434,18 @@ function Saisie({ onPhoto }: { onPhoto: (f: File) => void }) {
           else signal(null)
         }}
       />
+      {tiroir && !enreg && (
+        <div className="mb-2 [&>div]:!mt-0">
+          <StickerTray
+            start="emojis"
+            onPick={(key, t, c) => void envoyerSticker(key, t, c)}
+            onClose={() => {
+              setTiroir(false)
+              signal(null)
+            }}
+          />
+        </div>
+      )}
       {enreg ? (
         <div className="anim-pop flex h-[54px] items-center gap-2.5 rounded-full bg-white pl-2 pr-1.5 shadow-[0_8px_28px_rgba(29,26,43,0.16)]">
           <button onClick={() => void arreter(enreg, false)} className="presse flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#E0604F]" aria-label="Annuler le vocal">
@@ -446,6 +484,7 @@ function Saisie({ onPhoto }: { onPhoto: (f: File) => void }) {
               setTexte(e.target.value)
               signal(e.target.value.trim() ? 'texte' : null)
             }}
+            onFocus={() => setTiroir(false)}
             onBlur={() => signal(null)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey && !('ontouchstart' in window)) {
@@ -453,10 +492,25 @@ function Saisie({ onPhoto }: { onPhoto: (f: File) => void }) {
                 void envoyerTexte()
               }
             }}
-            placeholder="Un message pour la famille…"
+            placeholder="Écris un message…"
             aria-label="Ton message"
             className="min-h-[42px] min-w-0 flex-1 resize-none bg-transparent px-1.5 py-[10px] text-corps leading-[22px] outline-none placeholder:text-pale"
           />
+          {!texte.trim() && (
+            <button
+              onClick={() => {
+                tap()
+                const ouvrir = !tiroir
+                setTiroir(ouvrir)
+                signal(ouvrir ? 'sticker' : null)
+              }}
+              className={`presse flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full ${tiroir ? 'bg-teinte text-white' : 'text-brume'}`}
+              aria-pressed={tiroir}
+              aria-label="Envoyer un sticker"
+            >
+              <Smile size={22} />
+            </button>
+          )}
           {texte.trim() ? (
             <button onClick={() => void envoyerTexte()} disabled={envoi} className="presse ios-primary anim-pop flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full text-white" aria-label="Envoyer">
               <ArrowUp size={22} strokeWidth={2.6} />

@@ -1,4 +1,4 @@
-import { Check, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, MapPin, Plus } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { MemberStack } from '../components/folder'
 import { EventDetailSheet, EventSheet, eventArt } from '../components/sheets'
@@ -157,7 +157,7 @@ function Semaine({ onOpen, onAdd }: { onOpen: (o: Ouvert) => void; onAdd: (day: 
                           <span className="block truncate text-corps">{e.title}</span>
                           <span className="block truncate text-note text-brume">
                             {e.all_day ? 'Toute la journée' : timeLabel(at)}
-                            {e.description ? ` · ${e.description}` : ''}
+                            {e.lieu ? ` · ${e.lieu}` : e.description ? ` · ${e.description}` : ''}
                           </span>
                         </span>
                         {!!e.members?.length && <MemberStack ids={e.members} size={26} max={3} />}
@@ -339,7 +339,7 @@ export default function Organize() {
 
         {seg === 'agenda' && coming.length > 0 && <button onClick={() => setOpen(coming[0])} className="presse mx-4 mb-5 flex w-[calc(100%-2rem)] items-center gap-4 rounded-[24px] bg-teinte-doux p-5 text-left">
           <span className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-[18px] bg-white text-teinte-fonce"><span className="text-note uppercase">{coming[0].at.toLocaleDateString('fr-FR',{month:'short'})}</span><span className="font-rond text-titre1">{coming[0].at.getDate()}</span></span>
-          <span className="min-w-0"><span className="block text-note font-semibold text-teinte-fonce">Votre prochain rendez-vous</span><span className="mt-1 block font-rond text-titre3">{coming[0].e.title}</span><span className="mt-1 block text-note text-brume">{coming[0].at.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric'})}</span></span>
+          <span className="min-w-0 flex-1"><span className="block text-note font-semibold text-teinte-fonce">Votre prochain rendez-vous</span><span className="mt-1 block font-rond text-titre3">{coming[0].e.title}</span><span className="mt-1 block text-note text-brume">{coming[0].at.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric'})}{coming[0].e.all_day ? '' : ` · ${timeLabel(coming[0].at)}`}</span>{coming[0].e.lieu && <span className="mt-1.5 flex items-center gap-1 text-note font-semibold text-teinte-fonce"><MapPin size={14} strokeWidth={2.4} className="shrink-0" /><span className="truncate">{coming[0].e.lieu}</span></span>}</span>
         </button>}
 
         {seg === 'agenda' && (
@@ -398,6 +398,12 @@ export default function Organize() {
                             <span className={`block text-note ${today ? 'font-semibold text-peche-fonce' : 'text-brume'}`}>
                               {dayLabel(at)}{e.all_day ? '' : ` · ${timeLabel(at)}`}{e.yearly ? ' · chaque année' : ''}
                             </span>
+                            {e.lieu && (
+                              <span className="flex items-center gap-1 text-note text-teinte-fonce">
+                                <MapPin size={12} strokeWidth={2.4} className="shrink-0" />
+                                <span className="truncate">{e.lieu}</span>
+                              </span>
+                            )}
                             {e.description && <span className="block truncate text-note text-brume">{e.description}</span>}
                           </span>
                           {e.members?.length ? <MemberStack ids={e.members} size={28} max={3} /> : <Art name={eventArt(e.kind)} size={30} />}

@@ -215,20 +215,24 @@ export function createLocalBackend(): Backend {
   // « X écrit… » en démo : les proches fictifs écrivent pour de vrai sous tes yeux, puis répondent.
   const ecrivains = new Set<(e: { m: string; quoi: Ecrit | null }) => void>()
   const signale = (m: string, quoi: Ecrit | null) => ecrivains.forEach((f) => f({ m, quoi }))
-  const REPONSES: Record<'texte' | 'photo' | 'vocal', string[]> = {
+  const REPONSES: Record<'texte' | 'photo' | 'vocal' | 'sticker', string[]> = {
+    sticker: ['panda-amour', 'panda-rire', 'panda-heureux', 'panda-bravo', 'coeurs', 'bisou'],
     texte: ['Oh trop bien ! On en parle dimanche ?', 'Hâte de te voir 🥰', 'Haha, je savais que tu dirais ça !', 'Bisous à toute la maison', 'Tu me manques déjà…', 'Bonne idée, je m’en occupe 😉'],
     photo: ['Trop belle cette photo ! 😍', 'Oh, j’adore. Tu me l’envoies en grand ?', 'C’est où ? On dirait des vacances !'],
     vocal: ['Ça fait du bien d’entendre ta voix 🥰', 'Haha, j’ai écouté deux fois !', 'Je te rappelle ce soir, promis.'],
   }
-  const repondre = (fid: string, quoi: 'texte' | 'photo' | 'vocal') => {
+  const repondre = (fid: string, quoi: 'texte' | 'photo' | 'vocal' | 'sticker') => {
     const f = db.families[fid]
     const autres = f?.members.filter((x) => x.user_id && x.user_id !== db.userId) ?? []
     const qui = autres[Math.floor(Math.random() * autres.length)]
     if (!f || !qui) return
     window.setTimeout(() => signale(qui.id, 'texte'), 900)
     window.setTimeout(() => {
-      const textes = REPONSES[quoi]
-      f.moments.unshift({ id: uid(), family_id: fid, member_id: qui.id, image_path: null, body: textes[Math.floor(Math.random() * textes.length)], challenge: null, created_at: new Date().toISOString() })
+      // une fois sur trois (et toujours pour un sticker), le proche répond par un sticker
+      const parSticker = quoi === 'sticker' || Math.random() < 0.3
+      const textes = REPONSES[parSticker ? 'sticker' : quoi]
+      const choix = textes[Math.floor(Math.random() * textes.length)]
+      f.moments.unshift({ id: uid(), family_id: fid, member_id: qui.id, image_path: null, body: parSticker ? null : choix, sticker: parSticker ? choix : null, challenge: null, created_at: new Date().toISOString() })
       signale(qui.id, null)
       save()
     }, 3800)
@@ -381,8 +385,8 @@ export function createLocalBackend(): Backend {
       drawings: [{ id: uid(), family_id: fid, from_member: lea.id, to_member: null, data: demoDrawing('coeurs', 3), created_at: iso(150) }],
       events: [
         { id: uid(), family_id: fid, title: 'Anniversaire de Mamie Jo', kind: 'anniversaire', starts_at: inDays(4), all_day: true, yearly: true, created_by: papa.id },
-        { id: uid(), family_id: fid, title: 'Dîner tous ensemble', kind: 'evenement', starts_at: inDays(1, 19, 30), all_day: false, yearly: false, created_by: lea.id, description: DINER },
-        { id: uid(), family_id: fid, title: 'Dentiste de Léa', kind: 'rdv', starts_at: inDays(2, 14, 0), all_day: false, yearly: false, created_by: lea.id, members: [lea.id, papa.id] },
+        { id: uid(), family_id: fid, title: 'Dîner tous ensemble', kind: 'evenement', starts_at: inDays(1, 19, 30), all_day: false, yearly: false, created_by: lea.id, lieu: 'Chez Mamie Jo, 12 rue des Lilas, Annecy', description: DINER },
+        { id: uid(), family_id: fid, title: 'Dentiste de Léa', kind: 'rdv', starts_at: inDays(2, 14, 0), all_day: false, yearly: false, created_by: lea.id, lieu: 'Cabinet du Dr Martin, Annecy', members: [lea.id, papa.id] },
       ],
       items: [
         { id: uid(), family_id: fid, kind: 'course', title: 'Farine et œufs', done: false, done_by: null, assigned_to: null, created_by: papa.id, created_at: iso(200) },
@@ -717,13 +721,14 @@ export function createLocalBackend(): Backend {
         id: uid(), family_id: fid, member_id: memberId, image_path: m.blob ? await blobToDataUrl(m.blob) : null,
         body: m.body?.trim() || null, challenge: m.challenge ?? null, created_at: new Date().toISOString(),
         audio_path: m.audio ? await blobToDataUrl(m.audio.blob) : null, duree: m.audio ? Math.round(m.audio.duree) : null, ondes: m.audio?.ondes ?? null,
+        sticker: m.sticker ?? null,
       }
       f.moments.unshift(moment)
       award(f, memberId, 'moment', 3, 5)
-      repondre(fid, m.audio ? 'vocal' : m.blob ? 'photo' : 'texte')
+      repondre(fid, m.audio ? 'vocal' : m.blob ? 'photo' : m.sticker ? 'sticker' : 'texte')
       // Un proche réagit à la photo, comme dans une vraie famille.
       const other = f.members.find((x) => x.user_id !== db.userId)
-      if (other) {
+      if (other && !m.sticker) {
         window.setTimeout(() => {
           f.reactions.push({ moment_id: moment.id, member_id: other.id, emoji: 'amour' })
           save()
@@ -877,6 +882,7 @@ export function createLocalBackend(): Backend {
       for (const f of Object.values(db.families)) {
         const e = f.events.find((x) => x.id === id)
         if (e && patch.description !== undefined) e.description = patch.description?.trim() || null
+        if (e && patch.lieu !== undefined) e.lieu = patch.lieu?.trim() || null
         if (e && patch.members) e.members = f.members.filter((m) => patch.members!.includes(m.id)).map((m) => m.id)
       }
       save()

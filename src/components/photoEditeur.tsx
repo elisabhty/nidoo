@@ -1,15 +1,19 @@
-import { ArrowUp, Brush, Type, Undo2, X } from 'lucide-react'
+import { ArrowUp, Brush, Smile, Type, Undo2, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { select, tap } from '../lib/haptic'
+import { drawStickers, MAX_STICKERS } from '../lib/stickers'
+import type { Sticker } from '../lib/types'
+import { nouveauSticker, StickerStage, StickerTray } from './stickers'
 
-// Avant d'envoyer une photo dans le fil : on peut dessiner dessus, y poser des mots (qu'on déplace du doigt)
-// et ajouter une légende. Tout est recalculé à l'envoi dans une image JPEG de 1400 px au plus.
+// Avant d'envoyer une photo dans le fil : on peut dessiner dessus, y poser des mots et des stickers en feutrine
+// (qu'on déplace, agrandit et tourne du doigt) et ajouter une légende. Tout est recalculé à l'envoi dans une image JPEG de 1400 px au plus.
 
 const COULEURS = ['#FFFFFF', '#1D1A2B', '#7050D5', '#E0604F', '#F58B5C', '#FFC93C', '#3FBF7F', '#3B82F6', '#F06BAA']
 type Trait = { c: string; e: number; pts: [number, number][] } // coordonnées de 0 à 1, épaisseur en part de la largeur
 type Mot = { id: number; t: string; x: number; y: number; c: string }
-type Geste = { k: 'trait' } | { k: 'mot'; id: number }
+type Geste = { k: 'trait' } | { k: 'mot'; id: number } | { k: 'stickers'; avant: Sticker[] }
+const SW = 1000 // la feuille des stickers fait 1000 de large ; sa hauteur suit la photo
 
 const fond = (c: string) => (c === '#FFFFFF' ? 'rgba(29,26,43,0.55)' : c === '#1D1A2B' || c === '#FFC93C' ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.92)')
 const encre = (c: string) => (c === '#FFFFFF' ? '#FFFFFF' : c)
@@ -38,6 +42,10 @@ export function PhotoEditeur({ file, onClose, onSend }: { file: File; onClose: (
   const [legende, setLegende] = useState('')
   const [taille, setTaille] = useState({ w: 0, h: 0 })
   const [envoi, setEnvoi] = useState(false)
+  const [colles, setColles] = useState<Sticker[]>([])
+  const [sel, setSel] = useState<number | null>(null)
+  const [tiroir, setTiroir] = useState(false)
+  const kAvant = useRef<Sticker[] | null>(null)
   const zone = useRef<HTMLDivElement>(null)
   const toile = useRef<HTMLCanvasElement>(null)
   const enCours = useRef<Trait | null>(null)
@@ -78,6 +86,8 @@ export function PhotoEditeur({ file, onClose, onSend }: { file: File; onClose: (
     dessinerTraits(ctx, enCours.current ? [...traits, enCours.current] : traits, taille.w, taille.h)
   }, [traits, taille])
 
+  const SH = img ? Math.round((SW * img.naturalHeight) / img.naturalWidth) : SW
+
   const point = (e: React.PointerEvent): [number, number] => {
     const r = toile.current!.getBoundingClientRect()
     return [Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (e.clientY - r.top) / r.height))]
@@ -95,7 +105,10 @@ export function PhotoEditeur({ file, onClose, onSend }: { file: File; onClose: (
     if (!g) return
     tap()
     if (g.k === 'trait') setTraits((t) => t.slice(0, -1))
-    else setMots((m) => m.filter((x) => x.id !== g.id))
+    else if (g.k === 'stickers') {
+      setColles(g.avant)
+      setSel(null)
+    } else setMots((m) => m.filter((x) => x.id !== g.id))
     setGestes((x) => x.slice(0, -1))
   }
 
@@ -142,6 +155,20 @@ export function PhotoEditeur({ file, onClose, onSend }: { file: File; onClose: (
       ctx.textBaseline = 'middle'
       ctx.fillText(m.t, x, y + 1 * k)
     }
+    if (colles.length) {
+      // les images des stickers sont normalement déjà là ; au cas où, on les attend un peu
+      await new Promise<void>((res) => {
+        const essai = () => {
+          if (drawStickers(document.createElement('canvas').getContext('2d')!, colles, 1, essai)) res()
+        }
+        essai()
+        setTimeout(res, 4000)
+      })
+      ctx.save()
+      ctx.setTransform(W / SW, 0, 0, W / SW, 0, 0)
+      drawStickers(ctx, colles)
+      ctx.restore()
+    }
     const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, 'image/jpeg', 0.86))
     setEnvoi(false)
     if (blob) onSend(blob, legende.trim())
@@ -167,22 +194,39 @@ export function PhotoEditeur({ file, onClose, onSend }: { file: File; onClose: (
           onClick={() => {
             tap()
             setMode('rien')
+            setTiroir(false)
             setSaisie({ id: null, t: '' })
           }}
-          className="presse flex h-11 items-center gap-1.5 rounded-full bg-white/15 px-4 font-bold"
+          className="presse flex h-11 w-11 items-center justify-center rounded-full bg-white/15"
           aria-label="Écrire sur la photo"
         >
-          <Type size={19} /> Texte
+          <Type size={20} />
         </button>
         <button
           onClick={() => {
             tap()
+            setMode('rien')
+            setSel(null)
+            setTiroir((t) => !t)
+          }}
+          className={`presse flex h-11 w-11 items-center justify-center rounded-full ${tiroir ? 'bg-white text-[#0E0C16]' : 'bg-white/15'}`}
+          aria-pressed={tiroir}
+          aria-label="Coller un sticker"
+        >
+          <Smile size={21} />
+        </button>
+        <button
+          onClick={() => {
+            tap()
+            setTiroir(false)
+            setSel(null)
             setMode((m) => (m === 'dessin' ? 'rien' : 'dessin'))
           }}
-          className={`presse flex h-11 items-center gap-1.5 rounded-full px-4 font-bold ${mode === 'dessin' ? 'bg-white text-[#0E0C16]' : 'bg-white/15'}`}
+          className={`presse flex h-11 w-11 items-center justify-center rounded-full ${mode === 'dessin' ? 'bg-white text-[#0E0C16]' : 'bg-white/15'}`}
           aria-pressed={mode === 'dessin'}
+          aria-label="Dessiner sur la photo"
         >
-          <Brush size={19} /> Dessin
+          <Brush size={20} />
         </button>
       </div>
 
@@ -203,7 +247,7 @@ export function PhotoEditeur({ file, onClose, onSend }: { file: File; onClose: (
       </div>
 
       {/* la photo */}
-      <div ref={zone} className="relative mx-3 min-h-0 flex-1">
+      <div ref={zone} className="relative mx-3 min-h-0 flex-1" onPointerDown={() => setSel(null)}>
         {img && taille.w > 0 && (
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[18px]" style={{ width: taille.w, height: taille.h }}>
             <img src={img.src} alt="" className="block h-full w-full select-none" draggable={false} />
@@ -264,9 +308,45 @@ export function PhotoEditeur({ file, onClose, onSend }: { file: File; onClose: (
                 {m.t}
               </span>
             ))}
+            <div className={mode === 'dessin' ? 'sans-doigt' : ''}>
+              <StickerStage
+                W={SW}
+                H={SH}
+                k={colles}
+                setK={setColles}
+                sel={sel}
+                setSel={setSel}
+                begin={() => {
+                  kAvant.current = colles
+                }}
+                end={(changed) => {
+                  const avant = kAvant.current
+                  kAvant.current = null
+                  if (changed && avant) setGestes((g) => [...g, { k: 'stickers', avant }])
+                }}
+              />
+            </div>
           </div>
         )}
       </div>
+
+      {/* les stickers à coller */}
+      {tiroir && (
+        <div className="px-3">
+          <StickerTray
+            start="emojis"
+            onClose={() => setTiroir(false)}
+            onPick={(key, t, c) => {
+              if (colles.length >= MAX_STICKERS) return
+              const nv = nouveauSticker(key, SW, SH, colles.length, t, c)
+              setGestes((g) => [...g, { k: 'stickers', avant: colles }])
+              setColles([...colles, nv])
+              setSel(colles.length)
+              setTiroir(false)
+            }}
+          />
+        </div>
+      )}
 
       {/* légende + envoi */}
       <div className="flex items-end gap-2 px-3 pt-3" style={{ paddingBottom: 'calc(var(--sab) + 10px)' }}>

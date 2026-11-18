@@ -66,10 +66,12 @@ export type Moment = {
   audio_url?: string | null
   duree?: number | null
   ondes?: number[] | null
+  /** un sticker envoyé seul (clé de src/lib/stickers.ts) */
+  sticker?: string | null
 }
 
 /** Ce qu'un proche est en train de faire dans le fil (« écrit… », « enregistre un vocal… »). */
-export type Ecrit = 'texte' | 'vocal' | 'photo'
+export type Ecrit = 'texte' | 'vocal' | 'photo' | 'sticker'
 
 /** Un dossier racine a ses membres ; un sous-dossier (parent_id) hérite des membres de sa racine. */
 export type Folder = {
@@ -170,6 +172,8 @@ export type FamEvent = {
   all_day: boolean
   yearly: boolean
   created_by: string | null
+  /** Où ça se passe (l'adresse, « chez Mamie »…) */
+  lieu?: string | null
   /** Ce qu'il faut savoir : l'adresse, qui apporte quoi… */
   description?: string | null
   /** Les proches concernés (vide : toute la famille). */
@@ -278,7 +282,7 @@ export type AdventDoor = { year: number; day: number; opened_by: string | null; 
 
 export type Circle = { family: Family; me: Member }
 
-export type NewEvent = { title: string; kind: EventKind; starts_at: string; all_day: boolean; yearly: boolean; description?: string | null; members?: string[] }
+export type NewEvent = { title: string; kind: EventKind; starts_at: string; all_day: boolean; yearly: boolean; lieu?: string | null; description?: string | null; members?: string[] }
 
 export interface Backend {
   mode: 'supabase' | 'local'
@@ -302,7 +306,7 @@ export interface Backend {
   updateMember(memberId: string, patch: Partial<Pick<Member, 'display_name' | 'avatar' | 'color'>>): Promise<void>
   updateFamily(familyId: string, patch: Partial<Pick<Family, 'name' | 'house_type'>>): Promise<void>
   leave(memberId: string): Promise<void>
-  postMoment(familyId: string, memberId: string, m: { blob?: Blob; body?: string; challenge?: string; audio?: { blob: Blob; duree: number; ondes: number[] } }): Promise<void>
+  postMoment(familyId: string, memberId: string, m: { blob?: Blob; body?: string; challenge?: string; audio?: { blob: Blob; duree: number; ondes: number[] }; sticker?: string }): Promise<void>
   /** Dire à la famille qu'on écrit (ou qu'on a arrêté : null), en direct, sans rien enregistrer. */
   ecrit(familyId: string, memberId: string, quoi: Ecrit | null): void
   onEcrit(familyId: string, me: string, cb: (e: { m: string; quoi: Ecrit | null }) => void): () => void
@@ -324,7 +328,7 @@ export interface Backend {
   sendDrawing(familyId: string, from: string, to: string | null, data: DrawingData, photo?: Blob | null): Promise<void>
   deleteDrawing(id: string): Promise<void>
   addEvent(familyId: string, memberId: string, e: NewEvent): Promise<void>
-  updateEvent(id: string, patch: { description?: string | null; members?: string[] }): Promise<void>
+  updateEvent(id: string, patch: { lieu?: string | null; description?: string | null; members?: string[] }): Promise<void>
   deleteEvent(id: string): Promise<void>
   addItem(familyId: string, memberId: string, kind: ListKind, title: string, assignedTo?: string | null): Promise<void>
   toggleItem(item: ListItem, memberId: string): Promise<void>

@@ -398,7 +398,7 @@ export function createSupabaseBackend(): Backend {
       check(
         await sb.from('moments').insert({
           family_id: fid, member_id: memberId, image_path, body: m.body?.trim() || null, challenge: m.challenge ?? null,
-          audio_path, duree: m.audio ? Math.max(1, Math.min(300, Math.round(m.audio.duree))) : null, ondes: m.audio ? m.audio.ondes.slice(0, 64) : null,
+          audio_path, duree: m.audio ? Math.max(1, Math.min(300, Math.round(m.audio.duree))) : null, ondes: m.audio ? m.audio.ondes.slice(0, 64) : null, sticker: m.sticker?.slice(0, 60) || null,
         }),
       )
     },
@@ -529,6 +529,7 @@ export function createSupabaseBackend(): Backend {
           .from('events')
           .update({
             ...(patch.description !== undefined ? { description: patch.description?.trim() || null } : {}),
+            ...(patch.lieu !== undefined ? { lieu: patch.lieu?.trim().slice(0, 200) || null } : {}),
             ...(patch.members ? { members: patch.members } : {}),
           })
           .eq('id', id),

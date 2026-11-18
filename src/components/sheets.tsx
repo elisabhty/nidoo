@@ -1,4 +1,4 @@
-import { Camera, Images, Repeat, Sticker as StickerIcon, Trash2, Undo2, Users } from 'lucide-react'
+import { Camera, Images, MapPin, Navigation, Repeat, Sticker as StickerIcon, Trash2, Undo2, Users } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { moodOf, MOODS, THOUGHTS, thoughtOf } from '../lib/data'
 import { Smiley } from './Smiley'
@@ -480,6 +480,9 @@ const KINDS: { key: EventKind; label: string; art: string; aide: string; exemple
   { key: 'anniversaire', label: 'Anniversaire', art: 'picto-gateau', aide: 'Il revient tout seul chaque année, à la même date.', exemple: 'Anniversaire de… (son prénom)' },
 ]
 export const eventArt = (k: string) => KINDS.find((x) => x.key === k)?.art ?? 'picto-fete'
+const LIEU_EXEMPLE: Record<string, string> = { evenement: 'Où ? Ex. : Chez Mamie, à Lyon', rdv: 'Où ? Ex. : Cabinet du Dr Martin', anniversaire: 'Où se fête-t-il ? (facultatif)' }
+/** Ouvre le lieu dans Plans (sur iPhone) ou dans la carte du navigateur. */
+export const lienPlans = (lieu: string) => `https://maps.apple.com/?q=${encodeURIComponent(lieu)}`
 
 /** Qui est concerné : toute la famille, ou les proches choisis (avec leur tête et leur prénom). */
 export function WhoPicker({ value, onChange }: { value: string[]; onChange: (ids: string[]) => void }) {
@@ -558,6 +561,7 @@ export function EventSheet({ onClose, day }: { onClose: () => void; day?: Date }
   const [journee, setJournee] = useState(true)
   const [time, setTime] = useState('10:00')
   const [description, setDescription] = useState('')
+  const [lieu, setLieu] = useState('')
   const [who, setWho] = useState<string[]>([])
   const birthday = kind === 'anniversaire'
   const meta = KINDS.find((k) => k.key === kind)!
@@ -572,7 +576,7 @@ export function EventSheet({ onClose, day }: { onClose: () => void; day?: Date }
     const starts = new Date(`${date}T${allDay ? '09:00' : time}`)
     if (Number.isNaN(starts.getTime())) return
     const ok = await run(
-      (api) => api.addEvent(state.family.id, state.me.id, { title: title.trim(), kind, starts_at: starts.toISOString(), all_day: allDay, yearly: birthday, description: description.trim() || null, members: who }),
+      (api) => api.addEvent(state.family.id, state.me.id, { title: title.trim(), kind, starts_at: starts.toISOString(), all_day: allDay, yearly: birthday, lieu: lieu.trim() || null, description: description.trim() || null, members: who }),
       'Ajouté à l’agenda',
     )
     if (ok) {
@@ -613,6 +617,10 @@ export function EventSheet({ onClose, day }: { onClose: () => void; day?: Date }
             )}
           </>
         )}
+        <label className="flex items-center gap-3 border-t border-trait pl-4 pr-4">
+          <MapPin size={20} className="shrink-0 text-teinte" />
+          <input className="h-[52px] min-w-0 flex-1 bg-transparent text-corps outline-none placeholder:text-pale" placeholder={LIEU_EXEMPLE[kind]} maxLength={200} value={lieu} onChange={(e) => setLieu(e.target.value)} aria-label="Lieu" />
+        </label>
       </div>
       <p className="entete mt-5 !px-1">Qui est concerné ?</p>
       <WhoPicker value={who} onChange={setWho} />
@@ -620,7 +628,7 @@ export function EventSheet({ onClose, day }: { onClose: () => void; day?: Date }
       <p className="entete mt-5 !px-1">Des détails ? (facultatif)</p>
       <textarea
         className="groupe block min-h-[88px] w-full resize-none px-4 py-3 text-corps outline-none placeholder:text-pale"
-        placeholder="L’adresse, l’heure du départ, qui apporte quoi…"
+        placeholder="L’heure du départ, qui apporte quoi…"
         maxLength={500}
         value={description}
         onChange={(e) => setDescription(e.target.value)}
@@ -636,11 +644,13 @@ export function EventSheet({ onClose, day }: { onClose: () => void; day?: Date }
 /** Un événement ouvert : la date, qui l'a ajouté, et sa description, que chacun peut compléter. */
 export function EventDetailSheet({ event, at, onClose }: { event: FamEvent; at: Date; onClose: () => void }) {
   const { state, run } = useHome()
+  const ev = state.events.find((x) => x.id === event.id) ?? event // la version à jour, après un enregistrement
   const [text, setText] = useState(event.description ?? '')
+  const [lieu, setLieu] = useState(event.lieu ?? '')
   const [who, setWho] = useState<string[]>(event.members ?? [])
   const [editWho, setEditWho] = useState(false)
-  const sameWho = who.length === (event.members ?? []).length && who.every((id) => event.members?.includes(id))
-  const changed = text.trim() !== (event.description ?? '').trim() || !sameWho
+  const sameWho = who.length === (ev.members ?? []).length && who.every((id) => ev.members?.includes(id))
+  const changed = text.trim() !== (ev.description ?? '').trim() || lieu.trim() !== (ev.lieu ?? '').trim() || !sameWho
   const author = state.members.find((m) => m.id === event.created_by)
   const full = at.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^./, (c) => c.toUpperCase())
   const d0 = new Date()
@@ -657,6 +667,24 @@ export function EventDetailSheet({ event, at, onClose }: { event: FamEvent; at: 
           {full}
           {event.all_day ? ' · toute la journée' : ` · ${timeLabel(at)}`}
         </p>
+        {ev.lieu && (
+          <a
+            href={lienPlans(ev.lieu)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="presse mt-3 flex max-w-full items-center gap-2.5 rounded-[18px] bg-teinte-doux py-2.5 pl-3 pr-4 text-left"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-teinte">
+              <MapPin size={19} />
+            </span>
+            <span className="min-w-0">
+              <span className="block break-words text-corps font-semibold text-encre">{ev.lieu}</span>
+              <span className="flex items-center gap-1 text-note font-semibold text-teinte-fonce">
+                <Navigation size={12} strokeWidth={2.6} /> Ouvrir dans Plans
+              </span>
+            </span>
+          </a>
+        )}
         <span className="mt-2 flex flex-wrap justify-center gap-1.5">
           {soon && <span className="rounded-full bg-peche-doux px-2.5 py-1 text-legende font-semibold text-peche-fonce">{soon}</span>}
           {event.yearly && (
@@ -681,10 +709,16 @@ export function EventDetailSheet({ event, at, onClose }: { event: FamEvent; at: 
       </div>
       {editWho ? <WhoPicker value={who} onChange={setWho} /> : <WhoList ids={who} />}
 
+      <p className="entete mt-5 !px-1">Lieu</p>
+      <label className="groupe flex items-center gap-3 px-4">
+        <MapPin size={20} className="shrink-0 text-teinte" />
+        <input className="h-[52px] min-w-0 flex-1 bg-transparent text-corps outline-none placeholder:text-pale" placeholder="Ajoute le lieu : une adresse, « chez Mamie »…" maxLength={200} value={lieu} onChange={(e) => setLieu(e.target.value)} aria-label="Lieu de l’événement" />
+      </label>
+
       <p className="entete mt-5 !px-1">Description</p>
       <textarea
         className="groupe block min-h-[120px] w-full resize-none px-4 py-3 text-corps outline-none placeholder:text-pale"
-        placeholder="Ajoute une description : l’adresse, l’heure du rendez-vous, qui apporte quoi…"
+        placeholder="Ajoute une description : l’heure du départ, qui apporte quoi…"
         maxLength={500}
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -695,7 +729,7 @@ export function EventDetailSheet({ event, at, onClose }: { event: FamEvent; at: 
         <Btn
           className="mt-3"
           onClick={async () => {
-            const ok = await run((api) => api.updateEvent(event.id, { description: text.trim() || null, members: who }), 'Événement mis à jour')
+            const ok = await run((api) => api.updateEvent(event.id, { lieu: lieu.trim() || null, description: text.trim() || null, members: who }), 'Événement mis à jour')
             if (ok) {
               success()
               setEditWho(false)
