@@ -233,6 +233,11 @@ input, textarea { caret-color: #7050D5; }
 .ios-search input::-webkit-search-decoration { -webkit-appearance: none; }
 /* Only the app's own scroll views move; keyboard focus must not pan the document. */
 html, body { overflow: hidden; width: 100%; }
+/* Sur téléphone, derrière les barres de Safari au-dessus du clavier, on voit le fond de la page :
+   il doit être celui de l'appli (pas le mauve du cadre pour ordinateur), sinon une bande grise apparaît. */
+@media (max-width: 639px) {
+  html, body { background: #F8F7FC; }
+}
 #root { position: fixed; inset: 0; overflow: hidden; }
 
 [data-keyboard] .ios-topbar { visibility: hidden; pointer-events: none; }
