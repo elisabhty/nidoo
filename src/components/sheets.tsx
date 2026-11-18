@@ -480,6 +480,8 @@ const KINDS: { key: EventKind; label: string; art: string; aide: string; exemple
   { key: 'anniversaire', label: 'Anniversaire', art: 'picto-gateau', aide: 'Il revient tout seul chaque année, à la même date.', exemple: 'Anniversaire de… (son prénom)' },
 ]
 export const eventArt = (k: string) => KINDS.find((x) => x.key === k)?.art ?? 'picto-fete'
+/** Ce qu'on peut mettre dans l'agenda (pour les raccourcis « Ajouter »). */
+export const TYPES_AGENDA = KINDS.map((k) => ({ key: k.key, label: k.label, art: k.art }))
 const LIEU_EXEMPLE: Record<string, string> = { evenement: 'Où ? Ex. : Chez Mamie, à Lyon', rdv: 'Où ? Ex. : Cabinet du Dr Martin', anniversaire: 'Où se fête-t-il ? (facultatif)' }
 /** Ouvre le lieu dans Plans (sur iPhone) ou dans la carte du navigateur. */
 export const lienPlans = (lieu: string) => `https://maps.apple.com/?q=${encodeURIComponent(lieu)}`
@@ -550,15 +552,15 @@ export function WhoList({ ids }: { ids: string[] }) {
 }
 
 /** Nouvel événement ; « day » : le jour touché dans la vue de la semaine. */
-export function EventSheet({ onClose, day }: { onClose: () => void; day?: Date }) {
+export function EventSheet({ onClose, day, kind: kind0 = 'evenement' }: { onClose: () => void; day?: Date; kind?: EventKind }) {
   const { state, run } = useHome()
   const [title, setTitle] = useState('')
-  const [kind, setKind] = useState<EventKind>('evenement')
+  const [kind, setKind] = useState<EventKind>(kind0)
   const first = day ?? new Date(Date.now() + 86400000)
   const pad = (n: number) => String(n).padStart(2, '0')
   const [date, setDate] = useState(`${first.getFullYear()}-${pad(first.getMonth() + 1)}-${pad(first.getDate())}`)
   // « Toute la journée » se voit (avant, une case d'heure vide ne disait rien) ; un rendez-vous a une heure
-  const [journee, setJournee] = useState(true)
+  const [journee, setJournee] = useState(kind0 !== 'rdv')
   const [time, setTime] = useState('10:00')
   const [description, setDescription] = useState('')
   const [lieu, setLieu] = useState('')

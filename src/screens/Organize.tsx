@@ -1,11 +1,11 @@
 import { Check, ChevronLeft, ChevronRight, MapPin, Plus } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { MemberStack } from '../components/folder'
-import { EventDetailSheet, EventSheet, eventArt } from '../components/sheets'
-import { Art, Avatar, Btn, Rond, Screen, Segments, Vide } from '../components/ui'
+import { EventDetailSheet, EventSheet, eventArt, TYPES_AGENDA } from '../components/sheets'
+import { Art, Avatar, Rond, Screen, Segments, Vide } from '../components/ui'
 import { select, success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
-import type { FamEvent, ListKind } from '../lib/types'
+import type { EventKind, FamEvent, ListKind } from '../lib/types'
 import { dayLabel, nextOccurrence, timeLabel, todayKey } from '../lib/util'
 
 type Seg = 'agenda' | 'course' | 'tache'
@@ -308,11 +308,83 @@ function Liste({ kind }: { kind: ListKind }) {
   )
 }
 
+// ───────── Le prochain moment de l'agenda ─────────
+
+const PROCHAIN: Record<string, string> = { rdv: 'Votre prochain rendez-vous', evenement: 'Votre prochain événement', anniversaire: 'Le prochain anniversaire' }
+
+/** Combien de temps avant : « Aujourd'hui », « Demain », « Dans 3 jours »… */
+function bientot(at: Date) {
+  const d0 = new Date()
+  d0.setHours(0, 0, 0, 0)
+  const n = Math.round((new Date(at.getFullYear(), at.getMonth(), at.getDate()).getTime() - d0.getTime()) / 86400000)
+  if (n <= 0) return 'Aujourd’hui'
+  if (n === 1) return 'Demain'
+  if (n < 14) return `Dans ${n} jours`
+  if (n < 60) return `Dans ${Math.round(n / 7)} semaines`
+  return `Dans ${Math.round(n / 30)} mois`
+}
+
+/** La carte du haut : le prochain rendez-vous, événement ou anniversaire, dit comme il faut, avec son compte à rebours. */
+function Prochain({ e, at, onOpen }: { e: FamEvent; at: Date; onOpen: () => void }) {
+  const quand = bientot(at)
+  const vite = quand === 'Aujourd’hui' || quand === 'Demain'
+  return (
+    <button onClick={onOpen} className="presse anim-pop mx-4 mb-5 flex w-[calc(100%-2rem)] items-center gap-4 rounded-[24px] bg-teinte-doux p-5 text-left">
+      <span className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-[18px] bg-white text-teinte-fonce">
+        <span className="text-note uppercase">{at.toLocaleDateString('fr-FR', { month: 'short' })}</span>
+        <span className="font-rond text-titre1">{at.getDate()}</span>
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="text-note font-semibold text-teinte-fonce">{PROCHAIN[e.kind] ?? 'Votre prochain événement'}</span>
+          <span className={`rounded-full px-2 py-0.5 text-mini font-semibold ${vite ? 'bg-peche-doux text-peche-fonce' : 'bg-white/70 text-teinte-fonce'}`}>{quand}</span>
+        </span>
+        <span className="mt-1 block font-rond text-titre3">{e.title}</span>
+        <span className="mt-1 block text-note text-brume">
+          {at.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric' })}
+          {e.all_day ? '' : ` · ${timeLabel(at)}`}
+        </span>
+        {e.lieu && (
+          <span className="mt-1.5 flex items-center gap-1 text-note font-semibold text-teinte-fonce">
+            <MapPin size={14} strokeWidth={2.4} className="shrink-0" />
+            <span className="truncate">{e.lieu}</span>
+          </span>
+        )}
+      </span>
+      <Art name={eventArt(e.kind)} size={46} className="anim-flotte shrink-0 self-start" />
+    </button>
+  )
+}
+
+/** Ce qu'on peut mettre dans l'agenda, en un toucher. */
+function Ajouter({ onAdd }: { onAdd: (kind: EventKind) => void }) {
+  return (
+    <div className="mx-4 mb-6 mt-1">
+      <p className="entete !px-1">Ajouter à l’agenda</p>
+      <div className="flex gap-2">
+        {TYPES_AGENDA.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => {
+              tap()
+              onAdd(t.key)
+            }}
+            className="presse flex min-w-0 flex-1 flex-col items-center gap-1 rounded-[18px] bg-carte px-1 py-3 shadow-carte"
+          >
+            <Art name={t.art} size={34} />
+            <span className="max-w-full truncate text-note font-semibold">{t.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function Organize() {
   const { state } = useHome()
   const [seg, setSeg] = useState<Seg>('agenda')
   const [vue, setVue] = useState<Vue>('liste')
-  const [adding, setAdding] = useState<{ day?: Date } | null>(null)
+  const [adding, setAdding] = useState<{ day?: Date; kind?: EventKind } | null>(null)
   const [open, setOpen] = useState<Ouvert | null>(null)
 
   const start = new Date()
@@ -337,10 +409,7 @@ export default function Organize() {
           <Segments value={seg} onChange={setSeg} options={[{ key: 'agenda', label: 'Agenda' }, { key: 'course', label: 'Courses' }, { key: 'tache', label: 'Missions' }]} />
         </div>
 
-        {seg === 'agenda' && coming.length > 0 && <button onClick={() => setOpen(coming[0])} className="presse mx-4 mb-5 flex w-[calc(100%-2rem)] items-center gap-4 rounded-[24px] bg-teinte-doux p-5 text-left">
-          <span className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-[18px] bg-white text-teinte-fonce"><span className="text-note uppercase">{coming[0].at.toLocaleDateString('fr-FR',{month:'short'})}</span><span className="font-rond text-titre1">{coming[0].at.getDate()}</span></span>
-          <span className="min-w-0 flex-1"><span className="block text-note font-semibold text-teinte-fonce">Votre prochain rendez-vous</span><span className="mt-1 block font-rond text-titre3">{coming[0].e.title}</span><span className="mt-1 block text-note text-brume">{coming[0].at.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric'})}{coming[0].e.all_day ? '' : ` · ${timeLabel(coming[0].at)}`}</span>{coming[0].e.lieu && <span className="mt-1.5 flex items-center gap-1 text-note font-semibold text-teinte-fonce"><MapPin size={14} strokeWidth={2.4} className="shrink-0" /><span className="truncate">{coming[0].e.lieu}</span></span>}</span>
-        </button>}
+        {seg === 'agenda' && coming.length > 0 && <Prochain e={coming[0].e} at={coming[0].at} onOpen={() => setOpen(coming[0])} />}
 
         {seg === 'agenda' && (
           <div className="-mt-1 mb-4 flex gap-2 px-4">
@@ -369,11 +438,13 @@ export default function Organize() {
           <Semaine onOpen={setOpen} onAdd={(day) => setAdding({ day })} />
         ) : seg === 'agenda' ? (
           coming.length === 0 ? (
-            <Vide art="picto-agenda" title="L’agenda est libre" text="Anniversaires, rendez-vous, dîners : tout le monde les verra au même endroit.">
-              <Btn onClick={() => setAdding({})}>Nouvel événement</Btn>
-            </Vide>
+            <>
+              <Vide art="picto-agenda" title="L’agenda est libre" text="Anniversaires, rendez-vous, dîners : tout le monde les verra au même endroit." />
+              <Ajouter onAdd={(kind) => setAdding({ kind })} />
+            </>
           ) : (
-            [...groups.entries()].map(([month, list]) => (
+            <>
+            {[...groups.entries()].map(([month, list]) => (
               <div key={month} className="mb-6">
                 <p className="entete">{month}</p>
                 <div className="groupe mx-4 shadow-carte">
@@ -413,13 +484,15 @@ export default function Organize() {
                   })}
                 </div>
               </div>
-            ))
+            ))}
+            <Ajouter onAdd={(kind) => setAdding({ kind })} />
+            </>
           )
         ) : (
           <Liste key={seg} kind={seg} />
         )}
       </Screen>
-      {adding && <EventSheet day={adding.day} onClose={() => setAdding(null)} />}
+      {adding && <EventSheet day={adding.day} kind={adding.kind} onClose={() => setAdding(null)} />}
       {open && <EventDetailSheet key={open.e.id} event={state.events.find((x) => x.id === open.e.id) ?? open.e} at={open.at} onClose={() => setOpen(null)} />}
     </>
   )

@@ -645,32 +645,52 @@ export default function Fil(_: { onCompose?: () => void }) {
     .map(([id, v]) => ({ m: members.find((x) => x.id === id), quoi: v.quoi }))
     .filter((x): x is { m: Member; quoi: Ecrit } => !!x.m)
 
-  // on arrive en bas du fil, et on y reste quand un message ou quelqu'un qui écrit arrive
+  // On atterrit toujours à la fin du fil : à l'ouverture, en revenant sur l'onglet, et quand une photo ou un sticker
+  // finit de charger. On y reste tant qu'on n'est pas remonté lire plus haut.
+  const racine = useRef<HTMLDivElement>(null)
+  const colle = useRef(true)
   const boite = () => {
-    let box: HTMLElement | null = fin.current?.parentElement ?? null
-    while (box && !(/(auto|scroll)/.test(getComputedStyle(box).overflowY) && box.scrollHeight > box.clientHeight)) box = box.parentElement
+    let box: HTMLElement | null = racine.current?.parentElement ?? null
+    while (box && !/(auto|scroll)/.test(getComputedStyle(box).overflowY)) box = box.parentElement
     return box
   }
-  // une photo ou un sticker qui finit de charger grandit la bulle : on reste collé en bas
-  const racine = useRef<HTMLDivElement>(null)
+  const enBas = (doux = false) => {
+    const box = boite()
+    if (box) box.scrollTo({ top: box.scrollHeight, behavior: doux ? 'smooth' : 'auto' })
+  }
   useEffect(() => {
     const el = racine.current
-    if (!el) return
-    const charge = () => {
-      const box = boite()
-      if (box && box.scrollHeight - box.scrollTop - box.clientHeight < 420) box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' })
-    }
-    el.addEventListener('load', charge, true)
-    return () => el.removeEventListener('load', charge, true)
-  }, [])
-  const premiereFois = useRef(true)
-  useEffect(() => {
     const box = boite()
-    if (!box) return
-    const proche = box.scrollHeight - box.scrollTop - box.clientHeight < 260
-    if (premiereFois.current || proche || dernier?.member_id === me.id || enAttente.length > 0) box.scrollTo({ top: box.scrollHeight, behavior: premiereFois.current ? 'auto' : 'smooth' })
-    premiereFois.current = false
-  }, [msgs.length, qui.length, dernier?.member_id, me.id, enAttente.length])
+    if (!el || !box) return
+    enBas()
+    const surScroll = () => {
+      if (box.clientHeight) colle.current = box.scrollHeight - box.scrollTop - box.clientHeight < 140
+    }
+    let h = el.getBoundingClientRect().height
+    const ro = new ResizeObserver(() => {
+      const nh = el.getBoundingClientRect().height
+      if (!nh) return void (h = 0) // onglet caché
+      if (!h) colle.current = true // l'onglet revient : on retourne à la fin
+      h = nh
+      if (colle.current) enBas()
+    })
+    ro.observe(el)
+    box.addEventListener('scroll', surScroll, { passive: true })
+    return () => {
+      ro.disconnect()
+      box.removeEventListener('scroll', surScroll)
+    }
+  }, [])
+  // un message ou quelqu'un qui écrit arrive : on suit si on était en bas, et toujours pour ce qu'on envoie soi-même
+  const nbAvant = useRef(msgs.length)
+  useEffect(() => {
+    const nouveauMien = msgs.length > nbAvant.current && dernier?.member_id === me.id
+    nbAvant.current = msgs.length
+    if (colle.current || nouveauMien || enAttente.length > 0) {
+      colle.current = true
+      enBas(true)
+    }
+  }, [msgs.length, qui.length, enAttente.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   let jourPrecedent = ''
   return (

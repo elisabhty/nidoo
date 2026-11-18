@@ -1,4 +1,4 @@
-import { Check, Dices, Palette } from 'lucide-react'
+import { Check, Palette } from 'lucide-react'
 import { useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { COLOR_KEYS, COLORS, HOUSES, shopItem } from '../lib/data'
@@ -36,15 +36,11 @@ function usePerso(avatar: string, setAvatar: (v: string) => void) {
     setZoom(false)
     setHop((n) => n + 1)
   }
-  const random = () => {
-    const pool = PERSOS.filter((p) => p.g === group)
-    pick(pool[Math.floor(Math.random() * pool.length)])
-  }
-  return { look, mine, group, setGroup, hop, setHop, zoom, setZoom, set, tune, pick, random }
+  return { look, mine, group, setGroup, hop, setHop, zoom, setZoom, set, tune, pick }
 }
 type Perso_ = ReturnType<typeof usePerso>
 
-/** Le portrait : la figurine sur son fond. Un tap la fait sauter, le dé en tire une au hasard. */
+/** Le portrait : la figurine sur son fond. Un tap la fait sauter. */
 function Portrait({ ed, color, size = 206 }: { ed: Perso_; color: string; size?: number }) {
   const { look, mine, zoom, hop } = ed
   const c = COLORS[color] ?? COLORS.lavande
@@ -69,14 +65,6 @@ function Portrait({ ed, color, size = 206 }: { ed: Perso_; color: string; size?:
           Voir en entier
         </button>
       )}
-      <button
-        onClick={ed.random}
-        className="presse verre absolute bottom-[10%] right-[-6px] flex h-11 w-11 items-center justify-center rounded-full text-teinte"
-        aria-label="Personnage au hasard"
-        title="Au hasard"
-      >
-        <Dices size={20} strokeWidth={2.2} />
-      </button>
     </div>
   )
 }
