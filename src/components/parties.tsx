@@ -295,9 +295,14 @@ export function PartieView({ partie: p, onClose, onOpen, onNouvelle }: { partie:
           const m = members.find((y) => y.id === x)
           const doit = p.status === 'en_cours' && att.includes(x)
           return (
-            <div key={x} className={`flex shrink-0 items-center gap-2 rounded-full p-1 pr-3 ${doit ? 'bg-white shadow-carte' : 'bg-remplissage/60'}`} style={doit ? { boxShadow: `0 0 0 2.5px ${VIOLET}` } : undefined}>
+            <div key={x} className={`flex shrink-0 items-center gap-2 rounded-full bg-white p-1 pr-3 ${doit ? 'shadow-carte' : ''}`} style={doit ? { boxShadow: `0 0 0 2.5px ${VIOLET}` } : undefined}>
               {m && <Avatar m={m} size={34} />}
               <span className="text-sous font-semibold">{nom(members, x, me.id)}</span>
+              {p.status === 'en_cours' && !doit && (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-teinte text-white" aria-label="a joué">
+                  <Check size={12} strokeWidth={3.2} />
+                </span>
+              )}
             </div>
           )
         })}
@@ -438,12 +443,12 @@ function Bataille({ p, sec, me, busy, act, dire }: Props) {
 
 // ───────── Qui de nous ? ─────────
 
-function Carte({ m, me, face = true, on = false, small = false, onClick, disabled, children }: { m?: Member; me: string; face?: boolean; on?: boolean; small?: boolean; onClick?: () => void; disabled?: boolean; children?: React.ReactNode }) {
+function Carte({ m, me, face = true, on = false, dim = false, small = false, onClick, disabled, children }: { m?: Member; me: string; face?: boolean; on?: boolean; dim?: boolean; small?: boolean; onClick?: () => void; disabled?: boolean; children?: React.ReactNode }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled || !onClick}
-      className="presse relative flex aspect-[3/4] w-full flex-col items-center justify-center gap-1 rounded-[18px] p-2 disabled:cursor-default"
+      className={`presse relative flex aspect-[3/4] w-full flex-col items-center justify-center gap-1 rounded-[18px] p-2 transition-opacity disabled:cursor-default ${dim ? 'opacity-40' : ''}`}
       style={{
         background: face ? '#FFFDF8' : 'linear-gradient(150deg, #B9A6F5, #7A5AE0)',
         boxShadow: on ? `0 0 0 3px #fff, 0 0 0 6px ${VIOLET}` : '0 6px 14px rgba(60,40,140,0.16), inset 0 -3px 0 rgba(0,0,0,0.05)',
@@ -538,13 +543,13 @@ function QuiDeNous({ p, sec, me, members = [], busy, act }: Props) {
         </p>
       </div>
       {playing && !aVote && <p className="mt-4 text-center text-sous text-brume">Touche la carte de ton choix : personne ne la verra avant que tout le monde ait choisi.</p>}
-      {playing && aVote && <p className="mt-4 text-center text-sous text-brume">Ta carte est retournée. Les autres choisissent…</p>}
+      {playing && aVote && <p className="mt-4 text-center text-sous text-brume">C’est noté ! Les cartes se dévoilent quand tout le monde a choisi.</p>}
       <div className={`mt-3 grid gap-2 ${n <= 2 ? 'grid-cols-2 px-8' : n === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
         {joueurs.map((m, i) => {
           const choisi = sec.vote === p.players[i]
           return (
-            <Carte key={p.players[i]} m={m} me={me} small={n > 3} face={!aVote || !choisi} on={choisi} disabled={!playing || aVote || busy} onClick={() => void vote(p.players[i])}>
-              {aVote && choisi && <span className="absolute bottom-2 text-mini font-semibold text-white">Ton choix</span>}
+            <Carte key={p.players[i]} m={m} me={me} small={n > 3} on={choisi} dim={aVote && !choisi} disabled={!playing || aVote || busy} onClick={() => void vote(p.players[i])}>
+              {aVote && choisi && <span className="mt-0.5 rounded-full bg-teinte px-2 py-0.5 text-mini font-bold text-white">Ton choix</span>}
             </Carte>
           )
         })}
