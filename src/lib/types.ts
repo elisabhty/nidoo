@@ -61,7 +61,15 @@ export type Moment = {
   body: string | null
   challenge: string | null
   created_at: string
+  /** un vocal : le fichier, sa durée (s) et son onde (0 à 100) */
+  audio_path?: string | null
+  audio_url?: string | null
+  duree?: number | null
+  ondes?: number[] | null
 }
+
+/** Ce qu'un proche est en train de faire dans le fil (« écrit… », « enregistre un vocal… »). */
+export type Ecrit = 'texte' | 'vocal' | 'photo'
 
 /** Un dossier racine a ses membres ; un sous-dossier (parent_id) hérite des membres de sa racine. */
 export type Folder = {
@@ -294,7 +302,10 @@ export interface Backend {
   updateMember(memberId: string, patch: Partial<Pick<Member, 'display_name' | 'avatar' | 'color'>>): Promise<void>
   updateFamily(familyId: string, patch: Partial<Pick<Family, 'name' | 'house_type'>>): Promise<void>
   leave(memberId: string): Promise<void>
-  postMoment(familyId: string, memberId: string, m: { blob?: Blob; body?: string; challenge?: string }): Promise<void>
+  postMoment(familyId: string, memberId: string, m: { blob?: Blob; body?: string; challenge?: string; audio?: { blob: Blob; duree: number; ondes: number[] } }): Promise<void>
+  /** Dire à la famille qu'on écrit (ou qu'on a arrêté : null), en direct, sans rien enregistrer. */
+  ecrit(familyId: string, memberId: string, quoi: Ecrit | null): void
+  onEcrit(familyId: string, me: string, cb: (e: { m: string; quoi: Ecrit | null }) => void): () => void
   deleteMoment(moment: Moment): Promise<void>
   // Dossiers
   createFolder(familyId: string, f: { name: string; parentId?: string | null; memberIds?: string[] }): Promise<string>

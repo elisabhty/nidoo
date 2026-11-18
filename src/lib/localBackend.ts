@@ -5,7 +5,7 @@ import { applyMove, botMemory, botMorpion, botPuissance4, isMemory, MEMORY_MAX, 
 import { partiesDemo, type Cache, type MotDemo } from './partiesDemo'
 import type { AnneeState } from './parties'
 import { etoilesDe, parisToday } from './avent'
-import type { AdventDoor, AppFlag, Backend, Drawing, Game, Family, FamilyState, Folder, FolderItem, JoinRequest, LiveEvent, Member, Moment, MyRequest, Sticker, ThoughtKind } from './types'
+import type { AdventDoor, AppFlag, Backend, Drawing, Ecrit, Game, Family, FamilyState, Folder, FolderItem, JoinRequest, LiveEvent, Member, Moment, MyRequest, Sticker, ThoughtKind } from './types'
 import { blobToDataUrl, compressImage, daysAgoKey, todayKey, uid } from './util'
 import { challenge, nextReward, WEEKLY, weekIndex, weekKey, weekStart, type WeeklyCounts, type WeeklyKey } from './weekly'
 
@@ -212,6 +212,27 @@ function read(): Db {
 export function createLocalBackend(): Backend {
   let db = read()
   const listeners = new Set<() => void>()
+  // « X écrit… » en démo : les proches fictifs écrivent pour de vrai sous tes yeux, puis répondent.
+  const ecrivains = new Set<(e: { m: string; quoi: Ecrit | null }) => void>()
+  const signale = (m: string, quoi: Ecrit | null) => ecrivains.forEach((f) => f({ m, quoi }))
+  const REPONSES: Record<'texte' | 'photo' | 'vocal', string[]> = {
+    texte: ['Oh trop bien ! On en parle dimanche ?', 'Hâte de te voir 🥰', 'Haha, je savais que tu dirais ça !', 'Bisous à toute la maison', 'Tu me manques déjà…', 'Bonne idée, je m’en occupe 😉'],
+    photo: ['Trop belle cette photo ! 😍', 'Oh, j’adore. Tu me l’envoies en grand ?', 'C’est où ? On dirait des vacances !'],
+    vocal: ['Ça fait du bien d’entendre ta voix 🥰', 'Haha, j’ai écouté deux fois !', 'Je te rappelle ce soir, promis.'],
+  }
+  const repondre = (fid: string, quoi: 'texte' | 'photo' | 'vocal') => {
+    const f = db.families[fid]
+    const autres = f?.members.filter((x) => x.user_id && x.user_id !== db.userId) ?? []
+    const qui = autres[Math.floor(Math.random() * autres.length)]
+    if (!f || !qui) return
+    window.setTimeout(() => signale(qui.id, 'texte'), 900)
+    window.setTimeout(() => {
+      const textes = REPONSES[quoi]
+      f.moments.unshift({ id: uid(), family_id: fid, member_id: qui.id, image_path: null, body: textes[Math.floor(Math.random() * textes.length)], challenge: null, created_at: new Date().toISOString() })
+      signale(qui.id, null)
+      save()
+    }, 3800)
+  }
   const save = (): boolean => {
     let ok = true
     try {
@@ -643,7 +664,7 @@ export function createLocalBackend(): Backend {
         answers: f.answers.filter((a) => a.day === day).map((a) => ({ ...a, photo_url: a.photo_path ?? null })),
         cares: f.cares.filter((c) => c.day >= daysAgoKey(6)),
         houseSince: { ...f.houseSince, ...(f.pet ? { compagnon: f.pet.adopted_at } : {}) },
-        moments: f.moments.map((m) => ({ ...m, image_url: m.image_path })),
+        moments: f.moments.map((m) => ({ ...m, image_url: m.image_path, audio_url: m.audio_path ?? null })),
         drawings: f.drawings.filter((d) => !d.to_member || d.to_member === me.id || d.from_member === me.id).slice(0, 30).map((d) => ({ ...d, photo_url: d.photo_path ?? null })),
         folders: f.folders.filter((d) => mine.has(d.root_id)).map((d) => ({ ...d, cover_url: d.cover_path })),
         folderMembers: f.folderMembers.filter((x) => mine.has(x.folder_id)),
@@ -695,9 +716,11 @@ export function createLocalBackend(): Backend {
       const moment: Moment = {
         id: uid(), family_id: fid, member_id: memberId, image_path: m.blob ? await blobToDataUrl(m.blob) : null,
         body: m.body?.trim() || null, challenge: m.challenge ?? null, created_at: new Date().toISOString(),
+        audio_path: m.audio ? await blobToDataUrl(m.audio.blob) : null, duree: m.audio ? Math.round(m.audio.duree) : null, ondes: m.audio?.ondes ?? null,
       }
       f.moments.unshift(moment)
       award(f, memberId, 'moment', 3, 5)
+      repondre(fid, m.audio ? 'vocal' : m.blob ? 'photo' : 'texte')
       // Un proche réagit à la photo, comme dans une vraie famille.
       const other = f.members.find((x) => x.user_id !== db.userId)
       if (other) {
@@ -707,6 +730,14 @@ export function createLocalBackend(): Backend {
         }, 3500)
       }
       save()
+    },
+    ecrit() {
+      /* en démo, personne d'autre ne lit ce que tu tapes */
+    },
+    onEcrit(_fid, me, cb) {
+      const f = (e: { m: string; quoi: Ecrit | null }) => e.m !== me && cb(e)
+      ecrivains.add(f)
+      return () => void ecrivains.delete(f)
     },
     async deleteMoment(moment) {
       const f = fam(moment.family_id)

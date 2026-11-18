@@ -3,7 +3,7 @@ import { SUPABASE_KEY, SUPABASE_URL } from '../config'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { isMemory } from './jeux'
 import { jourParis, type AnneeState, type MotLigne, type MotMoi, type Secret } from './parties'
-import type { AdventDoor, AppFlag, Answer, Backend, Game, Partie, HouseCare, Pet, Plot, Circle, Drawing, DrawingData, FamEvent, Family, FamilyState, Folder, JoinRequest, LiveEvent, LiveInvite, MyRequest, FolderItem, FolderMember, ListItem, Member, Moment, Reaction, StarEntry, Thought } from './types'
+import type { AdventDoor, AppFlag, Answer, Backend, Game, Partie, HouseCare, Pet, Plot, Circle, Drawing, DrawingData, FamEvent, Family, FamilyState, Folder, JoinRequest, LiveEvent, LiveInvite, MyRequest, FolderItem, FolderMember, ListItem, Member, Moment, Reaction, StarEntry, Thought, Ecrit } from './types'
 import { compressImage, daysAgoKey, todayKey, uid } from './util'
 import { emptyCounts, type WeeklyCounts } from './weekly'
 
@@ -21,6 +21,8 @@ export function createSupabaseBackend(): Backend {
   // Un seul canal privé par famille pour les invitations à dessiner à deux.
   const canaux = new Map<string, Promise<RealtimeChannel>>()
   const ecouteurs = new Map<string, Set<(m: { payload: LiveInvite }) => void>>()
+  // « X écrit… » : sur le même canal privé de la famille
+  const ecrivains = new Map<string, Set<(p: { m: string; quoi: Ecrit | null }) => void>>()
   const canalFamille = (fid: string, ecoute?: (m: { payload: LiveInvite }) => void) => {
     if (ecoute) {
       if (!ecouteurs.has(fid)) ecouteurs.set(fid, new Set())
@@ -33,6 +35,10 @@ export function createSupabaseBackend(): Backend {
           new Promise<RealtimeChannel>((res, rej) => {
             const ch = sb.channel(`nidoo:famille:${fid}`, { config: { private: true, broadcast: { self: false } } })
             ch.on('broadcast', { event: 'invite' }, (m) => ecouteurs.get(fid)?.forEach((f) => f(m as unknown as { payload: LiveInvite })))
+            ch.on('broadcast', { event: 'ecrit' }, (m) => {
+              const p = (m as unknown as { payload: { m: string; quoi: Ecrit | null } }).payload
+              if (p?.m) ecrivains.get(fid)?.forEach((f) => f(p))
+            })
             ch.subscribe((st) => {
               if (st === 'SUBSCRIBED') res(ch)
               else if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT') {
@@ -164,11 +170,14 @@ export function createSupabaseBackend(): Backend {
       const moms = check(moments) as Moment[]
       const reponses = (check(answers) ?? []) as Answer[]
       // Photos du fil et de la question du jour : même espace privé, lisible par la famille.
-      const paths = [...moms.map((m) => m.image_path), ...reponses.map((a) => a.photo_path)].filter((x): x is string => !!x)
+      const paths = [...moms.map((m) => m.image_path), ...moms.map((m) => m.audio_path), ...reponses.map((a) => a.photo_path)].filter((x): x is string => !!x)
       if (paths.length) {
         const signed = await sb.storage.from('moments').createSignedUrls(paths, 3600)
         const byPath = new Map((signed.data ?? []).map((s) => [s.path, s.signedUrl]))
-        for (const m of moms) m.image_url = m.image_path ? (byPath.get(m.image_path) ?? null) : null
+        for (const m of moms) {
+          m.image_url = m.image_path ? (byPath.get(m.image_path) ?? null) : null
+          m.audio_url = m.audio_path ? (byPath.get(m.audio_path) ?? null) : null
+        }
         for (const a of reponses) a.photo_url = a.photo_path ? (byPath.get(a.photo_path) ?? null) : null
       }
       // Photos et couvertures des dossiers : liens signés, lisibles par les seuls membres.
@@ -378,14 +387,36 @@ export function createSupabaseBackend(): Backend {
         const up = await sb.storage.from('moments').upload(image_path, m.blob, { contentType: 'image/jpeg' })
         if (up.error) throw new Error(up.error.message)
       }
+      let audio_path: string | null = null
+      if (m.audio) {
+        const type = m.audio.blob.type.split(';')[0] || 'audio/mp4'
+        const ext = type.includes('webm') ? 'webm' : type.includes('ogg') ? 'ogg' : type.includes('mpeg') ? 'mp3' : type.includes('aac') ? 'aac' : 'm4a'
+        audio_path = `${fid}/${uid()}.${ext}`
+        const up = await sb.storage.from('moments').upload(audio_path, m.audio.blob, { contentType: type })
+        if (up.error) throw new Error(up.error.message)
+      }
       check(
         await sb.from('moments').insert({
           family_id: fid, member_id: memberId, image_path, body: m.body?.trim() || null, challenge: m.challenge ?? null,
+          audio_path, duree: m.audio ? Math.max(1, Math.min(300, Math.round(m.audio.duree))) : null, ondes: m.audio ? m.audio.ondes.slice(0, 64) : null,
         }),
       )
     },
+    ecrit(fid, memberId, quoi) {
+      void canalFamille(fid)
+        .then((ch) => ch.send({ type: 'broadcast', event: 'ecrit', payload: { m: memberId, quoi } }))
+        .catch(() => {})
+    },
+    onEcrit(fid, me, cb) {
+      if (!ecrivains.has(fid)) ecrivains.set(fid, new Set())
+      const f = (p: { m: string; quoi: Ecrit | null }) => p.m !== me && cb(p)
+      ecrivains.get(fid)!.add(f)
+      void canalFamille(fid).catch(() => {})
+      return () => void ecrivains.get(fid)?.delete(f)
+    },
     async deleteMoment(moment) {
-      if (moment.image_path) await sb.storage.from('moments').remove([moment.image_path])
+      const fichiers = [moment.image_path, moment.audio_path].filter((x): x is string => !!x)
+      if (fichiers.length) await sb.storage.from('moments').remove(fichiers)
       check(await sb.from('moments').delete().eq('id', moment.id))
     },
     // ───── Dossiers

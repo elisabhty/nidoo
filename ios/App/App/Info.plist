@@ -6,6 +6,8 @@
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>NSCameraUsageDescription</key>
 	<string>NIDOO utilise l'appareil photo pour envoyer une photo surprise à ta famille.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>NIDOO utilise le micro pour enregistrer les vocaux que tu envoies à ta famille.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>NIDOO accède à tes photos pour partager celle que tu choisis avec ta famille.</string>
 	<key>CFBundleDevelopmentRegion</key>
