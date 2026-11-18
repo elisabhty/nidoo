@@ -1,4 +1,4 @@
-import { CalendarDays, Camera, ChevronRight, Heart, MessageCircleHeart, Minus, Plus } from 'lucide-react'
+import { CalendarDays, Camera, ChevronRight, Heart, MessageCircleHeart, Mic, Minus, Plus } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useAvent } from '../components/avent'
 import { DefisDuJour, QuestionSheet } from '../components/defis'
@@ -20,7 +20,7 @@ import type { AventAction } from '../lib/avent'
 import { challengeOfDay, moodOf } from '../lib/data'
 import { feel, tap } from '../lib/haptic'
 import { shareInvite } from '../lib/share'
-import { homeStories } from '../lib/homeStories'
+import { homeStories, type HomeStory } from '../lib/homeStories'
 import { useHome } from '../lib/store'
 import type { Drawing, FamEvent, Member } from '../lib/types'
 import { familyLabel, finDe, greeting, isToday, nextOccurrence, season } from '../lib/util'
@@ -259,35 +259,40 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
             </button>
           </div>
           {/* Une chronique vivante, alimentée uniquement par les vrais moments de cette maison. */}
-          <section className="mx-5 mt-3 rounded-[22px] bg-carte px-3.5 py-3 shadow-carte" aria-label="La vie de notre maison">
-            <div className="mb-1.5 flex items-center justify-between px-1">
+          <section className="mx-5 mt-3 rounded-[22px] bg-carte pb-1 pt-3.5 shadow-carte" aria-label="La vie de notre maison">
+            <div className="mb-1 flex items-baseline justify-between px-4">
               <h2 className="font-rond text-titre3">La vie de notre maison</h2>
-              <span className="text-mini text-brume">À partager</span>
+              <button
+                onClick={() => {
+                  tap()
+                  go('fil')
+                }}
+                className="presse -mr-1 px-1 py-1 text-note font-semibold text-teinte-fonce"
+              >
+                Ouvrir le fil
+              </button>
             </div>
-            {histoires.map((h, index) => {
-              const StoryIcon = h.kind === 'evenement' ? CalendarDays : h.kind === 'photo' ? Camera : h.kind === 'message' ? MessageCircleHeart : Heart
-              return (
-                <button
-                  key={h.id}
-                  onClick={() => {
-                    tap()
-                    if (h.event) setSheet({ k: 'evenement', e: h.event })
-                    else go(h.target)
-                  }}
-                  className={`presse flex min-h-[66px] w-full items-center gap-3 rounded-[15px] px-2 py-2 text-left ${index ? 'border-t border-trait/50' : ''}`}
-                >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-teinte-doux text-teinte-fonce">
-                    <StoryIcon size={20} strokeWidth={2} aria-hidden="true" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-mini font-semibold text-teinte-fonce">{h.label}</span>
-                    <span className="block truncate text-sous font-bold text-encre">{h.title}</span>
-                    <span className="block truncate text-note text-brume">{h.detail}</span>
-                  </span>
-                  <ChevronRight size={17} className="shrink-0 text-brume" aria-hidden="true" />
-                </button>
-              )
-            })}
+            {histoires.map((h, index) => (
+              <button
+                key={h.id}
+                onClick={() => {
+                  tap()
+                  if (h.event) setSheet({ k: 'evenement', e: h.event })
+                  else go(h.target)
+                }}
+                className="presse relative flex min-h-[72px] w-full items-center gap-3 px-4 py-2.5 text-left"
+              >
+                {/* un trait fin entre deux nouvelles, aligné sur le texte */}
+                {index > 0 && <span aria-hidden className="absolute left-[72px] right-4 top-0 h-px bg-trait" />}
+                <Vignette h={h} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-note font-semibold text-teinte-fonce">{h.label}</span>
+                  <span className="line-clamp-2 block text-sous font-bold leading-snug text-encre">{h.title}</span>
+                  <span className="block truncate text-note text-brume">{h.detail}</span>
+                </span>
+                <ChevronRight size={17} className="shrink-0 text-pale" aria-hidden="true" />
+              </button>
+            ))}
           </section>
           {/* les proches : choisir quelqu'un, avec son prénom et son humeur (moi, je suis dans le jardin) */}
           {others.length > 0 && <p className="mx-5 mt-4 text-note font-semibold text-brume">Touche un proche pour lui faire signe</p>}
@@ -404,5 +409,61 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
       )}
       {lieux.node}
     </>
+  )
+}
+
+/** Ce qu'on voit à gauche d'une nouvelle : la date de l'événement, la photo elle-même, le portrait de qui a écrit. */
+function Vignette({ h }: { h: HomeStory }) {
+  if (h.kind === 'evenement' && h.at) {
+    const mois = h.at.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '')
+    return (
+      <span className="flex h-11 w-11 shrink-0 flex-col overflow-hidden rounded-[13px] bg-[#FFF3F1] text-center" aria-hidden>
+        <span className="block bg-[#FF7A6B] py-[1px] text-[9.5px] font-bold uppercase leading-[13px] tracking-[0.04em] text-white">{mois}</span>
+        <span className="flex flex-1 items-center justify-center font-rond text-[19px] font-bold leading-none text-encre">{h.at.getDate()}</span>
+      </span>
+    )
+  }
+  if (h.kind === 'photo' && h.image)
+    return (
+      <span className="relative h-11 w-11 shrink-0" aria-hidden>
+        <img src={h.image} alt="" className="h-11 w-11 rounded-[13px] object-cover" />
+        {h.member && (
+          <span className="absolute -bottom-1 -right-1 rounded-full ring-2 ring-carte">
+            <Avatar m={h.member} size={20} />
+          </span>
+        )}
+      </span>
+    )
+  if ((h.kind === 'message' || h.kind === 'photo') && h.member)
+    return (
+      <span className="relative h-11 w-11 shrink-0" aria-hidden>
+        <Avatar m={h.member} size={44} />
+        <span className="absolute -bottom-0.5 -right-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-teinte text-white ring-2 ring-carte">
+          {h.vocal ? <Mic size={10} strokeWidth={2.6} /> : h.kind === 'photo' ? <Camera size={10} strokeWidth={2.6} /> : <MessageCircleHeart size={10} strokeWidth={2.6} />}
+        </span>
+      </span>
+    )
+  if (h.kind === 'humeur' && h.members?.length)
+    return (
+      <span className="relative h-11 w-11 shrink-0" aria-hidden>
+        {h.members.length > 1 ? (
+          <>
+            <span className="absolute left-0 top-0">
+              <Avatar m={h.members[0]} size={30} mood />
+            </span>
+            <span className="absolute bottom-0 right-0 rounded-full ring-2 ring-carte">
+              <Avatar m={h.members[1]} size={28} mood />
+            </span>
+          </>
+        ) : (
+          <Avatar m={h.members[0]} size={44} mood />
+        )}
+      </span>
+    )
+  const Icone = h.kind === 'photo' ? Camera : h.kind === 'message' ? MessageCircleHeart : h.kind === 'evenement' ? CalendarDays : Heart
+  return (
+    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[13px] bg-teinte-doux text-teinte-fonce" aria-hidden>
+      <Icone size={20} strokeWidth={2} />
+    </span>
   )
 }
