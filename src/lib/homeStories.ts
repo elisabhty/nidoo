@@ -1,5 +1,4 @@
 import type { FamEvent, FamilyState, Member, Moment } from './types'
-import { ago } from './util'
 
 /** Ce que la maison raconte à partir des événements réellement enregistrés par la famille. */
 export type HomeStory = {
@@ -35,6 +34,15 @@ const recent = (date: string, now: Date, days: number) => {
 const extrait = (t: string, n = 70) => {
   const s = t.replace(/\s+/g, ' ').trim()
   return s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s
+}
+/** « à l’instant », « il y a 5 min », « hier »… (comme ago() dans util.ts ; ce module reste sans dépendance pour ses tests) */
+const ago = (iso: string, now: Date) => {
+  const s = Math.max(0, (now.getTime() - new Date(iso).getTime()) / 1000)
+  if (s < 60) return 'à l’instant'
+  if (s < 3600) return `il y a ${Math.floor(s / 60)} min`
+  if (s < 86400) return `il y a ${Math.floor(s / 3600)} h`
+  const d = Math.floor(s / 86400)
+  return d === 1 ? 'hier' : `il y a ${d} j`
 }
 const duree = (s?: number | null) => (s ? `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}` : '')
 
@@ -76,7 +84,7 @@ export function homeStories(state: Sources, meId: string, next: NextEvent, now =
     result.push({
       id: 'photo:' + photo.id,
       kind: 'photo',
-      label: `${qui(photo)} · ${ago(photo.created_at)}`,
+      label: `${qui(photo)} · ${ago(photo.created_at, now)}`,
       title: photo.body?.trim() ? `« ${extrait(photo.body, 50)} »` : moi ? 'Ta photo est dans le fil' : `Une photo de ${qui(photo)}`,
       detail: autres ? `Et ${autres} autre${autres > 1 ? 's' : ''} photo${autres > 1 ? 's' : ''} cette semaine` : moi ? 'Toute la famille peut la voir' : 'Touche pour la voir en grand',
       target: 'fil',
@@ -92,7 +100,7 @@ export function homeStories(state: Sources, meId: string, next: NextEvent, now =
     result.push({
       id: 'message:' + message.id,
       kind: 'message',
-      label: `${qui(message)} · ${ago(message.created_at)}`,
+      label: `${qui(message)} · ${ago(message.created_at, now)}`,
       title: message.audio_path ? `Un message vocal${message.duree ? ` de ${duree(message.duree)}` : ''}` : `« ${extrait(message.body ?? '')} »`,
       detail: moi ? 'Ton dernier message dans le fil' : autres ? `Et ${autres} autre${autres > 1 ? 's' : ''} message${autres > 1 ? 's' : ''} à lire` : `Réponds à ${qui(message)} dans le fil`,
       target: 'fil',

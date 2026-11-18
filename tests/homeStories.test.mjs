@@ -13,7 +13,7 @@ const base = () => ({ members: members.map((m) => ({ ...m })), moments: [] })
 test('annonce un événement réel et conserve son lien vers le détail', () => {
   const event = { id: 'fete', title: 'Dîner de famille', kind: 'evenement', all_day: false, lieu: 'Chez Mamie' }
   const stories = homeStories(base(), 'moi', { e: event, at: new Date('2026-11-19T19:30:00Z') }, now)
-  assert.equal(stories[0].label, 'Demain')
+  assert.match(stories[0].label, /^Demain · \d\d:\d\d$/)
   assert.equal(stories[0].event, event)
   assert.match(stories[0].detail, /Chez Mamie/)
 })
@@ -26,7 +26,20 @@ test('mentionne une photo et un message réellement partagés, sans répétition
   ]
   const stories = homeStories(state, 'moi', null, now)
   assert.deepEqual(stories.map((s) => s.kind), ['photo', 'message'])
-  assert.equal(stories[0].title, 'Léa a partagé une photo')
+  // la légende de la photo, qui l'a envoyée et quand ; le message cité
+  assert.equal(stories[0].title, '« À la mer »')
+  assert.equal(stories[0].label, 'Léa · il y a 2 h')
+  assert.equal(stories[1].title, '« Coucou ! »')
+})
+
+test('les nouvelles des proches passent avant les siennes', () => {
+  const state = base()
+  state.moments = [
+    { id: 'moi1', member_id: 'moi', body: 'Mon message', created_at: '2026-11-18T11:00:00Z' },
+    { id: 'lea1', member_id: 'lea', body: 'Celui de Léa', created_at: '2026-11-18T08:00:00Z' },
+  ]
+  const stories = homeStories(state, 'moi', null, now)
+  assert.equal(stories[0].member.id, 'lea')
 })
 
 test('n’annonce pas un message ancien ou une humeur d’hier', () => {
