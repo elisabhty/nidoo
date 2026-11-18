@@ -30,6 +30,11 @@ try {
   const fid = await api.createFamily({name:'Test souvenirs',houseType:'maison',displayName:'Test',avatar:'panda',color:'lavande'})
   let state = await api.load(fid)
   const folder = state.folders[0]
+  await api.updateFamily(fid,{house_photo_ids:['m:test']})
+  assert.deepEqual((await api.load(fid)).family.house_photo_ids,['m:test'])
+  await api.updateFamily(fid,{house_photo_ids:[]})
+  assert.deepEqual((await api.load(fid)).family.house_photo_ids,[])
+  await assert.rejects(api.updateFamily(fid,{house_photo_ids:Array(7).fill('m:test')}),/6 photos/)
   const me = state.me.id
   for (let i=0;i<8;i++) await api.postMoment(fid,me,{body:`Source du fil ${i}`})
   const originalIds = (await api.load(fid)).moments.map(m=>m.id).sort()

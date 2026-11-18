@@ -753,8 +753,11 @@ export function createLocalBackend(): Backend {
       save()
     },
     async updateFamily(familyId, patch) {
-      Object.assign(fam(familyId).family, patch)
-      save()
+      if (patch.house_photo_ids && patch.house_photo_ids.length > 6) throw new Error('La maison peut afficher 6 photos maximum.')
+      const family = fam(familyId).family
+      const before = {...family}
+      Object.assign(family,patch)
+      if (!save(false)) {Object.assign(family,before); if(before.house_photo_ids === undefined) delete family.house_photo_ids; throw new Error('STOCKAGE_PLEIN')}
     },
     async deleteAccount() {
       localStorage.removeItem(KEY)

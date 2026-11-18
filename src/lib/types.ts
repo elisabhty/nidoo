@@ -11,6 +11,8 @@ export type Family = {
   id: string
   name: string
   house_type: HouseType
+  /** null : dernières photos ; [] : aucune photo accrochée. */
+  house_photo_ids?: string[] | null
   invite_code: string
   plan: 'free' | 'plus'
   stars: number
@@ -311,7 +313,7 @@ export interface Backend {
   subscribe(familyId: string, onChange: () => void): () => void
   setMood(memberId: string, mood: string | null, note: string | null): Promise<void>
   updateMember(memberId: string, patch: Partial<Pick<Member, 'display_name' | 'avatar' | 'color'>>): Promise<void>
-  updateFamily(familyId: string, patch: Partial<Pick<Family, 'name' | 'house_type'>>): Promise<void>
+  updateFamily(familyId: string, patch: Partial<Pick<Family, 'name' | 'house_type' | 'house_photo_ids'>>): Promise<void>
   leave(memberId: string): Promise<void>
   /** Efface mon compte : mes profils dans toutes mes maisons (messages, photos, vocaux…), puis le compte lui-même. */
   deleteAccount(): Promise<void>

@@ -1,4 +1,4 @@
-import { CalendarDays, Camera, ChevronRight, Heart, MessageCircleHeart } from 'lucide-react'
+import { CalendarDays, Camera, ChevronRight, Heart, MessageCircleHeart, Minus, Plus } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useAvent } from '../components/avent'
 import { DefisDuJour, QuestionSheet } from '../components/defis'
@@ -7,6 +7,8 @@ import { pettedToday, useCare, usePet } from '../components/care'
 import { DecorPage, GoneSheet, useGone } from '../components/decor'
 import { DrawingsSheet, useUnseenDrawings } from '../components/drawing'
 import { DrawSheet } from '../components/planche'
+import { HousePhotosSheet } from '../components/housePhotos'
+import { housePhotoSources, selectedHousePhotos } from '../lib/housePhotos'
 import House, { type HouseScene } from '../components/House'
 import { myTurns } from '../components/jeux'
 import { useLieux } from '../components/lieux'
@@ -35,6 +37,7 @@ type Open =
   | { k: 'explorer' }
   | { k: 'question' }
   | { k: 'defiPhoto' }
+  | { k: 'photosMaison'; mode:'add'|'remove' }
   | { k: 'mot' }
   | { k: 'evenement'; e: FamEvent }
 
@@ -73,14 +76,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
     if (!family.invite_code || new Date(family.invite_expires_at).getTime() < Date.now()) return go('famille')
     if ((await shareInvite(family.name, family.invite_code)) === 'copie') toast('Invitation copiée')
   }
-  // les photos partagées avec toute la famille (fil et instants), les plus récentes d'abord
-  const photos = [
-    ...state.moments.filter((m) => m.image_url).map((m) => ({ at: m.created_at, url: m.image_url! })),
-    ...state.drawings.filter((d) => !d.to_member && d.photo_url).map((d) => ({ at: d.created_at, url: d.photo_url! })),
-  ]
-    .sort((a, b) => b.at.localeCompare(a.at))
-    .slice(0, 6)
-    .map((x) => x.url)
+  const photos = selectedHousePhotos(housePhotoSources(state),family.house_photo_ids).map(p => p.url)
   const now = season()
   // un anniversaire aujourd'hui : on propose la carte toute prête, avec le prénom
   const anniv = state.events
@@ -191,7 +187,11 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
 
           {/* La maison et les proches restent au cœur de l’accueil. */}
           <div className="mx-4 mt-5">
-            <div ref={houseRef} className="overflow-hidden rounded-[22px]">
+            <div ref={houseRef} className="relative overflow-hidden rounded-[22px]">
+              <div className="absolute right-2 top-[34%] z-20 flex gap-1" role="group" aria-label="Photos accrochées dans la maison">
+                <button disabled={!photos.length} onClick={() => setSheet({k:'photosMaison',mode:'remove'})} aria-label="Retirer des photos de la maison" className="presse verre flex h-11 w-11 items-center justify-center rounded-full text-encre disabled:opacity-40"><Minus size={19} /></button>
+                <button onClick={() => setSheet({k:'photosMaison',mode:'add'})} aria-label="Ajouter des photos à la maison" className="presse verre flex h-11 w-11 items-center justify-center rounded-full text-encre"><Plus size={19} /></button>
+              </div>
               <House
                 className="!aspect-[16/10]"
                 type={family.house_type}
@@ -359,6 +359,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
         />
       )}
       {sheet?.k === 'question' && <QuestionSheet onClose={() => setSheet(null)} />}
+      {sheet?.k === 'photosMaison' && <HousePhotosSheet mode={sheet.mode} onClose={() => setSheet(null)} />}
       {sheet?.k === 'defiPhoto' && <ComposeSheet challenge={challengeOfDay()} onClose={() => setSheet(null)} />}
       {sheet?.k === 'evenement' && <EventDetailSheet event={sheet.e} onClose={() => setSheet(null)} />}
       {sheet?.k === 'mot' && <MotPage onClose={() => setSheet(null)} />}
