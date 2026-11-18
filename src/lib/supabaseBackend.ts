@@ -20,7 +20,7 @@ export function createSupabaseBackend(): Backend {
   const signedUrls = createSignedUrlCache(async (bucket, paths) => {
     const { data, error } = await sb.storage.from(bucket).createSignedUrls(paths, 3600)
     if (error) throw new Error(error.message)
-    return (data ?? []).filter((item): item is { path: string; signedUrl: string } => !!item.path && !!item.signedUrl)
+    return (data ?? []).flatMap((item) => item.path && item.signedUrl ? [{ path: item.path, signedUrl: item.signedUrl }] : [])
   })
   let userId = ''
   const traits = new Map<string, DrawingData>()
