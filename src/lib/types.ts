@@ -70,7 +70,11 @@ export type Moment = {
   ondes?: number[] | null
   /** un sticker envoyé seul (clé de src/lib/stickers.ts) */
   sticker?: string | null
+  /** Sondage intégré au message : 2 à 6 choix, un vote par proche. */
+  poll_options?: string[] | null
 }
+
+export type PollVote = { moment_id: string; member_id: string; family_id: string; option_index: number }
 
 /** Ce qu'un proche est en train de faire dans le fil (« écrit… », « enregistre un vocal… »). */
 export type Ecrit = 'texte' | 'vocal' | 'photo' | 'sticker'
@@ -251,6 +255,7 @@ export type FamilyState = {
   /** Demandes d'entrée en attente (vides si je ne suis pas responsable). */
   requests: JoinRequest[]
   moments: Moment[]
+  pollVotes: PollVote[]
   folders: Folder[]
   folderMembers: FolderMember[]
   folderItems: FolderItem[]
@@ -318,11 +323,13 @@ export interface Backend {
   leave(memberId: string): Promise<void>
   /** Efface mon compte : mes profils dans toutes mes maisons (messages, photos, vocaux…), puis le compte lui-même. */
   deleteAccount(): Promise<void>
-  postMoment(familyId: string, memberId: string, m: { blob?: Blob; body?: string; challenge?: string; audio?: { blob: Blob; duree: number; ondes: number[] }; sticker?: string }): Promise<void>
+  postMoment(familyId: string, memberId: string, m: { blob?: Blob; body?: string; challenge?: string; audio?: { blob: Blob; duree: number; ondes: number[] }; sticker?: string; pollOptions?: string[] }): Promise<void>
   /** Dire à la famille qu'on écrit (ou qu'on a arrêté : null), en direct, sans rien enregistrer. */
   ecrit(familyId: string, memberId: string, quoi: Ecrit | null): void
   onEcrit(familyId: string, me: string, cb: (e: { m: string; quoi: Ecrit | null }) => void): () => void
   deleteMoment(moment: Moment): Promise<void>
+  /** Un membre peut modifier son vote ; la base n'autorise qu'un vote par sondage. */
+  votePoll(moment: Moment, memberId: string, optionIndex: number): Promise<void>
   // Dossiers
   createFolder(familyId: string, f: { name: string; parentId?: string | null; memberIds?: string[] }): Promise<string>
   renameFolder(id: string, name: string): Promise<void>
