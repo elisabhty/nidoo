@@ -35,12 +35,12 @@ export const EMOJIS = ['emo-mdr', 'emo-amoureux', 'emo-bisou', 'emo-calin', 'emo
 /** Les têtes du panda roux de la maison. */
 export const PANDAS = ['panda-rire', 'panda-amour', 'panda-heureux', 'panda-bravo', 'panda-fete', 'panda-serein', 'panda-motive', 'panda-nostalgique', 'panda-fatigue', 'panda-triste', 'panda-stresse']
 
+// Les petits mots ne sont plus proposés, mais ceux déjà collés sur des dessins ou envoyés s'affichent toujours.
 export const CATS: Cat[] = [
   { key: 'emojis', label: 'Émojis', items: EMOJIS },
   { key: 'panda', label: 'Panda', items: PANDAS },
   { key: 'amour', label: 'Amour', items: ['coeur', 'coeurs', 'bisou', 'lettre', 'maison', 'pouce'] },
-  { key: 'mots', label: 'Petits mots', items: Object.keys(MOTS).map((k) => `mot:${k}`) },
-  { key: 'noel', label: 'Noël', items: ['sapin', 'boule', 'etoile-noel', 'cadeau-noel', 'chaussette', 'sucre-orge', 'pain-epice', 'bonhomme-neige', 'pomme-pin', 'mot:noel', 'mot:fetes'] },
+  { key: 'noel', label: 'Noël', items: ['sapin', 'boule', 'etoile-noel', 'cadeau-noel', 'chaussette', 'sucre-orge', 'pain-epice', 'bonhomme-neige', 'pomme-pin'] },
   { key: 'fete', label: 'Fête', items: ['ballons', 'gateau', 'cadeau', 'chapeau', 'couronne', 'notes', 'cupcake'] },
   { key: 'deguise', label: 'Déguisements', items: ['lunettes', 'moustache', 'oreilles', 'noeud', 'fleurs', 'couronne', 'chapeau'] },
   { key: 'nature', label: 'Nature', items: ['soleil', 'arcenciel', 'nuage', 'fleur', 'lune', 'etoile', 'papillon', 'coccinelle', 'trefle', 'avion'] },
