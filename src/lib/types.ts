@@ -173,6 +173,7 @@ export type FamEvent = {
   family_id: string
   title: string
   kind: EventKind
+  sticker?: string | null
   starts_at: string
   all_day: boolean
   yearly: boolean
@@ -291,7 +292,7 @@ export type AdventDoor = { year: number; day: number; opened_by: string | null; 
 
 export type Circle = { family: Family; me: Member }
 
-export type NewEvent = { title: string; kind: EventKind; starts_at: string; all_day: boolean; yearly: boolean; weekly?: boolean; ends_on?: string | null; lieu?: string | null; description?: string | null; members?: string[] }
+export type NewEvent = { sticker?: string | null; title: string; kind: EventKind; starts_at: string; all_day: boolean; yearly: boolean; weekly?: boolean; ends_on?: string | null; lieu?: string | null; description?: string | null; members?: string[] }
 
 export interface Backend {
   mode: 'supabase' | 'local'

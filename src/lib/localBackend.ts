@@ -940,6 +940,7 @@ export function createLocalBackend(): Backend {
         const e = f.events.find((x) => x.id === id)
         if (e && patch.title !== undefined) e.title = patch.title.trim()
         if (e && patch.kind !== undefined) e.kind = patch.kind
+        if (e && patch.sticker !== undefined) e.sticker = patch.sticker
         if (e && patch.starts_at !== undefined) e.starts_at = patch.starts_at
         if (e && patch.all_day !== undefined) e.all_day = patch.all_day
         if (e && patch.yearly !== undefined) e.yearly = patch.yearly

@@ -7,7 +7,7 @@ import { useHome } from '../lib/store'
 import type { EventKind, FamEvent, Member, Sticker, ThoughtKind } from '../lib/types'
 import { chargerImage, photoFinale, vignettesFiltres, type FiltreKey } from '../lib/filtres'
 import { MAX_STICKERS } from '../lib/stickers'
-import { CadreCanvas, CadreRow, FilterRow, nouveauSticker, StickerStage, StickerTray } from './stickers'
+import { CadreCanvas, CadreRow, FilterRow, nouveauSticker, StickerStage, StickerImg, StickerTray } from './stickers'
 import { vignettesCadres } from '../lib/cadres'
 import { compressImage, errorText, finDe, isToday, joursEnPlus, nextOccurrence, rythme, timeLabel } from '../lib/util'
 import { ajouterAuCalendrier } from '../lib/calendrier'
@@ -494,6 +494,9 @@ const KINDS: { key: EventKind; label: string; art: string; aide: string; exemple
   { key: 'anniversaire', label: 'Anniversaire', art: 'picto-gateau', aide: 'Il revient tout seul chaque année, à la même date.', exemple: 'Anniversaire de… (son prénom)' },
 ]
 export const eventArt = (k: string) => KINDS.find((x) => x.key === k)?.art ?? 'picto-fete'
+export function EventIcon({event,size=34,className=''}:{event:Pick<FamEvent,'kind'|'sticker'>;size?:number;className?:string}) {
+  return event.sticker ? <StickerImg cle={event.sticker} className={`object-contain ${className}`} style={{width:size,height:size}} /> : <Art name={eventArt(event.kind)} size={size} className={className} />
+}
 /** Ce qu'on peut mettre dans l'agenda (pour les raccourcis « Ajouter »). */
 export const TYPES_AGENDA = KINDS.map((k) => ({ key: k.key, label: k.label, art: k.art }))
 const LIEU_EXEMPLE: Record<string, string> = { evenement: 'Où ? Ex. : Chez Mamie, à Lyon', rdv: 'Où ? Ex. : Cabinet du Dr Martin', anniversaire: 'Où se fête-t-il ? (facultatif)' }
@@ -571,6 +574,10 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
   const { state, run } = useHome()
   const [title, setTitle] = useState(event?.title ?? '')
   const [kind, setKind] = useState<EventKind>(event?.kind ?? kind0)
+  const [sticker,setSticker] = useState<string|null>(event?.sticker ?? null)
+  const [stickersOpen,setStickersOpen] = useState(false)
+  const [optionsOpen,setOptionsOpen] = useState(!!(event?.ends_on || event?.weekly || event?.members?.length || event?.description))
+  const [busy,setBusy] = useState(false)
   const first = event ? new Date(event.starts_at) : (day ?? new Date(Date.now() + 86400000))
   const pad = (n: number) => String(n).padStart(2, '0')
   const [date, setDate] = useState(`${first.getFullYear()}-${pad(first.getMonth() + 1)}-${pad(first.getDate())}`)
@@ -585,7 +592,6 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
   const [lieu, setLieu] = useState(event?.lieu ?? '')
   const [who, setWho] = useState<string[]>(event?.members ?? [])
   const birthday = kind === 'anniversaire'
-  const meta = KINDS.find((k) => k.key === kind)!
   const changeKind = (k: EventKind) => {
     setKind(k)
     if (k === 'rdv') setJournee(false)
@@ -593,15 +599,18 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
   }
 
   const save = async () => {
+    if (busy || !title.trim() || !date || (!birthday && journee && plusieurs && (!fin || fin < date))) return
     const allDay = birthday || journee || !time
     const starts = new Date(`${date}T${allDay ? '09:00' : time}`)
     if (Number.isNaN(starts.getTime())) return
     const ends_on = !birthday && allDay && plusieurs && fin > date ? fin : null
-    const champs = { title: title.trim(), kind, starts_at: starts.toISOString(), all_day: allDay, yearly: birthday, weekly: !birthday && hebdo, ends_on, lieu: lieu.trim() || null, description: description.trim() || null, members: who }
+    const champs = { sticker, title: title.trim(), kind, starts_at: starts.toISOString(), all_day: allDay, yearly: birthday, weekly: !birthday && hebdo, ends_on, lieu: lieu.trim() || null, description: description.trim() || null, members: who }
+    setBusy(true)
     const ok = await run(
       (api) => (event ? api.updateEvent(event.id, champs) : api.addEvent(state.family.id, state.me.id, champs)),
       event ? 'Événement modifié' : 'Ajouté à l’agenda',
     )
+    setBusy(false)
     if (ok) {
       success()
       onClose()
@@ -609,92 +618,38 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
   }
 
   return (
-    <Sheet
-      title={event ? 'Modifier l’événement' : 'Nouvel événement'}
-      onClose={onClose}
-      footer={
-        <Btn onClick={save} disabled={!title.trim() || !date}>
-          {!title.trim() ? (birthday ? 'Écris le prénom pour ajouter' : 'Écris d’abord ce que c’est') : event ? 'Enregistrer' : 'Ajouter à l’agenda'}
-        </Btn>
-      }
-    >
-      <p className="entete !mt-0 !px-1">C’est quoi ?</p>
-      <Segments value={kind} onChange={changeKind} options={KINDS.map((k) => ({ key: k.key, label: k.label }))} />
-      <p className="px-1 pt-2 text-note text-brume">{meta.aide}</p>
-      <div className="groupe mt-3">
-        <div className="flex items-center gap-3 border-b border-trait pl-3 pr-4">
-          <Art name={eventArt(kind)} size={34} />
-          <input className="h-[52px] min-w-0 flex-1 bg-transparent text-corps outline-none placeholder:text-pale" placeholder={meta.exemple} maxLength={60} value={title} onChange={(e) => setTitle(e.target.value)} aria-label="Titre" />
-        </div>
-        <label className="flex h-[52px] items-center justify-between border-b border-trait px-4 text-corps">
-          {birthday ? 'Le jour de l’anniversaire' : 'Quel jour ?'}
-          <input type="date" className="rounded-[8px] bg-remplissage px-2.5 py-1 text-corps text-encre outline-none" value={date} onChange={(e) => setDate(e.target.value)} />
-        </label>
-        {birthday ? (
-          <p className="flex h-[52px] items-center justify-between px-4 text-corps">
-            Revient <span className="text-brume">Chaque année 🎂</span>
-          </p>
-        ) : (
-          <>
-            <div className="flex h-[52px] items-center justify-between border-b border-trait px-4 text-corps">
-              Toute la journée
-              <Switch on={journee} onChange={setJournee} label="Toute la journée" />
-            </div>
-            {!journee && (
-              <label className="flex h-[52px] items-center justify-between border-b border-trait px-4 text-corps">
-                À quelle heure ?
-                <input type="time" className="rounded-[8px] bg-remplissage px-2.5 py-1 text-corps text-encre outline-none" value={time} onChange={(e) => setTime(e.target.value)} />
-              </label>
-            )}
-            {journee && (
-              <div className="flex h-[52px] items-center justify-between border-b border-trait px-4 text-corps">
-                Sur plusieurs jours
-                <Switch
-                  on={plusieurs}
-                  onChange={(v) => {
-                    setPlusieurs(v)
-                    if (v && !(fin > date)) {
-                      const d = new Date(`${date}T12:00`)
-                      d.setDate(d.getDate() + 1)
-                      setFin(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`)
-                    }
-                  }}
-                  label="Sur plusieurs jours"
-                />
-              </div>
-            )}
-            {journee && plusieurs && (
-              <label className="flex h-[52px] items-center justify-between border-b border-trait px-4 text-corps">
-                Jusqu’au
-                <input type="date" min={date} className="rounded-[8px] bg-remplissage px-2.5 py-1 text-corps text-encre outline-none" value={fin} onChange={(e) => setFin(e.target.value)} />
-              </label>
-            )}
-            <div className="flex min-h-[58px] items-center justify-between px-4 py-2 text-corps">
-              <span>
-                Chaque semaine
-                <span className="block text-note text-brume">Pour une activité, un cours…</span>
-              </span>
-              <Switch on={hebdo} onChange={setHebdo} label="Chaque semaine" />
-            </div>
-          </>
-        )}
-        <label className="flex items-center gap-3 border-t border-trait pl-4 pr-4">
-          <MapPin size={20} className="shrink-0 text-teinte" />
-          <input className="h-[52px] min-w-0 flex-1 bg-transparent text-corps outline-none placeholder:text-pale" placeholder={LIEU_EXEMPLE[kind]} maxLength={200} value={lieu} onChange={(e) => setLieu(e.target.value)} aria-label="Lieu" />
-        </label>
+    <Sheet title={event ? 'Modifier l’événement' : 'Nouvel événement'} tall onClose={() => {if(!busy) onClose()}} footer={<Btn onClick={save} disabled={busy || !title.trim() || !date || (!birthday && journee && plusieurs && (!fin || fin < date))}>{busy ? 'Enregistrement…' : event ? 'Enregistrer' : 'Ajouter à l’agenda'}</Btn>}>
+      <Segments value={kind} onChange={changeKind} options={KINDS.map(k => ({key:k.key,label:k.label}))} />
+      <div className="mt-4 flex items-center gap-3">
+        <button onClick={() => setStickersOpen(v => !v)} aria-label="Changer le sticker de l’événement" aria-expanded={stickersOpen} className="presse relative flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-[22px] bg-teinte-doux">
+          <EventIcon event={{kind,sticker}} size={46} />
+          <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-white text-teinte-fonce shadow-carte"><PenLine size={14} /></span>
+        </button>
+        <div className="min-w-0 flex-1"><label htmlFor="event-name" className="mb-1.5 block text-note font-semibold text-brume">{birthday ? 'Prénom' : 'Nom de l’événement'}</label><input id="event-name" className="champ !bg-carte font-semibold" placeholder={birthday ? 'Ex. : Mamie' : 'Ex. : Repas chez Mamie'} maxLength={60} value={title} onChange={e => setTitle(e.target.value)} aria-label="Titre" /></div>
       </div>
-      <p className="entete mt-5 !px-1">Qui est concerné ?</p>
-      <WhoPicker value={who} onChange={setWho} />
-      <p className="px-1 pt-2 text-note text-brume">{who.length ? 'Seulement les personnes choisies.' : 'Toute la famille. Touche des prénoms pour ne choisir que certaines personnes.'}</p>
-      <p className="entete mt-5 !px-1">Des détails ? (facultatif)</p>
-      <textarea
-        className="groupe block min-h-[88px] w-full resize-none px-4 py-3 text-corps outline-none placeholder:text-pale"
-        placeholder="L’heure du départ, qui apporte quoi…"
-        maxLength={500}
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        aria-label="Détails"
-      />
+      <button onClick={() => setStickersOpen(v => !v)} aria-expanded={stickersOpen} className="presse mt-1 flex min-h-11 items-center gap-1.5 px-1 text-sous font-semibold text-teinte-fonce"><StickerIcon size={17} />Choisir un sticker<ChevronRight size={16} className={stickersOpen ? 'rotate-90' : ''} /></button>
+      {stickersOpen && <><StickerTray start="fete" onClose={() => setStickersOpen(false)} onPick={key => {setSticker(key);setStickersOpen(false)}} /><button onClick={() => {setSticker(null);setStickersOpen(false)}} className="mt-1 min-h-11 px-1 text-sous font-semibold text-teinte-fonce">Revenir à l’icône par défaut</button></>}
+      <p className="mb-2 mt-4 px-1 text-sous font-semibold">Quand ?</p>
+      <div className="groupe">
+        <label className="flex min-h-[54px] items-center justify-between gap-2 border-b border-trait px-4 text-corps">Date<input aria-label="Date de l’événement" type="date" className="min-w-0 max-w-[65%] rounded-[8px] bg-remplissage px-2.5 py-1 text-corps text-encre outline-none" value={date} onChange={e => setDate(e.target.value)} /></label>
+        {birthday ? <p className="px-4 py-3 text-sous text-brume">Revient chaque année à cette date.</p> : <>
+          <div className="flex min-h-[54px] items-center justify-between gap-2 px-4 text-corps">Toute la journée<Switch on={journee} onChange={setJournee} label="Toute la journée" /></div>
+          {!journee && <label className="flex min-h-[54px] items-center justify-between border-t border-trait px-4 text-corps">Heure<input aria-label="Heure de l’événement" type="time" className="rounded-[8px] bg-remplissage px-2.5 py-1 text-corps text-encre outline-none" value={time} onChange={e => setTime(e.target.value)} /></label>}
+        </>}
+      </div>
+      <div className="groupe mt-3 flex items-center gap-3 px-4"><MapPin size={19} className="shrink-0 text-teinte" /><input className="h-[54px] min-w-0 flex-1 bg-transparent text-corps outline-none placeholder:text-brume" placeholder="Lieu · facultatif" maxLength={200} value={lieu} onChange={e => setLieu(e.target.value)} aria-label="Lieu" /></div>
+      <button onClick={() => setOptionsOpen(v => !v)} aria-expanded={optionsOpen} className="presse mt-3 flex min-h-11 w-full items-center justify-between px-1 text-sous font-semibold text-teinte-fonce">Plus d’options<ChevronRight size={17} className={optionsOpen ? 'rotate-90' : ''} /></button>
+      {!birthday && journee && plusieurs && (!fin || fin < date) && <p role="alert" className="mt-2 text-note text-rouge">Choisis une date de fin égale ou postérieure au début dans « Plus d’options ».</p>}
+      {!optionsOpen && <p className="px-1 text-note text-brume">{birthday ? 'Participants et détails' : 'Plusieurs jours, répétition, participants et détails'}</p>}
+      {optionsOpen && <>
+        {!birthday && <div className="groupe mt-2">
+          {journee && <><div className="flex min-h-[54px] items-center justify-between px-4 text-corps">Sur plusieurs jours<Switch on={plusieurs} onChange={v => {setPlusieurs(v);if(v && !(fin > date)){const d=new Date(`${date}T12:00`);d.setDate(d.getDate()+1);setFin(`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`)}}} label="Sur plusieurs jours" /></div>{plusieurs && <label className="flex min-h-[54px] items-center justify-between border-t border-trait px-4 text-corps">Jusqu’au<input aria-label="Date de fin" type="date" min={date} className="min-w-0 max-w-[65%] rounded-[8px] bg-remplissage px-2.5 py-1 text-corps text-encre outline-none" value={fin} onChange={e => setFin(e.target.value)} /></label>}</>}
+          <div className="flex min-h-[54px] items-center justify-between border-t border-trait px-4 text-corps">Chaque semaine<Switch on={hebdo} onChange={setHebdo} label="Chaque semaine" /></div>
+        </div>}
+        <p className="mb-2 mt-5 px-1 text-sous font-semibold">Qui est concerné ?</p><WhoPicker value={who} onChange={setWho} />
+        <p className="mt-2 px-1 text-note text-brume">{who.length ? 'Seulement les personnes choisies.' : 'Toute la famille par défaut.'}</p>
+        <label className="mb-2 mt-5 block px-1 text-sous font-semibold" htmlFor="event-details">Détails <span className="font-normal text-brume">· facultatif</span></label><textarea id="event-details" className="groupe block min-h-[88px] w-full resize-none px-4 py-3 text-corps outline-none placeholder:text-brume" placeholder="Qui apporte quoi, l’heure du départ…" maxLength={500} value={description} onChange={e => setDescription(e.target.value)} aria-label="Détails" />
+      </>}
     </Sheet>
   )
 }
@@ -732,7 +687,7 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
     <Sheet title={KINDS.find((k) => k.key === ev.kind)?.label ?? 'Événement'} onClose={onClose}>
       <div className="flex items-center gap-3.5">
         <span className="flex h-[68px] w-[68px] shrink-0 items-center justify-center rounded-[22px] bg-teinte-doux">
-          <Art name={eventArt(ev.kind)} size={48} />
+          <EventIcon event={ev} size={48} />
         </span>
         <div className="min-w-0 flex-1">
           <p className="break-words font-rond text-titre2 leading-tight">{ev.title}</p>

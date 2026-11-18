@@ -1,7 +1,7 @@
 import { Check, ChevronLeft, ChevronRight, MapPin, Plus } from 'lucide-react'
 import { useRef, useState, type ReactNode } from 'react'
 import { MemberStack } from '../components/folder'
-import { EventDetailSheet, EventSheet, eventArt, TYPES_AGENDA } from '../components/sheets'
+import { EventDetailSheet, EventSheet, EventIcon, TYPES_AGENDA } from '../components/sheets'
 import { Art, Avatar, Rond, Screen, Segments, Vide } from '../components/ui'
 import { select, success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
@@ -142,7 +142,7 @@ function Semaine({ onOpen, onAdd }: { onOpen: (o: Ouvert) => void; onAdd: (day: 
                       }}
                       className="presse-ligne flex w-full items-center gap-3 pl-3.5 text-left"
                     >
-                      <Art name={eventArt(e.kind)} size={34} />
+                      <EventIcon event={e} size={34} className="shrink-0" />
                       <span className={`flex min-w-0 flex-1 items-center gap-2 py-2.5 pr-3.5 ${n < list.length - 1 ? 'border-b border-trait' : ''}`}>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-corps">{e.title}</span>
@@ -250,7 +250,6 @@ function Liste({ kind }: { kind: ListKind }) {
   const [title, setTitle] = useState('')
   const [editing, setEditing] = useState(false)
   const [to, setTo] = useState<string | null>(null)
-  const [onlyMine, setOnlyMine] = useState(false)
   const [assigning, setAssigning] = useState(false)
   const tache = kind === 'tache'
   // ce qu'on vient de faire, affiché sans attendre le serveur
@@ -265,7 +264,7 @@ function Liste({ kind }: { kind: ListKind }) {
       .filter((i) => !changes[i.id]?.parti)
       .map((i) => (changes[i.id]?.done !== undefined ? { ...i, done: changes[i.id].done!, done_by: changes[i.id].done ? me.id : null } : i)),
     ...enAttente,
-  ].filter((i) => !(tache && onlyMine) || !i.assigned_to || i.assigned_to === me.id)
+  ]
   const todo = items.filter((i) => !i.done)
   const done = items.filter((i) => i.done)
   const idees = tache ? [] : IDEES_COURSES.filter((x) => !todo.some((i) => i.title.toLowerCase() === x.toLowerCase())).slice(0, 8)
@@ -335,11 +334,6 @@ function Liste({ kind }: { kind: ListKind }) {
 
   return (
     <>
-      {tache && (
-        <div className="mx-5 mb-4">
-          <Segments value={onlyMine ? 'moi' : 'tous'} onChange={(v) => setOnlyMine(v === 'moi')} options={[{ key: 'tous', label: 'Toute la liste' }, { key: 'moi', label: 'Pour moi' }]} />
-        </div>
-      )}
       <form
         className="groupe mx-4 flex items-center gap-3 pl-4 pr-2 shadow-carte"
         onSubmit={(e) => {
@@ -484,60 +478,11 @@ function Liste({ kind }: { kind: ListKind }) {
   )
 }
 
-// ───────── Le prochain moment de l'agenda ─────────
-
-const PROCHAIN: Record<string, string> = { rdv: 'Votre prochain rendez-vous', evenement: 'Votre prochain événement', anniversaire: 'Le prochain anniversaire' }
-
-/** Combien de temps avant : « Aujourd'hui », « Demain », « Dans 3 jours »… */
-function bientot(at: Date) {
-  const d0 = new Date()
-  d0.setHours(0, 0, 0, 0)
-  const n = Math.round((new Date(at.getFullYear(), at.getMonth(), at.getDate()).getTime() - d0.getTime()) / 86400000)
-  if (n < 0) return 'En ce moment'
-  if (n === 0) return 'Aujourd’hui'
-  if (n === 1) return 'Demain'
-  if (n < 14) return `Dans ${n} jours`
-  if (n < 60) return `Dans ${Math.round(n / 7)} semaines`
-  return `Dans ${Math.round(n / 30)} mois`
-}
-
-/** La carte du haut : le prochain rendez-vous, événement ou anniversaire, dit comme il faut, avec son compte à rebours. */
-function Prochain({ e, at, onOpen }: { e: FamEvent; at: Date; onOpen: () => void }) {
-  const quand = bientot(at)
-  const vite = quand === 'Aujourd’hui' || quand === 'Demain' || quand === 'En ce moment'
-  return (
-    <button onClick={onOpen} className="presse anim-pop mx-4 mb-5 flex w-[calc(100%-2rem)] items-center gap-4 rounded-[24px] bg-teinte-doux p-5 text-left">
-      <span className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-[18px] bg-white text-teinte-fonce">
-        <span className="text-note uppercase">{at.toLocaleDateString('fr-FR', { month: 'short' })}</span>
-        <span className="font-rond text-titre1">{at.getDate()}</span>
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="text-note font-semibold text-teinte-fonce">{PROCHAIN[e.kind] ?? 'Votre prochain événement'}</span>
-          <span className={`rounded-full px-2 py-0.5 text-mini font-semibold ${vite ? 'bg-peche-doux text-peche-fonce' : 'bg-white/70 text-teinte-fonce'}`}>{quand}</span>
-        </span>
-        <span className="mt-1 block font-rond text-titre3">{e.title}</span>
-        <span className="mt-1 block text-note text-brume">
-          {rythme(e, at) ?? at.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric' })}
-          {e.all_day ? '' : ` · ${timeLabel(at)}`}
-        </span>
-        {e.lieu && (
-          <span className="mt-1.5 flex items-center gap-1 text-note font-semibold text-teinte-fonce">
-            <MapPin size={14} strokeWidth={2.4} className="shrink-0" />
-            <span className="truncate">{e.lieu}</span>
-          </span>
-        )}
-      </span>
-      <Art name={eventArt(e.kind)} size={46} className="anim-flotte shrink-0 self-start" />
-    </button>
-  )
-}
-
 /** Ce qu'on peut mettre dans l'agenda, en un toucher. */
 function Ajouter({ onAdd }: { onAdd: (kind: EventKind) => void }) {
   return (
-    <div className="mx-4 mb-6 mt-1">
-      <p className="entete !px-1">Ajouter à l’agenda</p>
+    <div className="mx-4 mb-5">
+      <p className="mb-2 px-1 text-sous font-semibold">Ajouter à l’agenda</p>
       <div className="flex gap-2">
         {TYPES_AGENDA.map((t) => (
           <button
@@ -546,9 +491,9 @@ function Ajouter({ onAdd }: { onAdd: (kind: EventKind) => void }) {
               tap()
               onAdd(t.key)
             }}
-            className="presse flex min-w-0 flex-1 flex-col items-center gap-1 rounded-[18px] bg-carte px-1 py-3 shadow-carte"
+            className="presse flex min-w-0 flex-1 flex-col items-center gap-1.5 rounded-[18px] bg-carte px-1 py-3 shadow-carte"
           >
-            <Art name={t.art} size={34} />
+            <Art name={t.art} size={28} />
             <span className="max-w-full truncate text-note font-semibold">{t.label}</span>
           </button>
         ))}
@@ -586,7 +531,7 @@ export default function Organize() {
           <Segments value={seg} onChange={setSeg} options={[{ key: 'agenda', label: 'Agenda' }, { key: 'tache', label: 'À faire' }, { key: 'course', label: 'Courses' }]} />
         </div>
 
-        {seg === 'agenda' && coming.length > 0 && <Prochain e={coming[0].e} at={coming[0].at} onOpen={() => setOpen(coming[0])} />}
+        {seg === 'agenda' && <Ajouter onAdd={(kind) => setAdding({ kind })} />}
 
         {seg === 'agenda' && (
           <div className="-mt-1 mb-4 flex gap-2 px-4">
@@ -617,7 +562,6 @@ export default function Organize() {
           coming.length === 0 ? (
             <>
               <Vide art="picto-agenda" title="L’agenda est libre" text="Anniversaires, rendez-vous, dîners : tout le monde les verra au même endroit." />
-              <Ajouter onAdd={(kind) => setAdding({ kind })} />
             </>
           ) : (
             <>
@@ -661,7 +605,7 @@ export default function Organize() {
                             )}
                             {e.description && <span className="block truncate text-note text-brume">{e.description}</span>}
                           </span>
-                          {e.members?.length ? <MemberStack ids={e.members} size={28} max={3} /> : <Art name={eventArt(e.kind)} size={30} />}
+                          {e.members?.length ? <MemberStack ids={e.members} size={24} max={2} /> : null}<EventIcon event={e} size={32} className="shrink-0" />
                         </span>
                       </button>
                     )
@@ -669,7 +613,6 @@ export default function Organize() {
                 </div>
               </div>
             ))}
-            <Ajouter onAdd={(kind) => setAdding({ kind })} />
             </>
           )
         ) : (

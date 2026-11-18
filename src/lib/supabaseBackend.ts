@@ -572,6 +572,7 @@ export function createSupabaseBackend(): Backend {
           .update({
             ...(patch.title !== undefined ? { title: patch.title.trim().slice(0, 60) } : {}),
             ...(patch.kind !== undefined ? { kind: patch.kind } : {}),
+            ...(patch.sticker !== undefined ? { sticker: patch.sticker } : {}),
             ...(patch.starts_at !== undefined ? { starts_at: patch.starts_at } : {}),
             ...(patch.all_day !== undefined ? { all_day: patch.all_day } : {}),
             ...(patch.yearly !== undefined ? { yearly: patch.yearly } : {}),

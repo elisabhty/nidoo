@@ -4,7 +4,7 @@ import House from '../components/House'
 import { careFor, careTodo, gardenKeys } from '../components/care'
 import { DrawingsSheet, DrawingWidget } from '../components/drawing'
 import { DrawSheet } from '../components/planche'
-import { eventArt, MoodSheet } from '../components/sheets'
+import { EventIcon, MoodSheet } from '../components/sheets'
 import { JoinRequests } from '../components/requests'
 import { Art, Avatar, Btn, choisir, confirmer, Rond, Row, Screen, Section, Segments, Sheet, Switch } from '../components/ui'
 import { CARE, DECOS, moodOf, PLAN_LIMITS } from '../lib/data'
@@ -75,7 +75,7 @@ function Widgets({ onDraw, onOpen }: { onDraw: () => void; onOpen: (d: Drawing) 
           {next.length ? (
             next.map(({ e, at }) => (
               <div key={e.id} className="flex items-center gap-2">
-                <Art name={eventArt(e.kind)} size={24} />
+                <EventIcon event={e} size={24} />
                 <div className="min-w-0">
                   <p className="truncate text-note font-semibold">{e.title}</p>
                   <p className="text-mini text-brume">
