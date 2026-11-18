@@ -51,23 +51,27 @@ function usePersoSrc(p: Perso, look: Look) {
 }
 
 /** Les cheveux et le visage de la figurine, à redessiner devant un vêtement (null tant que ce n'est pas prêt). */
-function useDessus(p: Perso, src: string, cut: number | null, mains: Mains | null) {
-  const [url, setUrl] = useState(() => (cut == null ? null : dessusPret(src, cut, mains) ?? null))
+function useDessus(p: Perso, src: string, cut: number | null, mains: Mains | null): [string | null, boolean] {
+  const [etat, setEtat] = useState<{ url: string | null; fini: boolean }>(() => {
+    const hit = cut == null ? null : dessusPret(src, cut, mains) ?? null
+    return { url: hit, fini: cut == null || !!hit }
+  })
   useEffect(() => {
-    if (cut == null) return setUrl(null)
+    if (cut == null) return setEtat({ url: null, fini: true })
     let live = true
     const hit = dessusPret(src, cut, mains)
-    if (hit) setUrl(hit)
+    if (hit) setEtat({ url: hit, fini: true })
     else
       renderDessus(p, src, cut, mains)
-        .then((u) => live && setUrl(u))
-        .catch(() => live && setUrl(null))
+        .then((u) => live && setEtat({ url: u, fini: true }))
+        // en cas d'échec, l'habit s'affiche quand même (posé par-dessus)
+        .catch(() => live && setEtat((e) => ({ url: e.url, fini: true })))
     return () => {
       live = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [src, cut, p.id, mains?.cx, mains?.demi])
-  return url
+  }, [src, cut, p.id, mains?.cx, mains?.demi, mains?.depuis])
+  return [etat.url, etat.fini]
 }
 
 /** Sous une jupe, un short ou une robe : la figurine sans son ancien bas, avec des jambes nues (src tant que ce n'est pas prêt). */
@@ -359,7 +363,11 @@ export function Character({ look, mood = null, bust = false, extras = false, cla
     () => (veste || !corps || !(haut || robe || bas) ? null : { cx: corps[5], demi: corps[6] * 0.34, ...(haut ? { depuis: corps[7] - 0.09 } : {}) }),
     [veste, haut, robe, bas, corps],
   )
-  const dessus = useDessus(p, src, cou ? menton(p) : corpsHabille ? headCut(p) : null, corpsHabille ? mains : null)
+  const [dessus, dessusFini] = useDessus(p, src, cou ? menton(p) : corpsHabille ? headCut(p) : null, corpsHabille ? mains : null)
+  // tant que le visage et les cheveux ne sont pas prêts à repasser devant, les habits attendent (sinon
+  // l'écharpe apparaîtrait un instant par-dessus le menton) ; ils arrivent ensuite en fondu
+  const habille = !corpsHabille || !!dessus || dessusFini
+  const vetements = { opacity: habille ? 1 : 0, transition: 'opacity 0.18s ease-out' }
   const ombre = (a: string, boites: Boite[], ar: number) => {
     const o = OMBRES[a]
     return o && boites.length ? <Ombre src={src} art={`acc-${a}`} ar={ar} boites={boites} dy={o.dy} force={o.force} /> : null
@@ -379,25 +387,27 @@ export function Character({ look, mood = null, bust = false, extras = false, cla
     <>
       <img src={src} alt="" draggable={false} className="absolute inset-0 h-full w-full select-none" />
       {pieds && pPieds.map((q, i) => <Piece key={i} pc={q} />)}
-      {habit(bas, pBas)}
-      {habit(haut, pHaut)}
-      {habit(robe, pRobe)}
-      {habit(veste, pVeste)}
-      {plCou && (
-        <>
-          {ombre(cou, [boite(cou, plCou, accTop(plCou))], plCou.ar)}
-          <img src={`./art/persos/acc-${cou}.webp`} alt="" draggable={false} className="absolute max-w-none select-none" style={{ width: `${plCou.w * 100}%`, left: `${(plCou.x - plCou.w / 2) * 100}%`, top: `${accTop(plCou) * 100}%` }} />
-        </>
-      )}
-      {corpsHabille &&
-        (dessus ? (
-          <img src={dessus} alt="" draggable={false} className="absolute inset-0 h-full w-full select-none" />
-        ) : (
-          veste && (
-            // en attendant : la tête repasse devant le col, effacée en douceur sur les épaules
-            <img src={src} alt="" draggable={false} className="absolute inset-0 h-full w-full select-none" style={{ WebkitMaskImage: cut, maskImage: cut }} />
-          )
-        ))}
+      <span className="absolute inset-0 block" style={vetements}>
+        {habit(bas, pBas)}
+        {habit(haut, pHaut)}
+        {habit(robe, pRobe)}
+        {habit(veste, pVeste)}
+        {plCou && (
+          <>
+            {ombre(cou, [boite(cou, plCou, accTop(plCou))], plCou.ar)}
+            <img src={`./art/persos/acc-${cou}.webp`} alt="" draggable={false} className="absolute max-w-none select-none" style={{ width: `${plCou.w * 100}%`, left: `${(plCou.x - plCou.w / 2) * 100}%`, top: `${accTop(plCou) * 100}%` }} />
+          </>
+        )}
+        {corpsHabille &&
+          (dessus ? (
+            <img src={dessus} alt="" draggable={false} className="absolute inset-0 h-full w-full select-none" />
+          ) : (
+            veste && (
+              // si le visage n'a pas pu être préparé : la tête repasse devant le col, effacée en douceur sur les épaules
+              <img src={src} alt="" draggable={false} className="absolute inset-0 h-full w-full select-none" style={{ WebkitMaskImage: cut, maskImage: cut }} />
+            )
+          ))}
+      </span>
       {pPoignet.map((q, i) => (
         <Piece key={i} pc={q} />
       ))}

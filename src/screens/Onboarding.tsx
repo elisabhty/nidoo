@@ -169,14 +169,17 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
         <form className="anim-entre flex flex-1 flex-col" noValidate onSubmit={(e) => (e.preventDefault(), void create())}>
           <h1 className="outline-none font-rond text-grand">{T.create.title}</h1>
           <p className="mt-1 text-sous text-brume">{T.create.description}</p>
-          <label htmlFor="nom-maison" className="mb-1.5 mt-5 px-1 text-note font-semibold text-brume">
-            {T.create.field_label}
-          </label>
+          <div className="mb-1.5 mt-5 flex items-baseline justify-between gap-3 px-1">
+            <label htmlFor="nom-maison" className="text-corps font-semibold text-encre">
+              {T.create.field_label}
+            </label>
+            <span className="text-note font-semibold text-teinte-fonce">Obligatoire</span>
+          </div>
           <input
             id="nom-maison"
             autoComplete="off"
             enterKeyHint="done"
-            className={`champ !bg-carte font-semibold ${nameError ? 'ring-2 ring-rouge/50' : ''}`}
+            className={`champ !bg-carte border font-semibold focus:border-teinte ${nameError ? 'border-rouge/50 ring-2 ring-rouge/50' : 'border-teinte/25'}`}
             placeholder={T.create.placeholder}
             maxLength={NAME_MAX + 20}
             value={family}

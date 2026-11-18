@@ -11,7 +11,7 @@ import { VISAGES } from '../lib/visages'
 import type { HouseType } from '../lib/types'
 import { Character } from './Character'
 import House from './House'
-import { Btn, Segments, Sheet } from './ui'
+import { Btn, Segments, Sheet, ChampRequis, CHAMP_REQUIS } from './ui'
 
 /** L'état du personnage en cours de choix, partagé entre l'aperçu et les options (écran et fenêtre). */
 function usePerso(avatar: string, setAvatar: (v: string) => void) {
@@ -365,12 +365,16 @@ function PersoOptions({ ed, color, setColor, owned = [] }: { ed: Perso_; color: 
 
 type ProfileProps = { name: string; setName: (v: string) => void; avatar: string; setAvatar: (v: string) => void; color: string; setColor: (v: string) => void; placeholder?: string; owned?: string[] }
 
+/** Ce que le prénom débloque, pour soi ou pour un enfant. */
+const aidePrenom = (placeholder: string) => (placeholder.startsWith('Son') ? 'Écris son prénom pour pouvoir l’ajouter.' : 'Il apparaît sous ton personnage, pour toute la famille.')
+
 function NameField({ name, setName, placeholder }: { name: string; setName: (v: string) => void; placeholder: string }) {
   const id = useId()
   return (
     <>
-      <label htmlFor={id} className="mb-1.5 mt-5 block px-1 text-note font-semibold text-brume">{placeholder}</label>
-      <input id={id} autoComplete="given-name" enterKeyHint="done" className="champ !bg-carte text-center font-rond text-titre3" placeholder={placeholder} maxLength={24} value={name} onChange={(e) => setName(e.target.value)} />
+      <ChampRequis id={id} className="mt-5" label={placeholder} aide={aidePrenom(placeholder)}>
+        <input id={id} required aria-describedby={`${id}-aide`} autoComplete="given-name" enterKeyHint="done" className={`${CHAMP_REQUIS} !h-[56px] text-center font-rond text-titre3`} placeholder={placeholder} maxLength={24} value={name} onChange={(e) => setName(e.target.value)} />
+      </ChampRequis>
     </>
   )
 }
@@ -387,8 +391,9 @@ export function ProfilePicker({ name, setName, avatar, setAvatar, color, setColo
       <div className="sticky top-0 z-10 -mx-5 mb-4 flex items-center gap-3 border-b border-trait bg-fond px-5 pb-4">
         <Portrait ed={ed} color={color} size={148} />
         <div className="min-w-0 flex-1">
-          <label className="mb-2 block text-note font-semibold text-brume" htmlFor={nameId}>{placeholder}</label>
-          <input id={nameId} autoComplete="given-name" enterKeyHint="done" className="champ !bg-carte font-rond text-titre3" placeholder={placeholder} maxLength={24} value={name} onChange={e => setName(e.target.value)} />
+          <ChampRequis id={nameId} compact label={placeholder.startsWith('Son') ? 'Son prénom' : 'Ton prénom'} aide={aidePrenom(placeholder)}>
+            <input id={nameId} required aria-describedby={`${nameId}-aide`} autoComplete="given-name" enterKeyHint="done" className={`${CHAMP_REQUIS} font-rond text-titre3`} placeholder={placeholder} maxLength={24} value={name} onChange={e => setName(e.target.value)} />
+          </ChampRequis>
         </div>
       </div>
       <div>

@@ -493,3 +493,24 @@ export function LigneSous({ children }: { children?: ReactNode }) {
 /** Avant de dépenser les étoiles de toute la famille : une question, pour éviter les achats par erreur. */
 export const confirmerAchat = (nom: string, cout: number) =>
   confirmer({ title: `Acheter ${nom} ?`, message: `${cout} étoile${cout > 1 ? 's' : ''} de la maison. Elles sont à toute la famille.`, confirm: `Acheter · ${cout} étoile${cout > 1 ? 's' : ''}` })
+
+/** Un champ obligatoire, présenté partout pareil (dossier, événement, prénom, maison) : son nom à gauche,
+ *  « Obligatoire » à droite, un cadre teinté, et une ligne qui dit ce qu'il débloque. */
+export function ChampRequis({ id, label, aide, children, className = '', compact = false }: { id: string; label: string; aide: string; children: ReactNode; className?: string; compact?: boolean }) {
+  return (
+    <div className={className}>
+      <div className="mb-1.5 flex items-baseline justify-between gap-3 px-1">
+        <label htmlFor={id} className={`${compact ? 'text-sous' : 'text-corps'} font-semibold text-encre`}>
+          {label}
+        </label>
+        <span className="text-note font-semibold text-teinte-fonce">Obligatoire</span>
+      </div>
+      <div className="overflow-hidden rounded-[14px] border border-teinte/25 bg-carte focus-within:border-teinte focus-within:ring-2 focus-within:ring-teinte/15">{children}</div>
+      <p id={`${id}-aide`} className="mt-1.5 px-1 text-note text-brume">
+        {aide}
+      </p>
+    </div>
+  )
+}
+/** Le style du champ texte dans un ChampRequis. */
+export const CHAMP_REQUIS = 'h-[52px] w-full bg-transparent px-4 text-corps text-encre outline-none placeholder:text-brume'

@@ -6,7 +6,7 @@ import { DrawingsSheet, DrawingWidget } from '../components/drawing'
 import { DrawSheet } from '../components/planche'
 import { EventIcon, MoodSheet } from '../components/sheets'
 import { JoinRequests } from '../components/requests'
-import { Art, Avatar, Btn, choisir, confirmer, Rond, Row, Screen, Section, Segments, Sheet, Switch } from '../components/ui'
+import { Art, Avatar, Btn, choisir, confirmer, Rond, Row, Screen, Section, Segments, Sheet, Switch, ChampRequis, CHAMP_REQUIS } from '../components/ui'
 import { CARE, DECOS, moodOf, PLAN_LIMITS } from '../lib/data'
 import { select } from '../lib/haptic'
 import { activerSons, jouer, sonsActives } from '../lib/sons'
@@ -493,10 +493,9 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
 
       {sheet === 'maison' && (
         <Sheet title="Notre maison" onClose={() => setSheet(null)}>
-          <label htmlFor="nom-maison-modif" className="mb-1.5 block px-1 text-note font-semibold text-brume">
-            Nom de la maison
-          </label>
-          <input id="nom-maison-modif" className="champ !bg-carte font-semibold" maxLength={40} placeholder="Notre maison" value={famName} onChange={(e) => setFamName(e.target.value)} />
+          <ChampRequis id="nom-maison-modif" label="Nom de la maison" aide="Toute la famille le voit en haut de l’accueil.">
+            <input id="nom-maison-modif" required aria-describedby="nom-maison-modif-aide" className={`${CHAMP_REQUIS} font-semibold`} maxLength={40} placeholder="Notre maison" value={famName} onChange={(e) => setFamName(e.target.value)} />
+          </ChampRequis>
           <HousePicker value={houseType} onChange={setHouseType} />
           <Btn className="mt-5" disabled={!famName.trim()} onClick={async () => (await run((a) => a.updateFamily(family.id, { name: famName.trim(), house_type: houseType }), 'Maison mise à jour')) && setSheet(null)}>
             Enregistrer

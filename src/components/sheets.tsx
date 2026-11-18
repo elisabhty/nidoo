@@ -13,7 +13,7 @@ import { compressImage, errorText, finDe, isToday, joursEnPlus, nextOccurrence, 
 import { ajouterAuCalendrier } from '../lib/calendrier'
 import { IncomingDrawing, markDrawingsSeen, useUnseenDrawings } from './drawing'
 import { DrawSheet } from './planche'
-import { Art, Avatar, Btn, confirmer, Envol, Segments, Sheet, Switch } from './ui'
+import { Art, Avatar, Btn, confirmer, Envol, Segments, Sheet, Switch, ChampRequis, CHAMP_REQUIS } from './ui'
 
 // ───────── Humeur du jour ─────────
 
@@ -625,7 +625,9 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
           <EventIcon event={{kind,sticker}} size={46} />
           <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-white text-teinte-fonce shadow-carte"><PenLine size={14} /></span>
         </button>
-        <div className="min-w-0 flex-1"><label htmlFor="event-name" className="mb-1.5 block text-note font-semibold text-brume">{birthday ? 'Prénom' : 'Nom de l’événement'}</label><input id="event-name" className="champ !bg-carte font-semibold" placeholder={birthday ? 'Ex. : Mamie' : 'Ex. : Repas chez Mamie'} maxLength={60} value={title} onChange={e => setTitle(e.target.value)} aria-label="Titre" /></div>
+        <ChampRequis id="event-name" compact className="min-w-0 flex-1" label={birthday ? 'Prénom' : 'Nom de l’événement'} aide={birthday ? 'Écris son prénom pour pouvoir l’ajouter.' : 'Donne-lui un nom pour pouvoir l’ajouter.'}>
+          <input id="event-name" required aria-describedby="event-name-aide" className={`${CHAMP_REQUIS} font-semibold`} placeholder={birthday ? 'Ex. : Mamie' : 'Ex. : Repas chez Mamie'} maxLength={60} value={title} onChange={e => setTitle(e.target.value)} />
+        </ChampRequis>
       </div>
       <button onClick={() => setStickersOpen(v => !v)} aria-expanded={stickersOpen} className="presse mt-1 flex min-h-11 items-center gap-1.5 px-1 text-sous font-semibold text-teinte-fonce"><StickerIcon size={17} />Choisir un sticker<ChevronRight size={16} className={stickersOpen ? 'rotate-90' : ''} /></button>
       {stickersOpen && <><StickerTray start="fete" onClose={() => setStickersOpen(false)} onPick={key => {setSticker(key);setStickersOpen(false)}} /><button onClick={() => {setSticker(null);setStickersOpen(false)}} className="mt-1 min-h-11 px-1 text-sous font-semibold text-teinte-fonce">Revenir à l’icône par défaut</button></>}

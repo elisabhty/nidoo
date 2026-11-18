@@ -5,7 +5,7 @@ import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'rea
 import { PhotoEditeur } from '../components/photoEditeur'
 import { PhotosDuFil, SouvenirMedia } from '../components/folderSouvenirs'
 import { FolderCover, MemberStack } from '../components/folder'
-import { Art, Avatar, Btn, choisir, confirmer, Rond, Screen, SearchField, Sheet, Vide } from '../components/ui'
+import { Art, Avatar, Btn, choisir, confirmer, Rond, Screen, SearchField, Sheet, Vide, ChampRequis, CHAMP_REQUIS } from '../components/ui'
 import { contentLine, folderStats, membersOf, subtreeIds, whoText } from '../lib/folders'
 import { select, success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
@@ -588,16 +588,9 @@ function NewFolderSheet({ onClose, onCreated }: { onClose: () => void; onCreated
         }}
       />
 
-      <div className="mb-5">
-        <div className="mb-2 flex items-baseline justify-between gap-3 px-1">
-          <label htmlFor={nameId} className="text-corps font-semibold">{'Nom du dossier'}</label>
-          <span className="text-note font-semibold text-teinte-fonce">Obligatoire</span>
-        </div>
-        <div className="groupe border border-teinte/25 focus-within:border-teinte focus-within:ring-2 focus-within:ring-teinte/15">
-          <input id={nameId} required aria-describedby={`${nameId}-hint`} className="h-[54px] w-full bg-transparent px-4 text-corps outline-none placeholder:text-brume" placeholder="Ex. : Vacances en famille" maxLength={40} value={name} onChange={(e) => setName(e.target.value)}  />
-        </div>
-        <p id={`${nameId}-hint`} className="mt-2 px-1 text-note text-brume">Donne un nom au dossier pour pouvoir le créer.</p>
-      </div>
+      <ChampRequis id={nameId} label="Nom du dossier" aide="Donne un nom au dossier pour pouvoir le créer." className="mb-5">
+        <input id={nameId} required aria-describedby={`${nameId}-aide`} className={CHAMP_REQUIS} placeholder="Ex. : Vacances en famille" maxLength={40} value={name} onChange={(e) => setName(e.target.value)} />
+      </ChampRequis>
 
       {(
         <button onClick={() => input.current?.click()} className="presse relative block aspect-[16/6] w-full overflow-hidden rounded-[22px] text-left shadow-carte">
@@ -740,9 +733,9 @@ function RenameSheet({ folder, onClose }: { folder: Folder; onClose: () => void 
   const [name, setName] = useState(folder.name)
   return (
     <Sheet title="Renommer" onClose={onClose}>
-      <div className="groupe">
-        <input className="h-[52px] w-full bg-transparent px-4 text-corps outline-none" maxLength={40} value={name} onChange={(e) => setName(e.target.value)} autoFocus aria-label="Nom du dossier" />
-      </div>
+      <ChampRequis id="renommer-dossier" label="Nom du dossier" aide="Le dossier garde un nom : il en faut un pour enregistrer.">
+        <input id="renommer-dossier" required aria-describedby="renommer-dossier-aide" className={CHAMP_REQUIS} maxLength={40} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+      </ChampRequis>
       <Btn className="mt-4" disabled={!name.trim() || name.trim() === folder.name} onClick={async () => (await run((api) => api.renameFolder(folder.id, name), 'Dossier renommé')) && onClose()}>
         Enregistrer
       </Btn>
