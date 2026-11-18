@@ -210,7 +210,7 @@ function CaseSheet({ day, mine, onClose, onAction }: { day: number; mine: boolea
   )
 }
 
-/** L'entrée du calendrier dans « À vivre ensemble ». */
+/** L'entrée du calendrier (carte). */
 export function AventCard({ onOpen }: { onOpen: () => void }) {
   const a = useAvent()
   if (!a.visible) return null

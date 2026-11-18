@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react'
-import { DECOS } from '../lib/data'
+import { DECOS, STAR_REASONS } from '../lib/data'
 import { useHome } from '../lib/store'
 import { CareIcon, HandIcon } from './care'
 import { DoodleIcon } from './drawing'
-import { Art, Btn, Sheet } from './ui'
+import { ago } from '../lib/util'
+import { Art, Avatar, Btn, Sheet } from './ui'
 
 const EARN: { icon: ReactNode; label: string; stars: number; limit?: string }[] = [
   { icon: <Art name="picto-photo" size={40} />, label: 'Partager une photo', stars: 3, limit: 'jusqu’à 5 par jour' },
@@ -27,8 +28,9 @@ const EARN: { icon: ReactNode; label: string; stars: number; limit?: string }[] 
 /** Le système d'étoiles, expliqué simplement. */
 export function StarsSheet({ onClose, onDecorate }: { onClose: () => void; onDecorate?: () => void }) {
   const { state } = useHome()
-  const { family, houseItems } = state
+  const { family, houseItems, members, me } = state
   const next = DECOS.find((d) => !houseItems.includes(d.key))
+  const log = state.starLog.filter((s) => s.amount > 0).slice(0, 5)
   return (
     <Sheet title="Les étoiles" onClose={onClose}>
       <div className="flex flex-col items-center text-center">
@@ -69,6 +71,33 @@ export function StarsSheet({ onClose, onDecorate }: { onClose: () => void; onDec
         <Btn className="mt-4" onClick={onDecorate}>
           Décorer la maison
         </Btn>
+      )}
+
+      {log.length > 0 && (
+        <>
+          <p className="entete mt-6 !px-1">Dernières étoiles</p>
+          <div className="groupe">
+            {log.map((s, i) => {
+              const m = members.find((x) => x.id === s.member_id)
+              const what = STAR_REASONS[s.reason] ?? ''
+              return (
+                <div key={s.id} className="flex items-center gap-3 pl-3.5">
+                  {m ? <Avatar m={m} size={34} /> : <span className="h-[34px] w-[34px] rounded-full bg-remplissage" />}
+                  <div className={`flex min-w-0 flex-1 items-center gap-2 py-2.5 pr-4 ${i < log.length - 1 ? 'border-b border-trait' : ''}`}>
+                    <p className="min-w-0 flex-1 text-sous">
+                      <span className="font-semibold">{m ? (m.id === me.id ? 'Tu' : m.display_name) : 'Un proche'}</span>{' '}
+                      {m?.id === me.id ? what.replace(/^a /, 'as ').replace('son humeur', 'ton humeur') : what}
+                      <span className="block text-note text-brume">{ago(s.created_at)}</span>
+                    </p>
+                    <span className="flex items-center gap-1 text-sous font-semibold text-brume">
+                      +{s.amount} <Art name="picto-etoile" size={16} />
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </>
       )}
     </Sheet>
   )

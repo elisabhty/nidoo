@@ -128,7 +128,7 @@ function Widgets({ onDraw, onOpen }: { onDraw: () => void; onOpen: (d: Drawing) 
   )
 }
 
-export default function Family({ onGuide, onActivities }: { onGuide: () => void; onActivities: () => void }) {
+export default function Family({ onGuide }: { onGuide: () => void }) {
   const { state, run, api, circles, open, toast, requests, reload } = useHome()
   const { family, me, members } = state
   const [sheet, setSheet] = useState<Open>(null)
@@ -376,7 +376,6 @@ export default function Family({ onGuide, onActivities }: { onGuide: () => void;
 
         </>}
         {section === 'maison' && <>
-        <div className="groupe mx-4 mb-6"><Row icon={<CircleHelp size={18} />} label="À vivre ensemble" hint="Question du jour, défis et décorations" onClick={onActivities} last /></div>
         <Section title="Widgets">
           <p className="-mt-1.5 mb-3 px-5 text-sous text-brume">Aperçu en direct de ce que chacun verra sur son écran d’accueil.</p>
           <Widgets onDraw={() => setDessin({ to: null })} onOpen={(d) => setDessins(d)} />

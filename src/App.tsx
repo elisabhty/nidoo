@@ -13,14 +13,13 @@ import Home from './screens/Home'
 import Dossiers, { type DossiersSeg } from './screens/Folders'
 import Onboarding from './screens/Onboarding'
 import Organize from './screens/Organize'
-import Play from './screens/Play'
 import Waiting from './screens/Waiting'
 
 const GUIDE = 'nidoo.guide.vu'
 
 export type Tab = 'maison' | 'moments' | 'organiser' | 'famille'
 /** « fil » ouvre l'onglet Dossiers directement sur le fil de la famille. */
-export type Go = Tab | 'fil' | 'jouer' | 'recus'
+export type Go = Tab | 'fil' | 'recus'
 
 const TABS: { key: Tab; label: string; icon: typeof HouseIcon }[] = [
   { key: 'maison', label: 'Maison', icon: HouseIcon },
@@ -53,11 +52,9 @@ export default function App() {
     setTab(next)
   }
   const [showIncoming, setShowIncoming] = useState(false)
-  const [activity, setActivity] = useState(false)
   const [seg, setSeg] = useState<DossiersSeg>('dossiers')
   const go = (g: Go) => {
     if (g === 'recus') {setShowIncoming(true); return}
-    if (g === 'jouer') { setActivity(true); return }
     if (g === 'fil') {
       setSeg('fil')
       navigate('moments')
@@ -99,7 +96,7 @@ export default function App() {
               <div id="nidoo-tab-maison" data-tab="maison" hidden={tab !== 'maison'} className="h-full"><Home go={go} active={tab === 'maison'} /></div>
               {visited.includes('moments') && <div id="nidoo-tab-moments" data-tab="moments" hidden={tab !== 'moments'} className="h-full"><Dossiers seg={seg} setSeg={setSeg} /></div>}
               {visited.includes('organiser') && <div id="nidoo-tab-organiser" data-tab="organiser" hidden={tab !== 'organiser'} className="h-full"><Organize /></div>}
-              {visited.includes('famille') && <div id="nidoo-tab-famille" data-tab="famille" hidden={tab !== 'famille'} className="h-full"><Family onGuide={() => setGuide(true)} onActivities={() => setActivity(true)} /></div>}
+              {visited.includes('famille') && <div id="nidoo-tab-famille" data-tab="famille" hidden={tab !== 'famille'} className="h-full"><Family onGuide={() => setGuide(true)} /></div>}
             </div>
 
             {/* Barre d'onglets flottante en verre */}
@@ -128,11 +125,7 @@ export default function App() {
               })}
             </nav>
 
-            {activity && <div className="absolute inset-0 z-40 flex flex-col bg-fond" role="dialog" aria-modal="true" aria-label="À vivre ensemble" style={{paddingTop:'var(--sat)'}}>
-              <button onClick={() => setActivity(false)} className="presse flex min-h-[52px] shrink-0 items-center gap-1 px-4 text-corps text-teinte-fonce"><ChevronLeft size={22} />Retour</button>
-              <div className="min-h-0 flex-1"><Play /></div>
-            </div>}
-            {tab === 'maison' && showIncoming && !guide && !activity && <Incoming onClose={() => setShowIncoming(false)} />}
+            {tab === 'maison' && showIncoming && !guide && <Incoming onClose={() => setShowIncoming(false)} />}
             {tab !== 'maison' && !guide && <DrawingBanner onOpen={() => navigate('maison')} />}
             {guide && <Guide onClose={closeGuide} />}
             <LiveInvites />

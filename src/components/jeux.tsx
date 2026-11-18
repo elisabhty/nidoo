@@ -522,7 +522,7 @@ function Memory({ st, photos, canPlay, onPlay, members }: { st: MemoryState; pho
   )
 }
 
-// ───────── L'entrée « Jouer ensemble » (À vivre ensemble) ─────────
+// ───────── L'entrée « Jouer ensemble » (carte) ─────────
 
 export function JeuxCard({ onOpen }: { onOpen: () => void }) {
   const { state } = useHome()

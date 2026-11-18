@@ -1,6 +1,8 @@
 import { ChevronRight } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { aventHint, useAvent } from '../components/avent'
+import { useAvent } from '../components/avent'
+import { DefisDuJour, QuestionSheet, SemaineSheet } from '../components/defis'
+import { MotPage } from '../components/motmystere'
 import { pettedToday, useCare, usePet } from '../components/care'
 import { DecorPage, GoneSheet, useGone } from '../components/decor'
 import { DrawingsSheet, useUnseenDrawings } from '../components/drawing'
@@ -9,11 +11,11 @@ import House, { type HouseScene } from '../components/House'
 import { myTurns } from '../components/jeux'
 import { useLieux } from '../components/lieux'
 import { PetFigure } from '../components/pet'
-import { MoodSheet, ThoughtSheet } from '../components/sheets'
+import { ComposeSheet, MoodSheet, ThoughtSheet } from '../components/sheets'
 import { StarsSheet } from '../components/stars'
 import { Art, Avatar, Sheet } from '../components/ui'
 import type { AventAction } from '../lib/avent'
-import { moodOf } from '../lib/data'
+import { challengeOfDay, moodOf } from '../lib/data'
 import { feel, tap } from '../lib/haptic'
 import { shareInvite } from '../lib/share'
 import { useHome } from '../lib/store'
@@ -30,6 +32,10 @@ type Open =
   | { k: 'etoiles' }
   | { k: 'decor'; food?: boolean }
   | { k: 'explorer' }
+  | { k: 'question' }
+  | { k: 'defiPhoto' }
+  | { k: 'mot' }
+  | { k: 'semaine' }
 
 export function upcoming(events: ReturnType<typeof useHome>['state']['events'], limit = 3) {
   const start = new Date()
@@ -204,10 +210,9 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
               />
             </div>
           </div>
-          {/* ce qui attend (la case du jour, « À toi de jouer »), puis tout le reste rangé dans « Explorer » */}
+          {/* « À toi de jouer » quand une partie attend, puis tout le reste rangé dans « Explorer » */}
           <div className="no-bar mt-1 flex gap-2 overflow-x-auto px-5 py-2" aria-label="Les lieux de la maison">
             {[
-              ...(caseDuJour ? [{ k: 'avent' as const, label: 'Case du jour', icon: <img src="./art/avent-sapin-mini.webp" alt="" className="h-[32px] w-[32px] object-contain" /> }] : []),
               ...(tours.length ? [{ k: 'jeux' as const, label: `À toi de jouer (${tours.length})`, icon: <img src="./art/jeu-puissance4.webp" alt="" className="h-[30px] w-[30px] object-contain" /> }] : []),
             ].map((x) => (
               <button
@@ -262,23 +267,6 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
               ))}
             </div>
           )}
-          {caseDuJour && (
-            <button
-              onClick={() => {
-                tap()
-                lieux.open({ k: 'avent' })
-              }}
-              className="presse mx-5 mt-4 flex w-[calc(100%-2.5rem)] items-center gap-3 rounded-[24px] p-3 pr-4 text-left shadow-carte"
-              style={{ background: 'linear-gradient(160deg, #E8F5EE, #F3EEFF)' }}
-            >
-              <img src="./art/avent-sapin-mini.webp" alt="" className="h-12 w-12 shrink-0 object-contain" />
-              <span className="min-w-0 flex-1">
-                <span className="block text-appel font-semibold">{aventHint(av)}</span>
-                <span className="block text-note text-brume">Ouvre-la pour décorer le sapin de la famille</span>
-              </span>
-              <img src={`./art/avent-cadeau.webp`} alt="" className="h-11 w-11 shrink-0 rotate-6 object-contain" />
-            </button>
-          )}
           {anniv && others.length > 0 && (
             <button
               onClick={() => {
@@ -308,6 +296,13 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
               <button onClick={() => void inviter()} className="presse ios-primary mt-3 flex min-h-[54px] w-full items-center justify-center rounded-full text-corps font-bold text-white">Inviter mes proches</button>
             </div>
           )}
+          <DefisDuJour
+            avent={av.visible ? { aOuvrir: caseDuJour, etoiles: av.today === 24 ? 3 : 1 } : null}
+            onOpen={(d) => {
+              if (d === 'avent') lieux.open({ k: 'avent' })
+              else setSheet({ k: d === 'photo' ? 'defiPhoto' : d })
+            }}
+          />
           <button onClick={() => go('moments')} className="presse mx-5 mt-4 flex min-h-11 w-[calc(100%-2.5rem)] items-center justify-center gap-1 text-sous font-semibold text-teinte-fonce">Nos souvenirs <ChevronRight size={16} /></button>
 
         </div>
@@ -323,6 +318,10 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
           onDecorate={() => setSheet({ k: 'decor' })}
         />
       )}
+      {sheet?.k === 'question' && <QuestionSheet onClose={() => setSheet(null)} />}
+      {sheet?.k === 'defiPhoto' && <ComposeSheet challenge={challengeOfDay()} onClose={() => setSheet(null)} />}
+      {sheet?.k === 'semaine' && <SemaineSheet onClose={() => setSheet(null)} />}
+      {sheet?.k === 'mot' && <MotPage onClose={() => setSheet(null)} />}
       {sheet?.k === 'explorer' && (
         <Sheet title="Explorer" onClose={() => setSheet(null)}>
           <div className="grid grid-cols-2 gap-2.5 pb-2">
