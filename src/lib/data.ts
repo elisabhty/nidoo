@@ -101,6 +101,7 @@ export const GONE_AFTER = 4
 
 export const STAR_REASONS: Record<string, string> = {
   moment: 'a partagé un instant',
+  test: 'a reçu des étoiles pour tester la boutique',
   attention: 'a envoyé une attention',
   dessin: 'a envoyé un dessin',
   humeur: 'a partagé son humeur',
