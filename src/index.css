@@ -271,3 +271,28 @@ html, body { overflow: hidden; width: 100%; }
   100% { transform: scale(1) rotate(0); }
 }
 .anim-colle { animation: colle 0.5s cubic-bezier(0.2, 1.3, 0.4, 1) both; }
+
+/* Fil : la bulle qu'on envoie monte depuis la barre d'envoi avec un rebond, celle qui arrive glisse depuis la gauche,
+   et un reflet passe sur la nôtre. */
+@keyframes envol {
+  0% { transform: translateY(56px) scale(0.6); opacity: 0; }
+  55% { transform: translateY(-5px) scale(1.03); opacity: 1; }
+  100% { transform: none; opacity: 1; }
+}
+.anim-envoi { animation: envol 0.55s cubic-bezier(0.22, 1.2, 0.36, 1) both; transform-origin: 100% 100%; }
+@keyframes arrive {
+  0% { transform: translateX(-16px) scale(0.6); opacity: 0; }
+  60% { transform: translateX(2px) scale(1.03); opacity: 1; }
+  100% { transform: none; opacity: 1; }
+}
+.anim-arrive { animation: arrive 0.5s cubic-bezier(0.22, 1.2, 0.36, 1) both; transform-origin: 0% 100%; }
+.reflet { position: relative; }
+.reflet::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.45) 50%, transparent 65%);
+  transform: translateX(-120%); animation: reflet 0.9s 0.35s ease-out forwards;
+}
+@keyframes reflet { to { transform: translateX(120%); } }
+@media (prefers-reduced-motion: reduce) {
+  .anim-envoi, .anim-arrive, .anim-colle, .reflet::after { animation: none; }
+}

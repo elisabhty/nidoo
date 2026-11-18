@@ -113,3 +113,31 @@ export const sonGeste = (kind: string): Son => GESTES[kind] ?? 'geste-coeur'
 const CRIS: Record<string, Son> = { chat: 'chat', chien: 'chien', lapin: 'lapin', renard: 'renard', panda: 'panda', koala: 'koala', pingouin: 'pingouin', hibou: 'hibou' }
 /** Le petit cri du compagnon, selon son espèce. */
 export const sonCompagnon = (species: string | null | undefined): Son => CRIS[species ?? ''] ?? 'chat'
+
+/**
+ * Le petit « plop » du fil, fabriqué par le téléphone (pas de fichier) : il monte quand on envoie,
+ * il descend, plus doux, quand un message arrive.
+ */
+export function bulle(sens: 'envoi' | 'arrive') {
+  if (!sonsActives()) return
+  const c = audio()
+  if (!c) return
+  try {
+    if (c.state !== 'running') void c.resume().catch(() => undefined)
+    const t = c.currentTime + 0.01
+    const o = c.createOscillator()
+    const g = c.createGain()
+    o.type = 'sine'
+    const [a, b] = sens === 'envoi' ? [420, 880] : [760, 520]
+    o.frequency.setValueAtTime(a, t)
+    o.frequency.exponentialRampToValueAtTime(b, t + 0.09)
+    g.gain.setValueAtTime(0.0001, t)
+    g.gain.exponentialRampToValueAtTime(sens === 'envoi' ? 0.16 : 0.1, t + 0.015)
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16)
+    o.connect(g).connect(c.destination)
+    o.start(t)
+    o.stop(t + 0.18)
+  } catch {
+    /* pas de son, pas grave */
+  }
+}

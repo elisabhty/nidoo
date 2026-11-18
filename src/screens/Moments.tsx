@@ -6,6 +6,7 @@ import { StickerImg, StickerTray } from '../components/stickers'
 import { Art, Avatar, confirmer } from '../components/ui'
 import { REACTIONS } from '../lib/data'
 import { select, success, tap } from '../lib/haptic'
+import { bulle } from '../lib/sons'
 import { useHome } from '../lib/store'
 import { cleSticker, PERSO } from '../lib/stickers'
 import type { Ecrit, Member, Moment } from '../lib/types'
@@ -162,7 +163,7 @@ function Vocal({ mo, mine }: { mo: Moment; mine: boolean }) {
 
 // ───────── Une bulle ─────────
 
-function Bulle({ mo, auteur, mine, premier, dernier, ouvert, onOuvrir, onPhoto }: { mo: Moment; auteur: Member; mine: boolean; premier: boolean; dernier: boolean; ouvert: boolean; onOuvrir: () => void; onPhoto: (url: string) => void }) {
+function Bulle({ mo, auteur, mine, premier, dernier, ouvert, onOuvrir, onPhoto, anim, envoi, envoye, pret }: { mo: Moment; auteur: Member; mine: boolean; premier: boolean; dernier: boolean; ouvert: boolean; onOuvrir: () => void; onPhoto: (url: string) => void; /** un nouveau message : il entre en bougeant */ anim: boolean; /** en cours d'envoi */ envoi?: boolean; /** le dernier message, le nôtre, est bien parti */ envoye?: boolean; /** le fil est affiché depuis un moment : les nouvelles réactions sautent */ pret: boolean }) {
   const { state, run } = useHome()
   const rs = state.reactions.filter((r) => r.moment_id === mo.id)
   const maReaction = rs.find((r) => r.member_id === state.me.id)?.emoji
@@ -214,10 +215,11 @@ function Bulle({ mo, auteur, mine, premier, dernier, ouvert, onOuvrir, onPhoto }
             role="button"
             tabIndex={0}
             onClick={() => {
+              if (envoi) return
               tap()
               onOuvrir()
             }}
-            className="presse anim-colle py-1"
+            className={`presse py-1 ${anim ? 'anim-colle' : ''} ${envoi ? 'opacity-70' : ''}`}
           >
             <StickerImg cle={mo.sticker!} className="block h-auto max-h-[150px] w-[132px] object-contain" style={{ filter: 'drop-shadow(0 4px 8px rgba(29,26,43,0.18))' }} />
           </div>
@@ -226,10 +228,11 @@ function Bulle({ mo, auteur, mine, premier, dernier, ouvert, onOuvrir, onPhoto }
           role="button"
           tabIndex={0}
           onClick={() => {
+            if (envoi) return
             tap()
             onOuvrir()
           }}
-          className={`presse anim-pop overflow-hidden ${coin} ${photoSeule ? 'p-1' : mo.image_url ? 'p-1 pb-2' : 'px-3.5 py-2'} ${mine ? 'text-white' : 'bg-white text-encre shadow-carte'}`}
+          className={`presse relative overflow-hidden transition-opacity ${anim ? (mine ? 'anim-envoi reflet' : 'anim-arrive') : ''} ${envoi ? 'opacity-75' : ''} ${coin} ${photoSeule ? 'p-1' : mo.image_url ? 'p-1 pb-2' : 'px-3.5 py-2'} ${mine ? 'text-white' : 'bg-white text-encre shadow-carte'}`}
           style={mine ? { background: 'linear-gradient(150deg, #8E6CF0, #6646CC)' } : undefined}
         >
           {mo.challenge && (
@@ -259,7 +262,7 @@ function Bulle({ mo, auteur, mine, premier, dernier, ouvert, onOuvrir, onPhoto }
         {groupes.length > 0 && (
           <span className={`absolute -bottom-4 flex items-center gap-0.5 rounded-full bg-white px-1.5 py-0.5 shadow-carte ${mine ? 'right-2' : 'left-2'}`}>
             {groupes.map((g) => (
-              <span key={g.key} className="flex items-center">
+              <span key={g.key} className={`flex items-center ${pret ? 'anim-pop' : ''}`}>
                 <Art name={g.art} size={17} />
                 {g.n > 1 && <span className="pr-0.5 text-mini font-semibold text-brume">{g.n}</span>}
               </span>
@@ -267,7 +270,21 @@ function Bulle({ mo, auteur, mine, premier, dernier, ouvert, onOuvrir, onPhoto }
           </span>
         )}
         </div>
-        {dernier && <span className={`text-mini text-pale ${mine ? 'mr-1.5' : 'ml-3'} ${groupes.length ? 'mt-5' : 'mt-1'}`}>{heure(mo.created_at)}</span>}
+        {envoi ? (
+          <span className={`flex items-center gap-0.5 text-mini text-pale ${mine ? 'mr-1.5' : 'ml-3'} mt-1`}>
+            Envoi
+            {[0, 1, 2].map((k) => (
+              <span key={k} className="h-1 w-1 rounded-full bg-pale" style={{ animation: `points 1.2s ${k * 0.18}s ease-in-out infinite` }} />
+            ))}
+          </span>
+        ) : (
+          dernier && (
+            <span className={`text-mini text-pale ${mine ? 'mr-1.5' : 'ml-3'} ${groupes.length ? 'mt-5' : 'mt-1'}`}>
+              {heure(mo.created_at)}
+              {envoye && <span className="anim-fondu font-semibold text-teinte"> · Envoyé ✓</span>}
+            </span>
+          )
+        )}
       </div>
     </div>
   )
@@ -317,11 +334,10 @@ function Ecrivent({ qui }: { qui: { m: Member; quoi: Ecrit }[] }) {
 
 type Enreg = { rec: MediaRecorder; stream: MediaStream; ctx: AudioContext; t0: number; niveaux: number[]; morceaux: Blob[]; timer: number }
 
-function Saisie({ onPhoto }: { onPhoto: (f: File) => void }) {
-  const { state, api, run, toast } = useHome()
+function Saisie({ onPhoto, envoyer }: { onPhoto: (f: File) => void; envoyer: (m: NouvelEnvoi) => Promise<boolean> }) {
+  const { state, api, toast } = useHome()
   const { family, me } = state
   const [texte, setTexte] = useState('')
-  const [envoi, setEnvoi] = useState(false)
   const [enreg, setEnreg] = useState<Enreg | null>(null)
   const [tiroir, setTiroir] = useState(false)
   const [, tic] = useState(0)
@@ -346,13 +362,10 @@ function Saisie({ onPhoto }: { onPhoto: (f: File) => void }) {
 
   const envoyerTexte = async () => {
     const t = texte.trim()
-    if (!t || envoi) return
-    setEnvoi(true)
+    if (!t) return
     signal(null)
     setTexte('')
-    if (await run((a) => a.postMoment(family.id, me.id, { body: t.slice(0, 1000) }))) success()
-    else setTexte(t)
-    setEnvoi(false)
+    if (!(await envoyer({ body: t.slice(0, 1000) }))) setTexte((x) => x || t)
   }
 
   // ── le vocal : le micro, une petite onde en direct, 2 minutes au plus
@@ -386,7 +399,7 @@ function Saisie({ onPhoto }: { onPhoto: (f: File) => void }) {
       toast('Autorise le micro pour envoyer un vocal.', 'err')
     }
   }
-  const arreter = async (e: Enreg, envoyer: boolean) => {
+  const arreter = async (e: Enreg, garder: boolean) => {
     window.clearInterval(e.timer)
     setEnreg(null)
     signal(null)
@@ -398,7 +411,7 @@ function Saisie({ onPhoto }: { onPhoto: (f: File) => void }) {
     e.stream.getTracks().forEach((t) => t.stop())
     void e.ctx.close()
     const duree = (Date.now() - e.t0) / 1000
-    if (!envoyer || duree < 0.8) return
+    if (!garder || duree < 0.8) return
     const blob = new Blob(e.morceaux, { type: e.rec.mimeType || e.morceaux[0]?.type || 'audio/mp4' })
     const n = 40
     const ondes = Array.from({ length: n }, (_, i) => {
@@ -407,15 +420,13 @@ function Saisie({ onPhoto }: { onPhoto: (f: File) => void }) {
       const tranche = e.niveaux.slice(a, b)
       return tranche.length ? Math.round(Math.max(...tranche)) : 10
     })
-    setEnvoi(true)
-    if (await run((a) => a.postMoment(family.id, me.id, { audio: { blob, duree, ondes } }))) success()
-    setEnvoi(false)
+    void envoyer({ audio: { blob, duree, ondes } })
   }
 
   const envoyerSticker = async (key: string, t?: string, c?: number) => {
     const cle = key === PERSO ? cleSticker({ i: PERSO, t, c }) : key
     signal(null)
-    if (await run((a) => a.postMoment(family.id, me.id, { sticker: cle.slice(0, 60) }))) success()
+    await envoyer({ sticker: cle.slice(0, 60) })
   }
 
   const secondes = enreg ? (Date.now() - enreg.t0) / 1000 : 0
@@ -512,11 +523,11 @@ function Saisie({ onPhoto }: { onPhoto: (f: File) => void }) {
             </button>
           )}
           {texte.trim() ? (
-            <button onClick={() => void envoyerTexte()} disabled={envoi} className="presse ios-primary anim-pop flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full text-white" aria-label="Envoyer">
+            <button onClick={() => void envoyerTexte()} className="presse ios-primary anim-pop flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full text-white" aria-label="Envoyer">
               <ArrowUp size={22} strokeWidth={2.6} />
             </button>
           ) : (
-            <button onClick={() => void demarrer()} disabled={envoi} className="presse flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-remplissage text-encre" aria-label="Enregistrer un vocal">
+            <button onClick={() => void demarrer()} className="presse flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-remplissage text-encre" aria-label="Enregistrer un vocal">
               <Mic size={20} />
             </button>
           )}
@@ -525,6 +536,16 @@ function Saisie({ onPhoto }: { onPhoto: (f: File) => void }) {
     </div>
   )
 }
+
+// ───────── L'envoi immédiat ─────────
+
+/** Ce qu'on envoie : du texte, un sticker, une photo (avec sa légende) ou un vocal. */
+type NouvelEnvoi = { body?: string; sticker?: string; blob?: Blob; audio?: { blob: Blob; duree: number; ondes: number[] } }
+/** Un message affiché tout de suite, le temps qu'il parte ; le vrai le remplace sans bruit dès qu'il arrive. */
+type Envoi = { mo: Moment; cle: string; connus: Set<string> }
+const cleDe = (x: { body?: string | null; sticker?: string | null; image: boolean; audio: boolean }) =>
+  `${x.audio ? 'vocal' : x.image ? 'photo' : x.sticker ? 'sticker' : 'texte'}|${(x.body ?? '').trim()}|${x.sticker ?? ''}`
+const cleMoment = (m: Moment) => cleDe({ body: m.body, sticker: m.sticker, image: !!(m.image_path || m.image_url), audio: !!m.audio_path })
 
 // ───────── Le fil ─────────
 
@@ -537,6 +558,60 @@ export default function Fil(_: { onCompose?: () => void }) {
   const [ecrivent, setEcrivent] = useState<Record<string, { quoi: Ecrit; at: number }>>({})
   const fin = useRef<HTMLDivElement>(null)
   const msgs = useMemo(() => [...moments].sort((a, b) => a.created_at.localeCompare(b.created_at)), [moments])
+  const msgsRef = useRef(msgs)
+  msgsRef.current = msgs
+
+  // les messages déjà là à l'ouverture restent sages ; seuls les nouveaux entrent en bougeant
+  const initiaux = useRef<Set<string> | null>(null)
+  if (!initiaux.current) initiaux.current = new Set(moments.map((m) => m.id))
+  // un message parti garde la place (et l'animation en cours) de sa bulle « en attente »
+  const alias = useRef(new Map<string, string>())
+  const [pret, setPret] = useState(false)
+  useEffect(() => {
+    const t = window.setTimeout(() => setPret(true), 900)
+    return () => window.clearTimeout(t)
+  }, [])
+
+  // ce qu'on vient d'envoyer s'affiche tout de suite ; le vrai message prend sa place dès qu'il arrive
+  const [envois, setEnvois] = useState<Envoi[]>([])
+  const enAttente: Envoi[] = []
+  const pris = new Set<string>()
+  for (const e of envois) {
+    const vrai = msgs.find((m) => m.member_id === me.id && !e.connus.has(m.id) && !pris.has(m.id) && cleMoment(m) === e.cle)
+    if (vrai) {
+      pris.add(vrai.id)
+      alias.current.set(vrai.id, e.mo.id)
+    } else enAttente.push(e)
+  }
+  const envoyer = async (m: NouvelEnvoi) => {
+    const id = `envoi-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
+    const mo: Moment = {
+      id, family_id: family.id, member_id: me.id, image_path: null, image_url: m.blob ? URL.createObjectURL(m.blob) : null,
+      body: m.body?.trim() || null, challenge: null, created_at: new Date().toISOString(), sticker: m.sticker ?? null,
+      audio_path: m.audio ? 'envoi' : null, audio_url: m.audio ? URL.createObjectURL(m.audio.blob) : null, duree: m.audio ? Math.round(m.audio.duree) : null, ondes: m.audio?.ondes ?? null,
+    }
+    setEnvois((x) => [...x, { mo, cle: cleDe({ body: m.body, sticker: m.sticker, image: !!m.blob, audio: !!m.audio }), connus: new Set(msgsRef.current.map((y) => y.id)) }])
+    bulle('envoi')
+    const ok = await run((a) => a.postMoment(family.id, me.id, m))
+    if (ok) success()
+    // une fois parti (le fil vient d'être rechargé), le message en attente laisse sa place
+    setEnvois((x) => x.filter((y) => y.mo.id !== id))
+    window.setTimeout(() => {
+      if (mo.image_url) URL.revokeObjectURL(mo.image_url)
+      if (mo.audio_url) URL.revokeObjectURL(mo.audio_url)
+    }, 5000)
+    return ok
+  }
+
+  // un message d'un proche arrive pendant qu'on regarde : petit « plop »
+  const nbAutres = msgs.filter((m) => m.member_id !== me.id).length
+  const nbAutresAvant = useRef(nbAutres)
+  useEffect(() => {
+    if (nbAutres > nbAutresAvant.current) bulle('arrive')
+    nbAutresAvant.current = nbAutres
+  }, [nbAutres])
+  const liste = [...msgs.map((mo) => ({ mo, envoi: false })), ...enAttente.map((e) => ({ mo: e.mo, envoi: true }))]
+  const dernierMien = !enAttente.length && msgs.length > 0 && msgs[msgs.length - 1].member_id === me.id ? msgs[msgs.length - 1].id : null
 
   // qui écrit, en direct (on oublie quelqu'un qui ne fait plus signe depuis 6 secondes)
   useEffect(() => {
@@ -571,40 +646,54 @@ export default function Fil(_: { onCompose?: () => void }) {
     .filter((x): x is { m: Member; quoi: Ecrit } => !!x.m)
 
   // on arrive en bas du fil, et on y reste quand un message ou quelqu'un qui écrit arrive
+  const boite = () => {
+    let box: HTMLElement | null = fin.current?.parentElement ?? null
+    while (box && !(/(auto|scroll)/.test(getComputedStyle(box).overflowY) && box.scrollHeight > box.clientHeight)) box = box.parentElement
+    return box
+  }
+  // une photo ou un sticker qui finit de charger grandit la bulle : on reste collé en bas
+  const racine = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = racine.current
+    if (!el) return
+    const charge = () => {
+      const box = boite()
+      if (box && box.scrollHeight - box.scrollTop - box.clientHeight < 420) box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' })
+    }
+    el.addEventListener('load', charge, true)
+    return () => el.removeEventListener('load', charge, true)
+  }, [])
   const premiereFois = useRef(true)
   useEffect(() => {
-    const el = fin.current
-    if (!el) return
-    let box: HTMLElement | null = el.parentElement
-    while (box && !(/(auto|scroll)/.test(getComputedStyle(box).overflowY) && box.scrollHeight > box.clientHeight)) box = box.parentElement
+    const box = boite()
     if (!box) return
     const proche = box.scrollHeight - box.scrollTop - box.clientHeight < 260
-    if (premiereFois.current || proche || dernier?.member_id === me.id) box.scrollTo({ top: box.scrollHeight, behavior: premiereFois.current ? 'auto' : 'smooth' })
+    if (premiereFois.current || proche || dernier?.member_id === me.id || enAttente.length > 0) box.scrollTo({ top: box.scrollHeight, behavior: premiereFois.current ? 'auto' : 'smooth' })
     premiereFois.current = false
-  }, [msgs.length, qui.length, dernier?.member_id, me.id])
+  }, [msgs.length, qui.length, dernier?.member_id, me.id, enAttente.length])
 
   let jourPrecedent = ''
   return (
-    <div className="flex flex-col px-3" style={{ minHeight: 'calc(100dvh - var(--sat) - 331px)' }} onClick={() => ouvert && setOuvert(null)}>
+    <div ref={racine} className="flex flex-col px-3" style={{ minHeight: 'calc(100dvh - var(--sat) - 331px)' }} onClick={() => ouvert && setOuvert(null)}>
       <div className="flex-1" />
-      {msgs.length === 0 && (
+      {liste.length === 0 && (
         <div className="flex flex-col items-center px-6 pb-6 pt-4 text-center">
           <Art name="picto-bulle" size={64} className="anim-flotte" />
           <p className="mt-2 font-rond text-titre3">Le fil est tout neuf</p>
           <p className="mt-1 max-w-[290px] text-sous text-brume">Un message, une photo sur laquelle tu écris un petit mot, un vocal : toute la famille le voit, et vous vous voyez écrire en direct.</p>
         </div>
       )}
-      {msgs.map((mo, i) => {
+      {liste.map(({ mo, envoi }, i) => {
         const auteur = members.find((m) => m.id === mo.member_id)
         if (!auteur) return null
-        const avant = msgs[i - 1]
-        const apres = msgs[i + 1]
+        const avant = liste[i - 1]?.mo
+        const apres = liste[i + 1]?.mo
         const j = jour(mo.created_at)
         const sep = j !== jourPrecedent
         jourPrecedent = j
         const colle = (a?: Moment, b?: Moment) => !!a && !!b && a.member_id === b.member_id && Math.abs(new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) < 5 * 60000 && jour(a.created_at) === jour(b.created_at)
         return (
-          <div key={mo.id}>
+          <div key={alias.current.get(mo.id) ?? mo.id}>
             {sep && (
               <p className="my-3 text-center">
                 <span className="rounded-full bg-remplissage px-3 py-1 text-mini font-semibold text-brume">{j}</span>
@@ -619,13 +708,17 @@ export default function Fil(_: { onCompose?: () => void }) {
               ouvert={ouvert === mo.id}
               onOuvrir={() => setOuvert((x) => (x === mo.id ? null : mo.id))}
               onPhoto={setPlein}
+              anim={!initiaux.current!.has(mo.id)}
+              envoi={envoi}
+              envoye={mo.id === dernierMien}
+              pret={pret}
             />
           </div>
         )
       })}
       <Ecrivent qui={qui} />
       <div ref={fin} />
-      <Saisie onPhoto={setPhoto} />
+      <Saisie onPhoto={setPhoto} envoyer={envoyer} />
       {photo && (
         <PhotoEditeur
           file={photo}
@@ -636,7 +729,7 @@ export default function Fil(_: { onCompose?: () => void }) {
           onSend={async (blob, mot) => {
             setPhoto(null)
             api.ecrit(family.id, me.id, null)
-            if (await run((a) => a.postMoment(family.id, me.id, { blob, body: mot || undefined }))) success()
+            await envoyer({ blob, body: mot || undefined })
           }}
         />
       )}
