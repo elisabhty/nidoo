@@ -1,4 +1,4 @@
-import { ChevronRight, Compass } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { aventHint, useAvent } from '../components/avent'
 import { pettedToday, useCare, usePet } from '../components/care'
@@ -46,6 +46,13 @@ const PLAYED = 'nidoo.scenes.jouees'
 export default function Home({ go, active = true }: { go: (t: Go) => void; active?: boolean }) {
   const { state, toast } = useHome()
   const [sheet, setSheet] = useState<Open>(null)
+  const [explorerVu, setExplorerVu] = useState(() => {
+    try {
+      return localStorage.getItem('nidoo.explorer.vu') === '1'
+    } catch {
+      return true
+    }
+  })
   const [scene, setScene] = useState<HouseScene | null>(null)
   const houseRef = useRef<HTMLDivElement>(null)
   const [scrolled, setScrolled] = useState(false)
@@ -214,14 +221,33 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
                 {x.icon} {x.label}
               </button>
             ))}
+            {/* « Explorer » se voit : un aperçu de ce qu'il y a dedans (compagnon, potager, boutiques)
+                et une flèche qui fait signe, jusqu'à la première visite */}
             <button
               onClick={() => {
                 tap()
                 setSheet({ k: 'explorer' })
+                if (!explorerVu) {
+                  setExplorerVu(true)
+                  try {
+                    localStorage.setItem('nidoo.explorer.vu', '1')
+                  } catch {
+                    /* stockage indisponible */
+                  }
+                }
               }}
-              className="presse flex h-11 shrink-0 items-center gap-2 rounded-full bg-white pl-3 pr-4 text-sous font-semibold shadow-carte"
+              className="presse relative flex h-11 shrink-0 items-center gap-2 rounded-full pl-1.5 pr-3 text-sous font-bold text-white shadow-[0_6px_16px_rgba(102,70,204,0.35)]"
+              style={{ background: 'linear-gradient(120deg, #8E6CF0, #6646CC)' }}
+              aria-label="Explorer : compagnon, potager, centre commercial et jeux"
             >
-              <Compass size={20} strokeWidth={2.2} className="text-teinte" /> Explorer
+              <span className="flex">
+                {['pet-chat', 'plant-pousse'].map((a, i) => (
+                  <img key={a} src={`./art/${a}.webp`} alt="" className={`h-8 w-8 rounded-full bg-white object-contain p-0.5 ring-2 ring-[#7A5AE0] ${i ? '-ml-3.5' : ''}`} />
+                ))}
+              </span>
+              Explorer
+              <ChevronRight size={18} strokeWidth={2.8} style={explorerVu ? undefined : { animation: 'faitSigne 1.6s ease-in-out infinite' }} />
+              {!explorerVu && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 animate-pulse rounded-full bg-[#FF8A7A] ring-2 ring-fond" />}
             </button>
           </div>
           {/* les proches : choisir quelqu'un, avec son prénom et son humeur (moi, je suis dans le jardin) */}

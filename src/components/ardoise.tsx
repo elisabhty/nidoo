@@ -1,5 +1,5 @@
 import { Eraser, Undo2 } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { select, tap } from '../lib/haptic'
 import { ENCRES, FEUILLE_H, FEUILLE_W, type Dessin, type Trait } from '../lib/parties'
 
@@ -33,6 +33,19 @@ export function Ardoise({ value, onChange }: { value: Dessin; onChange: (d: Dess
   const [cur, setCur] = useState<Trait | null>(null)
   const curRef = useRef<Trait | null>(null)
   const total = value.reduce((n, t) => n + t.p.length / 2, 0)
+  // Sur iPhone, la page défilait pendant qu'on dessinait : on bloque le geste natif sur l'ardoise
+  // (les écouteurs de React sont « passifs », il faut un vrai preventDefault).
+  useEffect(() => {
+    const el = svg.current
+    if (!el) return
+    const stop = (e: TouchEvent) => e.preventDefault()
+    el.addEventListener('touchstart', stop, { passive: false })
+    el.addEventListener('touchmove', stop, { passive: false })
+    return () => {
+      el.removeEventListener('touchstart', stop)
+      el.removeEventListener('touchmove', stop)
+    }
+  }, [])
 
   const point = (e: React.PointerEvent) => {
     const r = svg.current!.getBoundingClientRect()

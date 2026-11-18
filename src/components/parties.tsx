@@ -21,6 +21,7 @@ import {
   type TelState,
 } from '../lib/parties'
 import { jouer } from '../lib/sons'
+import { shareInvite } from '../lib/share'
 import { useHome } from '../lib/store'
 import type { Member, Partie } from '../lib/types'
 import { errorText } from '../lib/util'
@@ -113,17 +114,34 @@ export function NewPartie({ kind, onClose, onStarted, avec }: { kind: PartieKind
   }
 
   const manque = meta.min - nbJoueurs
+  // pas assez de proches dans la maison pour ce jeu (le téléphone se joue à 3 ou plus)
+  const pasAssez = proches.length < meta.min - 1
+  const inviter = async () => {
+    tap()
+    const f = state.family
+    if (!f.invite_code || new Date(f.invite_expires_at).getTime() < Date.now()) return toast('Le code a expiré : crée-en un nouveau dans Famille.')
+    if ((await shareInvite(f.name, f.invite_code)) === 'copie') toast('Invitation copiée')
+  }
   return (
     <Sheet
       title={meta.name}
       onClose={onClose}
       tall={annee}
       footer={
+        pasAssez ? (
+          <Btn onClick={() => void inviter()}>Inviter mes proches</Btn>
+        ) : (
         <Btn onClick={() => void start()} disabled={!ready || busy}>
           {busy ? 'Un instant…' : manque > 0 ? `Choisis encore ${manque} proche${manque > 1 ? 's' : ''}` : annee && !picks.length ? 'Choisis au moins une photo' : 'Lancer la partie'}
         </Btn>
+        )
       }
     >
+      {pasAssez && proches.length > 0 && (
+        <p className="mb-4 rounded-[18px] bg-teinte-doux px-4 py-3 text-center text-sous text-teinte-fonce">
+          Ce jeu se joue à {meta.min} ou plus, toi compris. Il manque encore {meta.min - 1 - proches.length} proche{meta.min - 1 - proches.length > 1 ? 's' : ''} dans la maison : invite-les, puis revenez jouer !
+        </p>
+      )}
       <p className="text-center text-sous text-brume">{seul ? 'Avec qui ?' : `Qui joue ? (${meta.min} joueurs ou plus, toi compris)`}</p>
       {proches.length ? (
         <div className="no-bar mt-3 flex justify-center gap-4 overflow-x-auto pb-1">
@@ -608,6 +626,7 @@ function DessineDevine({ p, sec, me, members = [], busy, act, dire }: Props) {
             </button>
           </div>
           <Ardoise value={d} onChange={setD} />
+          <p className="mt-2 text-center text-note text-brume">Ensuite, {nom(members, p.players.find((x) => x !== me), me)} voit ton dessin et a 3 essais pour trouver le mot.</p>
           <Btn
             className="mt-3"
             disabled={!d.length || busy}

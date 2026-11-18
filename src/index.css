@@ -236,3 +236,10 @@ html, body { overflow: hidden; width: 100%; }
 #root { position: fixed; inset: 0; overflow: hidden; }
 
 [data-keyboard] .ios-topbar { visibility: hidden; pointer-events: none; }
+
+/* la flèche d'« Explorer » fait signe tant qu'on n'y est jamais allé */
+@keyframes faitSigne {
+  0%, 55%, 100% { transform: translateX(0); }
+  25% { transform: translateX(4px); }
+  40% { transform: translateX(-1px); }
+}
