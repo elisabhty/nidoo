@@ -41,7 +41,7 @@ def detoure(nom: str, im: Image.Image, encolure: bool = True) -> Image.Image:
     # la fourrure est crème : on n'enlève que le blanc presque pur
     # (les hauts sortent d'un détourage sur fond blanc pur : on ne retire que le blanc parfait, les rayures
     # blanches de la chemise touchent le bord)
-    seuil = 251 if nom in ENCOLURE_ROND else 246 if nom == 'fourrure' else 236
+    seuil = 251 if nom in ENCOLURE_ROND or nom in ('jean', 'montre') else 246 if nom == 'fourrure' else 236
     blanc = (mn > seuil) & (mx - mn < 14)
     fond = np.zeros((H, W), bool)
     q = deque((y, x) for y in range(H) for x in (0, W - 1) if blanc[y, x])
@@ -64,13 +64,14 @@ def detoure(nom: str, im: Image.Image, encolure: bool = True) -> Image.Image:
     al = al.filter(ImageFilter.MinFilter(3)).filter(ImageFilter.GaussianBlur(1.1))
     out = im.convert('RGBA')
     out.putalpha(al)
-    return out.crop(al.point(lambda v: 255 if v > 12 else 0).getbbox())
+    out = out.crop(al.point(lambda v: 255 if v > 12 else 0).getbbox())
+    return out
 
 
 if __name__ == '__main__':
     src = Path(sys.argv[1])
     dst = Path(sys.argv[2]) if len(sys.argv) > 2 else SORTIE
-    noms = sys.argv[3:] or ['fourrure', 'robe', 'jupe', 'short', 'blazer', 'trench'] + HAUTS
+    noms = sys.argv[3:] or ['fourrure', 'robe', 'jupe', 'short', 'blazer', 'trench'] + HAUTS + ['jean', 'montre']
     for nom in noms:
         im = detoure(nom, Image.open(src / f'{nom}.jpg'))
         im.save(dst / f'acc-{nom}.webp', quality=90, method=6)

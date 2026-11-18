@@ -2,7 +2,7 @@ import { Check, Lock } from 'lucide-react'
 import { useState } from 'react'
 import { FOOD, SHOP, type Shop, type ShopItem } from '../lib/data'
 import { success, tap } from '../lib/haptic'
-import { ACCESSORIES, encodeLook, lookOf } from '../lib/look'
+import { enlever, encodeLook, lookOf, mettre, placeDe, portes, toutEnlever } from '../lib/look'
 import { useHome } from '../lib/store'
 import { BagIcon } from './care'
 import { Character } from './Character'
@@ -220,12 +220,17 @@ function Boutique() {
   const buy = useBuy()
   const look = lookOf(me.avatar, me.user_id ?? me.id)
   const groups = [...new Set(SHOP.filter((i) => i.shop === 'boutique').map((i) => i.group))]
-  const put = (key: string | null) => {
+  // chaque chose a sa place (tête, haut, veste, bas, chaussures…) : on peut en porter plusieurs à la fois
+  const worn = portes(look).map((a) => `mode:${a}`)
+  const put = (key: string, on: boolean) => {
     tap()
-    const v = key ? ACCESSORIES.indexOf(key.slice('mode:'.length)) : 0
-    void run((a) => a.updateMember(me.id, { avatar: encodeLook({ ...look, v: Math.max(0, v) }) }), key ? 'C’est porté !' : 'Enlevé')
+    const a = key.slice('mode:'.length)
+    void run((api) => api.updateMember(me.id, { avatar: encodeLook(on ? mettre(look, a) : enlever(look, a)) }), on ? 'C’est porté !' : 'Enlevé')
   }
-  const current = look.v ? `mode:${ACCESSORIES[look.v]}` : null
+  const toutRetirer = () => {
+    tap()
+    void run((api) => api.updateMember(me.id, { avatar: encodeLook(toutEnlever(look)) }), 'Tout est enlevé')
+  }
   return (
     <>
       <div className="groupe mt-4 flex items-center gap-3 px-3 py-2.5">
@@ -233,10 +238,10 @@ function Boutique() {
         <span className="block w-[60px] shrink-0 rounded-[18px] bg-remplissage px-1 pt-1">
           <Character look={look} className="block w-full" />
         </span>
-        <p className="min-w-0 flex-1 text-sous">Ce que la famille achète ici, chacun peut le porter : depuis cette page pour toi, ou dans « Mon personnage ».</p>
-        {current && (
-          <button onClick={() => put(null)} className="presse shrink-0 rounded-full bg-remplissage px-3 py-1.5 text-legende font-semibold text-brume">
-            Enlever
+        <p className="min-w-0 flex-1 text-sous">Un chapeau, un haut, une veste, un bas, des chaussures… tout se porte ensemble. Ce que la famille achète, chacun peut le mettre.</p>
+        {worn.length > 0 && (
+          <button onClick={toutRetirer} className="presse shrink-0 rounded-full bg-remplissage px-3 py-1.5 text-legende font-semibold text-brume">
+            Tout enlever
           </button>
         )}
       </div>
@@ -246,23 +251,22 @@ function Boutique() {
           <div className="grid grid-cols-3 gap-2.5">
             {SHOP.filter((i) => i.group === g).map((it) => {
               const mine = owned.includes(it.key)
-              const worn = current === it.key
-              const v = ACCESSORIES.indexOf(it.key.slice('mode:'.length))
+              const porte = worn.includes(it.key)
               return (
-                <div key={it.key} className={`groupe flex flex-col items-center px-1.5 pb-2.5 pt-3 text-center shadow-carte ${worn ? 'ring-2 ring-teinte' : ''}`}>
+                <div key={it.key} className={`groupe flex flex-col items-center px-1.5 pb-2.5 pt-3 text-center shadow-carte ${porte ? 'ring-2 ring-teinte' : ''}`}>
                   {/* ce qui se porte sur la tête ou le visage : en aperçu sur son personnage ; le reste (vestes, bas, chaussures)
                       ne se verrait pas dans ce petit buste, on garde l'image de l'habit */}
-                  {mine && (g === 'Chapeaux' || g === 'Accessoires') ? (
+                  {mine && ['T', 'Y', 'O', 'C'].includes(placeDe(it.key.slice('mode:'.length)) ?? '') ? (
                     <span className="block h-[58px] w-[58px] overflow-hidden rounded-[16px] bg-remplissage">
-                      <Character look={{ ...look, v }} bust still className="block h-full w-full" />
+                      <Character look={mettre(look, it.key.slice('mode:'.length))} bust still className="block h-full w-full" />
                     </span>
                   ) : (
                     <Art name={it.art} size={58} className={!mine && family.stars < it.cost ? 'opacity-55' : ''} />
                   )}
                   <span className="mt-1.5 line-clamp-2 flex min-h-[32px] items-center text-legende font-medium">{it.name}</span>
                   {mine ? (
-                    <button onClick={() => put(worn ? null : it.key)} className={`presse mt-1.5 flex h-[26px] items-center gap-1 rounded-full px-2.5 text-legende font-semibold ${worn ? 'bg-teinte text-white' : 'bg-teinte-doux text-teinte-fonce'}`}>
-                      {worn ? (
+                    <button onClick={() => put(it.key, !porte)} className={`presse mt-1.5 flex h-[26px] items-center gap-1 rounded-full px-2.5 text-legende font-semibold ${porte ? 'bg-teinte text-white' : 'bg-teinte-doux text-teinte-fonce'}`}>
+                      {porte ? (
                         <>
                           <Check size={13} strokeWidth={3} /> Porté
                         </>

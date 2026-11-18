@@ -263,6 +263,7 @@ export const SHOP: ShopItem[] = [
   { key: 'mode:fleurs', name: 'Couronne de fleurs', cost: 15, art: 'mode-fleurs', shop: 'boutique', group: 'Chapeaux' },
   { key: 'mode:couronne', name: 'Couronne dorée', cost: 30, art: 'mode-couronne', shop: 'boutique', group: 'Chapeaux' },
   { key: 'mode:boucles', name: 'Boucles d’oreilles cœur', cost: 10, art: 'mode-boucles', shop: 'boutique', group: 'Accessoires' },
+  { key: 'mode:montre', name: 'Montre dorée', cost: 20, art: 'mode-montre', shop: 'boutique', group: 'Accessoires' },
   { key: 'mode:colroule', name: 'Pull col roulé', cost: 20, art: 'mode-colroule', shop: 'boutique', group: 'Hauts' },
   { key: 'mode:torsade', name: 'Pull torsadé', cost: 20, art: 'mode-torsade', shop: 'boutique', group: 'Hauts' },
   { key: 'mode:chemise', name: 'Chemise rayée', cost: 18, art: 'mode-chemise', shop: 'boutique', group: 'Hauts' },
@@ -276,6 +277,7 @@ export const SHOP: ShopItem[] = [
   { key: 'mode:robe', name: 'Robe à bretelles', cost: 22, art: 'mode-robe', shop: 'boutique', group: 'Robes' },
   { key: 'mode:jupe', name: 'Jupe plissée', cost: 18, art: 'mode-jupe', shop: 'boutique', group: 'Bas' },
   { key: 'mode:short', name: 'Short en jean', cost: 16, art: 'mode-short', shop: 'boutique', group: 'Bas' },
+  { key: 'mode:jean', name: 'Jean large', cost: 22, art: 'mode-jean', shop: 'boutique', group: 'Bas' },
   { key: 'mode:bottes', name: 'Bottes de pluie', cost: 14, art: 'mode-bottes', shop: 'boutique', group: 'Chaussures' },
   { key: 'mode:baskets', name: 'Baskets roses', cost: 12, art: 'mode-baskets', shop: 'boutique', group: 'Chaussures' },
 ]

@@ -41,7 +41,44 @@ export const GLASSES = ['Sans', 'Rondes', 'Carrées', 'Soleil']
 export const BEARDS = ['Sans', 'Courte', 'Moustache', 'Longue']
 export const MOLES = ['Sans', 'Joue gauche', 'Joue droite', 'Au-dessus de la lèvre']
 /** Les accessoires achetés à la boutique du centre commercial (clé « mode:<nom> »). */
-export const ACCESSORIES = ['', 'bonnet', 'casquette', 'paille', 'fleurs', 'echarpe', 'lunettes', 'couronne', 'noeud', 'boucles', 'manteau', 'bottes', 'baskets', 'fourrure', 'trench', 'blazer', 'robe', 'jupe', 'short', 'colroule', 'chemise', 'mariniere', 'torsade', 'sweat', 'gilet']
+export const ACCESSORIES = ['', 'bonnet', 'casquette', 'paille', 'fleurs', 'echarpe', 'lunettes', 'couronne', 'noeud', 'boucles', 'manteau', 'bottes', 'baskets', 'fourrure', 'trench', 'blazer', 'robe', 'jupe', 'short', 'colroule', 'chemise', 'mariniere', 'torsade', 'sweat', 'gilet', 'montre', 'jean']
+
+/** Où se porte chaque chose de la boutique : une place par type, pour en porter plusieurs à la fois
+ *  (un bonnet, une écharpe, une veste, une jupe et des bottes). Chaque place garde le numéro de l'objet
+ *  dans ACCESSORIES (0 : rien). La robe prend la place du haut et du bas. */
+export const PLACES = {
+  T: ['bonnet', 'casquette', 'paille', 'fleurs', 'couronne', 'noeud'], // la tête
+  Y: ['lunettes'], // les yeux
+  O: ['boucles'], // les oreilles
+  C: ['echarpe'], // le cou
+  P: ['montre'], // le poignet
+  H: ['colroule', 'chemise', 'mariniere', 'torsade', 'sweat', 'gilet'], // le haut
+  R: ['robe'], // la robe (haut et bas)
+  V: ['manteau', 'fourrure', 'trench', 'blazer'], // la veste, par-dessus
+  B: ['jupe', 'short', 'jean'], // le bas
+  S: ['bottes', 'baskets'], // les chaussures
+} as const
+export type Place = keyof typeof PLACES
+export const ORDRE_PLACES = Object.keys(PLACES) as Place[]
+export const placeDe = (acc: string): Place | null => ORDRE_PLACES.find((pl) => (PLACES[pl] as readonly string[]).includes(acc)) ?? null
+/** Ce qui est porté à une place ('' : rien). */
+export const porteA = (look: Look, pl: Place) => ACCESSORIES[look[pl] ?? 0] ?? ''
+/** Tout ce qu'on porte. */
+export const portes = (look: Look) => ORDRE_PLACES.map((pl) => porteA(look, pl)).filter(Boolean)
+/** Mettre un objet : il prend sa place (la robe libère le haut et le bas, et inversement). */
+export function mettre(look: Look, acc: string): Look {
+  const pl = placeDe(acc)
+  if (!pl) return look
+  const out: Look = { ...look, v: 0, [pl]: ACCESSORIES.indexOf(acc) }
+  if (pl === 'R') out.H = out.B = 0
+  if (pl === 'H' || pl === 'B') out.R = 0
+  return out
+}
+export function enlever(look: Look, acc: string): Look {
+  const pl = placeDe(acc)
+  return pl && porteA(look, pl) === acc ? { ...look, v: 0, [pl]: 0 } : look
+}
+export const toutEnlever = (look: Look): Look => ({ ...look, v: 0, ...Object.fromEntries(ORDRE_PLACES.map((pl) => [pl, 0])) })
 
 export type Look = {
   s: number // peau
@@ -69,14 +106,25 @@ export type Look = {
   w?: number // couleur des lunettes
   z?: number // blush
   d?: number // fossettes
+  // ce qu'on porte, une place par type (voir PLACES)
+  T?: number
+  Y?: number
+  O?: number
+  C?: number
+  P?: number
+  H?: number
+  R?: number
+  V?: number
+  B?: number
+  S?: number
 }
-const KEYS: (keyof Look)[] = ['s', 'h', 'c', 'e', 'g', 'b', 'm', 'f', 'o', 'l', 't', 'a', 'p', 'v', 'k', 'q', 'x', 'y', 'n', 'u', 'j', 'w', 'z', 'd']
+const KEYS: (keyof Look)[] = ['s', 'h', 'c', 'e', 'g', 'b', 'm', 'f', 'o', 'l', 't', 'a', 'p', 'v', 'k', 'q', 'x', 'y', 'n', 'u', 'j', 'w', 'z', 'd', 'T', 'Y', 'O', 'C', 'P', 'H', 'R', 'V', 'B', 'S']
 /** Les champs de l'ancien personnage dessiné : inutiles une fois la figurine choisie. */
 const LEGACY: (keyof Look)[] = ['s', 'h', 'c', 'e', 'g', 'b', 'm', 'o', 't', 'p']
-const MAX: Required<Look> = { s: SKINS.length, h: HAIRSTYLES.length, c: HAIR_COLORS.length, e: EYES.length, g: GLASSES.length, b: BEARDS.length, m: MOLES.length, f: 2, o: 2, l: 6, t: TOPS.length, a: AGES.length, p: 2, v: ACCESSORIES.length, k: 256, q: 9, x: 12, y: 7, n: 4, u: 5, j: 4, w: 6, z: 3, d: 2 }
+const MAX: Required<Look> = { s: SKINS.length, h: HAIRSTYLES.length, c: HAIR_COLORS.length, e: EYES.length, g: GLASSES.length, b: BEARDS.length, m: MOLES.length, f: 2, o: 2, l: 6, t: TOPS.length, a: AGES.length, p: 2, v: ACCESSORIES.length, k: 256, q: 9, x: 12, y: 7, n: 4, u: 5, j: 4, w: 6, z: 3, d: 2, T: ACCESSORIES.length, Y: ACCESSORIES.length, O: ACCESSORIES.length, C: ACCESSORIES.length, P: ACCESSORIES.length, H: ACCESSORIES.length, R: ACCESSORIES.length, V: ACCESSORIES.length, B: ACCESSORIES.length, S: ACCESSORIES.length }
 
 export const encodeLook = (l: Look) =>
-  `perso:${KEYS.filter((k) => !(l.k && LEGACY.includes(k)) && (k.match(/[qxynujwzd]/) ? l[k] : true))
+  `perso:${KEYS.filter((k) => !(l.k && LEGACY.includes(k)) && (k.match(/[qxynujwzdA-Z]/) ? l[k] : true))
     .map((k) => `${k}${l[k] ?? 0}`)
     .join('.')}`
 
@@ -89,6 +137,13 @@ export function lookOf(avatar: string | undefined, seed = ''): Look {
       const k = part[0] as keyof Look
       const v = Number(part.slice(1))
       if (KEYS.includes(k) && Number.isInteger(v) && v >= 0 && v < MAX[k]) out[k] = v
+    }
+    // l'ancien accessoire unique (v) prend sa place
+    if (out.v) {
+      const acc = ACCESSORIES[out.v]
+      const pl = placeDe(acc)
+      if (pl && !out[pl]) Object.assign(out, mettre(out, acc))
+      out.v = 0
     }
     return out
   }

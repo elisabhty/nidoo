@@ -4,6 +4,7 @@
 // largeur de la chevelure, puis le cadre du buste (x, y, côté).
 
 import { CORPS } from './corps'
+import { MAINS } from './mains'
 import { VISAGES } from './visages'
 import { ACCESSORIES, HAIR_COLORS, HAIRSTYLES, type Look } from './look'
 
@@ -225,12 +226,13 @@ export const PIECE_AR: Record<string, number> = {
   boucle: 159 / 107, manteau: 298 / 300, botte: 255 / 150, basket: 234 / 150,
   fourrure: 384 / 481, trench: 464 / 478, blazer: 414 / 476, robe: 476 / 343, jupe: 404 / 474, short: 402 / 472,
   colroule: 381 / 486, chemise: 381 / 487, mariniere: 324 / 487, torsade: 356 / 486, sweat: 359 / 486, gilet: 353 / 486,
+  jean: 740 / 573, montre: 717 / 514,
 }
 /** Les hauts : ils remplacent celui de la figurine (le col sous le menton, les manches jusqu'aux poignets). */
 export const HAUTS = ['colroule', 'chemise', 'mariniere', 'torsade', 'sweat', 'gilet']
 /** Les habits qu'on porte sur le corps : le visage, les cheveux (et parfois les mains) repassent devant. */
 export const VESTES = ['manteau', 'fourrure', 'trench', 'blazer']
-export const BAS = ['robe', 'jupe', 'short']
+export const BAS = ['robe', 'jupe', 'short', 'jean']
 
 /** La hauteur du menton (fraction de la toile), d'après la bouche et l'écart des yeux. */
 export function menton(p: Perso): number {
@@ -290,6 +292,21 @@ export function accPieces(p: Perso, acc: string): AccPiece[] | null {
     const w = bw * (acc === 'jupe' ? 1.08 : 1)
     const top = hy - (hy - menton(p)) * 0.31
     return [{ art: `acc-${acc}`, l: bx - w / 2, t: top, w, h: hy + (yb - hy) * (acc === 'jupe' ? 0.42 : 0.36) - top, flip: false }]
+  }
+  if (acc === 'jean') {
+    // de la taille aux chevilles, sur les chaussures
+    const w = bw * 1.02
+    const top = hy - (hy - menton(p)) * 0.31
+    return [{ art: 'acc-jean', l: bx - w / 2, t: top, w, h: yb - 0.045 - top, flip: false }]
+  }
+  if (acc === 'montre') {
+    // au poignet gauche de l'image, juste au-dessus de la main
+    const mn = MAINS[p.id]
+    const [mx, my, , , mw] = mn ?? [bx - bw * 0.42, hy - 0.03, 0, 0, bw * 0.16]
+    // petite : le cadran sur le poignet, le bracelet autour
+    const w = mw * 0.95
+    const hgt = (w * PIECE_AR.montre) / R
+    return [{ art: 'acc-montre', l: mx - w * 0.55, t: my - hgt * 0.5, w, h: hgt, flip: false }]
   }
   if (acc === 'bottes' || acc === 'baskets') {
     const art = acc === 'bottes' ? 'botte' : 'basket'

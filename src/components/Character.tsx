@@ -1,9 +1,9 @@
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
-import { ACCESSORIES, EYES, HAIR_COLORS, HAIRSTYLES, SKINS, TOPS, type Look } from '../lib/look'
+import { ACCESSORIES, EYES, HAIR_COLORS, HAIRSTYLES, porteA, SKINS, TOPS, type Look } from '../lib/look'
 import { COULEURS_MONTURE, FORMES_LUNETTES, LUNETTES_IMG } from '../lib/lunettes'
-import { cachedSrc, dessusPret, jambesPret, labHex, peauOf, persoImg, pixelKey, renderDessus, renderJambes, renderPerso, renderSansHaut, sansHautPret, skinLab, type BoiteHabit, type HautNu, type Mains } from '../lib/personnalise'
+import { cachedSrc, dessusPret, jambesPret, labHex, peauOf, persoImg, pixelKey, renderDessus, renderJambes, renderPerso, renderSans, sansPret, skinLab, type HautNu, type Mains, type Remplacement } from '../lib/personnalise'
 import { CORPS } from '../lib/corps'
-import { accessoryOf, accPieces, accPlace, accTop, BAS, CH, CW, HAUTS, headCut, menton, persoOf, PIECE_AR, VESTES, type Perso } from '../lib/persos'
+import { accPieces, accPlace, accTop, CH, CW, headCut, menton, persoOf, PIECE_AR, type AccPiece, type Perso } from '../lib/persos'
 import { VISAGES } from '../lib/visages'
 
 // Un personnage de la famille : une figurine en feutrine qui lui ressemble (public/art/persos),
@@ -90,24 +90,38 @@ function useJambes(p: Perso, src: string, ourlet: number | null, haut: HautNu | 
   return url
 }
 
-/** Avec un nouveau haut : la figurine sans ce qui dépassait de son ancien haut autour du cou et des épaules. */
-function useSansHaut(p: Perso, src: string, art: string | null, b: BoiteHabit | null) {
-  const [url, setUrl] = useState(() => (art && b ? sansHautPret(src, art, b) ?? src : src))
+/** La figurine sans l'ancien habit que le nouveau remplace (src tant que ce n'est pas prêt). */
+function useSans(p: Perso, src: string, r: Remplacement | null) {
+  const cle = r ? JSON.stringify(r) : ''
+  const [url, setUrl] = useState(() => (r ? sansPret(src, r) ?? src : src))
   useEffect(() => {
-    if (!art || !b) return setUrl(src)
+    if (!r) return setUrl(src)
     let live = true
-    const hit = sansHautPret(src, art, b)
+    const hit = sansPret(src, r)
     if (hit) setUrl(hit)
     else
-      renderSansHaut(p, src, art, b)
+      renderSans(p, src, r)
         .then((u) => live && setUrl(u))
         .catch(() => live && setUrl(src))
     return () => {
       live = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [src, art, b?.l, b?.t, b?.w, b?.h, p.id])
+  }, [src, cle, p.id])
   return url
+}
+
+/** Une image d'habit posée dans sa boîte (fractions de la toile). */
+function Piece({ pc }: { pc: { art: string; l: number; t: number; w: number; h: number; flip?: boolean } }) {
+  return (
+    <img
+      src={`./art/persos/${pc.art}.webp`}
+      alt=""
+      draggable={false}
+      className="absolute max-w-none select-none"
+      style={{ left: `${pc.l * 100}%`, top: `${pc.t * 100}%`, width: `${pc.w * 100}%`, height: `${pc.h * 100}%`, transform: pc.flip ? 'scaleX(-1)' : undefined }}
+    />
+  )
 }
 
 type Boite = { l: number; t: number; w: number; h: number; flip?: boolean }
@@ -156,6 +170,7 @@ const OMBRES: Record<string, { dy: number; force: number }> = {
   torsade: { dy: 0.01, force: 0.3 },
   sweat: { dy: 0.01, force: 0.3 },
   gilet: { dy: 0.01, force: 0.3 },
+  jean: { dy: 0.01, force: 0.32 },
 }
 
 /** Ce qui se dessine sur le visage : nez, bouche, taches de rousseur, blush, lunettes (toile 300x440). */
@@ -169,7 +184,7 @@ export function FaceExtras({ p, look }: { p: Perso; look: Look }) {
   const f = look.f ?? 0
   const dd = v.bouche ? look.d ?? 0 : 0
   // les lunettes de soleil de la boutique : la même monture que ses lunettes (ou des rondes noires), verres teintés
-  const soleil = ACCESSORIES[look.v ?? 0] === 'lunettes'
+  const soleil = porteA(look, 'Y') === 'lunettes'
   if (!n && !u && !j && !z && !f && !dd && !soleil) return null
   const [lx0, ly0, rx0, ry0, r0] = v.e
   const lx = lx0 * CW, ly = ly0 * CH, rx = rx0 * CW, ry = ry0 * CH, r = r0 * CW
@@ -314,59 +329,67 @@ export function FaceExtras({ p, look }: { p: Perso; look: Look }) {
 export function Character({ look, mood = null, bust = false, extras = false, className = '', pose, blush = false, recul = 1 }: Props) {
   const p = persoOf(look)
   const src0 = usePersoSrc(p, look)
-  const acc = accessoryOf(look)
-  const pl = acc ? accPlace(p, acc) : null
-  const pieces = acc ? accPieces(p, acc) : null
-  // une jupe, un short ou une robe remplace son bas : sous l'ourlet, des jambes nues jusqu'aux chaussures
-  const ourlet = acc && BAS.includes(acc) && pieces?.[0] ? pieces[0].t + pieces[0].h : null
-  // la robe remplace aussi le haut : épaules et bras nus
-  const hautNu = useMemo(() => (acc === 'robe' && pieces?.[0] ? { menton: menton(p), bretelles: pieces[0].t } : null), [acc, p, pieces?.[0]?.t]) // eslint-disable-line react-hooks/exhaustive-deps
-  const src1 = useJambes(p, src0, ourlet, hautNu)
-  // un haut remplace l'ancien : ce qui en dépassait autour du cou et des épaules s'en va
-  const estHaut = HAUTS.includes(acc)
-  const src = useSansHaut(p, src1, estHaut ? `acc-${acc}` : null, estHaut && pieces?.[0] ? pieces[0] : null)
+  // ce qu'on porte, place par place (voir PLACES)
+  const tete = porteA(look, 'T'), cou = porteA(look, 'C'), oreilles = porteA(look, 'O'), poignet = porteA(look, 'P')
+  const haut = porteA(look, 'H'), robe = porteA(look, 'R'), veste = porteA(look, 'V'), bas = porteA(look, 'B'), pieds = porteA(look, 'S')
+  const corps = CORPS[p.id]
+  const pl = tete ? accPlace(p, tete) : null
+  const plCou = cou ? accPlace(p, cou) : null
+  const pc = (a: string) => (a ? accPieces(p, a) ?? [] : [])
+  const pHaut = pc(haut), pRobe = pc(robe), pVeste = pc(veste), pBas = pc(bas), pPieds = pc(pieds), pOreilles = pc(oreilles), pPoignet = pc(poignet)
+  // une robe, une jupe ou un short : sous l'ourlet, des jambes nues jusqu'aux chaussures ; la robe enlève aussi le haut
+  const jambesNues = robe ? pRobe[0] : bas === 'jupe' || bas === 'short' ? pBas[0] : null
+  const ourlet = jambesNues ? jambesNues.t + jambesNues.h : null
+  const hautNu = useMemo(() => (robe && pRobe[0] ? { menton: menton(p), bretelles: pRobe[0].t } : null), [robe, p, pRobe[0]?.t]) // eslint-disable-line react-hooks/exhaustive-deps
+  const srcA = useJambes(p, src0, ourlet, hautNu)
+  // un haut remplace l'ancien : ce qui dépassait autour du cou et des épaules s'en va
+  const srcB = useSans(p, srcA, haut && pHaut[0] ? { pieces: pHaut, y0: pHaut[0].t - 0.05, y1: pHaut[0].t + pHaut[0].h * 0.4, regle: 'etendue' } : null)
+  // un jean remplace le pantalon : ce qui dépasse de ses jambes s'en va
+  const srcC = useSans(p, srcB, bas === 'jean' && pBas[0] ? { pieces: pBas, y0: pBas[0].t + pBas[0].h * 0.12, y1: pBas[0].t + pBas[0].h, regle: 'etendue' } : null)
+  // des chaussures remplacent les siennes ; s'il le faut, des chevilles nues entre le bas et les nouvelles
+  const src = useSans(p, srcC, pieds && corps && pPieds.length ? { pieces: pPieds, y0: corps[4] - 0.075, y1: corps[4] + 0.01, regle: 'forme', jambes: true } : null)
   const cut = `linear-gradient(to bottom, #000 ${(headCut(p) - 0.02) * 100}%, transparent ${(headCut(p) + 0.006) * 100}%)`
   const [t, h, x, c, , bx0, by0, bs0] = p.m
   const R = CH / CW
   const hw = h * R
   const at = pl ? accTop(pl) : 0
-  // l'écharpe et le manteau se portent : le visage, la barbe et les cheveux repassent devant
-  const veste = VESTES.includes(acc), bas = BAS.includes(acc), hautN = HAUTS.includes(acc)
-  const habit = acc === 'echarpe' || veste || bas || hautN
-  // pour une robe, une jupe ou un short, les bras et les mains longent l'habit : ils repassent devant
-  const corps = CORPS[p.id]
-  // pour un haut, seules les mains (pas des bras nus) repassent devant les poignets
-  const mains = useMemo(() => (bas && corps ? { cx: corps[5], demi: corps[6] * 0.34 } : hautN && corps ? { cx: corps[5], demi: corps[6] * 0.34, depuis: corps[7] - 0.09 } : null), [bas, hautN, corps])
-  const dessus = useDessus(p, src, acc === 'echarpe' ? menton(p) : veste || bas || hautN ? headCut(p) : null, mains)
-  const boitePl: Boite | null = pl ? { l: pl.x - pl.w / 2, t: at, w: pl.w, h: (pl.w * pl.ar) / R } : null
-  const ombre = acc ? OMBRES[acc] : undefined
-  const accImg = pl && (
-    <img
-      src={`./art/persos/acc-${acc}.webp`}
-      alt=""
-      draggable={false}
-      className="absolute max-w-none select-none"
-      style={{ width: `${pl.w * 100}%`, left: `${(pl.x - pl.w / 2) * 100}%`, top: `${at * 100}%` }}
-    />
+  // le visage, la barbe et les cheveux repassent devant ce qui se porte sur le corps ; sans veste, les mains aussi
+  const corpsHabille = !!(haut || robe || veste || bas || cou)
+  const mains = useMemo(
+    () => (veste || !corps || !(haut || robe || bas) ? null : { cx: corps[5], demi: corps[6] * 0.34, ...(haut ? { depuis: corps[7] - 0.09 } : {}) }),
+    [veste, haut, robe, bas, corps],
   )
-  // la figurine, l'accessoire et les petits signes de l'humeur, dans la toile 300x440
+  const dessus = useDessus(p, src, cou ? menton(p) : corpsHabille ? headCut(p) : null, corpsHabille ? mains : null)
+  const ombre = (a: string, boites: Boite[], ar: number) => {
+    const o = OMBRES[a]
+    return o && boites.length ? <Ombre src={src} art={`acc-${a}`} ar={ar} boites={boites} dy={o.dy} force={o.force} /> : null
+  }
+  const habit = (a: string, ps: AccPiece[]) =>
+    a && ps.length ? (
+      <>
+        {ombre(a, ps, PIECE_AR[a] ?? 1)}
+        {ps.map((q, i) => (
+          <Piece key={i} pc={q} />
+        ))}
+      </>
+    ) : null
+  const boite = (a: string, q: NonNullable<typeof pl>, top: number): Boite => ({ l: q.x - q.w / 2, t: top, w: q.w, h: (q.w * q.ar) / R })
+  // la figurine, ce qu'on porte et les petits signes de l'humeur, dans la toile 300x440
   const figure = (
     <>
       <img src={src} alt="" draggable={false} className="absolute inset-0 h-full w-full select-none" />
-      {(veste || bas || hautN) && ombre && pieces && <Ombre src={src} art={`acc-${acc}`} ar={PIECE_AR[acc]} boites={pieces} dy={ombre.dy} force={ombre.force} />}
-      {pieces?.map((pc, i) => (
-        <img
-          key={i}
-          src={`./art/persos/${pc.art}.webp`}
-          alt=""
-          draggable={false}
-          className="absolute max-w-none select-none"
-          style={{ left: `${pc.l * 100}%`, top: `${pc.t * 100}%`, width: `${pc.w * 100}%`, height: `${pc.h * 100}%`, transform: pc.flip ? 'scaleX(-1)' : undefined }}
-        />
-      ))}
-      {acc === 'echarpe' && ombre && boitePl && pl && <Ombre src={src} art="acc-echarpe" ar={pl.ar} boites={[boitePl]} dy={ombre.dy} force={ombre.force} />}
-      {acc === 'echarpe' && accImg}
-      {habit &&
+      {pieds && pPieds.map((q, i) => <Piece key={i} pc={q} />)}
+      {habit(bas, pBas)}
+      {habit(haut, pHaut)}
+      {habit(robe, pRobe)}
+      {habit(veste, pVeste)}
+      {plCou && (
+        <>
+          {ombre(cou, [boite(cou, plCou, accTop(plCou))], plCou.ar)}
+          <img src={`./art/persos/acc-${cou}.webp`} alt="" draggable={false} className="absolute max-w-none select-none" style={{ width: `${plCou.w * 100}%`, left: `${(plCou.x - plCou.w / 2) * 100}%`, top: `${accTop(plCou) * 100}%` }} />
+        </>
+      )}
+      {corpsHabille &&
         (dessus ? (
           <img src={dessus} alt="" draggable={false} className="absolute inset-0 h-full w-full select-none" />
         ) : (
@@ -375,6 +398,9 @@ export function Character({ look, mood = null, bust = false, extras = false, cla
             <img src={src} alt="" draggable={false} className="absolute inset-0 h-full w-full select-none" style={{ WebkitMaskImage: cut, maskImage: cut }} />
           )
         ))}
+      {pPoignet.map((q, i) => (
+        <Piece key={i} pc={q} />
+      ))}
       <FaceExtras p={p} look={look} />
       {blush && (
         <>
@@ -387,8 +413,15 @@ export function Character({ look, mood = null, bust = false, extras = false, cla
           ))}
         </>
       )}
-      {acc !== 'echarpe' && ombre && boitePl && pl && <Ombre src={src} art={`acc-${acc}`} ar={pl.ar} boites={[boitePl]} dy={ombre.dy} force={ombre.force} />}
-      {acc !== 'echarpe' && accImg}
+      {pOreilles.map((q, i) => (
+        <Piece key={i} pc={q} />
+      ))}
+      {pl && (
+        <>
+          {ombre(tete, [boite(tete, pl, at)], pl.ar)}
+          <img src={`./art/persos/acc-${tete}.webp`} alt="" draggable={false} className="absolute max-w-none select-none" style={{ width: `${pl.w * 100}%`, left: `${(pl.x - pl.w / 2) * 100}%`, top: `${at * 100}%` }} />
+        </>
+      )}
       {extras && mood === 'triste' && (
         <span className="perso-larme absolute block rounded-[50%_50%_50%_50%/60%_60%_40%_40%] bg-[#8FD3FF]" style={{ left: `${(x - hw * 0.2) * 100}%`, top: `${(t + h * 0.72) * 100}%`, width: `${hw * 0.07 * 100}%`, height: `${((hw * 0.1) / R) * 100}%` }} />
       )}
@@ -766,7 +799,7 @@ export function CharacterSvg({
   const mole = [null, [36.6, 57.2], [63.6, 56.2], [55.8, 57]][look.m] as number[] | null
 
   // Les accessoires de la boutique, par-dessus les cheveux.
-  const acc = ACCESSORIES[look.v ?? 0] ?? ''
+  const acc = porteA(look, 'T') || porteA(look, 'Y') || porteA(look, 'C') || porteA(look, 'O')
   const flower = (x: number, y: number, c: string) => (
     <g key={`${x}${y}`}>
       {[0, 72, 144, 216, 288].map((r) => (

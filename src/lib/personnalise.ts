@@ -558,19 +558,25 @@ export function renderJambes(p: Perso, src: string, ourlet: number, haut?: HautN
   return job
 }
 
-/** Changer de haut : autour du cou et sur les épaules, ce qui dépasse du nouveau haut (`art`, posé dans la boîte
- *  `boite`, fractions de la toile) et n'est ni peau ni cheveux est retiré — c'était l'ancien haut. */
-export type BoiteHabit = { l: number; t: number; w: number; h: number }
-const sansHaut = new Map<string, Promise<string>>()
-const sansHautFait = new Map<string, string>()
-const cleSansHaut = (src: string, art: string, b: BoiteHabit) => `${src}|${art}|${b.l.toFixed(3)},${b.t.toFixed(3)},${b.w.toFixed(3)},${b.h.toFixed(3)}`
-export const sansHautPret = (src: string, art: string, b: BoiteHabit) => sansHautFait.get(cleSansHaut(src, art, b))
-export function renderSansHaut(p: Perso, src: string, art: string, b: BoiteHabit): Promise<string> {
-  const key = cleSansHaut(src, art, b)
-  const hit = sansHaut.get(key)
+/** Remplacer un habit de la figurine par un nouveau (`pieces` : images posées dans leurs boîtes, fractions de la toile).
+ *  Dans la bande `[y0, y1]`, ce qui dépasse du nouvel habit et n'est ni peau ni cheveux (c'était l'ancien) est retiré :
+ *  - `etendue` : on garde tout ce qui est entre ses bords sur chaque ligne (l'encolure creuse d'un pull garde le cou) ;
+ *  - `forme` : on garde seulement ce qu'il couvre (deux chaussures, et rien entre elles).
+ *  `jambes` : les trous laissés (un pantalon raccourci au-dessus de chaussures plus basses) montrent des jambes nues. */
+export type PieceHabit = { art: string; l: number; t: number; w: number; h: number; flip?: boolean }
+export type Remplacement = { pieces: PieceHabit[]; y0: number; y1: number; regle: 'etendue' | 'forme'; jambes?: boolean }
+const sans = new Map<string, Promise<string>>()
+const sansFait = new Map<string, string>()
+const cleSans = (src: string, r: Remplacement) =>
+  `${src}|${r.regle}|${r.y0.toFixed(3)},${r.y1.toFixed(3)}|${r.jambes ? 1 : 0}|${r.pieces.map((q) => `${q.art},${q.l.toFixed(3)},${q.t.toFixed(3)},${q.w.toFixed(3)},${q.h.toFixed(3)},${q.flip ? 1 : 0}`).join(';')}`
+export const sansPret = (src: string, r: Remplacement) => sansFait.get(cleSans(src, r))
+export function renderSans(p: Perso, src: string, r: Remplacement): Promise<string> {
+  const key = cleSans(src, r)
+  const hit = sans.get(key)
   if (hit) return hit
   const job = (async () => {
-    const [im, mask, habit] = await Promise.all([load(src), load(`./art/persos/${p.id}-m.webp`), load(`./art/persos/${art}.webp`)])
+    const arts = [...new Set(r.pieces.map((q) => q.art))]
+    const [im, mask, jambe, ...imgs] = await Promise.all([load(src), load(`./art/persos/${p.id}-m.webp`), load('./art/persos/jambe.webp'), ...arts.map((a) => load(`./art/persos/${a}.webp`))])
     const W = im.naturalWidth, H = im.naturalHeight
     const cv = document.createElement('canvas')
     cv.width = W
@@ -579,14 +585,22 @@ export function renderSansHaut(p: Perso, src: string, art: string, b: BoiteHabit
     ctx.drawImage(mask, 0, 0, W, H)
     const m = ctx.getImageData(0, 0, W, H).data
     ctx.clearRect(0, 0, W, H)
-    ctx.drawImage(habit, b.l * W, b.t * H, b.w * W, b.h * H)
+    for (const q of r.pieces) {
+      const hab = imgs[arts.indexOf(q.art)]
+      ctx.save()
+      if (q.flip) {
+        ctx.translate((q.l * 2 + q.w) * W, 0)
+        ctx.scale(-1, 1)
+      }
+      ctx.drawImage(hab, q.l * W, q.t * H, q.w * W, q.h * H)
+      ctx.restore()
+    }
     const n = ctx.getImageData(0, 0, W, H).data
     ctx.clearRect(0, 0, W, H)
     ctx.drawImage(im, 0, 0)
     const img = ctx.getImageData(0, 0, W, H)
     const d = img.data
-    // du dessous du menton jusqu'au tiers du nouveau haut (les épaules), sur toute la largeur
-    const ya = Math.max(0, Math.round((b.t - 0.05) * H)), yz = Math.min(H, Math.round((b.t + b.h * 0.4) * H))
+    const ya = Math.max(0, Math.round(r.y0 * H)), yz = Math.min(H, Math.round(r.y1 * H))
     // les cheveux, élargis de 3 pixels (les perles des tresses ne sont pas dans le masque)
     const cheveux = new Uint8Array(W * H)
     for (let y = Math.max(0, ya - 3); y < Math.min(H, yz + 3); y++)
@@ -595,27 +609,67 @@ export function renderSansHaut(p: Perso, src: string, art: string, b: BoiteHabit
         for (let yy = Math.max(0, y - 3); yy <= Math.min(H - 1, y + 3); yy++)
           for (let xx = Math.max(0, x - 3); xx <= Math.min(W - 1, x + 3); xx++) cheveux[yy * W + xx] = 1
       }
+    let troue = false
     for (let y = ya; y < yz; y++) {
-      // l'étendue du nouveau haut sur cette ligne : son encolure (creuse) garde ce qu'il y a dessous
       let x0 = W, x1 = -1
-      for (let x = 0; x < W; x++)
-        if (n[(y * W + x) * 4 + 3] > 60) {
-          if (x < x0) x0 = x
-          x1 = x
-        }
+      if (r.regle === 'etendue')
+        for (let x = 0; x < W; x++)
+          if (n[(y * W + x) * 4 + 3] > 60) {
+            if (x < x0) x0 = x
+            x1 = x
+          }
       for (let x = 0; x < W; x++) {
-        if (x >= x0 && x <= x1) continue
         const i = (y * W + x) * 4
+        if (r.regle === 'etendue' ? x >= x0 && x <= x1 : n[i + 3] > 60) continue
         if (!d[i + 3] || m[i] > 128 || cheveux[y * W + x] || m[i + 2] > 40) continue
         d[i + 3] = 0
+        troue = true
       }
     }
     ctx.putImageData(img, 0, 0)
+    const corps = CORPS[p.id]
+    if (r.jambes && troue && corps) {
+      // des jambes nues derrière, teintées comme ses mains, là où l'ancien bas a été raccourci
+      const [pl, wl, pr, wr, , , , hy] = corps
+      let sL = 0, sA = 0, sB = 0, k = 0
+      for (let y = Math.round((hy - 0.14) * H); y < Math.min(H, Math.round((hy + 0.12) * H)); y++)
+        for (let x = 0; x < W; x++) {
+          const i = (y * W + x) * 4
+          if (m[i] < 160 || d[i + 3] < 220) continue
+          const [L, A, B] = rgb2lab(d[i], d[i + 1], d[i + 2])
+          sL += L
+          sA += A
+          sB += B
+          k++
+        }
+      const peau: [number, number, number] = k > 20 ? [sL / k, sA / k, sB / k] : VISAGES[p.id]?.sk ?? [75, 12, 28]
+      const tc = document.createElement('canvas')
+      tc.width = jambe.naturalWidth
+      tc.height = jambe.naturalHeight
+      const tctx = tc.getContext('2d', { willReadFrequently: true })!
+      tctx.drawImage(jambe, 0, 0)
+      const jd = tctx.getImageData(0, 0, tc.width, tc.height)
+      for (let i = 0; i < jd.data.length; i += 4) {
+        if (!jd.data[i + 3]) continue
+        const [L, A, B] = rgb2lab(jd.data[i], jd.data[i + 1], jd.data[i + 2])
+        const [rr, gg, bb] = lab2rgb(peau[0] + (L - JAMBE_LAB[0]) * 0.9, peau[1] + (A - JAMBE_LAB[1]) * 0.6, peau[2] + (B - JAMBE_LAB[2]) * 0.6)
+        jd.data[i] = rr
+        jd.data[i + 1] = gg
+        jd.data[i + 2] = bb
+      }
+      tctx.putImageData(jd, 0, 0)
+      ctx.globalCompositeOperation = 'destination-over'
+      for (const [cx, fw] of [[pl, wl], [pr, wr]]) {
+        const lw = fw * 0.82 * W
+        ctx.drawImage(tc, cx * W - lw / 2, ya - 0.03 * H, lw, yz - ya + 0.02 * H)
+      }
+      ctx.globalCompositeOperation = 'source-over'
+    }
     const url = await new Promise<string>((ok) => cv.toBlob((bl) => ok(bl ? URL.createObjectURL(bl) : cv.toDataURL()), 'image/png'))
-    sansHautFait.set(key, url)
+    sansFait.set(key, url)
     return url
   })()
-  sansHaut.set(key, job)
-  job.catch(() => sansHaut.delete(key))
+  sans.set(key, job)
+  job.catch(() => sans.delete(key))
   return job
 }

@@ -3,7 +3,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { COLOR_KEYS, COLORS, HOUSES, shopItem } from '../lib/data'
 import { select, tap } from '../lib/haptic'
-import { ACCESSORIES, AGE_SCALE, encodeLook, lookOf, type Look } from '../lib/look'
+import { ACCESSORIES, AGE_SCALE, encodeLook, enlever, lookOf, mettre, portes, toutEnlever, type Look } from '../lib/look'
 import { BLUSH, BOUCHES, CHEVEUX, labHex, LUNETTES, MONTURES, NEZ, nomPeau, peauOf, peauProche, peauxDe, persoImg, skinLab, VOILES, YEUX } from '../lib/personnalise'
 import { COULEURS_MONTURE, FORMES_LUNETTES } from '../lib/lunettes'
 import { GROUPS, PERSOS, persoOf, TONES, type Group, type Perso } from '../lib/persos'
@@ -336,11 +336,12 @@ function PersoOptions({ ed, color, setColor, owned = [] }: { ed: Perso_; color: 
           {titre('De la boutique')}
           <div className="flex flex-wrap gap-2">
             {[{ a: '', i: 0 }, ...accs].map(({ a, i }) => {
-              const on = (look.v ?? 0) === i
+              // chaque chose a sa place : on en porte plusieurs à la fois ; « Rien » enlève tout
+              const on = a ? portes(look).includes(a) : portes(look).length === 0
               return (
                 <button
                   key={i}
-                  onClick={() => set({ v: i })}
+                  onClick={() => set(a ? (on ? enlever(look, a) : mettre(look, a)) : toutEnlever(look))}
                   aria-pressed={on}
                   className={`presse flex h-11 items-center gap-1.5 rounded-full pl-1.5 pr-3.5 text-sous font-semibold transition-colors ${on ? 'bg-teinte text-white' : 'bg-remplissage text-encre'}`}
                 >
