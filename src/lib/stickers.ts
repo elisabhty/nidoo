@@ -30,11 +30,14 @@ const MOTS: Record<string, { t: string; c: string; d: string }> = {
   fetes: { t: 'Bonnes\nfêtes', c: '#7BD389', d: '#2F8F46' },
 }
 
-/** Les émojis en feutrine (le panda roux de la maison), pour le fil familial et les dessins. */
-export const EMOJIS = ['panda-rire', 'panda-amour', 'panda-heureux', 'panda-bravo', 'panda-fete', 'panda-serein', 'panda-motive', 'panda-nostalgique', 'panda-fatigue', 'panda-triste', 'panda-stresse']
+/** Les émojis en feutrine pastel (générés avec ElevenLabs), pour le fil familial, les photos et les dessins. */
+export const EMOJIS = ['emo-mdr', 'emo-amoureux', 'emo-bisou', 'emo-calin', 'emo-coucou', 'emo-merci', 'emo-bravo', 'emo-fete', 'emo-coquin', 'emo-timide', 'emo-supplie', 'emo-pleure', 'emo-surpris', 'emo-reflechit', 'emo-dodo', 'emo-cool', 'emo-ange', 'emo-costaud']
+/** Les têtes du panda roux de la maison. */
+export const PANDAS = ['panda-rire', 'panda-amour', 'panda-heureux', 'panda-bravo', 'panda-fete', 'panda-serein', 'panda-motive', 'panda-nostalgique', 'panda-fatigue', 'panda-triste', 'panda-stresse']
 
 export const CATS: Cat[] = [
   { key: 'emojis', label: 'Émojis', items: EMOJIS },
+  { key: 'panda', label: 'Panda', items: PANDAS },
   { key: 'amour', label: 'Amour', items: ['coeur', 'coeurs', 'bisou', 'lettre', 'maison', 'pouce'] },
   { key: 'mots', label: 'Petits mots', items: Object.keys(MOTS).map((k) => `mot:${k}`) },
   { key: 'noel', label: 'Noël', items: ['sapin', 'boule', 'etoile-noel', 'cadeau-noel', 'chaussette', 'sucre-orge', 'pain-epice', 'bonhomme-neige', 'pomme-pin', 'mot:noel', 'mot:fetes'] },
@@ -46,8 +49,11 @@ export const CATS: Cat[] = [
 ]
 
 export const NOMS: Record<string, string> = {
-  'panda-rire': 'Mort de rire', 'panda-amour': 'Amoureux', 'panda-heureux': 'Heureux', 'panda-bravo': 'Bravo', 'panda-fete': 'Fête', 'panda-serein': 'Zen',
-  'panda-motive': 'Motivé', 'panda-nostalgique': 'Nostalgique', 'panda-fatigue': 'Fatigué', 'panda-triste': 'Triste', 'panda-stresse': 'Stressé',
+  'emo-mdr': 'Mort de rire', 'emo-amoureux': 'Amoureux', 'emo-bisou': 'Bisou', 'emo-calin': 'Câlin', 'emo-coucou': 'Coucou', 'emo-merci': 'Merci', 'emo-bravo': 'Bravo',
+  'emo-fete': 'Fête', 'emo-coquin': 'Clin d’œil', 'emo-timide': 'Timide', 'emo-supplie': 'S’il te plaît', 'emo-pleure': 'Triste', 'emo-surpris': 'Surpris', 'emo-reflechit': 'Je réfléchis',
+  'emo-dodo': 'Dodo', 'emo-cool': 'Trop cool', 'emo-ange': 'Petit ange', 'emo-costaud': 'Courage',
+  'panda-rire': 'Panda mort de rire', 'panda-amour': 'Panda amoureux', 'panda-heureux': 'Panda heureux', 'panda-bravo': 'Panda bravo', 'panda-fete': 'Panda fête', 'panda-serein': 'Panda zen',
+  'panda-motive': 'Panda motivé', 'panda-nostalgique': 'Panda nostalgique', 'panda-fatigue': 'Panda fatigué', 'panda-triste': 'Panda triste', 'panda-stresse': 'Panda stressé',
   coeur: 'Cœur', coeurs: 'Deux cœurs', bisou: 'Bisou', lettre: 'Lettre d’amour', maison: 'Maison', pouce: 'Pouce levé',
   ballons: 'Ballons', gateau: 'Gâteau', cadeau: 'Cadeau', chapeau: 'Chapeau de fête', couronne: 'Couronne', notes: 'Notes de musique', cupcake: 'Cupcake',
   lunettes: 'Lunettes cœur', moustache: 'Moustache', oreilles: 'Oreilles de chat', noeud: 'Nœud', fleurs: 'Couronne de fleurs',

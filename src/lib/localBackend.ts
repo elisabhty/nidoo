@@ -216,7 +216,7 @@ export function createLocalBackend(): Backend {
   const ecrivains = new Set<(e: { m: string; quoi: Ecrit | null }) => void>()
   const signale = (m: string, quoi: Ecrit | null) => ecrivains.forEach((f) => f({ m, quoi }))
   const REPONSES: Record<'texte' | 'photo' | 'vocal' | 'sticker', string[]> = {
-    sticker: ['panda-amour', 'panda-rire', 'panda-heureux', 'panda-bravo', 'coeurs', 'bisou'],
+    sticker: ['emo-amoureux', 'emo-mdr', 'emo-calin', 'emo-bisou', 'emo-coucou', 'emo-fete', 'panda-amour'],
     texte: ['Oh trop bien ! On en parle dimanche ?', 'Hâte de te voir 🥰', 'Haha, je savais que tu dirais ça !', 'Bisous à toute la maison', 'Tu me manques déjà…', 'Bonne idée, je m’en occupe 😉'],
     photo: ['Trop belle cette photo ! 😍', 'Oh, j’adore. Tu me l’envoies en grand ?', 'C’est où ? On dirait des vacances !'],
     vocal: ['Ça fait du bien d’entendre ta voix 🥰', 'Haha, j’ai écouté deux fois !', 'Je te rappelle ce soir, promis.'],
