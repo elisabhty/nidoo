@@ -1,12 +1,12 @@
 import { Check, ChevronLeft, ChevronRight, MapPin, Plus } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { MemberStack } from '../components/folder'
 import { EventDetailSheet, EventSheet, eventArt, TYPES_AGENDA } from '../components/sheets'
 import { Art, Avatar, Rond, Screen, Segments, Vide } from '../components/ui'
 import { select, success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
-import type { EventKind, FamEvent, ListKind } from '../lib/types'
-import { dayLabel, finDe, nextOccurrence, occursOn, rythme, timeLabel, todayKey } from '../lib/util'
+import type { EventKind, FamEvent, ListItem, ListKind } from '../lib/types'
+import { dayLabel, errorText, finDe, nextOccurrence, occursOn, rythme, timeLabel, todayKey } from '../lib/util'
 
 type Seg = 'agenda' | 'course' | 'tache'
 type Vue = 'liste' | 'semaine'
@@ -169,45 +169,210 @@ function Semaine({ onOpen, onAdd }: { onOpen: (o: Ouvert) => void; onAdd: (day: 
   )
 }
 
+/** Idées pour les courses, en un toucher (celles déjà dans la liste ne sont pas proposées). */
+const IDEES_COURSES = ['Pain', 'Lait', 'Œufs', 'Fruits', 'Légumes', 'Beurre', 'Fromage', 'Yaourts', 'Café', 'Pâtes', 'Riz', 'Papier toilette', 'Lessive']
+
+/** Le rond à cocher (il saute un peu quand on coche). */
+function Coche({ fait }: { fait: boolean }) {
+  return fait ? (
+    <span className="anim-pop flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-teinte text-white">
+      <Check size={16} strokeWidth={3.2} />
+    </span>
+  ) : (
+    <span className="block h-[26px] w-[26px] shrink-0 rounded-full border-2 border-pale" />
+  )
+}
+
+/** Une ligne qu'on fait glisser vers la gauche pour la retirer (et qu'on peut toujours toucher pour cocher). */
+function Glisse({ children, onRetirer, label }: { children: ReactNode; onRetirer: () => void; label: string }) {
+  const [dx, setDx] = useState(0)
+  const [part, setPart] = useState(false)
+  const depart = useRef<{ x: number; y: number; actif: boolean } | null>(null)
+  const aGlisse = useRef(false) // un glissé n'est pas un toucher : on ne coche pas en lâchant
+  const fini = () => {
+    if (dx < -90) {
+      select()
+      setPart(true)
+      window.setTimeout(onRetirer, 180)
+    } else setDx(0)
+    depart.current = null
+  }
+  return (
+    <div className={`relative overflow-hidden transition-[max-height,opacity] duration-200 ${part ? 'max-h-0 opacity-0' : 'max-h-[120px]'}`}>
+      <div className="absolute inset-y-0 right-0 flex items-center justify-end bg-rouge pr-5 text-sous font-semibold text-white" style={{ width: Math.max(0, -dx) + 8 }} aria-hidden="true">
+        {dx < -40 && 'Retirer'}
+      </div>
+      <div
+        className="relative bg-carte"
+        style={{ transform: `translateX(${part ? -400 : dx}px)`, transition: depart.current?.actif ? 'none' : 'transform 0.2s ease', touchAction: 'pan-y' }}
+        onPointerDown={(e) => {
+          depart.current = { x: e.clientX, y: e.clientY, actif: false }
+          aGlisse.current = false
+        }}
+        onPointerMove={(e) => {
+          const d = depart.current
+          if (!d) return
+          const mx = e.clientX - d.x
+          if (!d.actif && Math.abs(mx) > 12 && Math.abs(mx) > Math.abs(e.clientY - d.y)) {
+            d.actif = true
+            aGlisse.current = true
+            e.currentTarget.setPointerCapture(e.pointerId)
+          }
+          if (d.actif) setDx(Math.min(0, Math.max(-220, mx)))
+        }}
+        onPointerUp={() => (depart.current?.actif ? fini() : (depart.current = null))}
+        onPointerCancel={() => {
+          depart.current = null
+          setDx(0)
+        }}
+        onClickCapture={(e) => {
+          if (aGlisse.current) {
+            aGlisse.current = false
+            e.stopPropagation()
+            e.preventDefault()
+          }
+        }}
+      >
+        {children}
+      </div>
+      <span className="sr-only">{label}</span>
+    </div>
+  )
+}
+
+/**
+ * Les courses et les missions. Tout répond tout de suite : la ligne se coche, s'ajoute ou part à l'écran
+ * pendant que l'enregistrement se fait en arrière-plan (en cas d'erreur, elle revient comme avant).
+ */
 function Liste({ kind }: { kind: ListKind }) {
-  const { state, run } = useHome()
+  const { state, api, reload, toast } = useHome()
   const { me, members, family } = state
   const [title, setTitle] = useState('')
-  const [addingItem, setAddingItem] = useState(false)
   const [editing, setEditing] = useState(false)
   const [to, setTo] = useState<string | null>(null)
   const [onlyMine, setOnlyMine] = useState(false)
-  const items = state.items.filter((i) => i.kind === kind && (!(kind === 'tache' && onlyMine) || !i.assigned_to || i.assigned_to === me.id))
+  const tache = kind === 'tache'
+  // ce qu'on vient de faire, affiché sans attendre le serveur
+  const [ajouts, setAjouts] = useState<(ListItem & { connus: Set<string> })[]>([])
+  const [changes, setChanges] = useState<Record<string, { done?: boolean; parti?: boolean }>>({})
+  const champ = useRef<HTMLInputElement>(null)
+
+  const reels = state.items.filter((i) => i.kind === kind)
+  const enAttente = ajouts.filter((a) => !reels.some((i) => !a.connus.has(i.id) && i.title === a.title))
+  const items = [
+    ...reels
+      .filter((i) => !changes[i.id]?.parti)
+      .map((i) => (changes[i.id]?.done !== undefined ? { ...i, done: changes[i.id].done!, done_by: changes[i.id].done ? me.id : null } : i)),
+    ...enAttente,
+  ].filter((i) => !(tache && onlyMine) || !i.assigned_to || i.assigned_to === me.id)
   const todo = items.filter((i) => !i.done)
   const done = items.filter((i) => i.done)
-  const tache = kind === 'tache'
+  const idees = tache ? [] : IDEES_COURSES.filter((x) => !todo.some((i) => i.title.toLowerCase() === x.toLowerCase())).slice(0, 8)
 
-  const add = async () => {
-    const t = title.trim()
-    if (!t || addingItem) return
-    setAddingItem(true)
-    const added = await run((api) => api.addItem(family.id, me.id, kind, t, tache ? to : null))
-    if (added) {
-      setTitle((current) => (current.trim() === t ? '' : current))
-      if (tache) setTo(null) // la mission suivante repart « pour tous » : pas de mauvaise personne par erreur
+  /** Enregistre en arrière-plan ; en cas d'échec on remet comme avant. */
+  const fond = async (op: () => Promise<unknown>, annuler: () => void, apres: () => void) => {
+    try {
+      await op()
+    } catch (e) {
+      annuler()
+      toast(errorText(e), 'err')
+      return
     }
-    setAddingItem(false)
+    await reload().catch(() => undefined)
+    apres()
+  }
+  const oublier = (id: string) =>
+    setChanges((c) => {
+      const n = { ...c }
+      delete n[id]
+      return n
+    })
+
+  const ajouter = (texte?: string) => {
+    const t = (texte ?? title).trim().slice(0, 80)
+    if (!t) return
+    tap()
+    if (!texte) setTitle('')
+    const tmp = { id: `attente-${Date.now()}-${Math.random()}`, family_id: family.id, kind, title: t, done: false, done_by: null, assigned_to: tache ? to : null, created_by: me.id, created_at: new Date().toISOString(), connus: new Set(state.items.map((i) => i.id)) }
+    setAjouts((a) => [...a, tmp])
+    const pour = tache ? to : null
+    if (tache) setTo(null) // la mission suivante repart « pour tous » : pas de mauvaise personne par erreur
+    champ.current?.focus()
+    void fond(
+      () => api.addItem(family.id, me.id, kind, t, pour),
+      () => {
+        setAjouts((a) => a.filter((x) => x.id !== tmp.id))
+        if (!texte) setTitle(t)
+      },
+      () => setAjouts((a) => a.filter((x) => x.id !== tmp.id)),
+    )
+  }
+  const basculer = (i: ListItem) => {
+    if (i.id.startsWith('attente-')) return
+    const fait = !i.done
+    if (fait) success()
+    else tap()
+    setChanges((c) => ({ ...c, [i.id]: { ...c[i.id], done: fait } }))
+    if (tache && fait) toast('Mission accomplie, 1 étoile gagnée')
+    void fond(
+      () => api.toggleItem(i, me.id),
+      () => oublier(i.id),
+      () => oublier(i.id),
+    )
+  }
+  const retirer = (ids: string[]) => {
+    const vrais = ids.filter((id) => !id.startsWith('attente-'))
+    setChanges((c) => ({ ...c, ...Object.fromEntries(vrais.map((id) => [id, { ...c[id], parti: true }])) }))
+    void fond(
+      async () => {
+        for (const id of vrais) await api.deleteItem(id)
+      },
+      () => vrais.forEach(oublier),
+      () => vrais.forEach(oublier),
+    )
   }
 
   return (
     <>
-      {kind === 'tache' && <div className="mx-5 mb-4"><Segments value={onlyMine ? 'moi' : 'tous'} onChange={(v) => setOnlyMine(v === 'moi')} options={[{key:'tous',label:'Toutes les missions'},{key:'moi',label:'Pour moi'}]} /></div>}
+      {tache && (
+        <div className="mx-5 mb-4">
+          <Segments value={onlyMine ? 'moi' : 'tous'} onChange={(v) => setOnlyMine(v === 'moi')} options={[{ key: 'tous', label: 'Toutes les missions' }, { key: 'moi', label: 'Pour moi' }]} />
+        </div>
+      )}
       <form
         className="groupe mx-4 flex items-center gap-3 pl-4 pr-2 shadow-carte"
         onSubmit={(e) => {
           e.preventDefault()
-          void add()
+          ajouter()
         }}
       >
         <Plus size={22} strokeWidth={2.4} className="shrink-0 text-teinte" />
-        <input aria-label={tache ? 'Nouvelle mission' : 'Ajouter un article'} className="h-[54px] min-w-0 flex-1 bg-transparent text-corps outline-none placeholder:text-brume" placeholder={tache ? 'Nouvelle mission' : 'Ajouter un article'} maxLength={80} enterKeyHint="done" value={title} onChange={(e) => setTitle(e.target.value)} />
-        {title.trim() && <button type="submit" disabled={addingItem} className="presse min-h-11 disabled:opacity-50 rounded-full bg-teinte px-4 text-sous font-semibold text-white">{addingItem ? 'Ajout…' : 'Ajouter'}</button>}
+        <input
+          ref={champ}
+          aria-label={tache ? 'Nouvelle mission' : 'Ajouter un article'}
+          className="h-[54px] min-w-0 flex-1 bg-transparent text-corps outline-none placeholder:text-brume"
+          placeholder={tache ? 'Nouvelle mission' : 'Ajouter un article'}
+          maxLength={80}
+          enterKeyHint="done"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+        {title.trim() && (
+          <button type="submit" className="presse anim-pop min-h-11 rounded-full bg-teinte px-4 text-sous font-semibold text-white">
+            Ajouter
+          </button>
+        )}
       </form>
+      {/* courses : des idées en un toucher ; missions : pour qui */}
+      {idees.length > 0 && (
+        <div className="no-bar mt-2.5 flex gap-2 overflow-x-auto px-4 pb-1" aria-label="Idées à ajouter">
+          {idees.map((x) => (
+            <button key={x} onClick={() => ajouter(x)} className="presse flex min-h-[38px] shrink-0 items-center gap-1 rounded-full bg-carte px-3.5 text-sous font-medium text-encre shadow-carte">
+              <Plus size={14} strokeWidth={2.6} className="text-teinte" /> {x}
+            </button>
+          ))}
+        </div>
+      )}
       {tache && (
         <div className="no-bar mt-2.5 flex gap-2 overflow-x-auto px-4">
           <button
@@ -244,74 +409,70 @@ function Liste({ kind }: { kind: ListKind }) {
         />
       )}
 
-      <div className="mx-5 mt-4 flex min-h-11 items-center justify-between gap-3"><p className="text-note font-semibold text-brume" role="status">{todo.length} {tache ? `mission${todo.length > 1 ? 's' : ''} à faire` : `article${todo.length > 1 ? 's' : ''} à prendre`}{done.length > 0 ? ` · ${done.length} ${tache ? `terminée${done.length > 1 ? 's' : ''}` : 'dans le panier'}` : ''}</p>{items.length > 0 && <button onClick={() => setEditing(v=>!v)} className="presse min-h-11 text-sous font-semibold text-teinte-fonce">{editing ? 'Terminé' : 'Modifier'}</button>}</div>
+      {items.length > 0 && (
+        <div className="mx-5 mt-4 flex min-h-11 items-center justify-between gap-3">
+          <p className="text-note font-semibold text-brume" role="status">
+            {todo.length} {tache ? `mission${todo.length > 1 ? 's' : ''} à faire` : `article${todo.length > 1 ? 's' : ''} à prendre`}
+            {done.length > 0 ? ` · ${done.length} ${tache ? `terminée${done.length > 1 ? 's' : ''}` : 'dans le panier'}` : ''}
+          </p>
+          <button onClick={() => setEditing((v) => !v)} className="presse min-h-11 text-sous font-semibold text-teinte-fonce">
+            {editing ? 'Terminé' : 'Modifier'}
+          </button>
+        </div>
+      )}
       {todo.length > 0 && (
-        <div className="groupe mx-4 mt-4 shadow-carte">
+        <div className="groupe mx-4 mt-1 overflow-hidden shadow-carte">
           {todo.map((i, k) => {
             const who = members.find((m) => m.id === i.assigned_to)
+            const attente = i.id.startsWith('attente-')
             return (
-              <div key={i.id} className="flex items-center gap-3 pl-4">
-                <button
-                  onClick={() => {
-                    success()
-                    void run((api) => api.toggleItem(i, me.id), tache ? 'Mission accomplie, 1 étoile gagnée' : undefined)
-                  }}
-                  className="presse -m-2 p-2"
-                  aria-label={`Cocher ${i.title}`}
-                >
-                  <span className="block h-[24px] w-[24px] rounded-full border-[1.5px] border-pale" />
-                </button>
-                <div className={`flex min-h-[50px] min-w-0 flex-1 items-center gap-2 py-2 pr-3 ${k < todo.length - 1 ? 'border-b border-trait' : ''}`}>
-                  {editing ? (
-                    <span className="min-w-0 flex-1 text-corps">{i.title}</span>
-                  ) : (
-                    <button
-                      onClick={() => {
-                        success()
-                        void run((api) => api.toggleItem(i, me.id), tache ? 'Mission accomplie, 1 étoile gagnée' : undefined)
-                      }}
-                      className="min-w-0 flex-1 text-left text-corps"
-                    >
-                      {i.title}
+              <Glisse key={i.id} onRetirer={() => retirer([i.id])} label={`Glisse vers la gauche pour retirer ${i.title}`}>
+                <div className={`flex items-center ${attente ? 'anim-pop opacity-60' : ''}`}>
+                  <button onClick={() => basculer(i)} className="presse-ligne flex min-w-0 flex-1 items-center gap-3 pl-4 text-left" aria-label={`Cocher ${i.title}`}>
+                    <Coche fait={false} />
+                    <span className={`flex min-h-[54px] min-w-0 flex-1 items-center gap-2 py-2 pr-3 ${k < todo.length - 1 ? 'border-b border-trait' : ''}`}>
+                      <span className="min-w-0 flex-1 text-corps">{i.title}</span>
+                      {who && <Avatar m={who} size={28} />}
+                    </span>
+                  </button>
+                  {editing && (
+                    <button onClick={() => retirer([i.id])} className="presse mr-2 flex min-h-11 items-center rounded-full bg-rouge/10 px-3 text-note font-semibold text-rouge" aria-label={`Retirer ${i.title}`}>
+                      Retirer
                     </button>
                   )}
-                  {who && <Avatar m={who} size={28} />}
-                  {editing && <button onClick={() => run((api) => api.deleteItem(i.id))} className="presse min-h-11 px-2 text-note text-brume" aria-label={`Supprimer ${i.title}`}>
-                    Retirer
-                  </button>}
                 </div>
-              </div>
+              </Glisse>
             )
           })}
         </div>
       )}
+      {todo.length > 0 && !tache && <p className="mt-2 px-5 text-mini text-pale">Touche pour cocher · glisse vers la gauche pour retirer</p>}
 
       {done.length > 0 && (
         <>
           <div className="mt-6 flex items-baseline justify-between px-5">
             <p className="entete !px-0">{tache ? 'Terminées' : 'Dans le panier'}</p>
-            {editing && <button
-              onClick={() =>
-                run(async (api) => {
-                  for (const d of done) await api.deleteItem(d.id)
-                })
-              }
-              className="presse text-sous text-teinte"
-            >
-              Tout effacer
-            </button>}
+            <button onClick={() => retirer(done.map((d) => d.id))} className="presse min-h-11 text-sous font-semibold text-teinte">
+              {tache ? 'Tout effacer' : 'Vider le panier'}
+            </button>
           </div>
-          <div className="groupe mx-4 shadow-carte">
+          <div className="groupe mx-4 overflow-hidden shadow-carte">
             {done.map((i, k) => {
               const who = members.find((m) => m.id === i.assigned_to)
               return (
-                <button key={i.id} onClick={() => run((api) => api.toggleItem(i, me.id))} className="presse-ligne flex w-full items-center gap-3 pl-4 text-left">
-                  <span className="flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full bg-teinte text-white"><Check size={15} strokeWidth={3.2} /></span>
-                  <span className={`flex min-w-0 flex-1 items-center gap-2 py-3 pr-3 ${k < done.length - 1 ? 'border-b border-trait' : ''}`}>
-                    <span className="min-w-0 flex-1 text-corps text-pale line-through">{i.title}</span>
-                    {who && <span className="opacity-70"><Avatar m={who} size={26} /></span>}
-                  </span>
-                </button>
+                <Glisse key={i.id} onRetirer={() => retirer([i.id])} label={`Glisse vers la gauche pour retirer ${i.title}`}>
+                  <button onClick={() => basculer(i)} className="presse-ligne flex w-full items-center gap-3 pl-4 text-left" aria-label={`Décocher ${i.title}`}>
+                    <Coche fait />
+                    <span className={`flex min-h-[50px] min-w-0 flex-1 items-center gap-2 py-2 pr-3 ${k < done.length - 1 ? 'border-b border-trait' : ''}`}>
+                      <span className="min-w-0 flex-1 text-corps text-pale line-through">{i.title}</span>
+                      {who && (
+                        <span className="opacity-70">
+                          <Avatar m={who} size={26} />
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                </Glisse>
               )
             })}
           </div>

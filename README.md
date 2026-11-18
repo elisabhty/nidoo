@@ -96,6 +96,7 @@ Cinq profils ont parcouru la démo (une maman qui découvre, une grand-mère de 
 - missions : la personne choisie ne reste plus sélectionnée, une mission faite garde la tête de qui devait la faire ; toucher toute la ligne coche un article ;
 - agenda : un événement peut durer plusieurs jours (« Du 28 au 29 novembre ») ou revenir chaque semaine (« Tous les jeudis »), et « Ajouter à mon calendrier » donne un fichier .ics (heure, lieu, détails, répétition, rappel 1 h avant) (`0023_agenda_plusieurs_jours.sql`) ;
 - memory : six cartes émojis sont prêtes, on peut lancer sans choisir de photos ;
+- courses et missions instantanées : ajouter, cocher et retirer s'affichent tout de suite, l'enregistrement se fait en arrière-plan (et tout revient comme avant en cas d'erreur) ; on glisse une ligne vers la gauche pour la retirer ; des idées en un toucher (Pain, Lait, Œufs…) ; « Vider le panier » toujours visible ;
 - Réglages › « Supprimer mon compte » (règle 5.1.1(v) de l'App Store) : `public.delete_my_account()` efface la personne de toutes ses maisons puis son compte ; une maison qu'elle a créée passe à un autre membre qui a l'appli, et celle où il ne reste personne avec l'appli est supprimée (`0022_supprimer_compte.sql`). Ses photos et vocaux du fil sont retirés du stockage juste avant.
 
 ## Reste à faire
