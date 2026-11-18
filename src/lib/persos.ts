@@ -224,7 +224,10 @@ export type AccPiece = { art: string; l: number; t: number; w: number; h: number
 export const PIECE_AR: Record<string, number> = {
   boucle: 159 / 107, manteau: 298 / 300, botte: 255 / 150, basket: 234 / 150,
   fourrure: 384 / 481, trench: 464 / 478, blazer: 414 / 476, robe: 476 / 343, jupe: 404 / 474, short: 402 / 472,
+  colroule: 381 / 486, chemise: 381 / 487, mariniere: 324 / 487, torsade: 356 / 486, sweat: 359 / 486, gilet: 353 / 486,
 }
+/** Les hauts : ils remplacent celui de la figurine (le col sous le menton, les manches jusqu'aux poignets). */
+export const HAUTS = ['colroule', 'chemise', 'mariniere', 'torsade', 'sweat', 'gilet']
 /** Les habits qu'on porte sur le corps : le visage, les cheveux (et parfois les mains) repassent devant. */
 export const VESTES = ['manteau', 'fourrure', 'trench', 'blazer']
 export const BAS = ['robe', 'jupe', 'short']
@@ -267,6 +270,13 @@ export function accPieces(p: Perso, acc: string): AccPiece[] | null {
     const w = bw * 1.36
     const top = Math.max(t + h * 0.78, menton(p) - 0.01)
     const hgt = Math.min((w * PIECE_AR[acc]) / R, yb - 0.06 - top)
+    return [{ art: `acc-${acc}`, l: bx - w / 2, t: top, w, h: hgt, flip: false }]
+  }
+  if (HAUTS.includes(acc)) {
+    // du menton aux hanches, assez large pour couvrir le haut d'origine et ses manches
+    const w = bw * 1.36
+    const top = menton(p) - (acc === 'colroule' ? 0.02 : 0.008)
+    const hgt = Math.max((w * PIECE_AR[acc]) / R, hy + 0.02 - top)
     return [{ art: `acc-${acc}`, l: bx - w / 2, t: top, w, h: hgt, flip: false }]
   }
   if (acc === 'robe') {
