@@ -221,7 +221,7 @@ export function DecorPage({ onClose, food: forFood = false }: { onClose: () => v
             </div>
           </div>
         ))}
-        <p className="px-5 pt-5 text-note text-brume">Chaque décoration installée fait monter la maison d’un niveau. Le défi de la semaine en offre une de plus.</p>
+        <p className="px-5 pt-5 text-note text-brume">Chaque décoration installée fait monter la maison d’un niveau.</p>
       </Page>
 
       {adopt && (

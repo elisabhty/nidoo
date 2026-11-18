@@ -1,7 +1,7 @@
 import { ChevronRight, MapPin } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useAvent } from '../components/avent'
-import { DefisDuJour, QuestionSheet, SemaineSheet } from '../components/defis'
+import { DefisDuJour, QuestionSheet } from '../components/defis'
 import { MotPage } from '../components/motmystere'
 import { pettedToday, useCare, usePet } from '../components/care'
 import { DecorPage, GoneSheet, useGone } from '../components/decor'
@@ -35,7 +35,6 @@ type Open =
   | { k: 'question' }
   | { k: 'defiPhoto' }
   | { k: 'mot' }
-  | { k: 'semaine' }
   | { k: 'evenement'; e: FamEvent }
 
 export function upcoming(events: ReturnType<typeof useHome>['state']['events'], limit = 3) {
@@ -366,7 +365,6 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
       )}
       {sheet?.k === 'question' && <QuestionSheet onClose={() => setSheet(null)} />}
       {sheet?.k === 'defiPhoto' && <ComposeSheet challenge={challengeOfDay()} onClose={() => setSheet(null)} />}
-      {sheet?.k === 'semaine' && <SemaineSheet onClose={() => setSheet(null)} />}
       {sheet?.k === 'evenement' && <EventDetailSheet event={sheet.e} onClose={() => setSheet(null)} />}
       {sheet?.k === 'mot' && <MotPage onClose={() => setSheet(null)} />}
       {sheet?.k === 'explorer' && (

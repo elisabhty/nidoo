@@ -1,18 +1,16 @@
-import { Camera, Check, ChevronRight, X } from 'lucide-react'
+import { Camera, Check, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { challengeOfDay, questionOfDay } from '../lib/data'
 import { success, tap } from '../lib/haptic'
 import { MOT_ESSAIS } from '../lib/parties'
 import { useHome } from '../lib/store'
 import { todayKey } from '../lib/util'
-import { challenge as defiSemaine, nextReward } from '../lib/weekly'
 import { Art, Avatar, Btn, Sheet } from './ui'
-import { WeeklyChallenge } from './weekly'
 
 // Les défis du jour, sur l'accueil : la question du jour, le défi photo, le mot mystère,
-// la case du calendrier (en décembre) et le défi de la semaine, chacun avec les étoiles à gagner.
+// la case du calendrier (en décembre), chacun avec les étoiles à gagner.
 
-export type Defi = 'question' | 'photo' | 'mot' | 'avent' | 'semaine'
+export type Defi = 'question' | 'photo' | 'mot' | 'avent'
 
 function Etoiles({ n, texte }: { n?: number; texte?: string }) {
   return (
@@ -30,7 +28,7 @@ const Fait = () => (
 
 export function DefisDuJour({ avent, onOpen }: { avent: null | { aOuvrir: boolean; etoiles: number }; onOpen: (d: Defi) => void }) {
   const { state } = useHome()
-  const { me, answers, moments, mot, weekly, houseItems } = state
+  const { me, answers, moments, mot } = state
   const q = questionOfDay()
   const photo = challengeOfDay()
   const repondu = answers.some((a) => a.member_id === me.id)
@@ -38,9 +36,6 @@ export function DefisDuJour({ avent, onOpen }: { avent: null | { aOuvrir: boolea
   const photoFaite = moments.some((m) => m.member_id === me.id && m.challenge === photo && todayKey(new Date(m.created_at)) === todayKey())
   const monMot = mot.find((l) => l.member_id === me.id)
   const motFini = !!monMot && (monMot.trouve || monMot.motifs.length >= MOT_ESSAIS)
-  const semaine = defiSemaine(weekly.counts)
-  const buts = semaine.goals.filter((g) => g.done >= g.n).length
-  const deco = nextReward(houseItems)
 
   const lignes: { k: Defi; art: string; titre: string; texte: string; fait: boolean; etoiles: number; aide?: string }[] = [
     { k: 'question', art: 'picto-bulle', titre: 'Question du jour', texte: q.text, fait: repondu, etoiles: 2, aide: repondu ? (autres ? `${autres} réponse${autres > 1 ? 's' : ''} à lire` : 'Les autres répondront à leur rythme') : undefined },
@@ -84,22 +79,6 @@ export function DefisDuJour({ avent, onOpen }: { avent: null | { aOuvrir: boolea
       </div>
       <div className="groupe mt-2 overflow-hidden shadow-carte">
         {lignes.map(ligne)}
-        <button
-          onClick={() => {
-            tap()
-            onOpen('semaine')
-          }}
-          className="presse-ligne flex w-full items-center gap-3 border-t border-trait py-3 pl-3 pr-3.5 text-left"
-        >
-          <Art name={deco ? `deco-${deco.key}` : 'picto-etoile'} size={44} />
-          <span className="min-w-0 flex-1">
-            <span className="block text-note font-semibold uppercase tracking-[0.03em] text-peche-fonce">Défi de la semaine</span>
-            <span className={`line-clamp-2 block text-sous font-semibold ${weekly.claimed ? 'text-brume' : ''}`}>{semaine.title}</span>
-            <span className="block text-note text-brume">{weekly.claimed ? 'Relevé ensemble, bravo !' : `${buts} objectif${buts > 1 ? 's' : ''} sur ${semaine.goals.length}`}</span>
-          </span>
-          {weekly.claimed ? <Fait /> : deco ? <span className="shrink-0 rounded-full bg-peche-doux px-2.5 py-1 text-note font-bold text-peche-fonce">Une déco</span> : <Etoiles n={20} />}
-          <ChevronRight size={16} strokeWidth={2.6} className="-mr-1 shrink-0 text-pale" />
-        </button>
       </div>
     </section>
   )
@@ -203,16 +182,6 @@ export function QuestionSheet({ onClose }: { onClose: () => void }) {
           </Btn>
         </form>
       )}
-    </Sheet>
-  )
-}
-
-/** Le défi de la semaine, dans sa fenêtre. */
-export function SemaineSheet({ onClose }: { onClose: () => void }) {
-  return (
-    <Sheet title="Défi de la semaine" onClose={onClose}>
-      <WeeklyChallenge className="!mx-0" />
-      <p className="mt-3 px-1 text-note text-brume">Un objectif commun : chaque geste de la famille compte. Une fois relevé, toute la maison reçoit la récompense.</p>
     </Sheet>
   )
 }

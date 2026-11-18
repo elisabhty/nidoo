@@ -60,7 +60,6 @@ export function StarsSheet({ onClose, onDecorate }: { onClose: () => void; onDec
       <p className="entete mt-5 !px-1">À quoi elles servent</p>
       <div className="groupe space-y-2 p-4 text-sous">
         <p>Chaque décoration installée embellit la maison et la fait monter d’un niveau (vous êtes au niveau {houseItems.length + 1}).</p>
-        <p>Le défi de la semaine, relevé ensemble, offre en plus une décoration à toute la famille.</p>
         {next && (
           <p className="text-brume">
             Prochaine décoration : {next.name}, {next.cost} étoiles{family.stars >= next.cost ? ', vous pouvez l’installer.' : '.'}
