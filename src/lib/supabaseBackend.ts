@@ -4,7 +4,7 @@ import { SUPABASE_KEY, SUPABASE_URL } from '../config'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { isMemory } from './jeux'
 import { jourParis, type AnneeState, type MotLigne, type MotMoi, type Secret } from './parties'
-import type { AdventDoor, AppFlag, Answer, Backend, Game, Partie, HouseCare, Pet, Plot, Circle, Drawing, DrawingData, FamEvent, Family, FamilyState, Folder, JoinRequest, LiveEvent, LiveInvite, MyRequest, FolderItem, FolderMember, ListItem, Member, Moment, Reaction, StarEntry, Thought, Ecrit } from './types'
+import type { AdventDoor, AppFlag, Answer, Backend, Game, Partie, HouseCare, Pet, Plot, Circle, Drawing, DrawingData, FamEvent, Family, FamilyState, Folder, JoinRequest, LiveEvent, LiveInvite, MyRequest, FolderItem, FolderMember, ListItem, Member, Moment, PollVote, Reaction, StarEntry, Thought, Ecrit } from './types'
 import { compressImage, daysAgoKey, todayKey, uid } from './util'
 import { createSignedUrlCache } from './signedUrls'
 import { emptyCounts, type WeeklyCounts } from './weekly'
@@ -146,13 +146,14 @@ export function createSupabaseBackend(): Backend {
       )
       const since = new Date(Date.now() - 14 * 86400000).toISOString()
       const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString()
-      const [family, members, requests, weekly, moments, folders, folderMembers, folderItems, reactions, thoughts, drawings, events, items, answers, house, stars, cares, pets, plots, stock, owned, games, jeux2, motJour, flags, advent] = await Promise.all([
+      const [family, members, requests, weekly, moments, pollVotes, folders, folderMembers, folderItems, reactions, thoughts, drawings, events, items, answers, house, stars, cares, pets, plots, stock, owned, games, jeux2, motJour, flags, advent] = await Promise.all([
         sb.from('families').select('*').eq('id', fid).single(),
         sb.from('members').select('*').eq('family_id', fid).order('joined_at'),
         // Lisibles seulement par les responsables (RLS) : vide pour les autres.
         sb.from('join_requests').select('*').eq('family_id', fid).eq('status', 'attente').order('created_at'),
         sb.rpc('weekly_challenge', { p_family: fid }),
         sb.from('moments').select('*').eq('family_id', fid).order('created_at', { ascending: false }).limit(120),
+        sb.from('poll_votes').select('moment_id, member_id, family_id, option_index').eq('family_id', fid),
         sb.from('folders').select('*').eq('family_id', fid).order('created_at'),
         sb.from('folder_members').select('folder_id, member_id').eq('family_id', fid),
         sb.from('folder_items').select('*').eq('family_id', fid).order('created_at').limit(2000),
@@ -236,6 +237,7 @@ export function createSupabaseBackend(): Backend {
           return { counts: { ...emptyCounts(), ...w?.counts }, claimed: w?.claimed ?? null }
         })(),
         moments: moms,
+        pollVotes: (check(pollVotes) ?? []) as PollVote[],
         folders: dossiers,
         folderMembers: (check(folderMembers) ?? []) as FolderMember[],
         folderItems: contenus,
@@ -267,7 +269,7 @@ export function createSupabaseBackend(): Backend {
 
     subscribe(fid, onChange) {
       const ch = sb.channel(`famille:${fid}`)
-      for (const table of ['members', 'join_requests', 'weekly_rewards', 'moments', 'folders', 'folder_members', 'folder_items', 'reactions', 'thoughts', 'drawings', 'events', 'list_items', 'daily_answers', 'house_items', 'house_care', 'pets', 'garden_plots', 'family_stock', 'shop_items', 'games', 'parties', 'mot_essais', 'advent_doors']) {
+      for (const table of ['members', 'join_requests', 'weekly_rewards', 'moments', 'poll_votes', 'folders', 'folder_members', 'folder_items', 'reactions', 'thoughts', 'drawings', 'events', 'list_items', 'daily_answers', 'house_items', 'house_care', 'pets', 'garden_plots', 'family_stock', 'shop_items', 'games', 'parties', 'mot_essais', 'advent_doors']) {
         ch.on('postgres_changes', { event: '*', schema: 'public', table, filter: `family_id=eq.${fid}` }, onChange)
       }
       ch.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'families', filter: `id=eq.${fid}` }, onChange)
@@ -432,9 +434,13 @@ export function createSupabaseBackend(): Backend {
       check(
         await sb.from('moments').insert({
           family_id: fid, member_id: memberId, image_path, body: m.body?.trim() || null, challenge: m.challenge ?? null,
-          audio_path, duree: m.audio ? Math.max(1, Math.min(300, Math.round(m.audio.duree))) : null, ondes: m.audio ? m.audio.ondes.slice(0, 64) : null, sticker: m.sticker?.slice(0, 60) || null,
+          audio_path, duree: m.audio ? Math.max(1, Math.min(300, Math.round(m.audio.duree))) : null, ondes: m.audio ? m.audio.ondes.slice(0, 64) : null, sticker: m.sticker?.slice(0, 60) || null, poll_options: m.pollOptions ?? null,
         }),
       )
+    },
+    async votePoll(moment, memberId, optionIndex) {
+      if (!moment.poll_options || optionIndex < 0 || optionIndex >= moment.poll_options.length) throw new Error('SONDAGE_INVALIDE')
+      check(await sb.from('poll_votes').upsert({ moment_id: moment.id, family_id: moment.family_id, member_id: memberId, option_index: optionIndex }, { onConflict: 'moment_id,member_id' }))
     },
     ecrit(fid, memberId, quoi) {
       void canalFamille(fid)
