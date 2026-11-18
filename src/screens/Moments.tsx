@@ -1,9 +1,9 @@
-import { ArrowUp, ImagePlus, Mic, Pause, Play, Smile, Trash2, X } from 'lucide-react'
+import { ArrowUp, Check, ImagePlus, ListPlus, Mic, Pause, Play, Plus, Smile, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { PhotoEditeur } from '../components/photoEditeur'
 import { StickerImg, StickerTray } from '../components/stickers'
-import { Art, Avatar, confirmer } from '../components/ui'
+import { Art, Avatar, confirmer, Sheet } from '../components/ui'
 import { REACTIONS } from '../lib/data'
 import { select, success, tap } from '../lib/haptic'
 import { bulle } from '../lib/sons'
@@ -161,6 +161,59 @@ function Vocal({ mo, mine }: { mo: Moment; mine: boolean }) {
   )
 }
 
+
+/** Un sondage fait partie de la conversation, avec les résultats partagés en direct. */
+function Sondage({ mo, mine, envoi }: { mo: Moment; mine: boolean; envoi?: boolean }) {
+  const { state, run } = useHome()
+  const options = mo.poll_options ?? []
+  const votes = state.pollVotes.filter((v) => v.moment_id === mo.id)
+  const mien = votes.find((v) => v.member_id === state.me.id)?.option_index
+  const total = votes.length
+  const [voteEnCours, setVoteEnCours] = useState(false)
+  const choisirVote = async (index: number) => {
+    if (envoi || voteEnCours || mien === index) return
+    select()
+    setVoteEnCours(true)
+    try {
+      await run((api) => api.votePoll(mo, state.me.id, index))
+    } finally {
+      setVoteEnCours(false)
+    }
+  }
+  return (
+    <div className="w-[min(72vw,330px)] min-w-[210px] max-w-full" onClick={(e) => e.stopPropagation()}>
+      <p className={`mb-1 text-note font-bold ${mine ? 'text-white/80' : 'text-teinte-fonce'}`}>Sondage</p>
+      <p className="mb-3 whitespace-pre-wrap break-words text-corps font-semibold">{mo.body}</p>
+      <div className="space-y-2">
+        {options.map((option, index) => {
+          const nb = votes.filter((v) => v.option_index === index).length
+          const pct = total ? Math.round((nb / total) * 100) : 0
+          const selected = mien === index
+          return (
+            <button
+              key={index}
+              disabled={envoi || voteEnCours || selected}
+              onClick={() => void choisirVote(index)}
+              className={`presse relative flex min-h-[44px] w-full items-center gap-2 overflow-hidden rounded-[12px] border px-3 py-2 text-left text-sous disabled:opacity-85 ${mine ? 'border-white/30 bg-white/10 text-white' : 'border-teinte/20 bg-teinte-doux/60 text-encre'}`}
+              aria-label={`${option}${mien !== undefined ? `, ${pct} %` : ''}`}
+            >
+              {mien !== undefined && <span className={`absolute inset-y-0 left-0 ${mine ? 'bg-white/20' : 'bg-teinte/15'}`} style={{ width: `${pct}%` }} aria-hidden="true" />}
+              <span className="relative flex min-w-0 flex-1 items-center gap-1.5">
+                {selected && <Check size={15} className="shrink-0" strokeWidth={3} />}
+                <span className="break-words">{option}</span>
+              </span>
+              {mien !== undefined && <span className="relative shrink-0 font-bold tabular-nums">{pct} %</span>}
+            </button>
+          )
+        })}
+      </div>
+      <p className={`mt-2 text-note ${mine ? 'text-white/80' : 'text-brume'}`}>
+        {total} vote{total > 1 ? 's' : ''}{mien === undefined ? ' · Choisis une réponse' : ' · Tu peux changer ton vote'}
+      </p>
+    </div>
+  )
+}
+
 // ───────── Une bulle ─────────
 
 /** Garde l’aperçu visible jusqu’au décodage de la photo confirmée. */
@@ -272,8 +325,7 @@ function Bulle({ mo, auteur, mine, premier, dernier, ouvert, onOuvrir, onPhoto, 
           {mo.audio_path && (mo.audio_url ? <Vocal mo={mo} mine={mine} /> : <p className="text-sous opacity-80">Vocal indisponible</p>)}
           {mo.body && (
             <div className={mo.image_url ? 'px-2.5 pt-2' : ''}>
-              <Texte body={mo.body} mine={mine} />
-              <Apercu body={mo.body} mine={mine} />
+              {mo.poll_options?.length ? <Sondage mo={mo} mine={mine} envoi={envoi} /> : <><Texte body={mo.body} mine={mine} /><Apercu body={mo.body} mine={mine} /></>}
             </div>
           )}
         </div>
@@ -349,6 +401,47 @@ function Ecrivent({ qui }: { qui: { m: Member; quoi: Ecrit }[] }) {
   )
 }
 
+
+/** La composition d'un sondage reprend la feuille iOS de l'application. */
+function SondageCompose({ onClose, envoyer }: { onClose: () => void; envoyer: (m: NouvelEnvoi) => Promise<boolean> }) {
+  const [question, setQuestion] = useState('')
+  const [options, setOptions] = useState(['', ''])
+  const [loading, setLoading] = useState(false)
+  const cleaned = options.map((s) => s.trim()).filter(Boolean)
+  const valid = question.trim().length > 0 && cleaned.length >= 2 && cleaned.length === options.length && new Set(cleaned.map((s) => s.toLowerCase())).size === cleaned.length
+  const publier = async () => {
+    if (!valid || loading) return
+    setLoading(true)
+    try {
+      if (await envoyer({ body: question.trim().slice(0, 200), pollOptions: cleaned })) onClose()
+    } finally {
+      setLoading(false)
+    }
+  }
+  return (
+    <Sheet title="Nouveau sondage" onClose={onClose} footer={
+      <button disabled={!valid || loading} onClick={() => void publier()} className="presse ios-primary btn-desactive flex min-h-[52px] w-full items-center justify-center rounded-full font-bold text-white">
+        {loading ? 'Publication…' : 'Publier le sondage'}
+      </button>
+    }>
+      <p className="mb-4 text-sous text-brume">Pose une question à toute la famille. Chacun pourra voter une fois, et modifier son choix.</p>
+      <label className="mb-1 block text-sous font-semibold">Question</label>
+      <textarea aria-label="Question du sondage" value={question} onChange={(e) => setQuestion(e.target.value.slice(0, 200))} maxLength={200} rows={2} placeholder="On se retrouve où dimanche ?" className="mb-5 w-full resize-none rounded-[16px] bg-white px-4 py-3 text-corps outline-none focus:ring-2 focus:ring-teinte" />
+      <p className="mb-2 text-sous font-semibold">Réponses possibles</p>
+      <div className="space-y-2">
+        {options.map((option, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <input aria-label={`Réponse ${i + 1}`} value={option} maxLength={80} onChange={(e) => setOptions((x) => x.map((v, j) => j === i ? e.target.value : v))} placeholder={`Choix ${i + 1}`} className="min-h-[48px] min-w-0 flex-1 rounded-[14px] bg-white px-4 text-corps outline-none focus:ring-2 focus:ring-teinte" />
+            {options.length > 2 && <button aria-label={`Retirer la réponse ${i + 1}`} onClick={() => setOptions((x) => x.filter((_, j) => j !== i))} className="presse flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-brume"><X size={18} /></button>}
+          </div>
+        ))}
+      </div>
+      {options.length < 6 && <button onClick={() => setOptions((x) => [...x, ''])} className="presse mt-3 flex min-h-[44px] items-center gap-2 font-semibold text-teinte-fonce"><Plus size={18} /> Ajouter une réponse</button>}
+      <p className="mt-3 text-note text-brume">De 2 à 6 réponses · Une seule réponse par personne</p>
+    </Sheet>
+  )
+}
+
 // ───────── La barre d'envoi ─────────
 
 type Enreg = { rec: MediaRecorder; stream: MediaStream; ctx: AudioContext; t0: number; niveaux: number[]; morceaux: Blob[]; timer: number }
@@ -359,6 +452,7 @@ function Saisie({ onPhoto, envoyer }: { onPhoto: (f: File) => void; envoyer: (m:
   const [texte, setTexte] = useState('')
   const [enreg, setEnreg] = useState<Enreg | null>(null)
   const [tiroir, setTiroir] = useState(false)
+  const [sondage, setSondage] = useState(false)
   const [, tic] = useState(0)
   const zone = useRef<HTMLTextAreaElement>(null)
   const fichier = useRef<HTMLInputElement>(null)
@@ -464,6 +558,7 @@ function Saisie({ onPhoto, envoyer }: { onPhoto: (f: File) => void; envoyer: (m:
           else signal(null)
         }}
       />
+      {sondage && <SondageCompose onClose={() => setSondage(false)} envoyer={envoyer} />}
       {tiroir && !enreg && (
         <div className="mb-2 [&>div]:!mt-0">
           <StickerTray
@@ -505,6 +600,7 @@ function Saisie({ onPhoto, envoyer }: { onPhoto: (f: File) => void; envoyer: (m:
           >
             <ImagePlus size={20} />
           </button>
+          <button onClick={() => { tap(); setTiroir(false); signal(null); setSondage(true) }} className="presse flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-teinte-doux text-teinte-fonce" aria-label="Créer un sondage" title="Sondage"><ListPlus size={20} /></button>
           <textarea
             ref={zone}
             rows={1}
@@ -559,12 +655,12 @@ function Saisie({ onPhoto, envoyer }: { onPhoto: (f: File) => void; envoyer: (m:
 // ───────── L'envoi immédiat ─────────
 
 /** Ce qu'on envoie : du texte, un sticker, une photo (avec sa légende) ou un vocal. */
-type NouvelEnvoi = { body?: string; sticker?: string; blob?: Blob; audio?: { blob: Blob; duree: number; ondes: number[] } }
+type NouvelEnvoi = { body?: string; sticker?: string; blob?: Blob; pollOptions?: string[]; audio?: { blob: Blob; duree: number; ondes: number[] } }
 /** Un message affiché tout de suite, le temps qu'il parte ; le vrai le remplace sans bruit dès qu'il arrive. */
 type Envoi = { mo: Moment; cle: string; connus: Set<string> }
-const cleDe = (x: { body?: string | null; sticker?: string | null; image: boolean; audio: boolean }) =>
-  `${x.audio ? 'vocal' : x.image ? 'photo' : x.sticker ? 'sticker' : 'texte'}|${(x.body ?? '').trim()}|${x.sticker ?? ''}`
-const cleMoment = (m: Moment) => cleDe({ body: m.body, sticker: m.sticker, image: !!(m.image_path || m.image_url), audio: !!m.audio_path })
+const cleDe = (x: { body?: string | null; sticker?: string | null; image: boolean; audio: boolean; poll?: string[] | null }) =>
+  `${x.poll?.length ? 'sondage' : x.audio ? 'vocal' : x.image ? 'photo' : x.sticker ? 'sticker' : 'texte'}|${(x.body ?? '').trim()}|${x.sticker ?? ''}|${(x.poll ?? []).join('|')}`
+const cleMoment = (m: Moment) => cleDe({ body: m.body, sticker: m.sticker, image: !!(m.image_path || m.image_url), audio: !!m.audio_path, poll: m.poll_options })
 
 // ───────── Le fil ─────────
 
@@ -625,7 +721,7 @@ export default function Fil(_: { onCompose?: () => void }) {
     const id = `envoi-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
     const mo: Moment = {
       id, family_id: family.id, member_id: me.id, image_path: null, image_url: m.blob ? URL.createObjectURL(m.blob) : null,
-      body: m.body?.trim() || null, challenge: null, created_at: new Date().toISOString(), sticker: m.sticker ?? null,
+      body: m.body?.trim() || null, challenge: null, created_at: new Date().toISOString(), sticker: m.sticker ?? null, poll_options: m.pollOptions ?? null,
       audio_path: m.audio ? 'envoi' : null, audio_url: m.audio ? URL.createObjectURL(m.audio.blob) : null, duree: m.audio ? Math.round(m.audio.duree) : null, ondes: m.audio?.ondes ?? null,
     }
     if (mo.image_url) {
@@ -634,7 +730,7 @@ export default function Fil(_: { onCompose?: () => void }) {
       preview.src = mo.image_url
       try { await preview.decode() } catch { /* L’envoi reste possible si l’aperçu ne se décode pas. */ }
     }
-    setEnvois((x) => [...x, { mo, cle: cleDe({ body: m.body, sticker: m.sticker, image: !!m.blob, audio: !!m.audio }), connus: new Set(msgsRef.current.map((y) => y.id)) }])
+    setEnvois((x) => [...x, { mo, cle: cleDe({ body: m.body, sticker: m.sticker, image: !!m.blob, audio: !!m.audio, poll: m.pollOptions }), connus: new Set(msgsRef.current.map((y) => y.id)) }])
     onPreviewReady?.()
     bulle('envoi')
     const ok = await run((a) => a.postMoment(family.id, me.id, m))
