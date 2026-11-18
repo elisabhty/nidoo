@@ -213,10 +213,6 @@ export function PhotoEditeur({ file, onClose, onSend, confirmLabel = 'Envoyer la
       {error && <p role="alert" className="bg-rouge px-4 py-2 text-sous text-white">{error}</p>}
       {/* outils */}
       <div className="flex items-center gap-2 px-3 pb-2 pt-2">
-        <button onClick={onClose} disabled={envoi} className="presse flex h-11 w-11 items-center justify-center rounded-full bg-white/15" aria-label="Annuler">
-          <X size={22} />
-        </button>
-        <span className="flex-1" />
         <button onClick={annuler} disabled={!gestes.length} className="presse flex h-11 w-11 items-center justify-center rounded-full bg-white/15 disabled:opacity-40" aria-label="Annuler le dernier geste">
           <Undo2 size={20} />
         </button>
@@ -259,6 +255,10 @@ export function PhotoEditeur({ file, onClose, onSend, confirmLabel = 'Envoyer la
           aria-label={initialDrawing ? 'Dessiner sur la note' : 'Dessiner sur la photo'}
         >
           <Brush size={20} />
+        </button>
+        <span className="flex-1" />
+        <button onClick={onClose} disabled={envoi} className="presse flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/15" aria-label="Annuler">
+          <X size={22} />
         </button>
       </div>
 

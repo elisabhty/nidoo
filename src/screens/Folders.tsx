@@ -468,17 +468,17 @@ function PhotoViewer({ photos, start, folder, admin, onClose, onDecorate, onRepl
       onPointerCancel={() => ((from.current = null), setDx(0))}
     >
       <div className="flex items-center justify-between px-4" style={{ paddingTop: 'calc(var(--sat) + 8px)' }}>
-        <button onClick={onClose} className="presse flex h-10 w-10 items-center justify-center rounded-full bg-white/15" aria-label="Fermer">
-          <X size={20} strokeWidth={2.6} />
-        </button>
-        <span className="text-sous font-semibold text-white/80">{idx + 1} sur {photos.length}</span>
         {mine || admin ? (
-          <button onClick={actions} className="presse flex h-10 w-10 items-center justify-center rounded-full bg-white/15" aria-label="Options de la photo">
+          <button onClick={actions} className="presse flex h-11 w-11 items-center justify-center rounded-full bg-white/15" aria-label="Options de la photo">
             <Ellipsis size={20} />
           </button>
         ) : (
-          <span className="w-10" />
+          <span className="w-11" />
         )}
+        <span className="text-sous font-semibold text-white/80">{idx + 1} sur {photos.length}</span>
+        <button onClick={onClose} className="presse flex h-11 w-11 items-center justify-center rounded-full bg-white/15" aria-label="Fermer">
+          <X size={20} strokeWidth={2.6} />
+        </button>
       </div>
       {(mine || admin || p.kind === 'dessin') && <button onClick={() => onDecorate(p)} className="presse mx-5 mt-3 flex min-h-11 items-center justify-center gap-2 rounded-full bg-white/15 px-4 text-sous font-semibold"><Pencil size={18} />Cadres, stickers et dessin</button>}
       <div className="relative min-h-0 flex-1 overflow-hidden">
