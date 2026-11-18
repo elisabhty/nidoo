@@ -1,5 +1,5 @@
 import { ArrowUp, ImagePlus, Mic, Pause, Play, Smile, Trash2, X } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { PhotoEditeur } from '../components/photoEditeur'
 import { StickerImg, StickerTray } from '../components/stickers'
@@ -163,7 +163,35 @@ function Vocal({ mo, mine }: { mo: Moment; mine: boolean }) {
 
 // ───────── Une bulle ─────────
 
-function Bulle({ mo, auteur, mine, premier, dernier, ouvert, onOuvrir, onPhoto, anim, envoi, envoye, pret }: { mo: Moment; auteur: Member; mine: boolean; premier: boolean; dernier: boolean; ouvert: boolean; onOuvrir: () => void; onPhoto: (url: string) => void; /** un nouveau message : il entre en bougeant */ anim: boolean; /** en cours d'envoi */ envoi?: boolean; /** le dernier message, le nôtre, est bien parti */ envoye?: boolean; /** le fil est affiché depuis un moment : les nouvelles réactions sautent */ pret: boolean }) {
+/** Garde l’aperçu visible jusqu’au décodage de la photo confirmée. */
+function PhotoDuFil({ src, alt, anim, onPhoto, releasePhoto }: { src: string; alt: string; anim: boolean; onPhoto: (url: string) => void; releasePhoto: (url: string) => void }) {
+  const [visible, setVisible] = useState(src)
+  useEffect(() => {
+    if (src === visible) return
+    let active = true
+    const image = new Image()
+    image.src = src
+    void image.decode().then(() => {
+      if (active) setVisible(src)
+    }).catch(() => { /* L’aperçu reste visible si le téléchargement échoue. */ })
+    return () => { active = false }
+  }, [src, visible])
+  const precedente = useRef(visible)
+  useEffect(() => {
+    const ancienne = precedente.current
+    precedente.current = visible
+    if (ancienne !== visible) releasePhoto(ancienne)
+  }, [visible, releasePhoto])
+  return <img
+    src={visible}
+    alt={alt}
+    loading={anim ? 'eager' : 'lazy'}
+    onClick={(e) => { e.stopPropagation(); onPhoto(visible) }}
+    className="block max-h-[340px] w-full min-w-[180px] rounded-[18px] object-cover"
+  />
+}
+
+function Bulle({ mo, auteur, mine, premier, dernier, ouvert, onOuvrir, onPhoto, anim, envoi, envoye, pret, releasePhoto }: { releasePhoto: (url: string) => void; mo: Moment; auteur: Member; mine: boolean; premier: boolean; dernier: boolean; ouvert: boolean; onOuvrir: () => void; onPhoto: (url: string) => void; /** un nouveau message : il entre en bougeant */ anim: boolean; /** en cours d'envoi */ envoi?: boolean; /** le dernier message, le nôtre, est bien parti */ envoye?: boolean; /** le fil est affiché depuis un moment : les nouvelles réactions sautent */ pret: boolean }) {
   const { state, run } = useHome()
   const rs = state.reactions.filter((r) => r.moment_id === mo.id)
   const maReaction = rs.find((r) => r.member_id === state.me.id)?.emoji
@@ -232,23 +260,14 @@ function Bulle({ mo, auteur, mine, premier, dernier, ouvert, onOuvrir, onPhoto, 
             tap()
             onOuvrir()
           }}
-          className={`presse relative overflow-hidden transition-opacity ${anim ? (mine ? 'anim-envoi reflet' : 'anim-arrive') : ''} ${envoi ? 'opacity-75' : ''} ${coin} ${photoSeule ? 'p-1' : mo.image_url ? 'p-1 pb-2' : 'px-3.5 py-2'} ${mine ? 'text-white' : 'bg-white text-encre shadow-carte'}`}
+          className={`presse relative overflow-hidden transition-opacity ${anim ? (mine ? (mo.image_url ? 'anim-photo-envoi' : 'anim-envoi reflet') : 'anim-arrive') : ''} ${envoi && !mo.image_url ? 'opacity-75' : ''} ${coin} ${photoSeule ? 'p-1' : mo.image_url ? 'p-1 pb-2' : 'px-3.5 py-2'} ${mine ? 'text-white' : 'bg-white text-encre shadow-carte'}`}
           style={mine ? { background: 'linear-gradient(150deg, #8E6CF0, #6646CC)' } : undefined}
         >
           {mo.challenge && (
             <p className={`mb-1 text-note font-semibold ${mo.image_url ? 'px-2.5 pt-1.5' : ''} ${mine ? 'text-white/85' : 'text-peche-fonce'}`}>📸 Défi photo · {mo.challenge}</p>
           )}
           {mo.image_url && (
-            <img
-              src={mo.image_url}
-              alt={mo.body ?? `Photo de ${auteur.display_name}`}
-              loading="lazy"
-              onClick={(e) => {
-                e.stopPropagation()
-                onPhoto(mo.image_url!)
-              }}
-              className="block max-h-[340px] w-full min-w-[180px] rounded-[18px] object-cover"
-            />
+            <PhotoDuFil src={mo.image_url} alt={mo.body ?? `Photo de ${auteur.display_name}`} anim={anim} onPhoto={onPhoto} releasePhoto={releasePhoto} />
           )}
           {mo.audio_path && (mo.audio_url ? <Vocal mo={mo} mine={mine} /> : <p className="text-sous opacity-80">Vocal indisponible</p>)}
           {mo.body && (
@@ -592,14 +611,31 @@ export default function Fil(_: { onCompose?: () => void }) {
     if (confirmes.size) setEnvois((current) => current.filter((e) => !confirmes.has(e.mo.id)))
   }, [envois, msgs]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const envoyer = async (m: NouvelEnvoi) => {
+  const photosLocales = useRef(new Set<string>())
+  const releasePhoto = useCallback((url: string) => {
+    // Seuls les aperçus créés ici nous appartiennent, pas les URL du cache partagé.
+    if (photosLocales.current.delete(url)) URL.revokeObjectURL(url)
+  }, [])
+  useEffect(() => {
+    const urls = photosLocales.current
+    return () => { urls.forEach((url) => URL.revokeObjectURL(url)); urls.clear() }
+  }, [])
+
+  const envoyer = async (m: NouvelEnvoi, onPreviewReady?: () => void) => {
     const id = `envoi-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
     const mo: Moment = {
       id, family_id: family.id, member_id: me.id, image_path: null, image_url: m.blob ? URL.createObjectURL(m.blob) : null,
       body: m.body?.trim() || null, challenge: null, created_at: new Date().toISOString(), sticker: m.sticker ?? null,
       audio_path: m.audio ? 'envoi' : null, audio_url: m.audio ? URL.createObjectURL(m.audio.blob) : null, duree: m.audio ? Math.round(m.audio.duree) : null, ondes: m.audio?.ondes ?? null,
     }
+    if (mo.image_url) {
+      photosLocales.current.add(mo.image_url)
+      const preview = new Image()
+      preview.src = mo.image_url
+      try { await preview.decode() } catch { /* L’envoi reste possible si l’aperçu ne se décode pas. */ }
+    }
     setEnvois((x) => [...x, { mo, cle: cleDe({ body: m.body, sticker: m.sticker, image: !!m.blob, audio: !!m.audio }), connus: new Set(msgsRef.current.map((y) => y.id)) }])
+    onPreviewReady?.()
     bulle('envoi')
     const ok = await run((a) => a.postMoment(family.id, me.id, m))
     if (ok) success()
@@ -607,7 +643,6 @@ export default function Fil(_: { onCompose?: () => void }) {
     // Le succès est réconcilié après le rendu du message définitif ci-dessus.
     if (!ok) setEnvois((x) => x.filter((y) => y.mo.id !== id))
     window.setTimeout(() => {
-      if (mo.image_url) URL.revokeObjectURL(mo.image_url)
       if (mo.audio_url) URL.revokeObjectURL(mo.audio_url)
     }, 5000)
     return ok
@@ -738,6 +773,7 @@ export default function Fil(_: { onCompose?: () => void }) {
               ouvert={ouvert === mo.id}
               onOuvrir={() => setOuvert((x) => (x === mo.id ? null : mo.id))}
               onPhoto={setPlein}
+              releasePhoto={releasePhoto}
               anim={!initiaux.current!.has(mo.id)}
               envoi={envoi}
               envoye={mo.id === dernierMien}
@@ -757,9 +793,8 @@ export default function Fil(_: { onCompose?: () => void }) {
             api.ecrit(family.id, me.id, null)
           }}
           onSend={async (blob, mot) => {
-            setPhoto(null)
             api.ecrit(family.id, me.id, null)
-            await envoyer({ blob, body: mot || undefined })
+            await envoyer({ blob, body: mot || undefined }, () => setPhoto(null))
           }}
         />
       )}

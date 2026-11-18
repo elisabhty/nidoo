@@ -1,5 +1,5 @@
-import { Check, Palette } from 'lucide-react'
-import { useId, useRef, useState } from 'react'
+import { Check, ChevronLeft, ChevronRight, Palette } from 'lucide-react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { COLOR_KEYS, COLORS, HOUSES, shopItem } from '../lib/data'
 import { select, tap } from '../lib/haptic'
@@ -92,14 +92,51 @@ function PersoOptions({ ed, color, setColor, owned = [] }: { ed: Perso_; color: 
     const t = inToneOf(mine, tn)
     if (t >= 0 && t !== peau) set({ q: t })
   }
-  // les plus jeunes d'abord, les grands-parents à la fin, chaque fois du teint le plus clair au plus foncé
-  const list = PERSOS.filter((p) => p.g === group && inTone(p) >= 0).sort((p, q) => Number(!!p.s) - Number(!!q.s) || Number(p.t !== tone) - Number(q.t !== tone) || p.t - q.t)
+  // La première sélection montre d’emblée plusieurs teints, générations et styles.
+  // On trie la galerie sans déplacer PERSOS, dont les indices sont enregistrés dans les profils.
+  const premieres: Record<Group, string[]> = {
+    femme: ['f01', 'f14', 'f06', 'f04', 'gf2'],
+    homme: ['h01', 'h03', 'h12', 'gm1', 'h06'],
+    fille: ['fi1', 'fi3', 'fi5', 'fi6', 'fa2'],
+    garcon: ['gi1', 'gi3', 'gi5', 'gi6', 'ga2'],
+    bebe: ['b1', 'b3', 'b5', 'b2', 'b4'],
+  }
+  const priorite = (p: Perso) => {
+    const i = premieres[group].indexOf(p.id)
+    return i < 0 ? premieres[group].length : i
+  }
+  const list = PERSOS.filter((p) => p.g === group && inTone(p) >= 0).sort((p, q) => priorite(p) - priorite(q) || Number(!!p.s) - Number(!!q.s) || p.t - q.t)
   const kids = group === 'fille' || group === 'garcon'
-  const [all, setAll] = useState(false)
-  // deux rangées d'abord (avec la figurine choisie), le reste sur demande
-  const first = list.slice(0, 8)
-  if (list.includes(mine) && !first.includes(mine)) first[7] = mine
-  const shown = all || tone !== null || list.length <= 12 ? list : first
+  const galerie = useRef<HTMLDivElement>(null)
+  const galerieId = useId()
+  const [restants, setRestants] = useState(Math.max(0, list.length - 5))
+  const compter = () => {
+    const el = galerie.current
+    if (!el) return
+    const bord = el.getBoundingClientRect().right
+    let vus = 0
+    Array.from(el.children).forEach((carte, i) => {
+      if (carte.getBoundingClientRect().right <= bord + 1) vus = i + 1
+    })
+    setRestants(Math.max(0, list.length - vus))
+  }
+  useEffect(() => {
+    const el = galerie.current
+    if (!el) return
+    el.scrollTo({ left: 0, behavior: 'instant' })
+    compter()
+    const ro = new ResizeObserver(compter)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [group, tone]) // eslint-disable-line react-hooks/exhaustive-deps
+  const avancer = () => {
+    tap()
+    const el = galerie.current
+    if (!el) return
+    const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'
+    if (!restants) el.scrollTo({ left: 0, behavior })
+    else el.scrollBy({ left: el.clientWidth + 4, behavior })
+  }
   const titre = (t: string) => <p className="mb-2 mt-5 px-1 text-note font-semibold uppercase tracking-[0.02em] text-brume">{t}</p>
   const accs = ACCESSORIES.map((a, i) => ({ a, i })).filter(({ a, i }) => i && owned.includes(`mode:${a}`))
   const anneau = (on: boolean) => (on ? '0 0 0 2.5px #FFFFFF, 0 0 0 4.5px #7A5AE0' : 'inset 0 0 0 1px rgba(29,26,43,0.12)')
@@ -156,8 +193,9 @@ function PersoOptions({ ed, color, setColor, owned = [] }: { ed: Perso_; color: 
       </div>
       {tone !== null && inToneOf(mine, tone) < 0 && <p className="mt-2 px-1 text-note text-brume">Ta figurine n’existe pas avec cette peau : choisis-en une dans la galerie.</p>}
 
-      <div className="mt-3 grid grid-cols-4 gap-2">
-        {shown.map((p) => {
+      <div className="mt-3 flex items-stretch gap-2">
+        <div ref={galerie} id={galerieId} onScroll={compter} className="no-bar flex min-w-0 flex-1 snap-x snap-mandatory gap-0.5 overflow-x-auto p-1" role="group" aria-label="Galerie de personnages">
+        {list.map((p) => {
           const on = p.id === mine.id
           const t = tone === null ? undefined : inTone(p)
           const img = on ? persoImg(p, peau) : persoImg(p, t ?? 0)
@@ -167,12 +205,13 @@ function PersoOptions({ ed, color, setColor, owned = [] }: { ed: Perso_; color: 
               onClick={() => pick(p, t)}
               aria-pressed={on}
               aria-label={p.label}
-              className={`presse relative overflow-hidden rounded-[18px] px-1.5 pb-1 pt-2 transition-shadow ${on ? 'bg-teinte-doux ring-[2.5px] ring-inset ring-teinte' : 'bg-carte'}`}
+              style={{ flexBasis: 'calc((100% - 8px) / 5)', minWidth: 44 }}
+              className={`presse relative shrink-0 snap-start overflow-hidden rounded-[12px] px-0.5 pb-1 pt-2 transition-shadow ${on ? 'bg-teinte-doux ring-[2.5px] ring-inset ring-teinte' : 'bg-carte'}`}
             >
               <img src={img} alt="" loading="lazy" draggable={false} className="block aspect-[300/440] w-full select-none" />
               {on && (
-                <span className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-teinte text-white shadow-carte" aria-hidden="true">
-                  <Check size={14} strokeWidth={3.2} />
+                <span className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-teinte text-white shadow-carte" aria-hidden="true">
+                  <Check size={10} strokeWidth={3.2} />
                 </span>
               )}
             </button>
@@ -180,11 +219,10 @@ function PersoOptions({ ed, color, setColor, owned = [] }: { ed: Perso_; color: 
         })}
       </div>
 
-      {shown.length < list.length && (
-        <button onClick={() => (tap(), setAll(true))} className="presse mt-2 h-11 w-full rounded-full bg-remplissage text-sous font-semibold text-teinte-fonce">
-          Voir les {list.length} personnages
-        </button>
-      )}
+      <button onClick={avancer} aria-controls={galerieId} className="presse flex w-[96px] shrink-0 items-center justify-center gap-1 rounded-[16px] bg-teinte-doux px-1.5 text-center text-[11px] font-semibold leading-[14px] text-teinte-fonce">
+        {restants > 0 ? <><span>Voir les {restants}<br />autres personnages</span><ChevronRight size={16} className="perso-arrow shrink-0" aria-hidden="true" /></> : <><span>Revenir<br />au début</span><ChevronLeft size={16} className="shrink-0" aria-hidden="true" /></>}
+      </button>
+      </div>
 
       {kids && (
         <>
