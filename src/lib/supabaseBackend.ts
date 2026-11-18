@@ -380,6 +380,27 @@ export function createSupabaseBackend(): Backend {
       check(await sb.from('members').delete().eq('id', memberId))
     },
 
+    async deleteAccount() {
+      // D'abord mes fichiers (photos et vocaux du fil, photos de mes dessins), tant qu'on sait encore lesquels
+      // sont à moi ; puis la base efface tout le reste (public.delete_my_account), et on se déconnecte.
+      try {
+        const mes = (check(await sb.from('members').select('id').eq('user_id', userId)) as { id: string }[]).map((m) => m.id)
+        if (mes.length) {
+          const mo = check(await sb.from('moments').select('image_path,audio_path').in('member_id', mes)) as { image_path: string | null; audio_path: string | null }[]
+          const fichiers = mo.flatMap((m) => [m.image_path, m.audio_path]).filter((x): x is string => !!x)
+          for (let i = 0; i < fichiers.length; i += 100) await sb.storage.from('moments').remove(fichiers.slice(i, i + 100))
+          const dr = check(await sb.from('drawings').select('photo_path').in('from_member', mes)) as { photo_path: string | null }[]
+          const photos = dr.map((d) => d.photo_path).filter((x): x is string => !!x)
+          for (let i = 0; i < photos.length; i += 100) await sb.storage.from('instants').remove(photos.slice(i, i + 100))
+        }
+      } catch {
+        /* les fichiers restants ne sont plus reliés à personne ; on efface quand même le compte */
+      }
+      const r = await sb.rpc('delete_my_account')
+      if (r.error) throw new Error(r.error.message)
+      await sb.auth.signOut().catch(() => undefined)
+    },
+
     async postMoment(fid, memberId, m) {
       let image_path: string | null = null
       if (m.blob) {
@@ -533,6 +554,8 @@ export function createSupabaseBackend(): Backend {
             ...(patch.starts_at !== undefined ? { starts_at: patch.starts_at } : {}),
             ...(patch.all_day !== undefined ? { all_day: patch.all_day } : {}),
             ...(patch.yearly !== undefined ? { yearly: patch.yearly } : {}),
+            ...(patch.weekly !== undefined ? { weekly: patch.weekly } : {}),
+            ...(patch.ends_on !== undefined ? { ends_on: patch.ends_on } : {}),
             ...(patch.description !== undefined ? { description: patch.description?.trim() || null } : {}),
             ...(patch.lieu !== undefined ? { lieu: patch.lieu?.trim().slice(0, 200) || null } : {}),
             ...(patch.members ? { members: patch.members } : {}),

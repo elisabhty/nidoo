@@ -20,7 +20,7 @@ import { feel, tap } from '../lib/haptic'
 import { shareInvite } from '../lib/share'
 import { useHome } from '../lib/store'
 import type { Drawing, FamEvent, Member } from '../lib/types'
-import { familyLabel, greeting, isToday, nextOccurrence, season, timeLabel } from '../lib/util'
+import { familyLabel, finDe, greeting, isToday, nextOccurrence, rythme, season, timeLabel } from '../lib/util'
 import type { Go } from '../App'
 
 type Open =
@@ -42,8 +42,8 @@ export function upcoming(events: ReturnType<typeof useHome>['state']['events'], 
   const start = new Date()
   start.setHours(0, 0, 0, 0)
   return events
-    .map((e) => ({ e, at: nextOccurrence(e.starts_at, e.yearly) }))
-    .filter((x) => x.at >= start)
+    .map((e) => ({ e, at: nextOccurrence(e) }))
+    .filter((x) => finDe(x.e, x.at) >= start) // un week-end commencé hier compte encore
     .sort((a, b) => a.at.getTime() - b.at.getTime())
     .slice(0, limit)
 }
@@ -95,7 +95,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
   const now = season()
   // un anniversaire aujourd'hui : on propose la carte toute prête, avec le prénom
   const anniv = state.events
-    .filter((e) => e.kind === 'anniversaire' && isToday(nextOccurrence(e.starts_at, e.yearly).toISOString()))
+    .filter((e) => e.kind === 'anniversaire' && isToday(nextOccurrence(e).toISOString()))
     .map((e) => {
       const m = others.find((o) => e.members?.includes(o.id)) ?? others.find((o) => e.title.toLowerCase().includes(o.display_name.toLowerCase()))
       const nom = m?.display_name ?? e.title.replace(/^anniversaire\s+(de\s+|d['’])?/i, '')
@@ -280,8 +280,9 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
               <Art name={eventArt(prochain.e.kind)} size={40} />
               <span className="min-w-0 flex-1">
                 <span className="block text-note font-semibold text-teinte-fonce">
-                  {quandCourt(prochain.at)}
+                  {prochain.at < new Date(new Date().setHours(0, 0, 0, 0)) ? 'En ce moment' : quandCourt(prochain.at)}
                   {prochain.e.all_day ? '' : ` · ${timeLabel(prochain.at)}`}
+                  {rythme(prochain.e, prochain.at) ? ` · ${rythme(prochain.e, prochain.at)}` : ''}
                 </span>
                 <span className="block truncate text-corps font-semibold">{prochain.e.title}</span>
                 {prochain.e.lieu && (

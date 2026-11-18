@@ -178,6 +178,10 @@ export type FamEvent = {
   description?: string | null
   /** Les proches concernés (vide : toute la famille). */
   members?: string[]
+  /** Dernier jour (« AAAA-MM-JJ ») d'un événement sur plusieurs jours : week-end, vacances… */
+  ends_on?: string | null
+  /** Revient chaque semaine (activités des enfants…). */
+  weekly?: boolean
 }
 
 export type ListItem = {
@@ -282,7 +286,7 @@ export type AdventDoor = { year: number; day: number; opened_by: string | null; 
 
 export type Circle = { family: Family; me: Member }
 
-export type NewEvent = { title: string; kind: EventKind; starts_at: string; all_day: boolean; yearly: boolean; lieu?: string | null; description?: string | null; members?: string[] }
+export type NewEvent = { title: string; kind: EventKind; starts_at: string; all_day: boolean; yearly: boolean; weekly?: boolean; ends_on?: string | null; lieu?: string | null; description?: string | null; members?: string[] }
 
 export interface Backend {
   mode: 'supabase' | 'local'
@@ -306,6 +310,8 @@ export interface Backend {
   updateMember(memberId: string, patch: Partial<Pick<Member, 'display_name' | 'avatar' | 'color'>>): Promise<void>
   updateFamily(familyId: string, patch: Partial<Pick<Family, 'name' | 'house_type'>>): Promise<void>
   leave(memberId: string): Promise<void>
+  /** Efface mon compte : mes profils dans toutes mes maisons (messages, photos, vocaux…), puis le compte lui-même. */
+  deleteAccount(): Promise<void>
   postMoment(familyId: string, memberId: string, m: { blob?: Blob; body?: string; challenge?: string; audio?: { blob: Blob; duree: number; ondes: number[] }; sticker?: string }): Promise<void>
   /** Dire à la famille qu'on écrit (ou qu'on a arrêté : null), en direct, sans rien enregistrer. */
   ecrit(familyId: string, memberId: string, quoi: Ecrit | null): void

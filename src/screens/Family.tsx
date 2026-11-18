@@ -1,4 +1,4 @@
-import { Baby, Check, CircleHelp, Clock, Copy, Crown, House as HouseIcon, LogOut, Mail, Pencil, Plus, RefreshCw, Share, ShieldCheck, UserRound, Volume2 } from 'lucide-react'
+import { Baby, Check, CircleHelp, Clock, Copy, Crown, House as HouseIcon, LogOut, Mail, Pencil, Plus, RefreshCw, Share, ShieldCheck, Trash2, UserRound, Volume2 } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import House from '../components/House'
 import { careFor, careTodo, gardenKeys } from '../components/care'
@@ -453,10 +453,32 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
             danger
             label="Quitter cette maison"
             chevron={false}
-            last
             onClick={async () =>
               (await confirmer({ title: `Quitter « ${familyLabel(family.name)} » ?`, message: 'Tes photos et tes messages y seront retirés.', confirm: 'Quitter la maison', destructive: true })) && run((a) => a.leave(me.id))
             }
+          />
+          <Row
+            icon={<Trash2 size={16} strokeWidth={2.4} />}
+            danger
+            label="Supprimer mon compte"
+            chevron={false}
+            last
+            onClick={async () => {
+              const ok = await confirmer({
+                title: 'Supprimer ton compte ?',
+                message: 'Ton personnage, tes messages, tes photos et tes vocaux seront effacés de toutes tes maisons. Une maison où personne d’autre n’a l’appli sera supprimée avec. C’est définitif.',
+                confirm: 'Supprimer définitivement',
+                destructive: true,
+              })
+              if (!ok) return
+              try {
+                await api.deleteAccount()
+                toast('Ton compte est supprimé')
+                window.setTimeout(() => window.location.reload(), 1200) // on repart sur l'écran d'accueil
+              } catch (e) {
+                toast(errorText(e), 'err')
+              }
+            }}
           />
         </div>
         <p className="mt-6 text-center text-legende text-pale">NIDOO · sans publicité, sans revente de données</p>

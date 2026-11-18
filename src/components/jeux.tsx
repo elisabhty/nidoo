@@ -9,6 +9,7 @@ import { aMoi, PARTIES, type PartieKind } from '../lib/parties'
 import { MotCarte, MotPage } from './motmystere'
 import { NewPartie, PartieView, statutPartie } from './parties'
 import { ago, errorText } from '../lib/util'
+import { EMOJIS, stickerImgUrl } from '../lib/stickers'
 import { Avatar, Btn, confirmer, Confettis, LigneSous, Page, Sheet } from './ui'
 
 // Jouer ensemble : Puissance 4, morpion et memory photos, contre un proche de la famille.
@@ -176,6 +177,22 @@ export function JeuxPage({ onClose, start }: { onClose: () => void; start?: stri
 
 // ───────── Nouvelle partie : contre qui, et au memory, avec quelles photos ─────────
 
+/** Une carte de memory toute prête : un émoji en feutrine sur un fond pastel. */
+async function carteEmoji(cle: string, fond: string): Promise<Blob> {
+  const img = new Image()
+  img.src = stickerImgUrl(cle) ?? ''
+  await img.decode()
+  const cv = document.createElement('canvas')
+  cv.width = cv.height = 360
+  const ctx = cv.getContext('2d')!
+  ctx.fillStyle = fond
+  ctx.fillRect(0, 0, 360, 360)
+  const s = 290 / Math.max(img.naturalWidth, img.naturalHeight)
+  ctx.drawImage(img, (360 - img.naturalWidth * s) / 2, (360 - img.naturalHeight * s) / 2, img.naturalWidth * s, img.naturalHeight * s)
+  return await new Promise<Blob>((res, rej) => cv.toBlob((b) => (b ? res(b) : rej(new Error('carte'))), 'image/jpeg', 0.88))
+}
+const FONDS_CARTES = ['#FFE8EE', '#E8F6EE', '#FFF4D6', '#EAF2FF', '#F1EAFF', '#FFEFE3']
+
 type Pick = { key: string; url: string; blob?: Blob }
 
 function NewGame({ kind, onClose, onStarted, against }: { kind: GameKind; onClose: () => void; onStarted: (id: string) => void; against?: string }) {
@@ -198,6 +215,23 @@ function NewGame({ kind, onClose, onStarted, against }: { kind: GameKind; onClos
     return [...new Set(urls)].slice(0, 24)
   }, [state])
   useEffect(() => () => picks.forEach((p) => p.blob && URL.revokeObjectURL(p.url)), []) // eslint-disable-line react-hooks/exhaustive-deps
+  // Au memory, 6 cartes émojis sont déjà prêtes : on peut lancer tout de suite, ou les remplacer par des photos.
+  useEffect(() => {
+    if (!memory) return
+    let fini = false
+    void (async () => {
+      try {
+        const choix = [...EMOJIS].sort(() => Math.random() - 0.5).slice(0, 6)
+        const cartes = await Promise.all(choix.map((k, i) => carteEmoji(k, FONDS_CARTES[i % FONDS_CARTES.length])))
+        if (!fini) setPicks((p) => (p.length ? p : cartes.map((c, i) => ({ key: `emo-${choix[i]}`, url: URL.createObjectURL(c), blob: c }))))
+      } catch {
+        /* sans cartes prêtes, on choisit ses photos comme avant */
+      }
+    })()
+    return () => {
+      fini = true
+    }
+  }, [memory])
 
   const toggle = (p: Pick) => {
     select()
@@ -260,7 +294,10 @@ function NewGame({ kind, onClose, onStarted, against }: { kind: GameKind; onClos
         <>
           <p className="mt-6 text-center text-sous font-semibold">Les photos des cartes</p>
           <p className="mt-0.5 text-center text-note text-brume">
-            Choisis de {MEMORY_MIN} à {MEMORY_MAX} photos à partager : chacune fera une paire. {picks.length > 0 && `${picks.length} choisie${picks.length > 1 ? 's' : ''}.`}
+            {picks.some((p) => p.key.startsWith('emo-'))
+              ? 'Des cartes émojis sont prêtes : lance la partie, ou touche-les pour mettre vos photos à la place.'
+              : `Choisis de ${MEMORY_MIN} à ${MEMORY_MAX} photos à partager : chacune fera une paire.`}{' '}
+            {picks.length > 0 && `${picks.length} choisie${picks.length > 1 ? 's' : ''}.`}
           </p>
           <div className="mt-3 grid grid-cols-4 gap-2">
             <button

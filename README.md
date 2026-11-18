@@ -60,7 +60,7 @@ Sans clés Supabase, l'app démarre en **mode démo** : la maison vit sur l'appa
 
 ## Brancher Supabase
 
-1. Créer un projet Supabase et y exécuter, dans l'ordre, `supabase/migrations/0001_nidoo.sql`, `0002_dossiers.sql`, `0003_dessins.sql`, `0004_invitations.sql`, `0005_defis.sql`, `0006_personnages.sql`, `0007_sans_guirlande.sql`, `0008_enfants.sql`, `0009_instants.sql`, `0010_soins.sql`, `0011_animaux.sql`, `0012_compagnon.sql`, `0013_stickers.sql`, `0014_dessin_a_deux.sql`, `0015_plant_info_search_path.sql`, `0016_boutique_vetements.sql`, `0017_jeux.sql`, `0018_avent.sql`, `0019_jeux_famille.sql`, `0020_fil.sql` puis `0021_lieu_stickers.sql` (et, dans Realtime > Settings, n'accepter que les canaux privés).
+1. Créer un projet Supabase et y exécuter, dans l'ordre, `supabase/migrations/0001_nidoo.sql`, `0002_dossiers.sql`, `0003_dessins.sql`, `0004_invitations.sql`, `0005_defis.sql`, `0006_personnages.sql`, `0007_sans_guirlande.sql`, `0008_enfants.sql`, `0009_instants.sql`, `0010_soins.sql`, `0011_animaux.sql`, `0012_compagnon.sql`, `0013_stickers.sql`, `0014_dessin_a_deux.sql`, `0015_plant_info_search_path.sql`, `0016_boutique_vetements.sql`, `0017_jeux.sql`, `0018_avent.sql`, `0019_jeux_famille.sql`, `0020_fil.sql`, `0021_lieu_stickers.sql`, `0022_supprimer_compte.sql` puis `0023_agenda_plusieurs_jours.sql` (et, dans Realtime > Settings, n'accepter que les canaux privés).
 2. Dans Authentication > Sign In / Providers, activer **Allow anonymous sign-ins** (chaque téléphone reçoit un compte invisible, rattachable ensuite à un e-mail depuis « Notre famille »).
 3. Le projet de production (`udhxnxuhyziuiwqotgle`) est déjà branché dans `.env.production`. Pour un autre projet, copier `.env.example` en `.env.production` (et `.env.local` pour le dev) avec l'URL du projet et la clé publishable.
 
@@ -93,13 +93,17 @@ Cinq profils ont parcouru la démo (une maman qui découvre, une grand-mère de 
 - achats avec les étoiles de la famille : une confirmation avant ;
 - textes plus lisibles (gris tertiaire plus foncé, boutons désactivés lisibles), libellés VoiceOver corrigés ;
 - aperçus des widgets rangés par taille, avec ce que chacun montre ; Famille+ n'annonce plus que ce qui existe ;
-- missions : la personne choisie ne reste plus sélectionnée, une mission faite garde la tête de qui devait la faire ; toucher toute la ligne coche un article.
+- missions : la personne choisie ne reste plus sélectionnée, une mission faite garde la tête de qui devait la faire ; toucher toute la ligne coche un article ;
+- agenda : un événement peut durer plusieurs jours (« Du 28 au 29 novembre ») ou revenir chaque semaine (« Tous les jeudis »), et « Ajouter à mon calendrier » donne un fichier .ics (heure, lieu, détails, répétition, rappel 1 h avant) (`0023_agenda_plusieurs_jours.sql`) ;
+- memory : six cartes émojis sont prêtes, on peut lancer sans choisir de photos ;
+- Réglages › « Supprimer mon compte » (règle 5.1.1(v) de l'App Store) : `public.delete_my_account()` efface la personne de toutes ses maisons puis son compte ; une maison qu'elle a créée passe à un autre membre qui a l'appli, et celle où il ne reste personne avec l'appli est supprimée (`0022_supprimer_compte.sql`). Ses photos et vocaux du fil sont retirés du stockage juste avant.
 
 ## Reste à faire
 
 - Widgets iOS natifs (WidgetKit) alimentés par un App Group : l'app affiche pour l'instant leur aperçu en direct. Avec eux, ajouter le guide « Ajoute NIDOO à ton écran d'accueil » (appui long, +, NIDOO).
-- Agenda : rappels et notifications, événements sur plusieurs jours, récurrence, « Ajouter à mon calendrier ».
+- Rappels et notifications dans NIDOO (il faut `@capacitor/local-notifications` ou les notifications push). En attendant, « Ajouter à mon calendrier » met un rappel 1 h avant dans le calendrier de l'iPhone.
 - Taille du texte d'iOS (Dynamic Type) : brancher `@capacitor/text-zoom` au démarrage.
-- App Store : « Supprimer mon compte » dans Réglages (règle 5.1.1(v)) et, avec l'achat intégré, les infos d'abonnement, « Restaurer », conditions et confidentialité (règle 3.1.2).
+- App Store, avec l'achat intégré : infos d'abonnement, « Restaurer », conditions et confidentialité (règle 3.1.2).
+- Le compagnon qui s'en va au 4e jour sans manger : à adoucir si on le juge trop culpabilisant (sieste chez un voisin, retour au premier repas).
 - Achats intégrés Famille+ et notifications push pour les attentions.
 - Mini-jeux avancés, albums, décorations premium.

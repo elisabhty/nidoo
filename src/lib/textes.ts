@@ -23,7 +23,7 @@ export const ONBOARDING = {
   },
   create: {
     title: 'Votre petit chez-vous',
-    description: 'Donne-lui un nom et choisis le décor où vous retrouver.',
+    description: 'Donne-lui un nom et choisis votre décor.',
     field_label: 'Nom de votre chez-vous',
     placeholder: 'Le cocon des Martin',
     default_name: 'Notre maison',

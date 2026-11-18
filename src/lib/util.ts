@@ -15,14 +15,66 @@ export function ago(iso: string): string {
   return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
 }
 
-/** Prochaine occurrence d'un événement (les anniversaires reviennent chaque année). */
-export function nextOccurrence(startsAt: string, yearly: boolean, from = new Date()): Date {
-  const d = new Date(startsAt)
-  if (!yearly) return d
-  const start = new Date(from.getFullYear(), from.getMonth(), from.getDate())
-  const n = new Date(start.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes())
-  if (n < start) n.setFullYear(n.getFullYear() + 1)
-  return n
+/** Ce qu'il faut savoir d'un événement pour placer ses dates. */
+type Quand = { starts_at: string; yearly: boolean; weekly?: boolean; ends_on?: string | null }
+
+const minuit = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate())
+const plusJours = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n, d.getHours(), d.getMinutes())
+
+/** Combien de jours en plus du premier (0 pour un événement d'un seul jour). */
+export function joursEnPlus(e: Quand): number {
+  if (!e.ends_on) return 0
+  const [y, m, j] = e.ends_on.split('-').map(Number)
+  return Math.max(0, Math.round((new Date(y, m - 1, j).getTime() - minuit(new Date(e.starts_at)).getTime()) / 86400000))
+}
+
+/**
+ * La prochaine fois d'un événement, ou celle qui est en cours : un anniversaire revient chaque année,
+ * une activité chaque semaine, et un week-end en cours compte encore jusqu'à son dernier jour.
+ * Accepte aussi l'ancienne forme (starts_at, yearly).
+ */
+export function nextOccurrence(e: Quand | string, yearly = false, from = new Date()): Date {
+  const q: Quand = typeof e === 'string' ? { starts_at: e, yearly } : e
+  const d = new Date(q.starts_at)
+  const duree = joursEnPlus(q)
+  const jour = minuit(from)
+  if (q.yearly) {
+    let n = new Date(jour.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes())
+    if (plusJours(minuit(n), duree) < jour) n = new Date(jour.getFullYear() + 1, d.getMonth(), d.getDate(), d.getHours(), d.getMinutes())
+    return n
+  }
+  if (q.weekly && minuit(d) < jour) {
+    // la dernière fois qui touche encore aujourd'hui, sinon la prochaine
+    const ecart = Math.floor((jour.getTime() - minuit(d).getTime()) / 86400000)
+    let n = plusJours(d, ecart - (ecart % 7))
+    if (plusJours(minuit(n), duree) < jour) n = plusJours(n, 7)
+    return n
+  }
+  return d
+}
+
+/** Le dernier jour d'une fois de l'événement (le même jour s'il ne dure qu'un jour). */
+export function finDe(e: Quand, at: Date): Date {
+  return plusJours(minuit(at), joursEnPlus(e))
+}
+
+/** L'événement a-t-il lieu ce jour-là ? Renvoie alors l'heure de début de cette fois-là. */
+export function occursOn(e: Quand, day: Date): Date | null {
+  const n = nextOccurrence(e, false, day)
+  const debut = minuit(n)
+  const j = minuit(day)
+  if (j < debut || j > finDe(e, n)) return null
+  return new Date(j.getFullYear(), j.getMonth(), j.getDate(), n.getHours(), n.getMinutes())
+}
+
+/** « Du 28 au 29 novembre », « Tous les mercredis »… : la petite ligne qui dit quand ça revient ou combien ça dure. */
+export function rythme(e: Quand, at: Date): string | null {
+  if (e.weekly) return `Tous les ${at.toLocaleDateString('fr-FR', { weekday: 'long' })}s`
+  const n = joursEnPlus(e)
+  if (!n) return null
+  const fin = finDe(e, at)
+  const memeMois = fin.getMonth() === at.getMonth()
+  return `Du ${at.toLocaleDateString('fr-FR', memeMois ? { day: 'numeric' } : { day: 'numeric', month: 'long' })} au ${fin.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}`
 }
 
 export function dayLabel(d: Date): string {

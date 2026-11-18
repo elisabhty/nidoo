@@ -6,7 +6,7 @@ import { Art, Avatar, Rond, Screen, Segments, Vide } from '../components/ui'
 import { select, success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
 import type { EventKind, FamEvent, ListKind } from '../lib/types'
-import { dayLabel, nextOccurrence, timeLabel, todayKey } from '../lib/util'
+import { dayLabel, finDe, nextOccurrence, occursOn, rythme, timeLabel, todayKey } from '../lib/util'
 
 type Seg = 'agenda' | 'course' | 'tache'
 type Vue = 'liste' | 'semaine'
@@ -18,15 +18,6 @@ function mondayOf(d: Date) {
   m.setDate(m.getDate() - ((m.getDay() + 6) % 7))
   return m
 }
-/** L'événement tombe-t-il ce jour-là ? (les anniversaires reviennent chaque année) */
-function occursOn(e: FamEvent, day: Date): Date | null {
-  const d = new Date(e.starts_at)
-  if (e.yearly ? d.getMonth() === day.getMonth() && d.getDate() === day.getDate() && day.getFullYear() >= d.getFullYear() : todayKey(d) === todayKey(day)) {
-    return new Date(day.getFullYear(), day.getMonth(), day.getDate(), d.getHours(), d.getMinutes())
-  }
-  return null
-}
-
 function Semaine({ onOpen, onAdd }: { onOpen: (o: Ouvert) => void; onAdd: (day: Date) => void }) {
   const { state } = useHome()
   const [offset, setOffset] = useState(0)
@@ -156,7 +147,8 @@ function Semaine({ onOpen, onAdd }: { onOpen: (o: Ouvert) => void; onAdd: (day: 
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-corps">{e.title}</span>
                           <span className="block truncate text-note text-brume">
-                            {e.all_day ? 'Toute la journée' : timeLabel(at)}
+                            {e.all_day ? (rythme(e, at) && !e.weekly ? rythme(e, at) : 'Toute la journée') : timeLabel(at)}
+                            {e.weekly ? ' · chaque semaine' : ''}
                             {e.lieu ? ` · ${e.lieu}` : e.description ? ` · ${e.description}` : ''}
                           </span>
                         </span>
@@ -338,7 +330,8 @@ function bientot(at: Date) {
   const d0 = new Date()
   d0.setHours(0, 0, 0, 0)
   const n = Math.round((new Date(at.getFullYear(), at.getMonth(), at.getDate()).getTime() - d0.getTime()) / 86400000)
-  if (n <= 0) return 'Aujourd’hui'
+  if (n < 0) return 'En ce moment'
+  if (n === 0) return 'Aujourd’hui'
   if (n === 1) return 'Demain'
   if (n < 14) return `Dans ${n} jours`
   if (n < 60) return `Dans ${Math.round(n / 7)} semaines`
@@ -348,7 +341,7 @@ function bientot(at: Date) {
 /** La carte du haut : le prochain rendez-vous, événement ou anniversaire, dit comme il faut, avec son compte à rebours. */
 function Prochain({ e, at, onOpen }: { e: FamEvent; at: Date; onOpen: () => void }) {
   const quand = bientot(at)
-  const vite = quand === 'Aujourd’hui' || quand === 'Demain'
+  const vite = quand === 'Aujourd’hui' || quand === 'Demain' || quand === 'En ce moment'
   return (
     <button onClick={onOpen} className="presse anim-pop mx-4 mb-5 flex w-[calc(100%-2rem)] items-center gap-4 rounded-[24px] bg-teinte-doux p-5 text-left">
       <span className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-[18px] bg-white text-teinte-fonce">
@@ -362,7 +355,7 @@ function Prochain({ e, at, onOpen }: { e: FamEvent; at: Date; onOpen: () => void
         </span>
         <span className="mt-1 block font-rond text-titre3">{e.title}</span>
         <span className="mt-1 block text-note text-brume">
-          {at.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric' })}
+          {rythme(e, at) ?? at.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric' })}
           {e.all_day ? '' : ` · ${timeLabel(at)}`}
         </span>
         {e.lieu && (
@@ -411,8 +404,8 @@ export default function Organize() {
   const start = new Date()
   start.setHours(0, 0, 0, 0)
   const coming = state.events
-    .map((e) => ({ e, at: nextOccurrence(e.starts_at, e.yearly) }))
-    .filter((x) => x.at >= start)
+    .map((e) => ({ e, at: nextOccurrence(e) }))
+    .filter((x) => finDe(x.e, x.at) >= start) // un week-end commencé hier compte encore
     .sort((a, b) => a.at.getTime() - b.at.getTime())
   const groups = new Map<string, typeof coming>()
   for (const x of coming) {
@@ -488,7 +481,14 @@ export default function Organize() {
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-corps">{e.title}</span>
                             <span className={`block text-note ${today ? 'font-semibold text-peche-fonce' : 'text-brume'}`}>
-                              {dayLabel(at)}{e.all_day ? '' : ` · ${timeLabel(at)}`}{e.yearly ? ' · chaque année' : ''}
+                              {(() => {
+                                // « Demain · 10:00 · Tous les jeudis », « Du 28 au 29 novembre », « Samedi · chaque année »
+                                const r = rythme(e, at)
+                                const quand = `${at < start ? 'En ce moment' : dayLabel(at)}${e.all_day ? '' : ` · ${timeLabel(at)}`}`
+                                if (e.weekly) return `${quand} · ${r}`
+                                if (r) return at < start ? `En ce moment · ${r}` : r
+                                return `${quand}${e.yearly ? ' · chaque année' : ''}`
+                              })()}
                             </span>
                             {e.lieu && (
                               <span className="flex items-center gap-1 text-note text-teinte-fonce">

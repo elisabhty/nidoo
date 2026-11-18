@@ -1,4 +1,4 @@
-import { Camera, Images, MapPin, Navigation, PenLine, Repeat, Sticker as StickerIcon, Trash2, Undo2, Users } from 'lucide-react'
+import { CalendarPlus, Camera, Images, MapPin, Navigation, PenLine, Repeat, Sticker as StickerIcon, Trash2, Undo2, Users } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { moodOf, MOODS, THOUGHTS, thoughtOf } from '../lib/data'
 import { Smiley } from './Smiley'
@@ -9,7 +9,8 @@ import { chargerImage, photoFinale, vignettesFiltres, type FiltreKey } from '../
 import { MAX_STICKERS } from '../lib/stickers'
 import { CadreCanvas, CadreRow, FilterRow, nouveauSticker, StickerStage, StickerTray } from './stickers'
 import { vignettesCadres } from '../lib/cadres'
-import { compressImage, errorText, isToday, nextOccurrence, timeLabel } from '../lib/util'
+import { compressImage, errorText, isToday, nextOccurrence, rythme, timeLabel } from '../lib/util'
+import { ajouterAuCalendrier } from '../lib/calendrier'
 import { IncomingDrawing, markDrawingsSeen, useUnseenDrawings } from './drawing'
 import { DrawSheet } from './planche'
 import { Art, Avatar, Btn, confirmer, Envol, Segments, Sheet, Switch } from './ui'
@@ -562,6 +563,10 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
   const [date, setDate] = useState(`${first.getFullYear()}-${pad(first.getMonth() + 1)}-${pad(first.getDate())}`)
   // « Toute la journée » se voit (avant, une case d'heure vide ne disait rien) ; un rendez-vous a une heure
   const [journee, setJournee] = useState(event ? event.all_day : kind0 !== 'rdv')
+  // un week-end, des vacances : plusieurs jours d'affilée ; une activité : chaque semaine
+  const [plusieurs, setPlusieurs] = useState(!!event?.ends_on)
+  const [fin, setFin] = useState(event?.ends_on ?? '')
+  const [hebdo, setHebdo] = useState(!!event?.weekly)
   const [time, setTime] = useState(event && !event.all_day ? `${pad(first.getHours())}:${pad(first.getMinutes())}` : '10:00')
   const [description, setDescription] = useState(event?.description ?? '')
   const [lieu, setLieu] = useState(event?.lieu ?? '')
@@ -578,7 +583,8 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
     const allDay = birthday || journee || !time
     const starts = new Date(`${date}T${allDay ? '09:00' : time}`)
     if (Number.isNaN(starts.getTime())) return
-    const champs = { title: title.trim(), kind, starts_at: starts.toISOString(), all_day: allDay, yearly: birthday, lieu: lieu.trim() || null, description: description.trim() || null, members: who }
+    const ends_on = !birthday && allDay && plusieurs && fin > date ? fin : null
+    const champs = { title: title.trim(), kind, starts_at: starts.toISOString(), all_day: allDay, yearly: birthday, weekly: !birthday && hebdo, ends_on, lieu: lieu.trim() || null, description: description.trim() || null, members: who }
     const ok = await run(
       (api) => (event ? api.updateEvent(event.id, champs) : api.addEvent(state.family.id, state.me.id, champs)),
       event ? 'Événement modifié' : 'Ajouté à l’agenda',
@@ -617,16 +623,46 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
           </p>
         ) : (
           <>
-            <div className={`flex h-[52px] items-center justify-between px-4 text-corps ${journee ? '' : 'border-b border-trait'}`}>
+            <div className="flex h-[52px] items-center justify-between border-b border-trait px-4 text-corps">
               Toute la journée
               <Switch on={journee} onChange={setJournee} label="Toute la journée" />
             </div>
             {!journee && (
-              <label className="flex h-[52px] items-center justify-between px-4 text-corps">
+              <label className="flex h-[52px] items-center justify-between border-b border-trait px-4 text-corps">
                 À quelle heure ?
                 <input type="time" className="rounded-[8px] bg-remplissage px-2.5 py-1 text-corps text-encre outline-none" value={time} onChange={(e) => setTime(e.target.value)} />
               </label>
             )}
+            {journee && (
+              <div className="flex h-[52px] items-center justify-between border-b border-trait px-4 text-corps">
+                Sur plusieurs jours
+                <Switch
+                  on={plusieurs}
+                  onChange={(v) => {
+                    setPlusieurs(v)
+                    if (v && !(fin > date)) {
+                      const d = new Date(`${date}T12:00`)
+                      d.setDate(d.getDate() + 1)
+                      setFin(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`)
+                    }
+                  }}
+                  label="Sur plusieurs jours"
+                />
+              </div>
+            )}
+            {journee && plusieurs && (
+              <label className="flex h-[52px] items-center justify-between border-b border-trait px-4 text-corps">
+                Jusqu’au
+                <input type="date" min={date} className="rounded-[8px] bg-remplissage px-2.5 py-1 text-corps text-encre outline-none" value={fin} onChange={(e) => setFin(e.target.value)} />
+              </label>
+            )}
+            <div className="flex min-h-[58px] items-center justify-between px-4 py-2 text-corps">
+              <span>
+                Chaque semaine
+                <span className="block text-note text-brume">Pour une activité, un cours…</span>
+              </span>
+              <Switch on={hebdo} onChange={setHebdo} label="Chaque semaine" />
+            </div>
           </>
         )}
         <label className="flex items-center gap-3 border-t border-trait pl-4 pr-4">
@@ -656,7 +692,7 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
   const { state, run } = useHome()
   const ev = state.events.find((x) => x.id === event.id) ?? event // la version à jour, après une modification
   const [modif, setModif] = useState(false)
-  const at = nextOccurrence(ev.starts_at, ev.yearly) // recalculé : la date a pu être modifiée
+  const at = nextOccurrence(ev) // recalculé : la date a pu être modifiée
   const author = state.members.find((m) => m.id === ev.created_by)
   const full = at.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^./, (c) => c.toUpperCase())
   const d0 = new Date()
@@ -679,6 +715,11 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
           {ev.yearly && (
             <span className="flex items-center gap-1 rounded-full bg-remplissage px-2.5 py-1 text-legende font-semibold text-brume">
               <Repeat size={12} strokeWidth={2.6} /> Chaque année
+            </span>
+          )}
+          {rythme(ev, at) && (
+            <span className="flex items-center gap-1 rounded-full bg-remplissage px-2.5 py-1 text-legende font-semibold text-brume">
+              {ev.weekly && <Repeat size={12} strokeWidth={2.6} />} {rythme(ev, at)}
             </span>
           )}
         </span>
@@ -728,6 +769,16 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
         }}
       >
         <PenLine size={17} strokeWidth={2.4} /> Modifier
+      </Btn>
+      <Btn
+        className="mt-2"
+        kind="gris"
+        onClick={() => {
+          tap()
+          ajouterAuCalendrier(ev)
+        }}
+      >
+        <CalendarPlus size={17} strokeWidth={2.4} /> Ajouter à mon calendrier
       </Btn>
       <p className="px-1 pt-1.5 text-center text-note text-brume">Toute la famille voit cet événement et peut le modifier.</p>
       <Btn
