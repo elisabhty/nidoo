@@ -4,6 +4,7 @@
 // largeur de la chevelure, puis le cadre du buste (x, y, côté).
 
 import { CORPS } from './corps'
+import { VISAGES } from './visages'
 import { ACCESSORIES, HAIR_COLORS, HAIRSTYLES, type Look } from './look'
 
 export type Group = 'femme' | 'homme' | 'fille' | 'garcon' | 'bebe'
@@ -167,30 +168,39 @@ export function nearest(look: Look): Perso {
 
 /** Les accessoires de la boutique, posés sur la figurine : largeur et position (fractions de la toile). */
 export type AccPlace = { w: number; x: number; y: number; anchor: 'bottom' | 'center' | 'top'; ar: number }
-const AR: Record<string, number> = { bonnet: 1.06, casquette: 0.805, paille: 0.722, fleurs: 0.714, echarpe: 1.003, lunettes: 0.566, couronne: 1.031, noeud: 0.638 }
+const AR: Record<string, number> = { bonnet: 1.062, casquette: 0.802, paille: 0.7, fleurs: 0.361, echarpe: 1, couronne: 1.017, noeud: 0.604 }
 
 export function accPlace(p: Perso, acc: string): AccPlace | null {
   const [t, h, x, c] = p.m
   const hw = h * R
   const ar = AR[acc]
+  // repères du visage : milieu des yeux (ex, ey), écart entre les yeux (d, en largeur ; dy, en hauteur)
+  const v = VISAGES[p.id]
+  const ex = v ? (v.e[0] + v.e[2]) / 2 : x
+  const ey = v ? (v.e[1] + v.e[3]) / 2 : t + h * 0.6
+  const d = v ? v.e[2] - v.e[0] : hw * 0.3
+  const dy = d / R
+  const chin = v ? v.mo[1] + dy * 0.42 : t + h * 0.86
   switch (acc) {
+    // les chapeaux se posent sur le front, juste au-dessus des sourcils, et couvrent tout le crâne
     case 'bonnet':
-      return { w: Math.min(c * 1.02, hw * 0.95), x, y: t + h * 0.52, anchor: 'bottom', ar }
+      return { w: Math.max(c * 1.06, d * 2.75), x: ex, y: ey - dy * 0.36, anchor: 'bottom', ar }
     case 'casquette':
-      return { w: Math.min(c * 1.2, hw * 1.1), x: x + c * 0.05, y: t + h * 0.5, anchor: 'bottom', ar }
+      return { w: Math.max(c * 1.22, d * 3.1), x: ex + d * 0.12, y: ey - dy * 0.42, anchor: 'bottom', ar }
     case 'paille':
-      return { w: Math.min(c * 1.6, hw * 1.45), x, y: t + h * 0.5, anchor: 'bottom', ar }
+      return { w: Math.max(c * 1.42, d * 3.6), x: ex, y: ey - dy * 0.3, anchor: 'bottom', ar }
+    // la couronne de fleurs : un arc de fleurs posé à la racine des cheveux, comme un serre-tête
     case 'fleurs':
-      return { w: Math.min(c * 1.12, hw), x, y: t + h * 0.4, anchor: 'bottom', ar }
+      return { w: Math.max(c * 0.92, d * 2.4), x: ex, y: ey - dy * 0.42, anchor: 'bottom', ar }
     case 'couronne':
-      return { w: Math.min(c * 0.55, hw * 0.5), x, y: t + h * 0.16, anchor: 'bottom', ar }
+      return { w: Math.min(c * 0.55, hw * 0.5), x: ex, y: t + (ey - t) * 0.3, anchor: 'bottom', ar }
     case 'noeud':
       return { w: hw * 0.42, x: x + c * 0.36, y: t + h * 0.2, anchor: 'center', ar }
-    case 'lunettes':
-      return { w: hw * 0.8, x, y: t + h * 0.6, anchor: 'center', ar }
+    // l'écharpe : la boucle juste sous le menton, les pans sur la poitrine
     case 'echarpe':
-      return { w: hw * 0.72, x, y: t + h * 0.86, anchor: 'top', ar }
+      return { w: d * 2.15, x: ex, y: chin - dy * 0.12, anchor: 'top', ar }
     default:
+      // les lunettes de soleil se dessinent avec le visage (voir FaceExtras)
       return null
   }
 }
@@ -207,7 +217,7 @@ export const accessoryOf = (look: Look) => ACCESSORIES[look.v ?? 0] ?? ''
  *  ou étirés sur le corps (le manteau) : chaque pièce a sa boîte (fractions de la toile) et peut être retournée.
  *  Les repères du corps viennent de scripts/corps_personnages.py (src/lib/corps.ts). */
 export type AccPiece = { art: string; l: number; t: number; w: number; h: number; flip: boolean }
-const PIECE_AR: Record<string, number> = { boucle: 164 / 110, manteau: 298 / 300, botte: 255 / 150, basket: 234 / 150 }
+const PIECE_AR: Record<string, number> = { boucle: 159 / 107, manteau: 298 / 300, botte: 255 / 150, basket: 234 / 150 }
 
 /** Pour le manteau : la hauteur (fraction de la toile) où la tête redessinée par-dessus s'efface doucement. */
 export const headCut = (p: Perso) => p.m[0] + p.m[1] * 0.915
@@ -217,9 +227,14 @@ export function accPieces(p: Perso, acc: string): AccPiece[] | null {
   const hw = h * R
   const body = CORPS[p.id]
   if (acc === 'boucles') {
-    const w = hw * 0.12
+    // au bord du visage, sous les oreilles
+    const v = VISAGES[p.id]
+    const ex = v ? (v.e[0] + v.e[2]) / 2 : x
+    const ey = v ? (v.e[1] + v.e[3]) / 2 : t + h * 0.6
+    const d = v ? v.e[2] - v.e[0] : hw * 0.3
+    const w = d * 0.36
     const hgt = (w * PIECE_AR.boucle) / R
-    return [-1, 1].map((side) => ({ art: 'acc-boucle', l: x + side * c * 0.48 - w / 2, t: t + h * 0.68, w, h: hgt, flip: side > 0 }))
+    return [-1, 1].map((side) => ({ art: 'acc-boucle', l: ex + side * d * 1.02 - w / 2, t: ey + (d / R) * 0.3, w, h: hgt, flip: side > 0 }))
   }
   if (!body) return null
   const [pl, wl, pr, wr, yb, bx, bw, hy] = body

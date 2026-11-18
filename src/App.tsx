@@ -93,7 +93,7 @@ export default function App() {
       /* sans conséquence */
     }
   }, [tab, state?.moments.length]) // eslint-disable-line react-hooks/exhaustive-deps
-  const filNouveau = !!state && state.moments.some((m) => m.member_id !== state.me.id && m.created_at > filVu)
+  const filNonLus = state ? state.moments.filter((m) => m.member_id !== state.me.id && m.created_at > filVu).length : 0
   const unseen = (state ? state.thoughts.filter((t) => t.to_member === state.me.id && !t.seen_at).length : 0) + drawingsUnseen
 
   return (
@@ -136,9 +136,15 @@ export default function App() {
                   >
                     <t.icon size={23} strokeWidth={on ? 2.4 : 2} fill={on ? 'currentColor' : 'none'} fillOpacity={on ? 0.18 : 0} />
                     <span className={`text-[11.5px] leading-none tracking-normal ${on ? 'font-semibold' : 'font-medium'}`}>{t.label}</span>
-                    {((t.key === 'maison' && unseen > 0) || (t.key === 'fil' && filNouveau) || (t.key === 'famille' && state.requests.length > 0)) && !on && (
-                      <span className="absolute right-[24%] top-2 h-2.5 w-2.5 rounded-full bg-rouge ring-2 ring-white" />
-                    )}
+                    {(() => {
+                      // le nombre de nouveautés, comme sur les icônes de l'iPhone
+                      const n = t.key === 'maison' ? unseen : t.key === 'fil' ? filNonLus : t.key === 'famille' ? state.requests.length : 0
+                      return n > 0 && !on ? (
+                        <span className="anim-pop absolute left-1/2 top-[3px] ml-[3px] h-[18px] min-w-[18px] rounded-full bg-rouge px-[5px] text-center text-[11px] font-bold leading-[18px] tabular-nums text-white ring-2 ring-white">
+                          {n > 99 ? '99+' : n}
+                        </span>
+                      ) : null
+                    })()}
                   </button>
                 )
               })}

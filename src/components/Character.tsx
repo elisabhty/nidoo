@@ -59,7 +59,9 @@ export function FaceExtras({ p, look }: { p: Perso; look: Look }) {
   const z = look.z ?? 0
   const f = look.f ?? 0
   const dd = v.bouche ? look.d ?? 0 : 0
-  if (!n && !u && !j && !z && !f && !dd) return null
+  // les lunettes de soleil de la boutique : la même monture que ses lunettes (ou des rondes noires), verres teintés
+  const soleil = ACCESSORIES[look.v ?? 0] === 'lunettes'
+  if (!n && !u && !j && !z && !f && !dd && !soleil) return null
   const [lx0, ly0, rx0, ry0, r0] = v.e
   const lx = lx0 * CW, ly = ly0 * CH, rx = rx0 * CW, ry = ry0 * CH, r = r0 * CW
   const d = rx - lx
@@ -82,7 +84,9 @@ export function FaceExtras({ p, look }: { p: Perso; look: Look }) {
   const bas = (mx - ex) * -uy + (my - ey) * ux + d * 0.01
   const fossettes = [-1, 1].map((side) => [ex - uy * bas + side * ux * d * 0.37, ey + ux * bas + side * uy * d * 0.37])
   // les lunettes : une vraie paire (image), posée verres sur les yeux, avec son ombre
-  const lun = j > 0 && !p.l ? `lun-${FORMES_LUNETTES[j - 1]}-${COULEURS_MONTURE[look.w ?? 0] ?? COULEURS_MONTURE[0]}` : ''
+  const forme = j > 0 ? FORMES_LUNETTES[j - 1] : 'rondes'
+  const couleur = j > 0 ? COULEURS_MONTURE[look.w ?? 0] ?? COULEURS_MONTURE[0] : 'noire'
+  const lun = (j > 0 && !p.l) || soleil ? `lun-${forme}-${couleur}` : ''
   const mon = lun ? LUNETTES_IMG[lun] : null
   let lunettes: { k: string; t: string; w: number; h: number } | null = null
   if (mon) {
@@ -175,6 +179,22 @@ export function FaceExtras({ p, look }: { p: Perso; look: Look }) {
       )}
       {lunettes && (
         <g transform={lunettes.t}>
+          {soleil && mon && (
+            <>
+              <defs>
+                <linearGradient id={`so${id}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stopColor="#4A4258" />
+                  <stop offset="1" stopColor="#17131F" />
+                </linearGradient>
+              </defs>
+              {[mon.l, mon.r].map(([cx, cy], i) => (
+                <g key={i}>
+                  <rect x={cx - mon.v[0] * 0.53} y={cy - mon.v[1] * 0.53} width={mon.v[0] * 1.06} height={mon.v[1] * 1.06} rx={forme === 'rondes' ? mon.v[0] * 0.53 : mon.v[0] * 0.24} fill={`url(#so${id})`} opacity={0.93} />
+                  <ellipse cx={cx - mon.v[0] * 0.16} cy={cy - mon.v[1] * 0.2} rx={mon.v[0] * 0.13} ry={mon.v[1] * 0.08} fill="#fff" opacity={0.28} transform={`rotate(-28 ${cx - mon.v[0] * 0.16} ${cy - mon.v[1] * 0.2})`} />
+                </g>
+              ))}
+            </>
+          )}
           <image href={`./art/persos/${lunettes.k}.webp`} width={lunettes.w} height={lunettes.h} />
         </g>
       )}
