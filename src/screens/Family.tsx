@@ -486,11 +486,8 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
       </Screen>
 
       {sheet === 'profil' && (
-        <Sheet title="Mon personnage" onClose={() => setSheet(null)} tall>
+        <Sheet title="Mon personnage" onClose={() => setSheet(null)} tall footer={<Btn disabled={!name.trim()} onClick={async () => (await run((a) => a.updateMember(me.id, { display_name: name.trim(), avatar, color }), 'Profil mis à jour')) && setSheet(null)}>Enregistrer</Btn>}>
           <ProfilePicker name={name} setName={setName} avatar={avatar} setAvatar={setAvatar} color={color} setColor={setColor} owned={state.owned} />
-          <Btn className="mt-5" disabled={!name.trim()} onClick={async () => (await run((a) => a.updateMember(me.id, { display_name: name.trim(), avatar, color }), 'Profil mis à jour')) && setSheet(null)}>
-            Enregistrer
-          </Btn>
         </Sheet>
       )}
 
@@ -581,7 +578,17 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
         />
       )}
       {petit && (
-        <Sheet title={petit.m ? petit.m.display_name : 'Un enfant ou un bébé'} onClose={() => setPetit(null)} tall>
+        <Sheet title={petit.m ? petit.m.display_name : 'Un enfant ou un bébé'} onClose={() => setPetit(null)} tall footer={<Btn
+            disabled={!petit.name.trim()}
+            onClick={async () => {
+              const ok = petit.m
+                ? await run((a) => a.updateMember(petit.m!.id, { display_name: petit.name.trim(), avatar: petit.avatar, color: petit.color }), 'Personnage mis à jour')
+                : await run((a) => a.addChild(family.id, { displayName: petit.name, avatar: petit.avatar, color: petit.color }), `${petit.name.trim()} arrive dans la maison`)
+              if (ok) setPetit(null)
+            }}
+          >
+            {petit.m ? 'Enregistrer' : 'Ajouter à la maison'}
+          </Btn>}>
           {!petit.m && <p className="-mt-1 mb-3 text-center text-sous text-brume">Il ou elle vivra dans le jardin avec vous ; la famille donnera son humeur et lui enverra des câlins.</p>}
           <ProfilePicker
             name={petit.name}
@@ -593,18 +600,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
             placeholder="Son prénom"
             owned={state.owned}
           />
-          <Btn
-            className="mt-5"
-            disabled={!petit.name.trim()}
-            onClick={async () => {
-              const ok = petit.m
-                ? await run((a) => a.updateMember(petit.m!.id, { display_name: petit.name.trim(), avatar: petit.avatar, color: petit.color }), 'Personnage mis à jour')
-                : await run((a) => a.addChild(family.id, { displayName: petit.name, avatar: petit.avatar, color: petit.color }), `${petit.name.trim()} arrive dans la maison`)
-              if (ok) setPetit(null)
-            }}
-          >
-            {petit.m ? 'Enregistrer' : 'Ajouter à la maison'}
-          </Btn>
+
         </Sheet>
       )}
       {humeurDe && <MoodSheet member={humeurDe} onClose={() => setHumeurDe(null)} />}

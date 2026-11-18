@@ -1,4 +1,4 @@
-import { Check, ChevronLeft, ChevronRight, Palette } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Palette, ZoomIn, ZoomOut } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { COLOR_KEYS, COLORS, HOUSES, shopItem } from '../lib/data'
@@ -6,7 +6,7 @@ import { select, tap } from '../lib/haptic'
 import { ACCESSORIES, AGE_SCALE, encodeLook, enlever, lookOf, mettre, portes, toutEnlever, type Look } from '../lib/look'
 import { BLUSH, BOUCHES, CHEVEUX, labHex, LUNETTES, MONTURES, NEZ, nomPeau, peauOf, peauProche, peauxDe, persoImg, skinLab, VOILES, YEUX } from '../lib/personnalise'
 import { COULEURS_MONTURE, FORMES_LUNETTES } from '../lib/lunettes'
-import { GROUPS, PERSOS, persoOf, TONES, type Group, type Perso } from '../lib/persos'
+import { GROUPS, PERSOS, persoOf, type Group, type Perso } from '../lib/persos'
 import { VISAGES } from '../lib/visages'
 import type { HouseType } from '../lib/types'
 import { Character } from './Character'
@@ -60,11 +60,14 @@ function Portrait({ ed, color, size = 206 }: { ed: Perso_; color: string; size?:
       >
         {zoom ? <Character look={look} bust className="block h-auto w-full overflow-hidden rounded-full" /> : <Character look={look} className="block h-auto w-full" />}
       </button>
-      {zoom && (
-        <button onClick={() => (tap(), ed.setZoom(false))} className="presse verre absolute bottom-[10%] left-[-14px] h-10 whitespace-nowrap rounded-full px-3 text-note font-bold text-teinte-fonce">
-          Voir en entier
-        </button>
-      )}
+      <button
+        onClick={() => { tap(); ed.setZoom(v => !v) }}
+        aria-label={zoom ? 'Voir le personnage en entier' : 'Zoomer sur le visage'}
+        aria-pressed={zoom}
+        className="presse verre absolute bottom-0 right-0 flex h-11 w-11 items-center justify-center rounded-full text-teinte-fonce shadow-carte"
+      >
+        {zoom ? <ZoomOut size={20} /> : <ZoomIn size={20} />}
+      </button>
     </div>
   )
 }
@@ -74,23 +77,11 @@ function PersoOptions({ ed, color, setColor, owned = [] }: { ed: Perso_; color: 
   const { look, mine, group, set, tune, pick } = ed
   const peaux = peauxDe(mine)
   const peau = peauOf(mine, look)
-  // une seule rangée de couleurs de peau : elle trie la galerie ET habille la figurine choisie
-  const [tone, setTone] = useState<number | null>(() => (peau ? peaux.find((x) => x.t === peau)?.b ?? null : null))
+  const [section, setSection] = useState<'personnage'|'details'|'fond'>('personnage')
   const [tab, setTab] = useState<'cheveux' | 'visage' | 'lunettes' | 'maquillage'>('cheveux')
   const vis = VISAGES[mine.id]
-  // avec un teint choisi : toutes les figurines qui existent dans ce teint, avec leur peau d'origine ou une autre
-  const inToneOf = (p: Perso, tn: number | null): number => {
-    if (tn === null || p.t === tn) return 0
-    const c = peauxDe(p).filter((x) => x.t && x.b === tn)
-    if (!c.length) return -1
-    return (tn === TONES.length - 1 ? c.reduce((a, b) => (b.lab[0] < a.lab[0] ? b : a)) : c[0]).t
-  }
-  const inTone = (p: Perso) => inToneOf(p, tone)
-  const chooseTone = (tn: number | null) => {
-    select()
-    setTone(tn)
-    const t = inToneOf(mine, tn)
-    if (t >= 0 && t !== peau) set({ q: t })
+  const chooseSkin = (q: number) => {
+    set({q})
   }
   // La première sélection montre d’emblée plusieurs teints, générations et styles.
   // On trie la galerie sans déplacer PERSOS, dont les indices sont enregistrés dans les profils.
@@ -105,7 +96,7 @@ function PersoOptions({ ed, color, setColor, owned = [] }: { ed: Perso_; color: 
     const i = premieres[group].indexOf(p.id)
     return i < 0 ? premieres[group].length : i
   }
-  const list = PERSOS.filter((p) => p.g === group && inTone(p) >= 0).sort((p, q) => priorite(p) - priorite(q) || Number(!!p.s) - Number(!!q.s) || p.t - q.t)
+  const list = PERSOS.filter((p) => p.g === group).sort((p, q) => priorite(p) - priorite(q) || Number(!!p.s) - Number(!!q.s) || p.t - q.t)
   const kids = group === 'fille' || group === 'garcon'
   const galerie = useRef<HTMLDivElement>(null)
   const galerieId = useId()
@@ -128,7 +119,7 @@ function PersoOptions({ ed, color, setColor, owned = [] }: { ed: Perso_; color: 
     const ro = new ResizeObserver(compter)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [group, tone]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [group, section]) // eslint-disable-line react-hooks/exhaustive-deps
   const avancer = () => {
     tap()
     const el = galerie.current
@@ -148,14 +139,14 @@ function PersoOptions({ ed, color, setColor, owned = [] }: { ed: Perso_; color: 
           onClick={() => onPick(0)}
           aria-pressed={value === 0}
           aria-label={originLabel}
-          className={`presse flex h-9 items-center gap-1.5 rounded-full pl-1 pr-3 text-note font-semibold ${value === 0 ? 'bg-teinte text-white' : 'bg-remplissage text-encre'}`}
+          className={`presse flex h-11 items-center gap-1.5 rounded-full pl-1 pr-3 text-note font-semibold ${value === 0 ? 'bg-teinte text-white' : 'bg-remplissage text-encre'}`}
         >
           <span className="h-7 w-7 rounded-full" style={{ background: origin ?? 'transparent', boxShadow: 'inset 0 0 0 1px rgba(29,26,43,0.12)' }} />
           {originLabel}
         </button>
       )}
       {hexes.map((hex, i) => (
-        <button key={labels[i]} onClick={() => onPick(i + 1)} aria-pressed={value === i + 1} aria-label={labels[i]} title={labels[i]} className="presse h-9 w-9 rounded-full" style={{ background: hex, boxShadow: anneau(value === i + 1) }} />
+        <button key={labels[i]} onClick={() => onPick(i + 1)} aria-pressed={value === i + 1} aria-label={labels[i]} title={labels[i]} className="presse flex h-11 w-11 items-center justify-center rounded-full"><span className="h-8 w-8 rounded-full" style={{ background: hex, boxShadow: anneau(value === i + 1) }} /></button>
       ))}
     </div>
   )
@@ -166,7 +157,7 @@ function PersoOptions({ ed, color, setColor, owned = [] }: { ed: Perso_; color: 
           key={label}
           onClick={() => onPick(i)}
           aria-pressed={value === i}
-          className={`presse h-9 rounded-full px-3.5 text-sous font-semibold transition-colors ${value === i ? 'bg-teinte text-white' : 'bg-remplissage text-encre'}`}
+          className={`presse h-11 rounded-full px-3.5 text-sous font-semibold transition-colors ${value === i ? 'bg-teinte text-white' : 'bg-remplissage text-encre'}`}
         >
           {label}
         </button>
@@ -176,33 +167,29 @@ function PersoOptions({ ed, color, setColor, owned = [] }: { ed: Perso_; color: 
 
   return (
     <>
+      <div className="mb-4" role="tablist" aria-label="Personnaliser le personnage">
+        <div className="flex rounded-full bg-remplissage p-1">
+          {([['personnage','Personnage'],['details','Détails'],['fond','Fond']] as const).map(([key,label]) => <button key={key} role="tab" aria-selected={section === key} aria-controls={`perso-panel-${galerieId}`} onClick={() => { tap(); setSection(key); if (key === 'details') ed.setZoom(true) }} className={`presse min-h-11 flex-1 rounded-full px-3 text-sous font-semibold ${section === key ? 'bg-carte text-encre shadow-carte' : 'text-brume'}`}>{label}</button>)}
+        </div>
+      </div>
+      <div id={`perso-panel-${galerieId}`} role="tabpanel" aria-label={section === 'personnage' ? 'Personnage' : section === 'details' ? 'Détails' : 'Fond'}>
+      {section === 'personnage' && <>
       <Segments value={group} onChange={(g) => (select(), ed.setGroup(g))} options={GROUPS} />
 
-      {/* la couleur de peau : une seule rangée, pour trouver plus vite et pour habiller sa figurine */}
-      <div className="mt-3 flex items-center gap-2 px-1" role="group" aria-label="Couleur de peau">
-        <button
-          onClick={() => chooseTone(null)}
-          aria-pressed={tone === null}
-          className={`presse h-9 shrink-0 rounded-full px-3.5 text-sous font-semibold transition-colors ${tone === null ? 'bg-teinte text-white' : 'bg-remplissage text-encre'}`}
-        >
-          D’origine
-        </button>
-        {TONES.map((hex, i) => (
-          <button key={hex} onClick={() => chooseTone(tone === i ? null : i)} aria-pressed={tone === i} aria-label={`Peau ${nomPeau(peauxDe(PERSOS.find((p) => p.t === i) ?? mine)[0].lab[0]).toLowerCase()} (teinte ${i + 1})`} className="presse h-9 w-9 shrink-0 rounded-full" style={{ background: hex, boxShadow: anneau(tone === i) }} />
-        ))}
+      <div className="mb-2 mt-4 flex items-center justify-between px-1"><p className="text-sous font-semibold">Teint</p><span className="text-note text-brume">Aperçu en direct</span></div>
+      <div className="flex flex-wrap gap-1" role="group" aria-label="Couleur de peau">
+        {peaux.map(skin => <button key={skin.t} onClick={() => chooseSkin(skin.t)} aria-pressed={peau === skin.t} aria-label={`${nomPeau(skin.lab[0])}${skin.t === 0 ? ' · teint d’origine' : ''}`} className="presse flex h-11 w-11 items-center justify-center rounded-full"><span className="block h-8 w-8 rounded-full" style={{background:labHex(skin.lab),boxShadow:anneau(peau === skin.t)}} /></button>)}
       </div>
-      {tone !== null && inToneOf(mine, tone) < 0 && <p className="mt-2 px-1 text-note text-brume">Ta figurine n’existe pas avec cette peau : choisis-en une dans la galerie.</p>}
-
+      <p className="mb-2 mt-4 px-1 text-sous font-semibold">Choisis ton personnage</p>
       <div className="mt-3 flex items-stretch gap-2">
         <div ref={galerie} id={galerieId} onScroll={compter} className="no-bar flex min-w-0 flex-1 snap-x snap-mandatory gap-0.5 overflow-x-auto p-1" role="group" aria-label="Galerie de personnages">
         {list.map((p) => {
           const on = p.id === mine.id
-          const t = tone === null ? undefined : inTone(p)
-          const img = on ? persoImg(p, peau) : persoImg(p, t ?? 0)
+          const img = on ? persoImg(p, peau) : persoImg(p, 0)
           return (
             <button
               key={p.id}
-              onClick={() => pick(p, t)}
+              onClick={() => pick(p)}
               aria-pressed={on}
               aria-label={p.label}
               style={{ flexBasis: 'calc((100% - 8px) / 5)', minWidth: 44 }}
@@ -238,8 +225,9 @@ function PersoOptions({ ed, color, setColor, owned = [] }: { ed: Perso_; color: 
         </>
       )}
 
-      {titre('Personnaliser')}
-      <div className="no-bar -mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5" role="tablist">
+      </>}
+      {section === 'details' && <>
+      <div className="grid grid-cols-4 gap-1" role="tablist" aria-label="Détails du visage">
         {(
           [
             ['cheveux', mine.c === 'voile' ? 'Voile' : 'Cheveux'],
@@ -253,7 +241,7 @@ function PersoOptions({ ed, color, setColor, owned = [] }: { ed: Perso_; color: 
             role="tab"
             aria-selected={tab === k}
             onClick={() => (select(), setTab(k), ed.setZoom(true))}
-            className={`presse h-10 shrink-0 rounded-full px-4 text-sous font-semibold transition-colors ${tab === k ? 'bg-encre text-white' : 'bg-carte text-encre'}`}
+            className={`presse min-h-11 rounded-full px-1 text-note font-semibold transition-colors ${tab === k ? 'bg-encre text-white' : 'bg-carte text-encre'}`}
           >
             {label}
           </button>
@@ -354,7 +342,9 @@ function PersoOptions({ ed, color, setColor, owned = [] }: { ed: Perso_; color: 
         </>
       )}
 
-      {titre('Fond du portrait')}
+      </>}
+      {section === 'fond' && <>
+      <p className="mb-4 text-sous text-brume">Choisis la couleur derrière ton personnage.</p>
       <div className="flex flex-wrap gap-2.5 px-1">
         {COLOR_KEYS.map((k) => (
           <button
@@ -365,10 +355,11 @@ function PersoOptions({ ed, color, setColor, owned = [] }: { ed: Perso_; color: 
             }}
             aria-pressed={color === k}
             aria-label={`Fond ${NOMS_FONDS[k] ?? k}`}
-            className="presse h-9 w-9 rounded-full"
-            style={{ background: `linear-gradient(160deg, ${COLORS[k].bg}, ${COLORS[k].ring})`, boxShadow: color === k ? `0 0 0 2.5px #FFFFFF, 0 0 0 4.5px ${COLORS[k].ring}` : undefined }}
-          />
+            className="presse flex h-11 w-11 items-center justify-center rounded-full"
+          ><span className="h-8 w-8 rounded-full" style={{ background: `linear-gradient(160deg, ${COLORS[k].bg}, ${COLORS[k].ring})`, boxShadow: color === k ? `0 0 0 2.5px #FFFFFF, 0 0 0 4.5px ${COLORS[k].ring}` : undefined }} /></button>
         ))}
+      </div>
+      </>}
       </div>
     </>
   )
@@ -392,11 +383,17 @@ const NOMS_FONDS: Record<string, string> = { peche: 'pêche', lavande: 'lavande'
 
 export function ProfilePicker({ name, setName, avatar, setAvatar, color, setColor, placeholder = 'Ton prénom ou ton surnom', owned = [] }: ProfileProps) {
   const ed = usePerso(avatar, setAvatar)
+  const nameId = useId()
   return (
     <>
-      <Portrait ed={ed} color={color} />
-      <NameField name={name} setName={setName} placeholder={placeholder} />
-      <div className="mt-5">
+      <div className="sticky top-0 z-10 -mx-5 mb-4 flex items-center gap-3 border-b border-trait bg-fond px-5 pb-4">
+        <Portrait ed={ed} color={color} size={148} />
+        <div className="min-w-0 flex-1">
+          <label className="mb-2 block text-note font-semibold text-brume" htmlFor={nameId}>{placeholder}</label>
+          <input id={nameId} autoComplete="given-name" enterKeyHint="done" className="champ !bg-carte font-rond text-titre3" placeholder={placeholder} maxLength={24} value={name} onChange={e => setName(e.target.value)} />
+        </div>
+      </div>
+      <div>
         <PersoOptions ed={ed} color={color} setColor={setColor} owned={owned} />
       </div>
     </>
