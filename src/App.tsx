@@ -1,5 +1,5 @@
-import { BookHeart, CalendarDays, House as HouseIcon, UsersRound, ChevronLeft } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { BookHeart, CalendarDays, House as HouseIcon, MessageCircleHeart, UsersRound, ChevronLeft } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { DrawingBanner, useUnseenDrawings } from './components/drawing'
 import { LiveInvites } from './components/planche'
 import Guide from './components/Guide'
@@ -10,19 +10,22 @@ import { select } from './lib/haptic'
 import { useStore } from './lib/store'
 import Family from './screens/Family'
 import Home from './screens/Home'
-import Dossiers, { type DossiersSeg } from './screens/Folders'
+import Dossiers from './screens/Folders'
+import FilFamilial from './screens/FilFamilial'
 import Onboarding from './screens/Onboarding'
 import Organize from './screens/Organize'
 import Waiting from './screens/Waiting'
 
 const GUIDE = 'nidoo.guide.vu'
+const FIL_VU = 'nidoo.fil.vu'
 
-export type Tab = 'maison' | 'moments' | 'organiser' | 'famille'
-/** « fil » ouvre l'onglet Dossiers directement sur le fil de la famille. */
-export type Go = Tab | 'fil' | 'recus'
+export type Tab = 'maison' | 'fil' | 'moments' | 'organiser' | 'famille'
+export type Go = Tab | 'recus'
 
+// Le fil (pour écrire à la famille) et les souvenirs (les albums) ont chacun leur onglet.
 const TABS: { key: Tab; label: string; icon: typeof HouseIcon }[] = [
   { key: 'maison', label: 'Maison', icon: HouseIcon },
+  { key: 'fil', label: 'Fil', icon: MessageCircleHeart },
   { key: 'moments', label: 'Souvenirs', icon: BookHeart },
   { key: 'organiser', label: 'Organiser', icon: CalendarDays },
   { key: 'famille', label: 'Famille', icon: UsersRound },
@@ -52,13 +55,9 @@ export default function App() {
     setTab(next)
   }
   const [showIncoming, setShowIncoming] = useState(false)
-  const [seg, setSeg] = useState<DossiersSeg>('fil') // le fil d'abord : c'est là que la famille se parle tous les jours
   const go = (g: Go) => {
     if (g === 'recus') {setShowIncoming(true); return}
-    if (g === 'fil') {
-      setSeg('fil')
-      navigate('moments')
-    } else navigate(g)
+    navigate(g)
   }
   const [guide, setGuide] = useState(() => {
     try {
@@ -76,6 +75,25 @@ export default function App() {
     }
   }
   const drawingsUnseen = useUnseenDrawings(state).length
+  // du nouveau dans le fil depuis la dernière fois qu'on l'a ouvert
+  const [filVu, setFilVu] = useState(() => {
+    try {
+      return localStorage.getItem(FIL_VU) ?? ''
+    } catch {
+      return ''
+    }
+  })
+  useEffect(() => {
+    if (tab !== 'fil' || !state) return
+    const t = new Date().toISOString()
+    setFilVu(t)
+    try {
+      localStorage.setItem(FIL_VU, t)
+    } catch {
+      /* sans conséquence */
+    }
+  }, [tab, state?.moments.length]) // eslint-disable-line react-hooks/exhaustive-deps
+  const filNouveau = !!state && state.moments.some((m) => m.member_id !== state.me.id && m.created_at > filVu)
   const unseen = (state ? state.thoughts.filter((t) => t.to_member === state.me.id && !t.seen_at).length : 0) + drawingsUnseen
 
   return (
@@ -94,7 +112,8 @@ export default function App() {
           <>
             <div ref={panes} className="h-full" key={state.family.id}>
               <div id="nidoo-tab-maison" data-tab="maison" hidden={tab !== 'maison'} className="h-full"><Home go={go} active={tab === 'maison'} /></div>
-              {visited.includes('moments') && <div id="nidoo-tab-moments" data-tab="moments" hidden={tab !== 'moments'} className="h-full"><Dossiers seg={seg} setSeg={setSeg} /></div>}
+              {visited.includes('fil') && <div id="nidoo-tab-fil" data-tab="fil" hidden={tab !== 'fil'} className="h-full"><FilFamilial /></div>}
+              {visited.includes('moments') && <div id="nidoo-tab-moments" data-tab="moments" hidden={tab !== 'moments'} className="h-full"><Dossiers /></div>}
               {visited.includes('organiser') && <div id="nidoo-tab-organiser" data-tab="organiser" hidden={tab !== 'organiser'} className="h-full"><Organize /></div>}
               {visited.includes('famille') && <div id="nidoo-tab-famille" data-tab="famille" hidden={tab !== 'famille'} className="h-full"><Family onGuide={() => setGuide(true)} /></div>}
             </div>
@@ -116,8 +135,8 @@ export default function App() {
                     className={`relative z-10 flex h-full flex-1 flex-col items-center justify-center gap-[3px] rounded-full transition-colors duration-200 ${on ? 'text-teinte-fonce' : 'text-encre/60'}`}
                   >
                     <t.icon size={23} strokeWidth={on ? 2.4 : 2} fill={on ? 'currentColor' : 'none'} fillOpacity={on ? 0.18 : 0} />
-                    <span className={`text-[12px] leading-none tracking-normal ${on ? 'font-semibold' : 'font-medium'}`}>{t.label}</span>
-                    {((t.key === 'maison' && unseen > 0) || (t.key === 'famille' && state.requests.length > 0)) && !on && (
+                    <span className={`text-[11.5px] leading-none tracking-normal ${on ? 'font-semibold' : 'font-medium'}`}>{t.label}</span>
+                    {((t.key === 'maison' && unseen > 0) || (t.key === 'fil' && filNouveau) || (t.key === 'famille' && state.requests.length > 0)) && !on && (
                       <span className="absolute right-[24%] top-2 h-2.5 w-2.5 rounded-full bg-rouge ring-2 ring-white" />
                     )}
                   </button>

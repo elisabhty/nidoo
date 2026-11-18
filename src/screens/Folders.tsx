@@ -9,14 +9,12 @@ import { select, success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
 import type { Folder, FolderItem } from '../lib/types'
 import { ago, compressImage, errorText } from '../lib/util'
-import Fil from './Moments'
 
-// (« Attentions » a quitté Souvenirs : les attentions se revoient depuis les widgets.)
-export type DossiersSeg = 'dossiers' | 'fil'
+// Souvenirs : les albums (dossiers de photos, notes et discussion). Le fil familial a son propre onglet.
 
 // ═════════════════════════ L'onglet ═════════════════════════
 
-export default function Dossiers({ seg, setSeg }: { seg: DossiersSeg; setSeg: (s: DossiersSeg) => void }) {
+export default function Dossiers() {
   const { state } = useHome()
   const [path, setPath] = useState<string[]>([])
   // Un dossier supprimé, ou dont on a été retiré, disparaît du chemin.
@@ -39,12 +37,12 @@ export default function Dossiers({ seg, setSeg }: { seg: DossiersSeg; setSeg: (s
       />
     )
   }
-  return <Accueil seg={seg} setSeg={setSeg} onOpen={(id) => setPath([id])} />
+  return <Accueil onOpen={(id) => setPath([id])} />
 }
 
 // ═════════════════════════ Liste des dossiers ═════════════════════════
 
-function Accueil({ seg, setSeg, onOpen }: { seg: DossiersSeg; setSeg: (s: DossiersSeg) => void; onOpen: (id: string) => void }) {
+function Accueil({ onOpen }: { onOpen: (id: string) => void }) {
   const { state } = useHome()
   const [query, setQuery] = useState('')
   const [creating, setCreating] = useState(false)
@@ -63,18 +61,11 @@ function Accueil({ seg, setSeg, onOpen }: { seg: DossiersSeg; setSeg: (s: Dossie
     <>
       <Screen
         title="Souvenirs"
-        trailing={seg === 'dossiers' ? <Rond label="Nouveau dossier" tint onClick={() => setCreating(true)}><FolderPlus size={19} /></Rond> : undefined}
+        trailing={<Rond label="Nouvel album" tint onClick={() => setCreating(true)}><FolderPlus size={19} /></Rond>}
       >
-        <p className="-mt-1 px-5 text-sous text-brume">
-          {seg === 'dossiers' ? 'Les moments que vous aimez retrouver.' : 'Photos, vocaux et petits mots, en direct avec toute la famille.'}
-        </p>
-        <div className="mx-4 mb-4 mt-3">
-          <Segments value={seg} onChange={setSeg} options={[{ key: 'fil', label: 'Fil familial' }, { key: 'dossiers', label: 'Albums' }]} />
-        </div>
+        <p className="-mt-1 mb-4 px-5 text-sous text-brume">Vos albums : photos, notes et discussion, avec les proches de votre choix.</p>
 
-        {seg === 'fil' ? (
-          <Fil />
-        ) : total === 0 ? (
+        {total === 0 ? (
           <Vide art="picto-cadeau" title="Votre premier souvenir commence ici" text="Un dossier rassemble photos, notes et discussion, avec les proches de ton choix. Les autres ne le voient pas.">
             <Btn onClick={() => setCreating(true)}>Créer un dossier</Btn>
           </Vide>

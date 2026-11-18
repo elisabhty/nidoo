@@ -221,7 +221,7 @@ function Bulle({ mo, auteur, mine, premier, dernier, ouvert, onOuvrir, onPhoto, 
             }}
             className={`presse py-1 ${anim ? 'anim-colle' : ''} ${envoi ? 'opacity-70' : ''}`}
           >
-            <StickerImg cle={mo.sticker!} className="block h-auto max-h-[150px] w-[132px] object-contain" style={{ filter: 'drop-shadow(0 4px 8px rgba(29,26,43,0.18))' }} />
+            <StickerImg cle={mo.sticker!} className="block h-auto max-h-[128px] w-[116px] object-contain" style={{ filter: 'drop-shadow(0 4px 8px rgba(29,26,43,0.18))' }} />
           </div>
         ) : (
         <div
@@ -694,7 +694,7 @@ export default function Fil(_: { onCompose?: () => void }) {
 
   let jourPrecedent = ''
   return (
-    <div ref={racine} className="flex flex-col px-3" style={{ minHeight: 'calc(100dvh - var(--sat) - 331px)' }} onClick={() => ouvert && setOuvert(null)}>
+    <div ref={racine} className="flex flex-col px-3" style={{ minHeight: 'calc(100dvh - var(--sat) - 278px)' }} onClick={() => ouvert && setOuvert(null)}>
       <div className="flex-1" />
       {liste.length === 0 && (
         <div className="flex flex-col items-center px-6 pb-6 pt-4 text-center">

@@ -118,7 +118,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
     if (a === 'attention') setSheet({ k: 'dessin' })
     else if (a === 'carte') setSheet({ k: 'dessin', carte: 'noel' })
     else if (a === 'humeur') setSheet({ k: 'humeur' })
-    else if (a === 'souvenirs') go('moments')
+    else if (a === 'souvenirs') go('fil') // « Partager une photo » : on la partage dans le fil
     else go('organiser')
   }
   const gone = useGone()
