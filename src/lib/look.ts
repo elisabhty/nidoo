@@ -117,11 +117,19 @@ export type Look = {
   V?: number
   B?: number
   S?: number
+  // la silhouette, réglée au curseur (0 : comme la figurine ; 1 à 9, 5 au milieu)
+  G?: number // la taille : plus petite … plus grande
+  L?: number // la carrure : fine … tout en rondeur
 }
-const KEYS: (keyof Look)[] = ['s', 'h', 'c', 'e', 'g', 'b', 'm', 'f', 'o', 'l', 't', 'a', 'p', 'v', 'k', 'q', 'x', 'y', 'n', 'u', 'j', 'w', 'z', 'd', 'T', 'Y', 'O', 'C', 'P', 'H', 'R', 'V', 'B', 'S']
+
+/** Combien la taille agrandit (ou réduit) le personnage dans la maison : de -14 % à +14 %. */
+export const echelleTaille = (l: Pick<Look, 'G'>) => 1 + ((l.G || 5) - 5) * 0.035
+/** Combien la carrure élargit le personnage : de -12 % à +12 % en largeur. */
+export const echelleCarrure = (l: Pick<Look, 'L'>) => 1 + ((l.L || 5) - 5) * 0.03
+const KEYS: (keyof Look)[] = ['s', 'h', 'c', 'e', 'g', 'b', 'm', 'f', 'o', 'l', 't', 'a', 'p', 'v', 'k', 'q', 'x', 'y', 'n', 'u', 'j', 'w', 'z', 'd', 'T', 'Y', 'O', 'C', 'P', 'H', 'R', 'V', 'B', 'S', 'G', 'L']
 /** Les champs de l'ancien personnage dessiné : inutiles une fois la figurine choisie. */
 const LEGACY: (keyof Look)[] = ['s', 'h', 'c', 'e', 'g', 'b', 'm', 'o', 't', 'p']
-const MAX: Required<Look> = { s: SKINS.length, h: HAIRSTYLES.length, c: HAIR_COLORS.length, e: EYES.length, g: GLASSES.length, b: BEARDS.length, m: MOLES.length, f: 2, o: 2, l: 6, t: TOPS.length, a: AGES.length, p: 2, v: ACCESSORIES.length, k: 256, q: 9, x: 12, y: 7, n: 4, u: 5, j: 4, w: 6, z: 3, d: 2, T: ACCESSORIES.length, Y: ACCESSORIES.length, O: ACCESSORIES.length, C: ACCESSORIES.length, P: ACCESSORIES.length, H: ACCESSORIES.length, R: ACCESSORIES.length, V: ACCESSORIES.length, B: ACCESSORIES.length, S: ACCESSORIES.length }
+const MAX: Required<Look> = { s: SKINS.length, h: HAIRSTYLES.length, c: HAIR_COLORS.length, e: EYES.length, g: GLASSES.length, b: BEARDS.length, m: MOLES.length, f: 2, o: 2, l: 6, t: TOPS.length, a: AGES.length, p: 2, v: ACCESSORIES.length, k: 256, q: 9, x: 12, y: 7, n: 4, u: 5, j: 4, w: 6, z: 3, d: 2, T: ACCESSORIES.length, Y: ACCESSORIES.length, O: ACCESSORIES.length, C: ACCESSORIES.length, P: ACCESSORIES.length, H: ACCESSORIES.length, R: ACCESSORIES.length, V: ACCESSORIES.length, B: ACCESSORIES.length, S: ACCESSORIES.length, G: 10, L: 10 }
 
 export const encodeLook = (l: Look) =>
   `perso:${KEYS.filter((k) => !(l.k && LEGACY.includes(k)) && (k.match(/[qxynujwzdA-Z]/) ? l[k] : true))

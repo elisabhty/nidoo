@@ -3,7 +3,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { COLOR_KEYS, COLORS, HOUSES, shopItem } from '../lib/data'
 import { select, tap } from '../lib/haptic'
-import { ACCESSORIES, AGE_SCALE, encodeLook, enlever, lookOf, mettre, porteA, portes, toutEnlever, type Look } from '../lib/look'
+import { ACCESSORIES, AGE_SCALE, echelleTaille, encodeLook, enlever, lookOf, mettre, porteA, portes, toutEnlever, type Look } from '../lib/look'
 import { BLUSH, BOUCHES, CHEVEUX, labHex, LUNETTES, MONTURES, NEZ, nomPeau, peauOf, peauProche, peauxDe, persoImg, skinLab, VOILES, YEUX } from '../lib/personnalise'
 import { COULEURS_MONTURE, FORMES_LUNETTES } from '../lib/lunettes'
 import { accPlace, accTop, CH, CW, GROUPS, PERSOS, persoOf, type Group, type Perso } from '../lib/persos'
@@ -58,7 +58,7 @@ function Portrait({ ed, color, size = 206 }: { ed: Perso_; color: string; size?:
     bx -= extra / 2
   }
   const over = pl ? Math.max(0, -at) : 0
-  const wf = size * 0.54 * (AGE_SCALE[look.a] ?? 1)
+  const wf = size * 0.54 * (AGE_SCALE[look.a] ?? 1) * echelleTaille(look)
   const he = wf * R * (1 + over)
   const left = (size - wf) / 2, top = size * 0.93 - he
   const ox = (bx + bs / 2) * wf, oy = (R * over + by + bs / 2) * wf
@@ -99,6 +99,38 @@ function Portrait({ ed, color, size = 206 }: { ed: Perso_; color: string; size?:
   )
 }
 
+/** Un réglage au curseur (1 à 9, milieu à 5), avec des mots plutôt que des chiffres. */
+function Curseur({ label, gauche, droite, valeur, noms, onChange }: { label: string; gauche: string; droite: string; valeur: number; noms: string[]; onChange: (v: number) => void }) {
+  const id = useId()
+  return (
+    <div>
+      <div className="mb-1 flex items-baseline justify-between">
+        <label htmlFor={id} className="text-sous font-semibold text-encre">{label}</label>
+        <span className="text-note font-semibold text-teinte-fonce">{noms[valeur - 1]}</span>
+      </div>
+      <input
+        id={id}
+        type="range"
+        min={1}
+        max={9}
+        step={1}
+        value={valeur}
+        aria-valuetext={noms[valeur - 1]}
+        onChange={(e) => {
+          select()
+          onChange(Number(e.target.value))
+        }}
+        className="curseur w-full"
+        style={{ ['--plein' as string]: `${((valeur - 1) / 8) * 100}%` }}
+      />
+      <div className="mt-0.5 flex justify-between text-note text-brume">
+        <span>{gauche}</span>
+        <span>{droite}</span>
+      </div>
+    </div>
+  )
+}
+
 /** Tout ce qu'on peut choisir : la figurine (par catégorie et couleur de peau), sa taille, les détails, le fond. */
 function PersoOptions({ ed, color, setColor, owned = [] }: { ed: Perso_; color: string; setColor: (v: string) => void; owned?: string[] }) {
   const { look, mine, group, set, tune, pick } = ed
@@ -124,7 +156,6 @@ function PersoOptions({ ed, color, setColor, owned = [] }: { ed: Perso_; color: 
     return i < 0 ? premieres[group].length : i
   }
   const list = PERSOS.filter((p) => p.g === group).sort((p, q) => priorite(p) - priorite(q) || Number(!!p.s) - Number(!!q.s) || p.t - q.t)
-  const kids = group === 'fille' || group === 'garcon'
   const galerie = useRef<HTMLDivElement>(null)
   const galerieId = useId()
   const [restants, setRestants] = useState(Math.max(0, list.length - 5))
@@ -238,19 +269,25 @@ function PersoOptions({ ed, color, setColor, owned = [] }: { ed: Perso_; color: 
       </button>
       </div>
 
-      {kids && (
-        <>
-          {titre('Sa taille dans la maison')}
-          <Segments
-            value={String(look.a === 1 ? 1 : 2)}
-            onChange={(v) => set({ a: Number(v) })}
-            options={[
-              { key: '1', label: 'Ado' },
-              { key: '2', label: 'Enfant' },
-            ]}
-          />
-        </>
-      )}
+      {titre('Taille et silhouette')}
+      <div className="groupe space-y-4 px-4 pb-4 pt-3.5">
+        <Curseur
+          label="Taille"
+          gauche="Plus petite"
+          droite="Plus grande"
+          valeur={look.G || 5}
+          noms={['Toute petite', 'Petite', 'Plutôt petite', 'Un peu petite', 'Moyenne', 'Un peu grande', 'Plutôt grande', 'Grande', 'Très grande']}
+          onChange={(v) => set({ G: v === 5 ? 0 : v })}
+        />
+        <Curseur
+          label="Silhouette"
+          gauche="Fine"
+          droite="Tout en rondeur"
+          valeur={look.L || 5}
+          noms={['Très fine', 'Fine', 'Élancée', 'Un peu élancée', 'Équilibrée', 'Un peu ronde', 'Joliment ronde', 'Tout en rondeur', 'Bien en chair']}
+          onChange={(v) => set({ L: v === 5 ? 0 : v })}
+        />
+      </div>
 
       </>}
       {section === 'details' && <>

@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
-import { ACCESSORIES, EYES, HAIR_COLORS, HAIRSTYLES, porteA, SKINS, TOPS, type Look } from '../lib/look'
+import { ACCESSORIES, echelleCarrure, EYES, HAIR_COLORS, HAIRSTYLES, porteA, SKINS, TOPS, type Look } from '../lib/look'
 import { COULEURS_MONTURE, FORMES_LUNETTES, LUNETTES_IMG } from '../lib/lunettes'
 import { cachedSrc, dessusPret, jambesPret, labHex, peauOf, persoImg, pixelKey, renderDessus, renderJambes, renderPerso, renderSans, sansPret, skinLab, type HautNu, type Mains, type Remplacement } from '../lib/personnalise'
 import { CORPS } from '../lib/corps'
@@ -28,91 +28,68 @@ type Props = {
   recul?: number
 }
 
+/** Une image calculée en tâche de fond à partir d'une autre (recolorée, sans l'ancien habit…).
+ *  Tant qu'elle n'est pas prête, on montre la précédente de la même figurine, sinon `repli` — jamais une image
+ *  calculée pour une autre figurine : sa silhouette apparaîtrait un instant par-dessus la nouvelle. */
+function useCalcul(pid: string, cle: string | null, pret: () => string | undefined, calcul: () => Promise<string>, repli: string): string {
+  const [etat, setEtat] = useState<{ pid: string; url: string } | null>(null)
+  const hit = cle == null ? undefined : pret()
+  useEffect(() => {
+    if (cle == null) return
+    if (hit) return setEtat({ pid, url: hit })
+    let live = true
+    calcul()
+      .then((u) => live && setEtat({ pid, url: u }))
+      .catch(() => live && setEtat({ pid, url: repli }))
+    return () => {
+      live = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cle, pid])
+  if (cle == null) return repli
+  if (hit) return hit
+  return etat && etat.pid === pid ? etat.url : repli
+}
+
 /** L'image de la figurine (avec la peau choisie), recolorée si on a changé ses cheveux, ses yeux ou sa bouche. */
 function usePersoSrc(p: Perso, look: Look) {
   const key = pixelKey(p, look)
   const base = persoImg(p, peauOf(p, look))
-  const [src, setSrc] = useState(() => (key ? cachedSrc(key) ?? base : base))
-  useEffect(() => {
-    if (!key) return setSrc(base)
-    let live = true
-    const hit = cachedSrc(key)
-    if (hit) setSrc(hit)
-    else
-      renderPerso(p, look)
-        .then((u) => live && setSrc(u))
-        .catch(() => live && setSrc(base))
-    return () => {
-      live = false
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, base])
-  return src
+  return useCalcul(p.id, key || null, () => cachedSrc(key), () => renderPerso(p, look), base)
 }
 
-/** Les cheveux et le visage de la figurine, à redessiner devant un vêtement (null tant que ce n'est pas prêt). */
+/** Les cheveux et le visage de la figurine, à redessiner devant un vêtement : [image ou null, fini]. */
 function useDessus(p: Perso, src: string, cut: number | null, mains: Mains | null): [string | null, boolean] {
-  const [etat, setEtat] = useState<{ url: string | null; fini: boolean }>(() => {
-    const hit = cut == null ? null : dessusPret(src, cut, mains) ?? null
-    return { url: hit, fini: cut == null || !!hit }
-  })
+  const cle = cut == null ? null : `${src}|${cut}|${mains ? `${mains.cx},${mains.demi},${mains.depuis ?? 0}` : ''}`
+  const [etat, setEtat] = useState<{ pid: string; url: string | null } | null>(null)
+  const hit = cut == null ? undefined : dessusPret(src, cut, mains)
   useEffect(() => {
-    if (cut == null) return setEtat({ url: null, fini: true })
+    if (cut == null) return
+    if (hit) return setEtat({ pid: p.id, url: hit })
     let live = true
-    const hit = dessusPret(src, cut, mains)
-    if (hit) setEtat({ url: hit, fini: true })
-    else
-      renderDessus(p, src, cut, mains)
-        .then((u) => live && setEtat({ url: u, fini: true }))
-        // en cas d'échec, l'habit s'affiche quand même (posé par-dessus)
-        .catch(() => live && setEtat((e) => ({ url: e.url, fini: true })))
+    renderDessus(p, src, cut, mains)
+      .then((u) => live && setEtat({ pid: p.id, url: u }))
+      // en cas d'échec, l'habit s'affiche quand même (posé par-dessus)
+      .catch(() => live && setEtat({ pid: p.id, url: null }))
     return () => {
       live = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [src, cut, p.id, mains?.cx, mains?.demi, mains?.depuis])
-  return [etat.url, etat.fini]
+  }, [cle, p.id])
+  if (cut == null) return [null, true]
+  if (hit) return [hit, true]
+  // pas encore prêt : celui d'avant pour la même figurine, sinon on attend (les habits restent cachés)
+  return etat && etat.pid === p.id ? [etat.url, true] : [null, false]
 }
 
 /** Sous une jupe, un short ou une robe : la figurine sans son ancien bas, avec des jambes nues (src tant que ce n'est pas prêt). */
 function useJambes(p: Perso, src: string, ourlet: number | null, haut: HautNu | null) {
-  const [url, setUrl] = useState(() => (ourlet == null ? src : jambesPret(src, ourlet, haut) ?? src))
-  useEffect(() => {
-    if (ourlet == null) return setUrl(src)
-    let live = true
-    const hit = jambesPret(src, ourlet, haut)
-    if (hit) setUrl(hit)
-    else
-      renderJambes(p, src, ourlet, haut)
-        .then((u) => live && setUrl(u))
-        .catch(() => live && setUrl(src))
-    return () => {
-      live = false
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [src, ourlet, p.id, haut?.bretelles])
-  return url
+  return useCalcul(p.id, ourlet == null ? null : `${src}|${ourlet}|${haut?.bretelles ?? ''}`, () => jambesPret(src, ourlet!, haut), () => renderJambes(p, src, ourlet!, haut), src)
 }
 
 /** La figurine sans l'ancien habit que le nouveau remplace (src tant que ce n'est pas prêt). */
 function useSans(p: Perso, src: string, r: Remplacement | null) {
-  const cle = r ? JSON.stringify(r) : ''
-  const [url, setUrl] = useState(() => (r ? sansPret(src, r) ?? src : src))
-  useEffect(() => {
-    if (!r) return setUrl(src)
-    let live = true
-    const hit = sansPret(src, r)
-    if (hit) setUrl(hit)
-    else
-      renderSans(p, src, r)
-        .then((u) => live && setUrl(u))
-        .catch(() => live && setUrl(src))
-    return () => {
-      live = false
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [src, cle, p.id])
-  return url
+  return useCalcul(p.id, r ? `${src}|${JSON.stringify(r)}` : null, () => sansPret(src, r!), () => renderSans(p, src, r!), src)
 }
 
 /** Une image d'habit posée dans sa boîte (fractions de la toile). */
@@ -446,6 +423,14 @@ export function Character({ look, mood = null, bust = false, extras = false, cla
     </>
   )
 
+  // la carrure choisie au curseur : la figurine et tout ce qu'elle porte s'élargissent (ou s'affinent) ensemble
+  const carrure = echelleCarrure(look)
+  const large = carrure === 1 ? figure : (
+    <span className="absolute inset-0 block" style={{ transform: `scaleX(${carrure})`, transformOrigin: `${x * 100}% 100%` }}>
+      {figure}
+    </span>
+  )
+
   if (bust) {
     // le cadre du buste, agrandi vers le haut si un chapeau dépasse
     let bx = bx0 * CW
@@ -467,7 +452,7 @@ export function Character({ look, mood = null, bust = false, extras = false, cla
     return (
       <span className={`relative block overflow-hidden ${className}`} style={{ aspectRatio: '1 / 1' }}>
         <span className="absolute block" style={{ width: `${(CW / bs) * 100}%`, left: `${(-bx / bs) * 100}%`, top: `${(-by / bs) * 100}%`, aspectRatio: `${CW} / ${CH}` }}>
-          {figure}
+          {large}
         </span>
       </span>
     )
@@ -477,7 +462,7 @@ export function Character({ look, mood = null, bust = false, extras = false, cla
   return (
     <span className={`relative block ${className}`} style={{ aspectRatio: `${CW} / ${CH * (1 + over)}`, transform: pose === 'calin' ? 'scale(1.04, 0.98)' : undefined, transformOrigin: '50% 100%' }}>
       <span className="absolute inset-x-0 bottom-0 block" style={{ aspectRatio: `${CW} / ${CH}` }}>
-        {figure}
+        {large}
       </span>
     </span>
   )

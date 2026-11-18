@@ -320,3 +320,10 @@ html, body { overflow: hidden; width: 100%; }
 @keyframes perso-arrow { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(4px); } }
 .perso-arrow { animation: perso-arrow 1.6s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .perso-arrow { animation: none; } }
+
+/* Le curseur des réglages (taille, silhouette) : une piste arrondie remplie en violet, un gros bouton blanc. */
+.curseur { -webkit-appearance: none; appearance: none; height: 30px; background: transparent; }
+.curseur::-webkit-slider-runnable-track { height: 6px; border-radius: 9999px; background: linear-gradient(90deg, #7050D5 var(--plein), rgba(118, 112, 148, 0.2) var(--plein)); }
+.curseur::-moz-range-track { height: 6px; border-radius: 9999px; background: linear-gradient(90deg, #7050D5 var(--plein), rgba(118, 112, 148, 0.2) var(--plein)); }
+.curseur::-webkit-slider-thumb { -webkit-appearance: none; width: 28px; height: 28px; margin-top: -11px; border-radius: 9999px; background: #fff; box-shadow: 0 2px 7px rgba(29, 26, 43, 0.22), 0 0 0 0.5px rgba(29, 26, 43, 0.08); }
+.curseur::-moz-range-thumb { width: 28px; height: 28px; border: 0; border-radius: 9999px; background: #fff; box-shadow: 0 2px 7px rgba(29, 26, 43, 0.22); }

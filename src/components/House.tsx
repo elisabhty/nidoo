@@ -3,7 +3,7 @@ import { success, tap } from '../lib/haptic'
 import { jouer, sonCompagnon } from '../lib/sons'
 import { ANIMALS, CARE, moodOf, petStage, plantArt } from '../lib/data'
 import type { HouseCare, HouseType, Member, Pet, Plot } from '../lib/types'
-import { AGE_SCALE, lookOf } from '../lib/look'
+import { AGE_SCALE, lookOf, echelleTaille } from '../lib/look'
 import { Character } from './Character'
 import { Smiley } from './Smiley'
 import { dayPhase, season as seasonOf, todayKey, type Season } from '../lib/util'
@@ -671,7 +671,11 @@ function arrange(people: HousePerson[], op: Openings): { placed: Placed[]; extra
   const cap = 4 + (op.door ? 1 : 0) + op.win.length
   const shown = ordered.length > cap ? ordered.slice(0, cap - 1) : ordered
   const n = shown.length
-  const scale = (p: HousePerson) => AGE_SCALE[age(p)] ?? 1
+  // la taille réglée au curseur s'ajoute à celle de l'âge
+  const scale = (p: HousePerson) => {
+    const l = lookOf(p.m.avatar, p.m.user_id ?? p.m.id)
+    return (AGE_SCALE[l.a] ?? 1) * echelleTaille(l)
+  }
   if (n <= 3) {
     const order = ORDERS[n] ?? []
     return { placed: shown.map((p, i) => ({ p, i, scale: scale(p), at: { ...SLOTS[order[i]], where: 'jardin' as const } })), extra: 0 }

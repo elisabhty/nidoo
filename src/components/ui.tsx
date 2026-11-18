@@ -314,7 +314,7 @@ export function Toasts() {
 export function Segments<T extends string>({ value, onChange, options }: { value: T; onChange: (v: T) => void; options: { key: T; label: string }[] }) {
   const i = Math.max(0, options.findIndex((o) => o.key === value))
   return (
-    <div className="ios-segments relative flex min-h-11 rounded-full p-[3px]" role="tablist">
+    <div className="ios-segments relative isolate flex min-h-11 rounded-full p-[3px]" role="tablist">
       <span
         className="absolute bottom-[3px] top-[3px] rounded-full bg-white shadow-[0_2px_6px_rgba(29,26,43,0.08)] transition-transform duration-300"
         style={{ width: `calc((100% - 6px) / ${options.length})`, transform: `translateX(${i * 100}%)`, transitionTimingFunction: 'var(--ressort)' }}
