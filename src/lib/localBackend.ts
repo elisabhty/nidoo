@@ -697,6 +697,12 @@ export function createLocalBackend(): Backend {
       for (const g of f.games) botTurn(f, g)
       pd.bots(f)
       demoAdvent(f, me.id)
+      for (const d of f.folders.filter(d => d.parent_id)) {
+        const inherited = f.folderMembers.filter(m => m.folder_id === d.root_id)
+        for (const m of inherited) if (!f.folderMembers.some(x => x.folder_id === d.id && x.member_id === m.member_id)) f.folderMembers.push({...m,folder_id:d.id})
+        d.parent_id = null; d.root_id = d.id
+        for (const item of f.folderItems.filter(i => i.folder_id === d.id)) item.root_id = d.id
+      }
       const mine = new Set(f.folderMembers.filter((x) => x.member_id === me.id).map((x) => x.folder_id))
       return structuredClone({
         ...f,
@@ -794,6 +800,7 @@ export function createLocalBackend(): Backend {
       save()
     },
     async createFolder(fid, x) {
+      if (x.parentId) throw new Error('Les dossiers imbriqués ne sont plus disponibles.')
       const f = fam(fid)
       const me = myId(f)
       const parent = x.parentId ? f.folders.find((d) => d.id === x.parentId) : undefined
@@ -861,24 +868,11 @@ export function createLocalBackend(): Backend {
       }
       if (x.kind === 'message') answerIn(f, d)
     },
-    async replaceFolderMedia(item, blob, patch = {}) {
-      folderAsset(item.kind, blob)
-      const { f } = folderById(item.folder_id)
-      const current = f.folderItems.find(i => i.id === item.id)
-      if (!current) throw new Error('DOSSIER_INCONNU')
-      const before = { ...current }
-      if (item.kind === 'photo' || item.kind === 'dessin') current.image_path = await photo(blob)
-      else current.media_path = await blobToDataUrl(blob)
-      if (patch.body !== undefined) current.body = patch.body
-      if (patch.title !== undefined) current.title = patch.title
-      if (patch.sourceMomentId !== undefined) current.source_moment_id = patch.sourceMomentId
-      current.updated_at = new Date().toISOString()
-      if (!save(false)) { Object.assign(current, before); save(false); throw new Error('STOCKAGE_PLEIN') }
-    },
     async updateFolderItem(id, patch) {
       for (const f of Object.values(db.families)) {
         const i = f.folderItems.find((x) => x.id === id)
         if (!i) continue
+        if (i.kind !== 'note') throw new Error('Seules les notes écrites peuvent être modifiées.')
         i.title = patch.title?.trim() || null
         i.body = patch.body?.trim() || null
         i.updated_at = new Date().toISOString()

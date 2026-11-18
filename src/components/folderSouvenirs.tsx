@@ -1,10 +1,11 @@
-import { Check, Mic, Plus, Square, Upload, Video } from 'lucide-react'
+import { Check, Mic, Plus, Square, Upload, Video, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { folderAsset } from '../lib/folderMedia'
 import { success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
-import type { Folder, FolderItem, Moment } from '../lib/types'
+import type { Folder } from '../lib/types'
 import { compressImage, errorText } from '../lib/util'
+import { PhotoEditeur } from './photoEditeur'
 import { Art, Avatar, Btn, Sheet } from './ui'
 
 export async function photoBlob(url: string) {
@@ -13,50 +14,63 @@ export async function photoBlob(url: string) {
   return compressImage(await response.blob(), 1600, 0.86)
 }
 
-export function PhotosDuFil({ folder, replace, onClose, onSaved }: { folder: Folder; replace?: FolderItem; onClose: () => void; onSaved: () => void }) {
+export function PhotosDuFil({ folder, onClose, onSaved }: { folder: Folder; onClose: () => void; onSaved: () => void }) {
   const { state, api, reload, toast } = useHome()
   const photos = state.moments.filter(m => m.image_url).sort((a,b) => b.created_at.localeCompare(a.created_at))
   const already = new Set(state.folderItems.filter(i => i.folder_id === folder.id).map(i => i.source_moment_id).filter(Boolean))
+  const [source, setSource] = useState<'phone'|'thread'>('phone')
   const [selected, setSelected] = useState<string[]>([])
+  const [files, setFiles] = useState<{id:string;file:File;caption?:string}[]>([])
+  const [editing, setEditing] = useState<string|null>(null)
+  const input = useRef<HTMLInputElement>(null)
+  const previews = useMemo(() => files.map(f => ({...f,url:URL.createObjectURL(f.file)})),[files])
+  useEffect(() => () => previews.forEach(f => URL.revokeObjectURL(f.url)),[previews])
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState('')
+  const count = source === 'phone' ? files.length : selected.length
   const save = async () => {
-    if (busy || !selected.length) return
+    if (busy || !count) return
     setBusy(true); setError(''); setProgress(0)
     let added = 0
     try {
-      for (const id of selected) {
-        const photo = photos.find(p => p.id === id)
-        if (!photo?.image_url) throw new Error('PHOTO_DU_FIL_INACCESSIBLE')
-        const blob = await photoBlob(photo.image_url)
-        if (replace) await api.replaceFolderMedia(replace, blob, { body: photo.body, sourceMomentId: photo.id })
-        else await api.addFolderItem(folder, state.me.id, { kind: 'photo', blob, body: photo.body ?? undefined, sourceMomentId: photo.id })
-        added++; setProgress(added)
-        setSelected(current => current.filter(x => x !== id))
+      if (source === 'phone') {
+        for (const file of files) {
+          const blob = await compressImage(file.file,1600,0.86)
+          await api.addFolderItem(folder,state.me.id,{kind:'photo',blob,body:file.caption})
+          added++; setProgress(added); setFiles(current => current.filter(f => f.id !== file.id))
+        }
+      } else {
+        for (const id of selected) {
+          const photo = photos.find(p => p.id === id)
+          if (!photo?.image_url) throw new Error('PHOTO_DU_FIL_INACCESSIBLE')
+          const blob = await photoBlob(photo.image_url)
+          await api.addFolderItem(folder,state.me.id,{kind:'photo',blob,body:photo.body ?? undefined,sourceMomentId:photo.id})
+          added++; setProgress(added); setSelected(current => current.filter(x => x !== id))
+        }
       }
-      await reload(); success(); toast(replace ? 'Photo remplacée dans le dossier' : `${added} photo${added > 1 ? 's ajoutées' : ' ajoutée'}`)
+      await reload(); success(); toast(`${added} photo${added > 1 ? 's ajoutées' : ' ajoutée'}`)
       onSaved(); onClose()
     } catch (e) {
       if (added) await reload().catch(() => undefined)
-      setError(`${added ? `${added} photo${added > 1 ? 's ont été ajoutées' : ' a été ajoutée'}. ` : ''}${errorText(e)}`)
+      setError(`${added ? `${added} photo(s) ajoutée(s). ` : ''}${errorText(e)}`)
     } finally { setBusy(false) }
   }
-  return <Sheet title={replace ? 'Remplacer la photo' : 'Photos du fil'} tall onClose={() => { if (!busy) onClose() }} footer={photos.length > 0 ? <Btn onClick={save} disabled={busy || !selected.length}>{busy ? `Enregistrement… ${progress}` : replace ? 'Remplacer dans le dossier' : selected.length ? `Ajouter ${selected.length} photo${selected.length > 1 ? 's' : ''}` : 'Choisis les photos à ajouter'}</Btn> : undefined}>
-    <p className="mb-4 text-sous text-brume">{replace ? 'Choisis la photo qui prendra sa place dans ce dossier.' : 'Choisis parmi les photos déjà partagées dans le fil familial.'} Le fil d’origine reste inchangé.</p>
+  const edit = files.find(f => f.id === editing)
+  return <>{!edit && <Sheet title="Ajouter des photos" tall onClose={() => { if (!busy) onClose() }} footer={<Btn onClick={save} disabled={busy || !count}>{busy ? `Enregistrement… ${progress}` : count ? `Ajouter ${count} photo${count > 1 ? 's' : ''}` : 'Choisis des photos'}</Btn>}>
+    <div className="mb-4 flex gap-2" role="group" aria-label="Provenance des photos">{([['phone','Téléphone'],['thread','Fil familial']] as const).map(([key,label]) => <button key={key} disabled={busy} onClick={() => setSource(key)} aria-pressed={source === key} className={`presse min-h-11 flex-1 rounded-full px-4 text-sous font-semibold ${source === key ? 'bg-teinte text-white' : 'bg-remplissage text-encre'}`}>{label}</button>)}</div>
+    <p className="mb-4 text-sous text-brume">{source === 'phone' ? 'Choisis des photos de ta photothèque, même si elles ne sont pas dans le fil. Tu peux les décorer avant de les ajouter.' : 'Sélectionne les photos du fil familial à garder ici. Le fil reste inchangé.'}</p>
     {error && <p role="alert" className="mb-4 rounded-[16px] bg-rouge/10 p-3 text-sous text-rouge">{error}</p>}
-    {!photos.length ? <div className="py-8 text-center"><Art name="picto-photo" size={80} className="mx-auto" /><h3 className="mt-4 font-rond text-titre2">Le fil n’a pas encore de photo</h3><p className="mt-2 text-sous text-brume">Partage une première photo dans l’onglet Fil, puis retrouve-la ici.</p></div> : <div className="grid grid-cols-3 gap-2">
-      {photos.map((p, index) => {
-        const on = selected.includes(p.id)
-        const exists = !replace && already.has(p.id)
-        const author = state.members.find(m => m.id === p.member_id)
-        return <button key={p.id} disabled={busy || exists} onClick={() => { tap(); setSelected(current => on ? current.filter(id => id !== p.id) : replace ? [p.id] : current.length < 20 ? [...current, p.id] : current) }} aria-label={`Photo ${index+1} de ${author?.display_name ?? 'la famille'}${exists ? ', déjà dans le dossier' : ''}`} aria-pressed={on || exists} className="presse min-w-0 text-left disabled:opacity-65">
-          <span className={`relative block aspect-square overflow-hidden rounded-[16px] bg-remplissage ${on ? 'ring-2 ring-teinte ring-offset-2' : ''}`}><img src={p.image_url!} alt="" loading="lazy" className="h-full w-full object-cover" /><span className={`absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full ${on || exists ? 'bg-teinte text-white' : 'bg-white/90 text-teinte'}`}>{on || exists ? <Check size={15} /> : <Plus size={15} />}</span></span>
-          <span className="mt-1 flex min-w-0 items-center gap-1 text-note text-brume">{author && <Avatar m={author} size={18} />}<span className="truncate">{exists ? 'Déjà ajoutée' : author?.display_name ?? 'Un proche'}</span></span>
-        </button>
-      })}
-    </div>}
-  </Sheet>
+    <input ref={input} type="file" accept="image/*" multiple hidden onChange={e => { const incoming = Array.from(e.target.files ?? []); e.target.value=''; setFiles(current => [...current,...incoming.map(file => ({id:crypto.randomUUID(),file}))]); setError('') }} />
+    {source === 'phone' ? <>
+      <button onClick={() => input.current?.click()} disabled={busy} className="presse mb-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-teinte-doux px-4 text-sous font-semibold text-teinte-fonce"><Upload size={19} />Choisir dans la photothèque</button>
+      <div className="grid grid-cols-2 gap-3">{previews.map(f => <div key={f.id} className="relative overflow-hidden rounded-[18px] bg-carte shadow-carte"><img src={f.url} alt="Photo à ajouter" className="aspect-square w-full object-cover" /><button disabled={busy} onClick={() => setFiles(current => current.filter(x => x.id !== f.id))} aria-label="Retirer cette sélection" className="absolute right-1 top-1 flex h-11 w-11 items-center justify-center rounded-full bg-white/95 text-rouge"><X size={19} /></button><button disabled={busy} onClick={() => setEditing(f.id)} className="min-h-11 w-full px-2 text-note font-semibold text-teinte-fonce">Cadres, stickers et dessin</button></div>)}</div>
+    </> : !photos.length ? <div className="py-8 text-center"><Art name="picto-photo" size={80} className="mx-auto" /><h3 className="mt-4 font-rond text-titre2">Le fil n’a pas encore de photo</h3><p className="mt-2 text-sous text-brume">Tu peux en ajouter depuis ton téléphone.</p><button onClick={() => setSource('phone')} className="mt-3 min-h-11 font-semibold text-teinte-fonce">Depuis le téléphone</button></div> : <div className="grid grid-cols-3 gap-2">{photos.map((p,index) => {
+      const on = selected.includes(p.id), exists = already.has(p.id)
+      const author = state.members.find(m => m.id === p.member_id)
+      return <button key={p.id} disabled={busy || exists} onClick={() => { tap(); setSelected(current => on ? current.filter(id => id !== p.id) : [...current,p.id]) }} aria-label={`Photo ${index+1} de ${author?.display_name ?? 'la famille'}${exists ? ', déjà dans le dossier' : ''}`} aria-pressed={on || exists} className="presse min-w-0 text-left disabled:opacity-65"><span className={`relative block aspect-square overflow-hidden rounded-[16px] bg-remplissage ${on ? 'ring-2 ring-teinte ring-offset-2' : ''}`}><img src={p.image_url!} alt="" loading="lazy" className="h-full w-full object-cover" /><span className={`absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full ${on || exists ? 'bg-teinte text-white' : 'bg-white/90 text-teinte'}`}>{on || exists ? <Check size={15} /> : <Plus size={15} />}</span></span><span className="mt-1 flex min-w-0 items-center gap-1 text-note text-brume">{author && <Avatar m={author} size={18} />}<span className="truncate">{exists ? 'Déjà ajoutée' : author?.display_name ?? 'Un proche'}</span></span></button>
+    })}</div>}
+  </Sheet>}{edit && <PhotoEditeur file={edit.file} initialCaption={edit.caption} title="Décorer la photo" confirmLabel="Garder cette version" onClose={() => setEditing(null)} onSend={(blob,caption) => {setFiles(current => current.map(f => f.id === edit.id ? {...f,file:new File([blob],'souvenir.jpg',{type:blob.type}),caption} : f));setEditing(null)}} />}</>
 }
 
 function usePreview(blob: Blob | null) {

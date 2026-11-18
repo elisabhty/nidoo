@@ -1,12 +1,12 @@
 import {
-  Brush, Check, ChevronLeft, ChevronRight, Ellipsis, FolderPlus, ImagePlus, Lock, Mic, Minus, NotebookPen, Pencil, Plus, Search, Video, Trash2, UsersRound, X,
+  Check, ChevronLeft, ChevronRight, Ellipsis, FolderPlus, ImagePlus, Lock, Mic, Minus, NotebookPen, Plus, Video, Trash2, UsersRound, X,
 } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { PhotoEditeur } from '../components/photoEditeur'
-import { PhotosDuFil, SouvenirMedia, photoBlob } from '../components/folderSouvenirs'
+import { PhotosDuFil, SouvenirMedia } from '../components/folderSouvenirs'
 import { FolderCover, MemberStack } from '../components/folder'
 import { Art, Avatar, Btn, choisir, confirmer, Rond, Screen, SearchField, Sheet, Vide } from '../components/ui'
-import { contentLine, folderStats, membersOf, plural, subtreeIds, whoText } from '../lib/folders'
+import { contentLine, folderStats, membersOf, subtreeIds, whoText } from '../lib/folders'
 import { select, success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
 import type { Folder, FolderItem } from '../lib/types'
@@ -18,28 +18,10 @@ import { ago, compressImage, errorText } from '../lib/util'
 
 export default function Dossiers() {
   const { state } = useHome()
-  const [path, setPath] = useState<string[]>([])
-  // Un dossier supprimé, ou dont on a été retiré, disparaît du chemin.
-  const cut = path.findIndex((id) => !state.folders.some((f) => f.id === id))
-  const live = cut === -1 ? path : path.slice(0, cut)
-  useEffect(() => {
-    if (live.length !== path.length) setPath(live)
-  }, [live.length, path.length]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const current = live[live.length - 1]
-  if (current) {
-    const parent = state.folders.find((f) => f.id === live[live.length - 2])
-    return (
-      <FolderView
-        key={current}
-        id={current}
-        backLabel={parent?.name ?? 'Souvenirs'}
-        onBack={() => setPath(live.slice(0, -1))}
-        onOpen={(id) => setPath([...live, id])}
-      />
-    )
-  }
-  return <Accueil onOpen={(id) => setPath([id])} />
+  const [selected, setSelected] = useState<string | null>(null)
+  const current = selected && state.folders.some(f => f.id === selected) ? selected : null
+  if (current) return <FolderView key={current} id={current} onBack={() => setSelected(null)} />
+  return <Accueil onOpen={setSelected} />
 }
 
 // ═════════════════════════ Liste des dossiers ═════════════════════════
@@ -52,12 +34,11 @@ function Accueil({ onOpen }: { onOpen: (id: string) => void }) {
   const roots = useMemo(() => {
     const q = query.trim().toLowerCase()
     return state.folders
-      .filter((f) => !f.parent_id)
       .map((f) => ({ f, s: folderStats(state.folders, state.folderItems, f) }))
-      .filter(({ f }) => !q || [...subtreeIds(state.folders, f.id)].some((id) => state.folders.find((d) => d.id === id)?.name.toLowerCase().includes(q)))
+      .filter(({ f }) => !q || f.name.toLowerCase().includes(q))
       .sort((a, b) => b.s.last - a.s.last)
   }, [state.folders, state.folderItems, query])
-  const total = state.folders.filter((f) => !f.parent_id).length
+  const total = state.folders.length
 
   return (
     <>
@@ -132,14 +113,13 @@ function FolderCard({ folder, cover, line, last, onOpen }: { folder: Folder; cov
 type Open =
   | null
   | { k: 'note'; note?: FolderItem }
-  | { k: 'sous-dossier' }
   | { k: 'membres' }
   | { k: 'renommer' }
   | { k: 'couverture' }
-  | { k: 'photos'; replace?: FolderItem }
+  | { k: 'photos' }
   | { k: 'media'; kind: 'audio' | 'video' }
 
-function FolderView({ id, backLabel, onBack, onOpen }: { id: string; backLabel: string; onBack: () => void; onOpen: (id: string) => void }) {
+function FolderView({ id, onBack }: { id: string; onBack: () => void }) {
   const { state, run, toast } = useHome()
   const { me, members, folders, folderItems, folderMembers } = state
   const folder = folders.find((f) => f.id === id)!
@@ -149,39 +129,29 @@ function FolderView({ id, backLabel, onBack, onOpen }: { id: string; backLabel: 
   const admin = rootAdmin || folder.owner_id === me.id
   const stats = folderStats(folders, folderItems, folder)
 
-  const children = folders.filter((f) => f.parent_id === id).sort((a, b) => a.name.localeCompare(b.name, 'fr'))
   const own = folderItems.filter((i) => i.folder_id === id)
   const photos = own.filter((i) => i.kind === 'photo').sort((a, b) => b.created_at.localeCompare(a.created_at))
   const notes = own.filter((i) => i.kind === 'note' || i.kind === 'dessin').sort((a, b) => b.updated_at.localeCompare(a.updated_at))
 
   const [scrolled, setScrolled] = useState(false)
   const [query, setQuery] = useState('')
-  const [filter, setFilter] = useState<'tout' | 'photos' | 'notes' | 'dossiers' | 'audio' | 'video'>('tout')
+  const [filter, setFilter] = useState<'tout' | 'photos' | 'notes' | 'audio' | 'video'>('tout')
   const [sheet, setSheet] = useState<Open>(null)
   const [viewer, setViewer] = useState<number | null>(null)
   const [drawingViewer, setDrawingViewer] = useState<FolderItem | null>(null)
-  const [editor, setEditor] = useState<{ file: File; kind: 'photo' | 'dessin'; item?: FolderItem } | null>(null)
+  const [editor, setEditor] = useState<{ file: File; kind: 'photo' | 'dessin' } | null>(null)
   const [preparing, setPreparing] = useState(false)
   const coverInput = useRef<HTMLInputElement>(null)
   const heroText = useRef<HTMLDivElement>(null)
 
-  // Ancêtres pour le fil d'Ariane : « Recettes de Mamie / Desserts »
-  const crumbs: Folder[] = []
-  for (let p = folders.find((f) => f.id === folder.parent_id); p; p = folders.find((f) => f.id === p!.parent_id)) crumbs.unshift(p)
-
-
-  const openEditor = async (item?: FolderItem) => {
+  const openEditor = async () => {
     if (preparing) return
     setPreparing(true)
     try {
-      let blob: Blob
-      if (item?.image_url) blob = await photoBlob(item.image_url)
-      else {
-        const canvas = document.createElement('canvas'); canvas.width = 900; canvas.height = 1200
-        const ctx = canvas.getContext('2d')!; ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0,0,900,1200)
-        blob = await new Promise<Blob>((resolve,reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error('Impossible de préparer la feuille.')), 'image/jpeg'))
-      }
-      setEditor({file:new File([blob],'souvenir.jpg',{type:blob.type}),kind:item?.kind === 'photo' ? 'photo' : 'dessin',item})
+      const canvas = document.createElement('canvas'); canvas.width = 900; canvas.height = 1200
+      const ctx = canvas.getContext('2d')!; ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0,0,900,1200)
+      const blob = await new Promise<Blob>((resolve,reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error('Impossible de préparer la feuille.')), 'image/jpeg'))
+      setEditor({file:new File([blob],'souvenir.jpg',{type:blob.type}),kind:'dessin'})
     } catch (e) { toast(errorText(e),'err') } finally { setPreparing(false) }
   }
   const removeItem = async (item: FolderItem) => {
@@ -190,13 +160,12 @@ function FolderView({ id, backLabel, onBack, onOpen }: { id: string; backLabel: 
     await run(api => api.deleteFolderItem(item),'Souvenir retiré du dossier')
   }
   const add = async () => {
-    const i = await choisir({ title:`Ajouter dans « ${folder.name} »`, actions:[{label:'Photos du fil'},{label:'Note écrite'},{label:'Note dessinée'},{label:'Souvenir vocal'},{label:'Vidéo souvenir'},{label:'Sous-dossier'}] })
+    const i = await choisir({ title:`Ajouter dans « ${folder.name} »`, actions:[{label:'Ajouter des photos'},{label:'Note écrite'},{label:'Note dessinée'},{label:'Souvenir vocal'},{label:'Vidéo souvenir'}] })
     if (i === 0) setSheet({k:'photos'})
     if (i === 1) setSheet({k:'note'})
     if (i === 2) void openEditor()
     if (i === 3) setSheet({k:'media',kind:'audio'})
     if (i === 4) setSheet({k:'media',kind:'video'})
-    if (i === 5) setSheet({k:'sous-dossier'})
   }
 
   const remove = async () => {
@@ -235,22 +204,19 @@ function FolderView({ id, backLabel, onBack, onOpen }: { id: string; backLabel: 
   }
 
   const media = own.filter(i => i.kind === 'audio' || i.kind === 'video').sort((a,b) => b.created_at.localeCompare(a.created_at))
-  const empty = !children.length && !photos.length && !notes.length && !media.length
+  const empty = !photos.length && !notes.length && !media.length
   const normalise = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
   const q = normalise(query.trim())
   const matches = (...texts: (string | null | undefined)[]) => !q || texts.some(text => normalise(text ?? '').includes(q))
-  const visibleChildren = children.filter(c => matches(c.name))
   const visiblePhotos = photos.filter(p => matches(p.body))
   const visibleMedia = media.filter(m => (filter === 'tout' || filter === m.kind) && matches(m.title,m.body))
   const visibleNotes = notes.filter(n => matches(n.title, n.body))
-  const showFolders = filter === 'tout' || filter === 'dossiers'
   const showPhotos = filter === 'tout' || filter === 'photos'
   const showNotes = filter === 'tout' || filter === 'notes'
-  const hasResults = (showFolders && visibleChildren.length > 0) || (showPhotos && visiblePhotos.length > 0) || (showNotes && visibleNotes.length > 0) || visibleMedia.length > 0
+  const hasResults = (showPhotos && visiblePhotos.length > 0) || (showNotes && visibleNotes.length > 0) || visibleMedia.length > 0
   const addCurrent = () => {
     if (filter === 'photos') setSheet({k:'photos'})
     else if (filter === 'notes') setSheet({ k: 'note' })
-    else if (filter === 'dossiers') setSheet({ k: 'sous-dossier' })
     else if (filter === 'audio' || filter === 'video') setSheet({k:'media',kind:filter})
     else void add()
   }
@@ -288,10 +254,10 @@ function FolderView({ id, backLabel, onBack, onOpen }: { id: string; backLabel: 
                 onBack()
               }}
               className="presse verre flex h-11 max-w-[40%] items-center gap-0.5 rounded-full pl-1.5 pr-3.5 text-appel font-semibold"
-              aria-label={`Retour à ${backLabel}`}
+              aria-label="Retour à Souvenirs"
             >
               <ChevronLeft size={22} strokeWidth={2.4} className="shrink-0" />
-              <span className="truncate">{backLabel}</span>
+              <span className="truncate">Souvenirs</span>
             </button>
             <p className={`pointer-events-none absolute inset-x-[34%] truncate text-center text-corps font-semibold transition-opacity duration-200 ${scrolled ? 'opacity-100' : 'opacity-0'}`}>{folder.name}</p>
             <div className="flex items-center gap-2">
@@ -311,9 +277,8 @@ function FolderView({ id, backLabel, onBack, onOpen }: { id: string; backLabel: 
             <FolderCover folder={folder} url={stats.cover} size="lg" />
             {stats.cover && <span className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/5 to-black/25" />}
             <div ref={heroText} className={`absolute bottom-7 left-5 ${stats.cover ? 'right-5 text-white' : 'right-[40%] text-encre'}`}>
-              {crumbs.length > 0 && <p className={`mb-0.5 truncate text-note font-medium ${stats.cover ? 'text-white/80' : 'text-encre/60'}`}>{crumbs.map((c) => c.name).join(' / ')}</p>}
               <h1 className="break-words font-rond text-titre1" style={stats.cover ? { textShadow: '0 2px 16px rgba(0,0,0,0.25)' } : undefined}>{folder.name}</h1>
-              <p className={`mt-0.5 text-sous ${stats.cover ? 'text-white/85' : 'text-encre/65'}`}>{contentLine({ ...stats, photos: photos.length, notes: notes.length, subfolders: children.length, audios: media.filter(m => m.kind === 'audio').length, videos: media.filter(m => m.kind === 'video').length })}</p>
+              <p className={`mt-0.5 text-sous ${stats.cover ? 'text-white/85' : 'text-encre/65'}`}>{contentLine({ ...stats, photos: photos.length, notes: notes.length, subfolders: 0, audios: media.filter(m => m.kind === 'audio').length, videos: media.filter(m => m.kind === 'video').length })}</p>
             </div>
           </div>
 
@@ -327,7 +292,7 @@ function FolderView({ id, backLabel, onBack, onOpen }: { id: string; backLabel: 
             {!empty && <>
               <div className="mx-4 mt-4"><SearchField value={query} onChange={setQuery} placeholder="Rechercher dans ce dossier" /></div>
               <div className="no-bar mt-3 flex gap-1 overflow-x-auto px-4 pb-1" role="group" aria-label="Afficher le contenu">
-                {([{key:'tout',label:'Tout',count:own.filter(i => i.kind !== 'message').length + children.length},{key:'photos',label:'Photos',count:photos.length},{key:'notes',label:'Notes',count:notes.length},{key:'audio',label:'Vocaux',count:media.filter(m=>m.kind==='audio').length},{key:'video',label:'Vidéos',count:media.filter(m=>m.kind==='video').length},{key:'dossiers',label:'Dossiers',count:children.length}] as const).map(t => <button key={t.key} onClick={e => { tap(); setFilter(t.key); e.currentTarget.scrollIntoView({inline:'nearest',block:'nearest',behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'}) }} aria-pressed={filter === t.key} className={`presse flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-3 text-note font-semibold ${filter === t.key ? 'bg-teinte text-white' : 'bg-carte text-encre'}`}>{t.label}<span className={filter === t.key ? 'text-white/75' : 'text-brume'}>{t.count}</span></button>)}
+                {([{key:'tout',label:'Tout',count:own.filter(i => i.kind !== 'message').length},{key:'photos',label:'Photos',count:photos.length},{key:'notes',label:'Notes',count:notes.length},{key:'audio',label:'Vocaux',count:media.filter(m=>m.kind==='audio').length},{key:'video',label:'Vidéos',count:media.filter(m=>m.kind==='video').length}] as const).map(t => <button key={t.key} onClick={e => { tap(); setFilter(t.key); e.currentTarget.scrollIntoView({inline:'nearest',block:'nearest',behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'}) }} aria-pressed={filter === t.key} className={`presse flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-3 text-note font-semibold ${filter === t.key ? 'bg-teinte text-white' : 'bg-carte text-encre'}`}>{t.label}<span className={filter === t.key ? 'text-white/75' : 'text-brume'}>{t.count}</span></button>)}
               </div>
             </>}
 
@@ -335,29 +300,19 @@ function FolderView({ id, backLabel, onBack, onOpen }: { id: string; backLabel: 
 
             {!hasResults && (q || filter !== 'photos') && <div className="px-5 py-7 text-center">
               <Art name={filter === 'notes' ? 'picto-missions' : 'picto-photo'} size={64} className="mx-auto" />
-              <h2 className="mt-3 font-rond text-titre2">{q ? 'Aucun résultat' : filter === 'notes' ? 'Ta première note' : filter === 'dossiers' ? 'Un peu d’organisation' : filter === 'audio' ? 'Une histoire à écouter' : filter === 'video' ? 'Un moment à revoir' : filter === 'photos' ? 'Vos photos auront leur place ici' : 'Vos souvenirs commencent ici'}</h2>
-              <p className="mx-auto mt-2 max-w-[290px] text-sous text-brume">{q ? 'Essaie un autre mot ou retrouve tout le contenu du dossier.' : 'Photos du fil, notes écrites ou dessinées, voix et vidéos : garde ici ce qui compte.'}</p>
-              {q ? <button onClick={() => { setQuery(''); setFilter('tout') }} className="presse mt-4 min-h-11 text-sous font-semibold text-teinte-fonce">Effacer la recherche</button> : <Btn className="mt-5" onClick={addCurrent}>{filter === 'photos' ? 'Choisir les photos du fil' : filter === 'notes' ? 'Écrire une note' : filter === 'dossiers' ? 'Créer un sous-dossier' : filter === 'audio' ? 'Créer un souvenir vocal' : filter === 'video' ? 'Ajouter une vidéo' : 'Ajouter mon premier souvenir'}</Btn>}
+              <h2 className="mt-3 font-rond text-titre2">{q ? 'Aucun résultat' : filter === 'notes' ? 'Ta première note' : filter === 'audio' ? 'Une histoire à écouter' : filter === 'video' ? 'Un moment à regarder' : filter === 'photos' ? 'Vos photos auront leur place ici' : 'Vos souvenirs commencent ici'}</h2>
+              <p className="mx-auto mt-2 max-w-[290px] text-sous text-brume">{q ? 'Essaie un autre mot ou retrouve tout le contenu du dossier.' : 'Photos du téléphone ou du fil, notes écrites ou dessinées, voix et vidéos : garde ici ce qui compte.'}</p>
+              {q ? <button onClick={() => { setQuery(''); setFilter('tout') }} className="presse mt-4 min-h-11 text-sous font-semibold text-teinte-fonce">Effacer la recherche</button> : <Btn className="mt-5" onClick={addCurrent}>{filter === 'photos' ? 'Ajouter des photos' : filter === 'notes' ? 'Écrire une note' : filter === 'audio' ? 'Créer un souvenir vocal' : filter === 'video' ? 'Ajouter une vidéo' : 'Ajouter mon premier souvenir'}</Btn>}
             </div>}
 
-            {showFolders && visibleChildren.length > 0 && <Bloc title="Sous-dossiers" count={visibleChildren.length}>
-              <div className="groupe mx-4 shadow-carte">{visibleChildren.map((c, i) => {
-                const info = folderStats(folders, folderItems, c)
-                return <button key={c.id} onClick={() => { tap(); onOpen(c.id) }} className="presse-ligne flex w-full items-center gap-3 px-3 text-left">
-                  <span className="relative my-3 h-14 w-14 shrink-0 overflow-hidden rounded-[14px]"><FolderCover folder={c} url={info.cover} size="sm" /></span>
-                  <span className={`flex min-h-[80px] min-w-0 flex-1 items-center gap-2 ${i < visibleChildren.length - 1 ? 'border-b border-trait' : ''}`}><span className="min-w-0 flex-1"><span className="block truncate text-corps font-semibold">{c.name}</span><span className="mt-0.5 block truncate text-note text-brume">{contentLine(info)}</span></span><ChevronRight size={17} className="shrink-0 text-brume" /></span>
-                </button>
-              })}</div>
-            </Bloc>}
-
             {showPhotos && (!q || visiblePhotos.length > 0) && (!empty || filter === 'photos') && <Bloc title="Photos" count={visiblePhotos.length}>
-              <p className="-mt-1 mb-3 px-5 text-note text-brume">Depuis le fil familial. Ouvre une photo pour ajouter cadres, stickers et dessins.</p>
+              <p className="-mt-1 mb-3 px-5 text-note text-brume">Ajoute des photos depuis ton téléphone ou le fil familial.</p>
               <div className="mx-4 grid grid-cols-3 gap-2">
                 {visiblePhotos.map(p => <div key={p.id} className="relative aspect-square overflow-hidden rounded-[16px] bg-remplissage">
                   <button onClick={() => setViewer(photos.indexOf(p))} className="absolute inset-0 h-full w-full" aria-label={p.body ?? 'Ouvrir la photo'}>{p.image_url && <img src={p.image_url} alt="" loading="lazy" className="h-full w-full object-cover" />}</button>
                   {(admin || p.author_id === me.id) && <button onClick={() => void removeItem(p)} className="presse absolute right-0 top-0 flex h-11 w-11 items-center justify-center" aria-label="Retirer cette photo du dossier"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/95 text-rouge shadow-carte"><Minus size={17} /></span></button>}
                 </div>)}
-                {!q && <button onClick={() => setSheet({k:'photos'})} className="presse flex aspect-square flex-col items-center justify-center gap-2 rounded-[16px] border-2 border-dashed border-teinte/30 bg-teinte-doux text-teinte-fonce" aria-label="Ajouter des photos du fil"><Plus size={28} /><span className="text-note font-semibold">Photos du fil</span></button>}
+                {!q && <button onClick={() => setSheet({k:'photos'})} className="presse flex aspect-square flex-col items-center justify-center gap-2 rounded-[16px] border-2 border-dashed border-teinte/30 bg-teinte-doux text-teinte-fonce" aria-label="Ajouter des photos"><Plus size={28} /><span className="text-note font-semibold">Ajouter</span></button>}
               </div>
             </Bloc>}
 
@@ -371,13 +326,13 @@ function FolderView({ id, backLabel, onBack, onOpen }: { id: string; backLabel: 
                 </button>
               })}</div>
             </Bloc>}
-            {visibleMedia.length > 0 && <Bloc title={filter === 'audio' ? 'Souvenirs vocaux' : filter === 'video' ? 'Vidéos souvenirs' : 'À écouter et à revoir'} count={visibleMedia.length}>
-              <div className="space-y-3 px-4">{visibleMedia.map(m => <div key={m.id} className="rounded-[22px] bg-carte p-4 shadow-carte">
+            {(['audio','video'] as const).map(kind => { const entries = visibleMedia.filter(m => m.kind === kind); return entries.length > 0 && <Bloc key={kind} title={kind === 'audio' ? 'À écouter' : 'Vidéos'} count={entries.length}>
+              <div className="space-y-3 px-4">{entries.map(m => <div key={m.id} className="rounded-[22px] bg-carte p-4 shadow-carte">
                 <div className="mb-3 flex items-center gap-2.5">{m.kind === 'audio' ? <Mic size={21} className="shrink-0 text-teinte" /> : <Video size={21} className="shrink-0 text-teinte" />}<span className="min-w-0 flex-1 truncate text-corps font-semibold">{m.title || (m.kind === 'audio' ? 'Un souvenir vocal' : 'Un souvenir vidéo')}</span>{(admin || m.author_id === me.id) && <button onClick={() => void removeItem(m)} aria-label={`Retirer ${m.title || 'ce souvenir'}`} className="presse flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-remplissage text-rouge"><Minus size={19} /></button>}</div>
                 {m.media_url ? m.kind === 'audio' ? <audio src={m.media_url} controls preload="metadata" className="w-full" /> : <video src={m.media_url} controls playsInline preload="metadata" className="max-h-[320px] w-full rounded-[14px] bg-black" /> : <p className="text-sous text-brume">Ce souvenir ne peut pas être chargé. Réessaie dans un instant.</p>}
                 <p className="mt-2 text-note text-brume">Ajouté par {members.find(member => member.id === m.author_id)?.display_name ?? 'un proche'} · {ago(m.created_at)}</p>
               </div>)}</div>
-            </Bloc>}
+            </Bloc> })}
 
           </div>
         </div>
@@ -385,18 +340,17 @@ function FolderView({ id, backLabel, onBack, onOpen }: { id: string; backLabel: 
       </div>
 
       {viewer !== null && photos.length > 0 && (
-        <PhotoViewer photos={photos} start={Math.min(viewer, photos.length - 1)} folder={folder} admin={admin} onClose={() => setViewer(null)} onDecorate={p => { setViewer(null); void openEditor(p) }} onReplace={p => { setViewer(null); setSheet({k:'photos',replace:p}) }} />
+        <PhotoViewer photos={photos} start={Math.min(viewer, photos.length - 1)} folder={folder} admin={admin} onClose={() => setViewer(null)} />
       )}
-      {drawingViewer && <PhotoViewer photos={[drawingViewer]} start={0} folder={folder} admin={admin} onClose={() => setDrawingViewer(null)} onDecorate={p => { setDrawingViewer(null); void openEditor(p) }} />}
-      {sheet?.k === 'photos' && <PhotosDuFil folder={folder} replace={sheet.replace} onClose={() => setSheet(null)} onSaved={() => { setQuery(''); setFilter('photos') }} />}
+      {drawingViewer && <PhotoViewer photos={[drawingViewer]} start={0} folder={folder} admin={admin} onClose={() => setDrawingViewer(null)} />}
+      {sheet?.k === 'photos' && <PhotosDuFil folder={folder} onClose={() => setSheet(null)} onSaved={() => { setQuery(''); setFilter('photos') }} />}
       {sheet?.k === 'media' && <SouvenirMedia folder={folder} kind={sheet.kind} onClose={() => setSheet(null)} onSaved={() => { setQuery(''); if (sheet.k === 'media') setFilter(sheet.kind) }} />}
-      {editor && <PhotoEditeur file={editor.file} initialDrawing={editor.kind === 'dessin'} initialCaption={editor.kind === 'dessin' ? editor.item?.title ?? '' : editor.item?.body ?? ''} title={editor.kind === 'dessin' ? 'Une note dessinée' : 'Décorer la photo'} confirmLabel="Enregistrer dans le dossier" onClose={() => setEditor(null)} onSend={async (blob, caption) => {
-        const ok = await run(api => editor.item ? api.replaceFolderMedia(editor.item,blob,editor.kind === 'dessin' ? {title:caption || 'Note dessinée'} : {body:caption || null}) : api.addFolderItem(folder,me.id,{kind:'dessin',blob,title:caption || 'Note dessinée'}),'Souvenir enregistré')
+      {editor && <PhotoEditeur file={editor.file} initialDrawing={editor.kind === 'dessin'} initialCaption="" title={editor.kind === 'dessin' ? 'Une note dessinée' : 'Décorer la photo'} confirmLabel="Enregistrer dans le dossier" onClose={() => setEditor(null)} onSend={async (blob, caption) => {
+        const ok = await run(api => api.addFolderItem(folder,me.id,{kind:'dessin',blob,title:caption || 'Note dessinée'}),'Souvenir enregistré')
         if (!ok) throw new Error('Ton image n’a pas été enregistrée. Réessaie.')
         setQuery(''); setFilter(editor.kind === 'dessin' ? 'notes' : 'photos'); setEditor(null)
       }} />}
       {sheet?.k === 'note' && <NoteSheet folder={folder} note={sheet.note} admin={admin} onClose={() => setSheet(null)} onSaved={() => { setQuery(''); setFilter('notes') }} />}
-      {sheet?.k === 'sous-dossier' && <NewFolderSheet parent={folder} onClose={() => setSheet(null)} onCreated={onOpen} />}
       {sheet?.k === 'membres' && <MembersSheet root={root} onClose={() => setSheet(null)} onLeft={onBack} />}
       {sheet?.k === 'renommer' && <RenameSheet folder={folder} onClose={() => setSheet(null)} />}
       {sheet?.k === 'couverture' && <CoverPicker folder={folder} onClose={() => setSheet(null)} />}
@@ -418,7 +372,7 @@ function Bloc({ title, count, children }: { title: string; count: number; childr
 
 // ═════════════════════════ Visionneuse ═════════════════════════
 
-function PhotoViewer({ photos, start, folder, admin, onClose, onDecorate, onReplace }: { photos: FolderItem[]; start: number; folder: Folder; admin: boolean; onClose: () => void; onDecorate: (p: FolderItem) => void; onReplace?: (p: FolderItem) => void }) {
+function PhotoViewer({ photos, start, admin, onClose }: { photos: FolderItem[]; start: number; folder: Folder; admin: boolean; onClose: () => void }) {
   const { state, run } = useHome()
   const [i, setI] = useState(start)
   const [dx, setDx] = useState(0)
@@ -439,12 +393,10 @@ function PhotoViewer({ photos, start, folder, admin, onClose, onDecorate, onRepl
   const mine = p.author_id === state.me.id
 
   const actions = async () => {
-    const list = [...(admin ? [{ label: 'Utiliser comme couverture' }] : []), ...(mine || admin ? [...(onReplace ? [{ label:'Remplacer par une photo du fil' }] : []), { label: 'Retirer du dossier', destructive: true }] : [])]
+    const list = mine || admin ? [{ label: 'Retirer du dossier', destructive: true }] : []
     if (!list.length) return
     const k = await choisir({ actions: list })
     const label = list[k]?.label
-    if (label === 'Utiliser comme couverture' && p.image_path) void run((api) => api.setFolderCover(folder, { path: p.image_path! }), 'Couverture mise à jour')
-    if (label === 'Remplacer par une photo du fil') onReplace?.(p)
     if (label === 'Retirer du dossier' && (await confirmer({ title: 'Retirer ce souvenir du dossier ?', message:'Le fil familial reste inchangé.', confirm: 'Retirer du dossier', destructive: true }))) {
       if (photos.length === 1) onClose()
       await run((api) => api.deleteFolderItem(p), 'Souvenir retiré du dossier')
@@ -480,7 +432,6 @@ function PhotoViewer({ photos, start, folder, admin, onClose, onDecorate, onRepl
           <X size={20} strokeWidth={2.6} />
         </button>
       </div>
-      {(mine || admin || p.kind === 'dessin') && <button onClick={() => onDecorate(p)} className="presse mx-5 mt-3 flex min-h-11 items-center justify-center gap-2 rounded-full bg-white/15 px-4 text-sous font-semibold"><Pencil size={18} />Cadres, stickers et dessin</button>}
       <div className="relative min-h-0 flex-1 overflow-hidden">
         {p.image_url && (
           <img
@@ -574,8 +525,8 @@ function NoteSheet({ folder, note, admin, onClose, onSaved }: { folder: Folder; 
   )
 }
 
-/** Création d'un dossier (avec couverture et membres) ou d'un sous-dossier. */
-function NewFolderSheet({ parent, onClose, onCreated }: { parent?: Folder; onClose: () => void; onCreated: (id: string) => void }) {
+/** Création d’un dossier indépendant. */
+function NewFolderSheet({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
   const { state, run, toast } = useHome()
   const { me, members, family } = state
   const [name, setName] = useState('')
@@ -587,7 +538,6 @@ function NewFolderSheet({ parent, onClose, onCreated }: { parent?: Folder; onClo
   const preview = useMemo(() => (cover ? URL.createObjectURL(cover) : null), [cover])
   useEffect(() => () => void (preview && URL.revokeObjectURL(preview)), [preview])
   const others = members.filter((m) => m.id !== me.id)
-  const root = parent && (state.folders.find((f) => f.id === parent.root_id) ?? parent)
 
   const toggle = (id: string) => {
     select()
@@ -604,13 +554,13 @@ function NewFolderSheet({ parent, onClose, onCreated }: { parent?: Folder; onClo
     setBusy(true)
     let id = ''
     const ok = await run(async (api) => {
-      id = await api.createFolder(family.id, { name: name.trim(), parentId: parent?.id ?? null, memberIds: [...who] })
+      id = await api.createFolder(family.id, { name: name.trim(), parentId: null, memberIds: [...who] })
       if (cover) {
         const now = new Date().toISOString()
-        const made: Folder = { id, family_id: family.id, parent_id: parent?.id ?? null, root_id: parent?.root_id ?? id, owner_id: me.id, name, cover_path: null, created_at: now, updated_at: now }
+        const made: Folder = { id, family_id: family.id, parent_id: null, root_id: id, owner_id: me.id, name, cover_path: null, created_at: now, updated_at: now }
         await api.setFolderCover(made, { blob: cover })
       }
-    }, parent ? 'Sous-dossier créé' : 'Dossier créé')
+    }, 'Dossier créé')
     setBusy(false)
     if (ok && id) {
       success()
@@ -620,7 +570,7 @@ function NewFolderSheet({ parent, onClose, onCreated }: { parent?: Folder; onClo
   }
 
   return (
-    <Sheet title={parent ? 'Nouveau sous-dossier' : 'Nouveau dossier'} onClose={onClose} tall={!parent} footer={<Btn onClick={create} disabled={busy || !name.trim()}>{busy ? 'Création…' : parent ? 'Créer le sous-dossier' : 'Créer le dossier'}</Btn>}>
+    <Sheet title={'Nouveau dossier'} onClose={onClose} tall footer={<Btn onClick={create} disabled={busy || !name.trim()}>{busy ? 'Création…' : 'Créer le dossier'}</Btn>}>
       <input
         ref={input}
         type="file"
@@ -640,16 +590,16 @@ function NewFolderSheet({ parent, onClose, onCreated }: { parent?: Folder; onClo
 
       <div className="mb-5">
         <div className="mb-2 flex items-baseline justify-between gap-3 px-1">
-          <label htmlFor={nameId} className="text-corps font-semibold">{parent ? 'Nom du sous-dossier' : 'Nom du dossier'}</label>
+          <label htmlFor={nameId} className="text-corps font-semibold">{'Nom du dossier'}</label>
           <span className="text-note font-semibold text-teinte-fonce">Obligatoire</span>
         </div>
         <div className="groupe border border-teinte/25 focus-within:border-teinte focus-within:ring-2 focus-within:ring-teinte/15">
-          <input id={nameId} required aria-describedby={`${nameId}-hint`} className="h-[54px] w-full bg-transparent px-4 text-corps outline-none placeholder:text-brume" placeholder="Ex. : Vacances en famille" maxLength={40} value={name} onChange={(e) => setName(e.target.value)} autoFocus={!!parent} />
+          <input id={nameId} required aria-describedby={`${nameId}-hint`} className="h-[54px] w-full bg-transparent px-4 text-corps outline-none placeholder:text-brume" placeholder="Ex. : Vacances en famille" maxLength={40} value={name} onChange={(e) => setName(e.target.value)}  />
         </div>
         <p id={`${nameId}-hint`} className="mt-2 px-1 text-note text-brume">Donne un nom au dossier pour pouvoir le créer.</p>
       </div>
 
-      {!parent && (
+      {(
         <button onClick={() => input.current?.click()} className="presse relative block aspect-[16/6] w-full overflow-hidden rounded-[22px] text-left shadow-carte">
           {preview ? <img src={preview} alt="" className="absolute inset-0 h-full w-full object-cover" /> : <FolderCover folder={{ id: name || 'nouveau', name: name || '·' }} url={null} size="md" />}
           <span className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/45 to-transparent" />
@@ -659,11 +609,7 @@ function NewFolderSheet({ parent, onClose, onCreated }: { parent?: Folder; onClo
         </button>
       )}
 
-      {parent && root ? (
-        <p className="flex items-center gap-1.5 px-2 pt-2.5 text-note text-brume">
-          <UsersRound size={14} strokeWidth={2.4} /> Mêmes membres que « {root.name} » : {whoText(membersOf(state.folderMembers, root.id), me.id, members).replace(/^Toi/, 'toi')}.
-        </p>
-      ) : (
+      {(
         <>
           <div className="mt-6 flex items-end justify-between px-2 pb-2">
             <p className="text-note font-semibold uppercase tracking-[0.02em] text-brume">Qui peut y entrer ?</p>

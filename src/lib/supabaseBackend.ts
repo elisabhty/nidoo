@@ -455,6 +455,7 @@ export function createSupabaseBackend(): Backend {
     },
     // ───── Dossiers
     async createFolder(fid, f) {
+      if (f.parentId) throw new Error('Les dossiers imbriqués ne sont plus disponibles.')
       return check(
         await sb.rpc('create_folder', { p_family: fid, p_name: f.name.trim(), p_parent: f.parentId ?? null, p_members: f.memberIds ?? [] }),
       ) as string
@@ -516,27 +517,8 @@ export function createSupabaseBackend(): Backend {
         throw error
       }
     },
-    async replaceFolderMedia(item, blob, patch = {}) {
-      const asset = folderAsset(item.kind, blob)
-      const path = `${item.root_id}/${uid()}.${asset.extension}`
-      check(await sb.storage.from('dossiers').upload(path, blob, { contentType: asset.mime }))
-      const isImage = item.kind === 'photo' || item.kind === 'dessin'
-      try {
-        check(await sb.from('folder_items').update({
-          ...(isImage ? { image_path: path } : { media_path: path }),
-          ...(patch.body !== undefined ? { body: patch.body } : {}),
-          ...(patch.title !== undefined ? { title: patch.title } : {}),
-          ...(patch.sourceMomentId !== undefined ? { source_moment_id: patch.sourceMomentId } : {}),
-        }).eq('id', item.id).select('id').single())
-      } catch (error) {
-        await sb.storage.from('dossiers').remove([path])
-        throw error
-      }
-      const old = isImage ? item.image_path : item.media_path
-      if (old) await removeUnusedAsset(old)
-    },
     async updateFolderItem(id, patch) {
-      check(await sb.from('folder_items').update({ title: patch.title?.trim() || null, body: patch.body?.trim() || null }).eq('id', id))
+      check(await sb.from('folder_items').update({ title: patch.title?.trim() || null, body: patch.body?.trim() || null }).eq('id', id).eq('kind', 'note').select('id').single())
     },
     async deleteFolderItem(item) {
       check(await sb.from('folder_items').delete().eq('id', item.id))
