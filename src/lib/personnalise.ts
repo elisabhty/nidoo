@@ -243,3 +243,62 @@ export function teinteMain(avatar?: string | null): number {
   const L = skinLab(persoOf(look), look)[0]
   return L >= 78 ? 1 : L >= 68 ? 2 : L >= 55 ? 3 : L >= 38 ? 4 : 5
 }
+
+/** Ce qui repasse devant un vêtement de la boutique (écharpe, manteau) : les cheveux et la barbe, partout
+ *  (ils tombent sur les épaules), et la peau de la tête jusqu'à la hauteur `cut` (fraction de la toile),
+ *  effacée en douceur juste dessous (avec les yeux, la bouche et les sourcils). Le vêtement passe ainsi sous le menton et sous les cheveux : il a l'air
+ *  porté, pas collé par-dessus. Les masques de la figurine : vert = cheveux, rouge = peau. */
+const dessus = new Map<string, Promise<string>>()
+const dessusFait = new Map<string, string>()
+export const dessusPret = (src: string, cut: number) => dessusFait.get(`${src}|${cut.toFixed(3)}`)
+export function renderDessus(p: Perso, src: string, cut: number): Promise<string> {
+  const key = `${src}|${cut.toFixed(3)}`
+  const hit = dessus.get(key)
+  if (hit) return hit
+  const job = (async () => {
+    const [im, mask] = await Promise.all([load(src), load(`./art/persos/${p.id}-m.webp`)])
+    const W = im.naturalWidth, H = im.naturalHeight
+    const cv = document.createElement('canvas')
+    cv.width = W
+    cv.height = H
+    const ctx = cv.getContext('2d', { willReadFrequently: true })!
+    ctx.drawImage(mask, 0, 0, W, H)
+    const m = ctx.getImageData(0, 0, W, H).data
+    // l'opacité de ce qui repasse devant, adoucie d'un pixel (les masques ont des bords nets)
+    const a = new Float32Array(W * H)
+    const y0 = cut * H, fondu = 0.018 * H
+    for (let y = 0; y < H; y++) {
+      const peau = y < y0 ? 1 : Math.max(0, 1 - (y - y0) / fondu)
+      for (let x = 0; x < W; x++) {
+        const i = (y * W + x) * 4
+        // la peau, et les yeux, la bouche et les sourcils (bleu), qui sont dans le visage
+        a[y * W + x] = Math.max(m[i + 1] / 255, (Math.max(m[i], m[i + 2] > 40 ? 255 : 0) / 255) * peau)
+      }
+    }
+    const b = new Float32Array(W * H)
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        let s = 0, n = 0
+        for (let dy = -1; dy <= 1; dy++)
+          for (let dx = -1; dx <= 1; dx++) {
+            const yy = y + dy, xx = x + dx
+            if (yy < 0 || yy >= H || xx < 0 || xx >= W) continue
+            s += a[yy * W + xx]
+            n++
+          }
+        b[y * W + x] = s / n
+      }
+    ctx.clearRect(0, 0, W, H)
+    ctx.drawImage(im, 0, 0)
+    const img = ctx.getImageData(0, 0, W, H)
+    const d = img.data
+    for (let k = 0; k < W * H; k++) d[k * 4 + 3] = Math.round(d[k * 4 + 3] * b[k])
+    ctx.putImageData(img, 0, 0)
+    const url = await new Promise<string>((ok) => cv.toBlob((bl) => ok(bl ? URL.createObjectURL(bl) : cv.toDataURL()), 'image/png'))
+    dessusFait.set(key, url)
+    return url
+  })()
+  dessus.set(key, job)
+  job.catch(() => dessus.delete(key))
+  return job
+}

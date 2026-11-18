@@ -1,8 +1,8 @@
 import { useEffect, useId, useState, type ReactNode } from 'react'
 import { ACCESSORIES, EYES, HAIR_COLORS, HAIRSTYLES, SKINS, TOPS, type Look } from '../lib/look'
 import { COULEURS_MONTURE, FORMES_LUNETTES, LUNETTES_IMG } from '../lib/lunettes'
-import { cachedSrc, labHex, peauOf, persoImg, pixelKey, renderPerso, skinLab } from '../lib/personnalise'
-import { accessoryOf, accPieces, accPlace, accTop, CH, CW, headCut, persoOf, type Perso } from '../lib/persos'
+import { cachedSrc, dessusPret, labHex, peauOf, persoImg, pixelKey, renderDessus, renderPerso, skinLab } from '../lib/personnalise'
+import { accessoryOf, accPieces, accPlace, accTop, CH, CW, headCut, menton, persoOf, type Perso } from '../lib/persos'
 import { VISAGES } from '../lib/visages'
 
 // Un personnage de la famille : une figurine en feutrine qui lui ressemble (public/art/persos),
@@ -47,6 +47,62 @@ function usePersoSrc(p: Perso, look: Look) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, base])
   return src
+}
+
+/** Les cheveux et le visage de la figurine, à redessiner devant un vêtement (null tant que ce n'est pas prêt). */
+function useDessus(p: Perso, src: string, cut: number | null) {
+  const [url, setUrl] = useState(() => (cut == null ? null : dessusPret(src, cut) ?? null))
+  useEffect(() => {
+    if (cut == null) return setUrl(null)
+    let live = true
+    const hit = dessusPret(src, cut)
+    if (hit) setUrl(hit)
+    else
+      renderDessus(p, src, cut)
+        .then((u) => live && setUrl(u))
+        .catch(() => live && setUrl(null))
+    return () => {
+      live = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [src, cut, p.id])
+  return url
+}
+
+type Boite = { l: number; t: number; w: number; h: number; flip?: boolean }
+/** L'ombre douce d'un accessoire sur la figurine : décalée vers le bas et découpée à sa forme,
+ *  elle ne déborde jamais sur le fond (c'est ce qui donne l'impression que l'accessoire est posé dessus). */
+function Ombre({ src, art, ar, boites, dy, force }: { src: string; art: string; ar: number; boites: Boite[]; dy: number; force: number }) {
+  const mask = `url("${src}")`
+  return (
+    <span aria-hidden className="pointer-events-none absolute inset-0 block" style={{ WebkitMaskImage: mask, maskImage: mask, WebkitMaskSize: '100% 100%', maskSize: '100% 100%', opacity: force }}>
+      {boites.map((b, i) => {
+        // l'image d'ombre a une marge de 10 % de la largeur de l'accessoire tout autour
+        const my = (0.1 * b.h) / ar
+        return (
+          <img
+            key={i}
+            src={`./art/persos/${art}-ombre.webp`}
+            alt=""
+            draggable={false}
+            className="absolute max-w-none select-none"
+            style={{ left: `${(b.l - b.w * 0.1) * 100}%`, top: `${(b.t - my + dy) * 100}%`, width: `${b.w * 1.2 * 100}%`, height: `${(b.h + 2 * my) * 100}%`, transform: b.flip ? 'scaleX(-1)' : undefined }}
+          />
+        )
+      })}
+    </span>
+  )
+}
+
+const OMBRES: Record<string, { dy: number; force: number }> = {
+  bonnet: { dy: 0.012, force: 0.42 },
+  casquette: { dy: 0.014, force: 0.42 },
+  paille: { dy: 0.014, force: 0.4 },
+  fleurs: { dy: 0.008, force: 0.32 },
+  couronne: { dy: 0.006, force: 0.28 },
+  noeud: { dy: 0.008, force: 0.3 },
+  echarpe: { dy: 0.014, force: 0.4 },
+  manteau: { dy: 0.01, force: 0.3 },
 }
 
 /** Ce qui se dessine sur le visage : nez, bouche, taches de rousseur, blush, lunettes (toile 300x440). */
@@ -213,10 +269,25 @@ export function Character({ look, mood = null, bust = false, extras = false, cla
   const R = CH / CW
   const hw = h * R
   const at = pl ? accTop(pl) : 0
+  // l'écharpe et le manteau se portent : le visage, la barbe et les cheveux repassent devant
+  const habit = acc === 'echarpe' || acc === 'manteau'
+  const dessus = useDessus(p, src, acc === 'echarpe' ? menton(p) : acc === 'manteau' ? headCut(p) : null)
+  const boitePl: Boite | null = pl ? { l: pl.x - pl.w / 2, t: at, w: pl.w, h: (pl.w * pl.ar) / R } : null
+  const ombre = acc ? OMBRES[acc] : undefined
+  const accImg = pl && (
+    <img
+      src={`./art/persos/acc-${acc}.webp`}
+      alt=""
+      draggable={false}
+      className="absolute max-w-none select-none"
+      style={{ width: `${pl.w * 100}%`, left: `${(pl.x - pl.w / 2) * 100}%`, top: `${at * 100}%` }}
+    />
+  )
   // la figurine, l'accessoire et les petits signes de l'humeur, dans la toile 300x440
   const figure = (
     <>
       <img src={src} alt="" draggable={false} className="absolute inset-0 h-full w-full select-none" />
+      {acc === 'manteau' && ombre && pieces && <Ombre src={src} art="acc-manteau" ar={298 / 300} boites={pieces} dy={ombre.dy} force={ombre.force} />}
       {pieces?.map((pc, i) => (
         <img
           key={i}
@@ -227,16 +298,17 @@ export function Character({ look, mood = null, bust = false, extras = false, cla
           style={{ left: `${pc.l * 100}%`, top: `${pc.t * 100}%`, width: `${pc.w * 100}%`, height: `${pc.h * 100}%`, transform: pc.flip ? 'scaleX(-1)' : undefined }}
         />
       ))}
-      {acc === 'manteau' && (
-        // la tête et les cheveux repassent devant le col, et s'effacent en douceur sur les épaules
-        <img
-          src={src}
-          alt=""
-          draggable={false}
-          className="absolute inset-0 h-full w-full select-none"
-          style={{ WebkitMaskImage: cut, maskImage: cut }}
-        />
-      )}
+      {acc === 'echarpe' && ombre && boitePl && pl && <Ombre src={src} art="acc-echarpe" ar={pl.ar} boites={[boitePl]} dy={ombre.dy} force={ombre.force} />}
+      {acc === 'echarpe' && accImg}
+      {habit &&
+        (dessus ? (
+          <img src={dessus} alt="" draggable={false} className="absolute inset-0 h-full w-full select-none" />
+        ) : (
+          acc === 'manteau' && (
+            // en attendant : la tête repasse devant le col, effacée en douceur sur les épaules
+            <img src={src} alt="" draggable={false} className="absolute inset-0 h-full w-full select-none" style={{ WebkitMaskImage: cut, maskImage: cut }} />
+          )
+        ))}
       <FaceExtras p={p} look={look} />
       {blush && (
         <>
@@ -249,15 +321,8 @@ export function Character({ look, mood = null, bust = false, extras = false, cla
           ))}
         </>
       )}
-      {pl && (
-        <img
-          src={`./art/persos/acc-${acc}.webp`}
-          alt=""
-          draggable={false}
-          className="absolute max-w-none select-none"
-          style={{ width: `${pl.w * 100}%`, left: `${(pl.x - pl.w / 2) * 100}%`, top: `${at * 100}%` }}
-        />
-      )}
+      {acc !== 'echarpe' && ombre && boitePl && pl && <Ombre src={src} art={`acc-${acc}`} ar={pl.ar} boites={[boitePl]} dy={ombre.dy} force={ombre.force} />}
+      {acc !== 'echarpe' && accImg}
       {extras && mood === 'triste' && (
         <span className="perso-larme absolute block rounded-[50%_50%_50%_50%/60%_60%_40%_40%] bg-[#8FD3FF]" style={{ left: `${(x - hw * 0.2) * 100}%`, top: `${(t + h * 0.72) * 100}%`, width: `${hw * 0.07 * 100}%`, height: `${((hw * 0.1) / R) * 100}%` }} />
       )}

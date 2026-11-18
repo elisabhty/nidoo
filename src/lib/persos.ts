@@ -180,7 +180,7 @@ export function accPlace(p: Perso, acc: string): AccPlace | null {
   const ey = v ? (v.e[1] + v.e[3]) / 2 : t + h * 0.6
   const d = v ? v.e[2] - v.e[0] : hw * 0.3
   const dy = d / R
-  const chin = v ? v.mo[1] + dy * 0.42 : t + h * 0.86
+  const chin = menton(p)
   switch (acc) {
     // les chapeaux se posent sur le front, juste au-dessus des sourcils, et couvrent tout le crâne
     case 'bonnet':
@@ -196,11 +196,12 @@ export function accPlace(p: Perso, acc: string): AccPlace | null {
       return { w: Math.min(c * 0.55, hw * 0.5), x: ex, y: t + (ey - t) * 0.3, anchor: 'bottom', ar }
     case 'noeud':
       return { w: hw * 0.42, x: x + c * 0.36, y: t + h * 0.2, anchor: 'center', ar }
-    // l'écharpe : le creux du tour de cou juste sous le menton (il est à 36/250 du haut de l'image),
-    // les côtés remontent le long du cou, les pans tombent sur la poitrine
+    // l'écharpe : le creux du tour de cou glissé sous le menton (il est à 36/250 du haut de l'image),
+    // les côtés remontent le long du cou, les pans tombent sur la poitrine ; le visage, la barbe et les
+    // cheveux repassent devant (voir renderDessus)
     case 'echarpe': {
       const w = d * 2.6
-      return { w, x: ex, y: chin + dy * 0.04 - ((w * ar) / R) * (36 / 250), anchor: 'top', ar }
+      return { w, x: ex, y: chin - dy * 0.1 - ((w * ar) / R) * (36 / 250), anchor: 'top', ar }
     }
     default:
       // les lunettes de soleil se dessinent avec le visage (voir FaceExtras)
@@ -222,6 +223,13 @@ export const accessoryOf = (look: Look) => ACCESSORIES[look.v ?? 0] ?? ''
 export type AccPiece = { art: string; l: number; t: number; w: number; h: number; flip: boolean }
 const PIECE_AR: Record<string, number> = { boucle: 159 / 107, manteau: 298 / 300, botte: 255 / 150, basket: 234 / 150 }
 
+/** La hauteur du menton (fraction de la toile), d'après la bouche et l'écart des yeux. */
+export function menton(p: Perso): number {
+  const v = VISAGES[p.id]
+  if (!v) return p.m[0] + p.m[1] * 0.86
+  return v.mo[1] + ((v.e[2] - v.e[0]) / R) * 0.42
+}
+
 /** Pour le manteau : la hauteur (fraction de la toile) où la tête redessinée par-dessus s'efface doucement. */
 export const headCut = (p: Perso) => p.m[0] + p.m[1] * 0.915
 
@@ -242,9 +250,10 @@ export function accPieces(p: Perso, acc: string): AccPiece[] | null {
   if (!body) return null
   const [pl, wl, pr, wr, yb, bx, bw, hy] = body
   if (acc === 'manteau') {
-    // Le manteau monte jusqu'aux épaules ; la tête (et les cheveux) est redessinée par-dessus (voir headCut).
-    const w = bw * 1.3
-    const top = t + h * 0.78
+    // Le manteau monte jusqu'aux épaules ; la tête et les cheveux repassent par-dessus (voir headCut, renderDessus).
+    const w = bw * 1.36
+    // le col s'arrête sous le menton (plus haut, il cachait le bas du visage des grandes figurines)
+    const top = Math.max(t + h * 0.78, menton(p) - 0.01)
     return [{ art: 'acc-manteau', l: bx - w / 2, t: top, w, h: hy + (yb - hy) * 0.32 - top, flip: false }]
   }
   if (acc === 'bottes' || acc === 'baskets') {
