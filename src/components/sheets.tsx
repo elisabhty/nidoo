@@ -12,7 +12,7 @@ import { vignettesCadres } from '../lib/cadres'
 import { compressImage, errorText, isToday, timeLabel } from '../lib/util'
 import { IncomingDrawing, markDrawingsSeen, useUnseenDrawings } from './drawing'
 import { DrawSheet } from './planche'
-import { Art, Avatar, Btn, confirmer, Envol, Segments, Sheet } from './ui'
+import { Art, Avatar, Btn, confirmer, Envol, Segments, Sheet, Switch } from './ui'
 
 // ───────── Humeur du jour ─────────
 
@@ -474,10 +474,10 @@ export function Incoming({ onClose }: {onClose?: () => void}) {
 
 // ───────── Nouvel événement ─────────
 
-const KINDS: { key: EventKind; label: string; art: string }[] = [
-  { key: 'evenement', label: 'Événement', art: 'picto-fete' },
-  { key: 'rdv', label: 'Rendez-vous', art: 'picto-lieu' },
-  { key: 'anniversaire', label: 'Anniversaire', art: 'picto-gateau' },
+const KINDS: { key: EventKind; label: string; art: string; aide: string; exemple: string }[] = [
+  { key: 'evenement', label: 'Événement', art: 'picto-fete', aide: 'Un moment en famille : un repas, une sortie, les vacances…', exemple: 'Quoi ? Ex. : Repas chez Mamie' },
+  { key: 'rdv', label: 'Rendez-vous', art: 'picto-lieu', aide: 'Un rendez-vous à une heure précise : médecin, école, coiffeur…', exemple: 'Quoi ? Ex. : Dentiste de Léa' },
+  { key: 'anniversaire', label: 'Anniversaire', art: 'picto-gateau', aide: 'Il revient tout seul chaque année, à la même date.', exemple: 'Anniversaire de… (son prénom)' },
 ]
 export const eventArt = (k: string) => KINDS.find((x) => x.key === k)?.art ?? 'picto-fete'
 
@@ -554,13 +554,21 @@ export function EventSheet({ onClose, day }: { onClose: () => void; day?: Date }
   const first = day ?? new Date(Date.now() + 86400000)
   const pad = (n: number) => String(n).padStart(2, '0')
   const [date, setDate] = useState(`${first.getFullYear()}-${pad(first.getMonth() + 1)}-${pad(first.getDate())}`)
-  const [time, setTime] = useState('')
+  // « Toute la journée » se voit (avant, une case d'heure vide ne disait rien) ; un rendez-vous a une heure
+  const [journee, setJournee] = useState(true)
+  const [time, setTime] = useState('10:00')
   const [description, setDescription] = useState('')
   const [who, setWho] = useState<string[]>([])
   const birthday = kind === 'anniversaire'
+  const meta = KINDS.find((k) => k.key === kind)!
+  const changeKind = (k: EventKind) => {
+    setKind(k)
+    if (k === 'rdv') setJournee(false)
+    if (k === 'evenement' && kind === 'rdv') setJournee(true)
+  }
 
   const save = async () => {
-    const allDay = birthday || !time
+    const allDay = birthday || journee || !time
     const starts = new Date(`${date}T${allDay ? '09:00' : time}`)
     if (Number.isNaN(starts.getTime())) return
     const ok = await run(
@@ -575,39 +583,52 @@ export function EventSheet({ onClose, day }: { onClose: () => void; day?: Date }
 
   return (
     <Sheet title="Nouvel événement" onClose={onClose}>
-      <Segments value={kind} onChange={setKind} options={KINDS.map((k) => ({ key: k.key, label: k.label }))} />
-      <div className="groupe mt-4">
+      <p className="entete !mt-0 !px-1">C’est quoi ?</p>
+      <Segments value={kind} onChange={changeKind} options={KINDS.map((k) => ({ key: k.key, label: k.label }))} />
+      <p className="px-1 pt-2 text-note text-brume">{meta.aide}</p>
+      <div className="groupe mt-3">
         <div className="flex items-center gap-3 border-b border-trait pl-3 pr-4">
           <Art name={eventArt(kind)} size={34} />
-          <input className="h-[52px] min-w-0 flex-1 bg-transparent text-corps outline-none placeholder:text-pale" placeholder={birthday ? 'Anniversaire de…' : 'Titre'} maxLength={60} value={title} onChange={(e) => setTitle(e.target.value)} />
+          <input className="h-[52px] min-w-0 flex-1 bg-transparent text-corps outline-none placeholder:text-pale" placeholder={meta.exemple} maxLength={60} value={title} onChange={(e) => setTitle(e.target.value)} aria-label="Titre" />
         </div>
         <label className="flex h-[52px] items-center justify-between border-b border-trait px-4 text-corps">
-          Date
-          <input type="date" className="rounded-[8px] bg-remplissage px-2.5 text-corps text-encre outline-none" value={date} onChange={(e) => setDate(e.target.value)} />
+          {birthday ? 'Le jour de l’anniversaire' : 'Quel jour ?'}
+          <input type="date" className="rounded-[8px] bg-remplissage px-2.5 py-1 text-corps text-encre outline-none" value={date} onChange={(e) => setDate(e.target.value)} />
         </label>
         {birthday ? (
           <p className="flex h-[52px] items-center justify-between px-4 text-corps">
-            Répétition <span className="text-brume">Chaque année</span>
+            Revient <span className="text-brume">Chaque année 🎂</span>
           </p>
         ) : (
-          <label className="flex h-[52px] items-center justify-between px-4 text-corps">
-            Heure
-            <input type="time" className="rounded-[8px] bg-remplissage px-2.5 text-corps text-encre outline-none" value={time} onChange={(e) => setTime(e.target.value)} />
-          </label>
+          <>
+            <div className={`flex h-[52px] items-center justify-between px-4 text-corps ${journee ? '' : 'border-b border-trait'}`}>
+              Toute la journée
+              <Switch on={journee} onChange={setJournee} label="Toute la journée" />
+            </div>
+            {!journee && (
+              <label className="flex h-[52px] items-center justify-between px-4 text-corps">
+                À quelle heure ?
+                <input type="time" className="rounded-[8px] bg-remplissage px-2.5 py-1 text-corps text-encre outline-none" value={time} onChange={(e) => setTime(e.target.value)} />
+              </label>
+            )}
+          </>
         )}
       </div>
-      {!birthday && <p className="px-4 pt-2 text-note text-brume">Sans heure, l’événement dure toute la journée.</p>}
-      <p className="entete mt-5 !px-1">Qui est concerné</p>
+      <p className="entete mt-5 !px-1">Qui est concerné ?</p>
       <WhoPicker value={who} onChange={setWho} />
+      <p className="px-1 pt-2 text-note text-brume">{who.length ? 'Seulement les personnes choisies.' : 'Toute la famille. Touche des prénoms pour ne choisir que certaines personnes.'}</p>
+      <p className="entete mt-5 !px-1">Des détails ? (facultatif)</p>
       <textarea
-        className="groupe mt-4 block min-h-[96px] w-full resize-none px-4 py-3 text-corps outline-none placeholder:text-pale"
-        placeholder="Description (facultatif) : l’adresse, qui apporte quoi…"
+        className="groupe block min-h-[88px] w-full resize-none px-4 py-3 text-corps outline-none placeholder:text-pale"
+        placeholder="L’adresse, l’heure du départ, qui apporte quoi…"
         maxLength={500}
         value={description}
         onChange={(e) => setDescription(e.target.value)}
-        aria-label="Description"
+        aria-label="Détails"
       />
-      <Btn className="mt-4" onClick={save} disabled={!title.trim() || !date}>Ajouter</Btn>
+      <Btn className="mt-4" onClick={save} disabled={!title.trim() || !date}>
+        {title.trim() ? 'Ajouter à l’agenda' : birthday ? 'Écris le prénom pour ajouter' : 'Écris d’abord ce que c’est'}
+      </Btn>
     </Sheet>
   )
 }
