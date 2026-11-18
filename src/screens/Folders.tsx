@@ -1,7 +1,7 @@
 import {
   ArrowUp, Check, ChevronLeft, ChevronRight, Ellipsis, FolderPlus, ImagePlus, Lock, NotebookPen, Plus, Search, Trash2, UsersRound, X,
 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { FolderCover, MemberStack } from '../components/folder'
 import { Art, Avatar, Btn, choisir, confirmer, Rond, Screen, SearchField, Segments, Sheet, Vide } from '../components/ui'
 import { contentLine, folderStats, membersOf, plural, subtreeIds, whoText } from '../lib/folders'
@@ -739,6 +739,7 @@ function NewFolderSheet({ parent, onClose, onCreated }: { parent?: Folder; onClo
   const { state, run, toast } = useHome()
   const { me, members, family } = state
   const [name, setName] = useState('')
+  const nameId = useId()
   const [who, setWho] = useState<Set<string>>(new Set())
   const [cover, setCover] = useState<Blob | null>(null)
   const [busy, setBusy] = useState(false)
@@ -759,10 +760,11 @@ function NewFolderSheet({ parent, onClose, onCreated }: { parent?: Folder; onClo
   }
 
   const create = async () => {
+    if (busy || !name.trim()) return
     setBusy(true)
     let id = ''
     const ok = await run(async (api) => {
-      id = await api.createFolder(family.id, { name, parentId: parent?.id ?? null, memberIds: [...who] })
+      id = await api.createFolder(family.id, { name: name.trim(), parentId: parent?.id ?? null, memberIds: [...who] })
       if (cover) {
         const now = new Date().toISOString()
         const made: Folder = { id, family_id: family.id, parent_id: parent?.id ?? null, root_id: parent?.root_id ?? id, owner_id: me.id, name, cover_path: null, created_at: now, updated_at: now }
@@ -778,7 +780,7 @@ function NewFolderSheet({ parent, onClose, onCreated }: { parent?: Folder; onClo
   }
 
   return (
-    <Sheet title={parent ? 'Nouveau sous-dossier' : 'Nouveau dossier'} onClose={onClose} tall={!parent}>
+    <Sheet title={parent ? 'Nouveau sous-dossier' : 'Nouveau dossier'} onClose={onClose} tall={!parent} footer={<Btn onClick={create} disabled={busy || !name.trim()}>{busy ? 'Création…' : parent ? 'Créer le sous-dossier' : 'Créer le dossier'}</Btn>}>
       <input
         ref={input}
         type="file"
@@ -796,19 +798,26 @@ function NewFolderSheet({ parent, onClose, onCreated }: { parent?: Folder; onClo
         }}
       />
 
+      <div className="mb-5">
+        <div className="mb-2 flex items-baseline justify-between gap-3 px-1">
+          <label htmlFor={nameId} className="text-corps font-semibold">{parent ? 'Nom du sous-dossier' : 'Nom du dossier'}</label>
+          <span className="text-note font-semibold text-teinte-fonce">Obligatoire</span>
+        </div>
+        <div className="groupe border border-teinte/25 focus-within:border-teinte focus-within:ring-2 focus-within:ring-teinte/15">
+          <input id={nameId} required aria-describedby={`${nameId}-hint`} className="h-[54px] w-full bg-transparent px-4 text-corps outline-none placeholder:text-brume" placeholder="Ex. : Vacances en famille" maxLength={40} value={name} onChange={(e) => setName(e.target.value)} autoFocus={!!parent} />
+        </div>
+        <p id={`${nameId}-hint`} className="mt-2 px-1 text-note text-brume">Donne un nom au dossier pour pouvoir le créer.</p>
+      </div>
+
       {!parent && (
-        <button onClick={() => input.current?.click()} className="presse relative block aspect-[16/8] w-full overflow-hidden rounded-[22px] text-left shadow-carte">
+        <button onClick={() => input.current?.click()} className="presse relative block aspect-[16/6] w-full overflow-hidden rounded-[22px] text-left shadow-carte">
           {preview ? <img src={preview} alt="" className="absolute inset-0 h-full w-full object-cover" /> : <FolderCover folder={{ id: name || 'nouveau', name: name || '·' }} url={null} size="md" />}
           <span className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/45 to-transparent" />
           <span className="verre absolute bottom-3 left-3 flex h-9 items-center gap-1.5 rounded-full px-3.5 text-sous font-semibold text-encre">
-            <ImagePlus size={17} strokeWidth={2.3} /> {cover ? 'Changer la couverture' : 'Ajouter une couverture'}
+            <ImagePlus size={17} strokeWidth={2.3} /> {cover ? 'Changer la couverture' : 'Couverture · facultative'}
           </span>
         </button>
       )}
-
-      <div className={`groupe ${parent ? '' : 'mt-4'}`}>
-        <input className="h-[52px] w-full bg-transparent px-4 text-corps outline-none placeholder:text-pale" placeholder={parent ? 'Nom du sous-dossier' : 'Nom du dossier'} maxLength={40} value={name} onChange={(e) => setName(e.target.value)} autoFocus={!!parent} />
-      </div>
 
       {parent && root ? (
         <p className="flex items-center gap-1.5 px-2 pt-2.5 text-note text-brume">
@@ -854,7 +863,6 @@ function NewFolderSheet({ parent, onClose, onCreated }: { parent?: Folder; onClo
         </>
       )}
 
-      <Btn className="mt-5" onClick={create} disabled={busy || !name.trim()}>{busy ? 'Création…' : parent ? 'Créer le sous-dossier' : 'Créer le dossier'}</Btn>
     </Sheet>
   )
 }

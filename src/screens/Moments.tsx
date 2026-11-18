@@ -219,9 +219,9 @@ function Bulle({ mo, auteur, mine, premier, dernier, ouvert, onOuvrir, onPhoto, 
               tap()
               onOuvrir()
             }}
-            className={`presse py-1 ${anim ? 'anim-colle' : ''} ${envoi ? 'opacity-70' : ''}`}
+            className={`presse flex h-[136px] w-[116px] items-center justify-center bg-transparent py-1 ${anim ? 'anim-colle' : ''}`}
           >
-            <StickerImg cle={mo.sticker!} className="block h-auto max-h-[128px] w-[116px] object-contain" style={{ filter: 'drop-shadow(0 4px 8px rgba(29,26,43,0.18))' }} />
+            <StickerImg cle={mo.sticker!} className="block h-full w-full object-contain" />
           </div>
         ) : (
         <div
@@ -576,13 +576,22 @@ export default function Fil(_: { onCompose?: () => void }) {
   const [envois, setEnvois] = useState<Envoi[]>([])
   const enAttente: Envoi[] = []
   const pris = new Set<string>()
+  const confirmes = new Set<string>()
   for (const e of envois) {
-    const vrai = msgs.find((m) => m.member_id === me.id && !e.connus.has(m.id) && !pris.has(m.id) && cleMoment(m) === e.cle)
+    const vrai = msgs.find((m) => m.member_id === me.id && !e.connus.has(m.id) && !pris.has(m.id) && (!alias.current.has(m.id) || alias.current.get(m.id) === e.mo.id) && cleMoment(m) === e.cle)
     if (vrai) {
       pris.add(vrai.id)
+      confirmes.add(e.mo.id)
       alias.current.set(vrai.id, e.mo.id)
     } else enAttente.push(e)
   }
+  // Ne retire l’envoi provisoire qu’après un rendu où son identifiant définitif
+  // a été associé : même si React groupe la confirmation et le rechargement,
+  // la bulle et son image gardent leur identité et ne rejouent pas l’entrée.
+  useEffect(() => {
+    if (confirmes.size) setEnvois((current) => current.filter((e) => !confirmes.has(e.mo.id)))
+  }, [envois, msgs]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const envoyer = async (m: NouvelEnvoi) => {
     const id = `envoi-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
     const mo: Moment = {
@@ -594,8 +603,9 @@ export default function Fil(_: { onCompose?: () => void }) {
     bulle('envoi')
     const ok = await run((a) => a.postMoment(family.id, me.id, m))
     if (ok) success()
-    // une fois parti (le fil vient d'être rechargé), le message en attente laisse sa place
-    setEnvois((x) => x.filter((y) => y.mo.id !== id))
+    // En cas d’échec seulement, on enlève immédiatement l’aperçu.
+    // Le succès est réconcilié après le rendu du message définitif ci-dessus.
+    if (!ok) setEnvois((x) => x.filter((y) => y.mo.id !== id))
     window.setTimeout(() => {
       if (mo.image_url) URL.revokeObjectURL(mo.image_url)
       if (mo.audio_url) URL.revokeObjectURL(mo.audio_url)
