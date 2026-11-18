@@ -6,7 +6,7 @@ import { Art, Btn } from './ui'
 const STEPS: { art: string; title: string; text: string }[] = [
   { art: 'panda', title: 'Un petit chez-vous', text: 'Retrouve tes proches dans la Maison. Partage ton humeur quand tu en as envie, ou touche un proche pour lui envoyer un câlin.' },
   { art: 'geste-calin', title: 'Un geste suffit', text: 'Une photo, un dessin, un petit mot : crée une attention et choisis à qui l’envoyer. Vos attentions et albums se retrouvent dans Souvenirs.' },
-  { art: 'picto-agenda', title: 'À votre rythme', text: 'Organiser rassemble les rendez-vous, les courses et les missions. Famille permet d’inviter tes proches et de personnaliser votre maison.' },
+  { art: 'picto-agenda', title: 'À votre rythme', text: 'Organiser rassemble les rendez-vous, les courses et les choses à faire. Famille permet d’inviter tes proches et de personnaliser votre maison.' },
 ]
 
 export default function Guide({ onClose }: { onClose: () => void }) {

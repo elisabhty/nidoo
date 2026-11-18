@@ -106,7 +106,7 @@ export const STAR_REASONS: Record<string, string> = {
   humeur: 'a partagé son humeur',
   defi: 'a relevé le défi de la semaine',
   question: 'a répondu à la question du jour',
-  mission: 'a terminé une mission',
+  mission: 'a terminé une tâche',
   caresse: 'a caressé un animal',
   jeu: 'a joué avec le compagnon',
   partie: 'a gagné une partie',

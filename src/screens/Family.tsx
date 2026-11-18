@@ -90,9 +90,9 @@ function Widgets({ onDraw, onOpen }: { onDraw: () => void; onOpen: (d: Drawing) 
           )}
         </div>
       </Tuile>
-      <Tuile title="Nos missions · petit" hint="Ce qu’il reste à faire" locked={free}>
+      <Tuile title="À faire · petit" hint="Ce qu’il reste à faire" locked={free}>
         <div className="flex h-full flex-col justify-start gap-2 p-3.5">
-          <p className="text-mini font-semibold uppercase tracking-wide text-teinte">Missions</p>
+          <p className="text-mini font-semibold uppercase tracking-wide text-teinte">À faire</p>
           {todo.length ? (
             todo.map((i) => (
               <div key={i.id} className="flex items-center gap-2">
@@ -515,7 +515,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
             <p className="mt-1 max-w-[280px] text-sous text-brume">Une personne s’abonne, toute la maison en profite.</p>
           </div>
           <div className="groupe mt-4">
-            {['Jusqu’à 15 membres dans la maison', 'Tous les widgets : À venir, Nos missions, Attention reçue', 'Plusieurs maisons familiales'].map((f, i, all) => (
+            {['Jusqu’à 15 membres dans la maison', 'Tous les widgets : À venir, À faire, Attention reçue', 'Plusieurs maisons familiales'].map((f, i, all) => (
               <div key={f} className="flex items-center gap-3 pl-4">
                 <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-teinte text-white"><Check size={13} strokeWidth={3.4} /></span>
                 <span className={`flex-1 py-3 pr-4 text-appel ${i < all.length - 1 ? 'border-b border-trait' : ''}`}>{f}</span>

@@ -1,16 +1,16 @@
 import {
-  ArrowUp, Check, ChevronLeft, ChevronRight, Ellipsis, FolderPlus, ImagePlus, Lock, NotebookPen, Plus, Search, Trash2, UsersRound, X,
+  Check, ChevronLeft, ChevronRight, Ellipsis, FolderPlus, ImagePlus, Lock, NotebookPen, Plus, Search, Trash2, UsersRound, X,
 } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { FolderCover, MemberStack } from '../components/folder'
-import { Art, Avatar, Btn, choisir, confirmer, Rond, Screen, SearchField, Segments, Sheet, Vide } from '../components/ui'
+import { Art, Avatar, Btn, choisir, confirmer, Rond, Screen, SearchField, Sheet, Vide } from '../components/ui'
 import { contentLine, folderStats, membersOf, plural, subtreeIds, whoText } from '../lib/folders'
 import { select, success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
 import type { Folder, FolderItem } from '../lib/types'
 import { ago, compressImage, errorText } from '../lib/util'
 
-// Souvenirs : les albums (dossiers de photos, notes et discussion). Le fil familial a son propre onglet.
+// Souvenirs : les albums (dossiers de photos et notes). Le fil familial a son propre onglet.
 
 // ═════════════════════════ L'onglet ═════════════════════════
 
@@ -63,10 +63,10 @@ function Accueil({ onOpen }: { onOpen: (id: string) => void }) {
         title="Souvenirs"
         trailing={<Rond label="Nouvel album" tint onClick={() => setCreating(true)}><FolderPlus size={19} /></Rond>}
       >
-        <p className="-mt-1 mb-4 px-5 text-sous text-brume">Vos albums : photos, notes et discussion, avec les proches de votre choix.</p>
+        <p className="-mt-1 mb-4 px-5 text-sous text-brume">Vos albums : photos et notes, avec les proches de votre choix.</p>
 
         {total === 0 ? (
-          <Vide art="picto-cadeau" title="Votre premier souvenir commence ici" text="Un dossier rassemble photos, notes et discussion, avec les proches de ton choix. Les autres ne le voient pas.">
+          <Vide art="picto-cadeau" title="Votre premier souvenir commence ici" text="Un dossier rassemble photos et notes, avec les proches de ton choix. Les autres ne le voient pas.">
             <Btn onClick={() => setCreating(true)}>Créer un dossier</Btn>
           </Vide>
         ) : (
@@ -149,14 +149,13 @@ function FolderView({ id, backLabel, onBack, onOpen }: { id: string; backLabel: 
   const own = folderItems.filter((i) => i.folder_id === id)
   const photos = own.filter((i) => i.kind === 'photo').sort((a, b) => b.created_at.localeCompare(a.created_at))
   const notes = own.filter((i) => i.kind === 'note').sort((a, b) => b.updated_at.localeCompare(a.updated_at))
-  const messages = own.filter((i) => i.kind === 'message').sort((a, b) => a.created_at.localeCompare(b.created_at))
 
-  const [tab, setTab] = useState<'contenu' | 'discussion'>('contenu')
   const [scrolled, setScrolled] = useState(false)
+  const [query, setQuery] = useState('')
+  const [filter, setFilter] = useState<'tout' | 'photos' | 'notes' | 'dossiers'>('tout')
   const [sheet, setSheet] = useState<Open>(null)
   const [viewer, setViewer] = useState<number | null>(null)
   const [sending, setSending] = useState(0)
-  const scroller = useRef<HTMLDivElement>(null)
   const gallery = useRef<HTMLInputElement>(null)
   const camera = useRef<HTMLInputElement>(null)
   const coverInput = useRef<HTMLInputElement>(null)
@@ -166,21 +165,19 @@ function FolderView({ id, backLabel, onBack, onOpen }: { id: string; backLabel: 
   const crumbs: Folder[] = []
   for (let p = folders.find((f) => f.id === folder.parent_id); p; p = folders.find((f) => f.id === p!.parent_id)) crumbs.unshift(p)
 
-  useEffect(() => {
-    if (tab === 'discussion') scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: 'smooth' })
-  }, [tab, messages.length])
 
   const addPhotos = async (files: FileList | null) => {
     const list = [...(files ?? [])].slice(0, 20)
     if (!list.length) return
     setSending(list.length)
-    await run(async (api) => {
+    const ok = await run(async (api) => {
       for (const f of list) {
         await api.addFolderItem(folder, me.id, { kind: 'photo', blob: await compressImage(f, 1600, 0.82) })
         setSending((n) => n - 1)
       }
     }, list.length > 1 ? `${list.length} photos ajoutées` : 'Photo ajoutée')
     setSending(0)
+    if (ok) { setQuery(''); setFilter('photos') }
   }
 
   const add = async () => {
@@ -195,10 +192,9 @@ function FolderView({ id, backLabel, onBack, onOpen }: { id: string; backLabel: 
   }
 
   const remove = async () => {
-    const what = [stats.photos && plural(stats.photos, 'photo', 'photos'), stats.notes && plural(stats.notes, 'note', 'notes'), stats.subfolders && plural(stats.subfolders, 'sous-dossier', 'sous-dossiers')].filter(Boolean).join(', ')
     const ok = await confirmer({
       title: `Supprimer « ${folder.name} » ?`,
-      message: `${what ? `Ses ${what} et sa` : 'Sa'} discussion seront supprimés pour tous les membres.`,
+      message: 'Ce dossier et tout son contenu seront supprimés pour tous les membres.',
       confirm: 'Supprimer le dossier',
       destructive: true,
     })
@@ -231,6 +227,22 @@ function FolderView({ id, backLabel, onBack, onOpen }: { id: string; backLabel: 
   }
 
   const empty = !children.length && !photos.length && !notes.length
+  const normalise = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  const q = normalise(query.trim())
+  const matches = (...texts: (string | null | undefined)[]) => !q || texts.some(text => normalise(text ?? '').includes(q))
+  const visibleChildren = children.filter(c => matches(c.name))
+  const visiblePhotos = photos.filter(p => matches(p.body))
+  const visibleNotes = notes.filter(n => matches(n.title, n.body))
+  const showFolders = filter === 'tout' || filter === 'dossiers'
+  const showPhotos = filter === 'tout' || filter === 'photos'
+  const showNotes = filter === 'tout' || filter === 'notes'
+  const hasResults = (showFolders && visibleChildren.length > 0) || (showPhotos && visiblePhotos.length > 0) || (showNotes && visibleNotes.length > 0)
+  const addCurrent = () => {
+    if (filter === 'photos') gallery.current?.click()
+    else if (filter === 'notes') setSheet({ k: 'note' })
+    else if (filter === 'dossiers') setSheet({ k: 'sous-dossier' })
+    else void add()
+  }
 
   return (
     <>
@@ -272,183 +284,86 @@ function FolderView({ id, backLabel, onBack, onOpen }: { id: string; backLabel: 
               <ChevronLeft size={22} strokeWidth={2.4} className="shrink-0" />
               <span className="truncate">{backLabel}</span>
             </button>
-            <p className={`absolute inset-x-[34%] truncate text-center text-corps font-semibold transition-opacity duration-200 ${scrolled ? 'opacity-100' : 'opacity-0'}`}>{folder.name}</p>
+            <p className={`pointer-events-none absolute inset-x-[34%] truncate text-center text-corps font-semibold transition-opacity duration-200 ${scrolled ? 'opacity-100' : 'opacity-0'}`}>{folder.name}</p>
             <div className="flex items-center gap-2">
               <Rond label="Options du dossier" onClick={menu}><Ellipsis size={20} /></Rond>
-              <Rond label="Ajouter" tint onClick={add}><Plus size={21} strokeWidth={2.4} /></Rond>
+              <button onClick={add} className="presse glass-tinted flex min-h-11 items-center gap-1 rounded-full pl-2.5 pr-3.5 text-sous font-semibold text-white"><Plus size={19} />Ajouter</button>
             </div>
           </div>
         </div>
 
-        <div ref={scroller} className="no-bar h-full overflow-y-auto overscroll-contain" style={{ paddingBottom: tab === 'discussion' ? 200 : 120 }} onScroll={(e) => {
+        <div className="no-bar h-full overflow-y-auto overscroll-contain pb-[120px]" onScroll={(e) => {
             const y = e.currentTarget.scrollTop
-            setScrolled(y > 150)
-            if (heroText.current) heroText.current.style.opacity = String(Math.max(0, 1 - y / 130))
+            setScrolled(y > 110)
+            if (heroText.current) heroText.current.style.opacity = String(Math.max(0, 1 - y / 100))
           }}>
           {/* couverture */}
-          <div className="relative w-full overflow-hidden" style={{ height: 'calc(var(--sat) + 260px)' }}>
+          <div className="relative w-full overflow-hidden" style={{ height: 'calc(var(--sat) + 210px)' }}>
             <FolderCover folder={folder} url={stats.cover} size="lg" />
             {stats.cover && <span className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/5 to-black/25" />}
-            <div ref={heroText} className={`absolute bottom-9 left-5 ${stats.cover ? 'right-5 text-white' : 'right-[40%] text-encre'}`}>
+            <div ref={heroText} className={`absolute bottom-7 left-5 ${stats.cover ? 'right-5 text-white' : 'right-[40%] text-encre'}`}>
               {crumbs.length > 0 && <p className={`mb-0.5 truncate text-note font-medium ${stats.cover ? 'text-white/80' : 'text-encre/60'}`}>{crumbs.map((c) => c.name).join(' / ')}</p>}
-              <h1 className="break-words font-rond text-grand" style={stats.cover ? { textShadow: '0 2px 16px rgba(0,0,0,0.25)' } : undefined}>{folder.name}</h1>
-              <p className={`mt-0.5 text-sous ${stats.cover ? 'text-white/85' : 'text-encre/65'}`}>{contentLine(stats)}</p>
+              <h1 className="break-words font-rond text-titre1" style={stats.cover ? { textShadow: '0 2px 16px rgba(0,0,0,0.25)' } : undefined}>{folder.name}</h1>
+              <p className={`mt-0.5 text-sous ${stats.cover ? 'text-white/85' : 'text-encre/65'}`}>{contentLine({ ...stats, photos: photos.length, notes: notes.length, subfolders: children.length })}</p>
             </div>
           </div>
 
-          <div className="relative -mt-5 rounded-t-[28px] bg-fond pt-4">
-            {/* qui est dans ce dossier */}
-            <button
-              onClick={() => {
-                tap()
-                setSheet({ k: 'membres' })
-              }}
-              className="presse groupe mx-4 flex w-[calc(100%-2rem)] items-center gap-3 p-3 pr-3.5 text-left shadow-carte"
-            >
-              {memberIds.length <= 1 ? (
-                <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full bg-teinte-doux text-teinte"><Lock size={18} strokeWidth={2.4} /></span>
-              ) : (
-                <MemberStack ids={memberIds} size={36} max={4} />
-              )}
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-corps font-semibold">{whoText(memberIds, me.id, members)}</span>
-                <span className="block truncate text-note text-brume">
-                  {memberIds.length <= 1
-                    ? 'Personne d’autre ne voit ce dossier'
-                    : folder.parent_id
-                      ? `Les membres de « ${root.name} »`
-                      : memberIds.length >= members.length
-                        ? 'Toute la famille y a accès'
-                        : 'Eux seuls voient ce dossier'}
-                </span>
-              </span>
-              {rootAdmin ? <span className="shrink-0 text-sous font-semibold text-teinte">{memberIds.length <= 1 ? 'Inviter' : 'Gérer'}</span> : <ChevronRight size={17} strokeWidth={2.6} className="shrink-0 text-pale" />}
+          <div className="relative -mt-5 rounded-t-[28px] bg-fond pb-4 pt-3">
+            <button onClick={() => { tap(); setSheet({ k: 'membres' }) }} className="presse mx-5 flex min-h-[52px] w-[calc(100%-2.5rem)] items-center gap-2.5 border-b border-trait pb-3 text-left" aria-label={`Accès au dossier : ${whoText(memberIds, me.id, members)}`}>
+              {memberIds.length <= 1 ? <Lock size={18} className="shrink-0 text-teinte" /> : <MemberStack ids={memberIds} size={28} max={3} />}
+              <span className="min-w-0 flex-1"><span className="block truncate text-sous font-semibold">{whoText(memberIds, me.id, members)}</span><span className="block text-note text-brume">{memberIds.length <= 1 ? 'Dossier privé' : 'Partagé avec ces proches uniquement'}</span></span>
+              <ChevronRight size={16} className="shrink-0 text-brume" />
             </button>
 
-            <div className="mx-4 mb-4 mt-4">
-              <Segments
-                value={tab}
-                onChange={setTab}
-                options={[
-                  { key: 'contenu', label: 'Contenu' },
-                  { key: 'discussion', label: messages.length ? `Discussion · ${messages.length}` : 'Discussion' },
-                ]}
-              />
-            </div>
+            {!empty && <>
+              <div className="mx-4 mt-4"><SearchField value={query} onChange={setQuery} placeholder="Rechercher dans ce dossier" /></div>
+              <div className="no-bar mt-3 flex gap-1 overflow-x-auto px-4 pb-1" role="group" aria-label="Afficher le contenu">
+                {([{key:'tout',label:'Tout',count:own.filter(i => i.kind !== 'message').length + children.length},{key:'photos',label:'Photos',count:photos.length},{key:'notes',label:'Notes',count:notes.length},{key:'dossiers',label:'Dossiers',count:children.length}] as const).map(t => <button key={t.key} onClick={() => { tap(); setFilter(t.key) }} aria-pressed={filter === t.key} className={`presse flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-3 text-note font-semibold ${filter === t.key ? 'bg-teinte text-white' : 'bg-carte text-encre'}`}>{t.label}<span className={filter === t.key ? 'text-white/75' : 'text-brume'}>{t.count}</span></button>)}
+              </div>
+            </>}
 
-            {tab === 'contenu' ? (
-              <>
-                {/* raccourcis : ce qu'on peut ajouter, sans chercher */}
-                <div className="mx-4 grid grid-cols-3 gap-2.5">
-                  {[
-                    { label: 'Photos', icon: <ImagePlus size={21} strokeWidth={2.1} />, tint: '#7A5AE0', go: () => gallery.current?.click() },
-                    { label: 'Note', icon: <NotebookPen size={21} strokeWidth={2.1} />, tint: '#E0A92F', go: () => setSheet({ k: 'note' }) },
-                    { label: 'Dossier', icon: <FolderPlus size={21} strokeWidth={2.1} />, tint: '#4A8CD8', go: () => setSheet({ k: 'sous-dossier' }) },
-                  ].map((a) => (
-                    <button
-                      key={a.label}
-                      onClick={() => {
-                        tap()
-                        a.go()
-                      }}
-                      className="presse groupe flex flex-col items-center gap-1.5 py-3 shadow-carte"
-                    >
-                      <span className="flex h-10 w-10 items-center justify-center rounded-full text-white" style={{ background: a.tint }}>{a.icon}</span>
-                      <span className="text-note font-semibold">{a.label}</span>
-                    </button>
-                  ))}
-                </div>
+            {sending > 0 && <p role="status" className="mx-4 mt-3 flex items-center gap-2 rounded-[14px] bg-teinte-doux px-3.5 py-2.5 text-sous font-medium text-teinte-fonce"><span className="h-4 w-4 animate-spin rounded-full border-2 border-teinte border-t-transparent" />Envoi de {plural(sending, 'photo', 'photos')}…</p>}
 
-                {sending > 0 && (
-                  <p className="mx-4 mt-3 flex items-center gap-2 rounded-[14px] bg-teinte-doux px-3.5 py-2.5 text-sous font-medium text-teinte-fonce">
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-teinte border-t-transparent" />
-                    Envoi de {plural(sending, 'photo', 'photos')}…
-                  </p>
-                )}
+            {!hasResults && !sending && <div className="px-5 py-7 text-center">
+              <Art name={filter === 'notes' ? 'picto-missions' : 'picto-photo'} size={64} className="mx-auto" />
+              <h2 className="mt-3 font-rond text-titre2">{q ? 'Aucun résultat' : filter === 'notes' ? 'Ta première note' : filter === 'dossiers' ? 'Un peu d’organisation' : filter === 'photos' ? 'Vos photos auront leur place ici' : 'Vos souvenirs commencent ici'}</h2>
+              <p className="mx-auto mt-2 max-w-[290px] text-sous text-brume">{q ? 'Essaie un autre mot ou retrouve tout le contenu du dossier.' : 'Rassemble les photos, les idées et les petits détails à garder ensemble.'}</p>
+              {q ? <button onClick={() => { setQuery(''); setFilter('tout') }} className="presse mt-4 min-h-11 text-sous font-semibold text-teinte-fonce">Effacer la recherche</button> : <Btn className="mt-5" onClick={addCurrent}>{filter === 'photos' ? 'Ajouter des photos' : filter === 'notes' ? 'Écrire une note' : filter === 'dossiers' ? 'Créer un sous-dossier' : 'Ajouter mon premier souvenir'}</Btn>}
+            </div>}
 
-                {empty && !sending && (
-                  <Vide art="picto-cadeau" title="Ce dossier est vide" text={`Ajoute des photos, des notes ou un sous-dossier. ${memberIds.length <= 1 ? 'Toi seul y as accès.' : 'Seuls ses membres les verront.'}`} />
-                )}
+            {showFolders && visibleChildren.length > 0 && <Bloc title="Sous-dossiers" count={visibleChildren.length}>
+              <div className="groupe mx-4 shadow-carte">{visibleChildren.map((c, i) => {
+                const info = folderStats(folders, folderItems, c)
+                return <button key={c.id} onClick={() => { tap(); onOpen(c.id) }} className="presse-ligne flex w-full items-center gap-3 px-3 text-left">
+                  <span className="relative my-3 h-14 w-14 shrink-0 overflow-hidden rounded-[14px]"><FolderCover folder={c} url={info.cover} size="sm" /></span>
+                  <span className={`flex min-h-[80px] min-w-0 flex-1 items-center gap-2 ${i < visibleChildren.length - 1 ? 'border-b border-trait' : ''}`}><span className="min-w-0 flex-1"><span className="block truncate text-corps font-semibold">{c.name}</span><span className="mt-0.5 block truncate text-note text-brume">{contentLine(info)}</span></span><ChevronRight size={17} className="shrink-0 text-brume" /></span>
+                </button>
+              })}</div>
+            </Bloc>}
 
-                {children.length > 0 && (
-                  <Bloc title="Dossiers" count={children.length}>
-                    <div className="no-bar flex gap-3 overflow-x-auto px-4 pb-1">
-                      {children.map((c) => {
-                        const s = folderStats(folders, folderItems, c)
-                        return (
-                          <button
-                            key={c.id}
-                            onClick={() => {
-                              tap()
-                              onOpen(c.id)
-                            }}
-                            className="presse w-[148px] shrink-0 text-left"
-                          >
-                            <span className="relative block aspect-[4/3] overflow-hidden rounded-[18px] shadow-carte">
-                              <FolderCover folder={c} url={s.cover} size="sm" />
-                            </span>
-                            <span className="mt-1.5 block truncate text-sous font-semibold">{c.name}</span>
-                            <span className="block truncate text-legende text-brume">{contentLine(s)}</span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </Bloc>
-                )}
+            {showPhotos && visiblePhotos.length > 0 && <Bloc title="Photos" count={visiblePhotos.length}>
+              <div className="mx-4 grid grid-cols-3 gap-1 overflow-hidden rounded-[20px]">{visiblePhotos.map(p => <button key={p.id} onClick={() => setViewer(photos.indexOf(p))} className="relative aspect-square bg-remplissage" aria-label={p.body ?? 'Ouvrir la photo'}>{p.image_url && <img src={p.image_url} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />}</button>)}</div>
+            </Bloc>}
 
-                {photos.length > 0 && (
-                  <Bloc title="Photos" count={photos.length}>
-                    <div className="mx-4 grid grid-cols-3 gap-[3px] overflow-hidden rounded-[20px]">
-                      {photos.map((p, i) => (
-                        <button key={p.id} onClick={() => setViewer(i)} className="relative aspect-square bg-remplissage" aria-label={p.body ?? 'Photo'}>
-                          {p.image_url && <img src={p.image_url} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />}
-                        </button>
-                      ))}
-                    </div>
-                  </Bloc>
-                )}
-
-                {notes.length > 0 && (
-                  <Bloc title="Notes" count={notes.length}>
-                    <div className="grid grid-cols-2 gap-3 px-4">
-                      {notes.map((n) => {
-                        const by = members.find((m) => m.id === n.author_id)
-                        return (
-                          <button
-                            key={n.id}
-                            onClick={() => {
-                              tap()
-                              setSheet({ k: 'note', note: n })
-                            }}
-                            className="presse groupe flex h-[156px] flex-col p-3.5 text-left shadow-carte"
-                          >
-                            <span className="mb-1 h-1 w-7 rounded-full bg-[#E0A92F]" />
-                            <span className="line-clamp-2 text-appel font-semibold">{n.title || 'Sans titre'}</span>
-                            <span className="mt-1 line-clamp-3 flex-1 whitespace-pre-line text-note text-brume">{n.body}</span>
-                            <span className="mt-1.5 flex items-center gap-1.5 text-mini text-brume">
-                              {by && <Avatar m={by} size={18} />}
-                              <span className="truncate">{ago(n.updated_at)}</span>
-                            </span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </Bloc>
-                )}
-              </>
-            ) : (
-              <Discussion folder={folder} messages={messages} admin={admin} />
-            )}
+            {showNotes && visibleNotes.length > 0 && <Bloc title="Notes" count={visibleNotes.length}>
+              <div className="space-y-2 px-4">{visibleNotes.map(n => {
+                const by = members.find(m => m.id === n.author_id)
+                return <button key={n.id} onClick={() => { tap(); setSheet({ k:'note', note:n }) }} className="presse flex w-full items-start gap-3 rounded-[20px] bg-carte p-4 text-left shadow-carte">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-[#FFF5D7] text-[#AD7A13]"><NotebookPen size={20} /></span>
+                  <span className="min-w-0 flex-1"><span className="line-clamp-2 block text-corps font-semibold">{n.title || 'Note sans titre'}</span><span className="mt-1 line-clamp-2 block whitespace-pre-line text-sous text-brume">{n.body}</span><span className="mt-2 flex items-center gap-1.5 text-note text-brume">{by && <Avatar m={by} size={18} />}<span className="truncate">{by?.display_name ?? 'Un proche'} · {ago(n.updated_at)}</span></span></span>
+                  <ChevronRight size={16} className="mt-2 shrink-0 text-brume" />
+                </button>
+              })}</div>
+            </Bloc>}
           </div>
         </div>
 
-        {tab === 'discussion' && <Composer folder={folder} />}
       </div>
 
       {viewer !== null && photos.length > 0 && (
         <PhotoViewer photos={photos} start={Math.min(viewer, photos.length - 1)} folder={folder} admin={admin} onClose={() => setViewer(null)} />
       )}
-      {sheet?.k === 'note' && <NoteSheet folder={folder} note={sheet.note} admin={admin} onClose={() => setSheet(null)} />}
+      {sheet?.k === 'note' && <NoteSheet folder={folder} note={sheet.note} admin={admin} onClose={() => setSheet(null)} onSaved={() => { setQuery(''); setFilter('notes') }} />}
       {sheet?.k === 'sous-dossier' && <NewFolderSheet parent={folder} onClose={() => setSheet(null)} onCreated={onOpen} />}
       {sheet?.k === 'membres' && <MembersSheet root={root} onClose={() => setSheet(null)} onLeft={onBack} />}
       {sheet?.k === 'renommer' && <RenameSheet folder={folder} onClose={() => setSheet(null)} />}
@@ -466,119 +381,6 @@ function Bloc({ title, count, children }: { title: string; count: number; childr
       </div>
       {children}
     </section>
-  )
-}
-
-// ═════════════════════════ Discussion ═════════════════════════
-
-const dayOf = (iso: string) => new Date(iso).toDateString()
-function dayTitle(iso: string) {
-  const d = new Date(iso)
-  const today = new Date()
-  const y = new Date(Date.now() - 86400000)
-  if (d.toDateString() === today.toDateString()) return 'Aujourd’hui'
-  if (d.toDateString() === y.toDateString()) return 'Hier'
-  return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
-}
-
-function Discussion({ folder, messages, admin }: { folder: Folder; messages: FolderItem[]; admin: boolean }) {
-  const { state, run } = useHome()
-  const { me, members, folderMembers } = state
-  const who = membersOf(folderMembers, folder.root_id)
-
-  if (!messages.length) {
-    return (
-      <div className="flex flex-col items-center px-10 pt-8 text-center">
-        <Art name="picto-bulle" size={84} />
-        <p className="mt-3 font-rond text-titre3">Pas encore de message</p>
-        <p className="mt-1 text-sous text-brume">{who.length <= 1 ? 'Note ici tes idées : personne d’autre ne les lira.' : `Écris le premier. Seuls ${whoText(who, me.id, members).replace(/^Toi/, 'toi')} le liront.`}</p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="px-3">
-      {messages.map((m, i) => {
-        const prev = messages[i - 1]
-        const next = messages[i + 1]
-        const newDay = !prev || dayOf(prev.created_at) !== dayOf(m.created_at)
-        const close = (a?: FolderItem, b?: FolderItem) => !!a && !!b && a.author_id === b.author_id && dayOf(a.created_at) === dayOf(b.created_at) && Math.abs(new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) < 8 * 60000
-        const first = !close(prev, m)
-        const last = !close(m, next)
-        const mine = m.author_id === me.id
-        const by = members.find((x) => x.id === m.author_id)
-        const canDelete = mine || admin
-        return (
-          <div key={m.id}>
-            {newDay && <p className="pb-2 pt-4 text-center text-legende font-semibold text-brume">{dayTitle(m.created_at)}</p>}
-            {first && !mine && <p className="mb-0.5 ml-[46px] mt-2 text-legende text-brume">{by?.display_name ?? 'Ancien membre'}</p>}
-            <div className={`flex items-end gap-2 ${mine ? 'justify-end' : ''} ${last ? 'mb-2' : 'mb-[3px]'}`}>
-              {!mine && <span className="w-[34px] shrink-0">{last && by && <Avatar m={by} size={34} />}</span>}
-              <button
-                onClick={async () => {
-                  if (!canDelete) return
-                  const i = await choisir({ title: new Date(m.created_at).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }), actions: [{ label: 'Supprimer le message', destructive: true }] })
-                  if (i === 0) void run((api) => api.deleteFolderItem(m))
-                }}
-                className={`max-w-[76%] whitespace-pre-wrap break-words px-3.5 py-2 text-left text-corps ${mine ? 'bg-teinte text-white' : 'bg-carte text-encre shadow-carte'} ${
-                  mine ? `rounded-[20px] ${last ? 'rounded-br-[6px]' : ''}` : `rounded-[20px] ${last ? 'rounded-bl-[6px]' : ''}`
-                }`}
-              >
-                {m.body}
-              </button>
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-function Composer({ folder }: { folder: Folder }) {
-  const { state, run } = useHome()
-  const [text, setText] = useState('')
-  const [busy, setBusy] = useState(false)
-  const box = useRef<HTMLTextAreaElement>(null)
-  useEffect(() => {
-    const t = box.current
-    if (!t) return
-    t.style.height = 'auto'
-    t.style.height = `${Math.min(t.scrollHeight, 110)}px`
-  }, [text])
-  const send = async () => {
-    const body = text.trim()
-    if (!body || busy) return
-    setBusy(true)
-    setText('')
-    const ok = await run((api) => api.addFolderItem(folder, state.me.id, { kind: 'message', body }))
-    if (ok) success()
-    else setText(body)
-    setBusy(false)
-  }
-  return (
-    <div className="absolute inset-x-3 z-20" style={{ bottom: 'calc(var(--sab) + 80px)' }}>
-      <div className="verre flex items-end gap-2 rounded-[24px] py-1.5 pl-4 pr-1.5">
-        <textarea
-          ref={box}
-          rows={1}
-          maxLength={1000}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault()
-              void send()
-            }
-          }}
-          placeholder="Message"
-          className="min-w-0 flex-1 resize-none bg-transparent py-[7px] text-corps outline-none placeholder:text-brume"
-          aria-label="Écrire un message"
-        />
-        <button onClick={send} disabled={!text.trim() || busy} className="presse flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teinte text-white disabled:opacity-30" aria-label="Envoyer">
-          <ArrowUp size={20} strokeWidth={2.8} />
-        </button>
-      </div>
-    </div>
   )
 }
 
@@ -681,30 +483,35 @@ function PhotoViewer({ photos, start, folder, admin, onClose }: { photos: Folder
 
 // ═════════════════════════ Feuilles ═════════════════════════
 
-function NoteSheet({ folder, note, admin, onClose }: { folder: Folder; note?: FolderItem; admin: boolean; onClose: () => void }) {
+function NoteSheet({ folder, note, admin, onClose, onSaved }: { folder: Folder; note?: FolderItem; admin: boolean; onClose: () => void; onSaved: () => void }) {
   const { state, run } = useHome()
   const [title, setTitle] = useState(note?.title ?? '')
   const [body, setBody] = useState(note?.body ?? '')
+  const [busy, setBusy] = useState(false)
   const by = note && state.members.find((m) => m.id === note.author_id)
   const changed = title !== (note?.title ?? '') || body !== (note?.body ?? '')
 
   const save = async () => {
+    if (busy || (!title.trim() && !body.trim())) return
+    setBusy(true)
     const ok = note
       ? await run((api) => api.updateFolderItem(note.id, { title: title || null, body: body || null }), 'Note enregistrée')
       : await run((api) => api.addFolderItem(folder, state.me.id, { kind: 'note', title, body }), 'Note ajoutée')
+    setBusy(false)
     if (ok) {
       success()
+      onSaved()
       onClose()
     }
   }
 
   return (
-    <Sheet title={note ? 'Note' : 'Nouvelle note'} onClose={onClose} tall>
+    <Sheet title={note ? 'Note' : 'Nouvelle note'} onClose={() => { if (!busy) onClose() }} tall footer={<Btn onClick={save} disabled={busy || (!title.trim() && !body.trim()) || (!!note && !changed)}>{busy ? 'Enregistrement…' : note ? 'Enregistrer' : 'Ajouter la note'}</Btn>}>
       <div className="groupe flex flex-col p-4">
-        <input className="bg-transparent font-rond text-titre2 outline-none placeholder:text-pale" placeholder="Titre" maxLength={80} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus={!note} />
+        <input className="bg-transparent font-rond text-titre2 outline-none placeholder:text-pale" placeholder="Titre" aria-label="Titre de la note" maxLength={80} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus={!note} />
         <textarea
           className="mt-2 min-h-[34vh] flex-1 resize-none bg-transparent text-corps leading-[24px] outline-none placeholder:text-pale"
-          placeholder="Liste, idée, recette, adresse…"
+          placeholder="Liste, idée, recette, adresse…" aria-label="Contenu de la note"
           maxLength={4000}
           value={body}
           onChange={(e) => setBody(e.target.value)}
@@ -717,7 +524,6 @@ function NoteSheet({ folder, note, admin, onClose }: { folder: Folder; note?: Fo
         </p>
       )}
       <p className="px-2 pt-1 text-note text-brume">Tous les membres du dossier peuvent la lire et la modifier.</p>
-      <Btn className="mt-3" onClick={save} disabled={note ? !changed : !title.trim() && !body.trim()}>{note ? 'Enregistrer' : 'Ajouter la note'}</Btn>
       {note && (note.author_id === state.me.id || admin) && (
         <Btn
           kind="gris"
@@ -883,7 +689,7 @@ function MembersSheet({ root, onClose, onLeft }: { root: Folder; onClose: () => 
 
   return (
     <Sheet title={admin ? 'Membres du dossier' : `Dans « ${root.name} »`} onClose={onClose}>
-      <p className="px-2 pb-3 text-center text-sous text-brume">Seules ces personnes voient le dossier, ses sous-dossiers, ses photos, ses notes et sa discussion.</p>
+      <p className="px-2 pb-3 text-center text-sous text-brume">Seules ces personnes voient le dossier, ses sous-dossiers, ses photos et ses notes.</p>
       <div className="groupe">
         {people.map((m, i) => {
           const on = sel.has(m.id)

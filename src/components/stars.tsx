@@ -12,7 +12,7 @@ const EARN: { icon: ReactNode; label: string; stars: number; limit?: string }[] 
   { icon: <Art name="humeur-heureux" size={40} />, label: 'Partager mon humeur', stars: 1, limit: 'une fois par jour' },
   { icon: <Art name="geste-calin" size={40} />, label: 'Envoyer un câlin', stars: 1, limit: 'jusqu’à 5 par jour' },
   { icon: <DoodleIcon size={34} />, label: 'Envoyer un dessin', stars: 1, limit: 'jusqu’à 5 par jour' },
-  { icon: <Art name="picto-missions" size={40} />, label: 'Terminer une mission', stars: 1 },
+  { icon: <Art name="picto-missions" size={40} />, label: 'Cocher une tâche terminée', stars: 1 },
   { icon: <img src="./art/jeu-puissance4.webp" alt="" className="h-9 w-9 object-contain" />, label: 'Gagner une partie', stars: 2, limit: 'jusqu’à 5 par jour' },
   { icon: <img src="./art/jeu-mot.webp" alt="" className="h-9 w-9 object-contain" />, label: 'Trouver le mot mystère', stars: 2, limit: 'une fois par jour' },
   { icon: <img src="./art/jeu-dessin.webp" alt="" className="h-9 w-9 object-contain" />, label: 'Deviner un dessin', stars: 1, limit: 'jusqu’à 10 par jour' },

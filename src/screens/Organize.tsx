@@ -241,7 +241,7 @@ function Glisse({ children, onRetirer, label }: { children: ReactNode; onRetirer
 }
 
 /**
- * Les courses et les missions. Tout répond tout de suite : la ligne se coche, s'ajoute ou part à l'écran
+ * Les courses et les choses à faire. Tout répond tout de suite : la ligne se coche, s'ajoute ou part à l'écran
  * pendant que l'enregistrement se fait en arrière-plan (en cas d'erreur, elle revient comme avant).
  */
 function Liste({ kind }: { kind: ListKind }) {
@@ -251,6 +251,7 @@ function Liste({ kind }: { kind: ListKind }) {
   const [editing, setEditing] = useState(false)
   const [to, setTo] = useState<string | null>(null)
   const [onlyMine, setOnlyMine] = useState(false)
+  const [assigning, setAssigning] = useState(false)
   const tache = kind === 'tache'
   // ce qu'on vient de faire, affiché sans attendre le serveur
   const [ajouts, setAjouts] = useState<(ListItem & { connus: Set<string> })[]>([])
@@ -296,7 +297,7 @@ function Liste({ kind }: { kind: ListKind }) {
     const tmp = { id: `attente-${Date.now()}-${Math.random()}`, family_id: family.id, kind, title: t, done: false, done_by: null, assigned_to: tache ? to : null, created_by: me.id, created_at: new Date().toISOString(), connus: new Set(state.items.map((i) => i.id)) }
     setAjouts((a) => [...a, tmp])
     const pour = tache ? to : null
-    if (tache) setTo(null) // la mission suivante repart « pour tous » : pas de mauvaise personne par erreur
+    if (tache) { setTo(null); setAssigning(false) } // la tâche suivante repart « pour tous » : pas de mauvaise personne par erreur
     champ.current?.focus()
     void fond(
       () => api.addItem(family.id, me.id, kind, t, pour),
@@ -313,7 +314,7 @@ function Liste({ kind }: { kind: ListKind }) {
     if (fait) success()
     else tap()
     setChanges((c) => ({ ...c, [i.id]: { ...c[i.id], done: fait } }))
-    if (tache && fait) toast('Mission accomplie, 1 étoile gagnée')
+    if (tache && fait) toast('C’est fait ✓')
     void fond(
       () => api.toggleItem(i, me.id),
       () => oublier(i.id),
@@ -336,7 +337,7 @@ function Liste({ kind }: { kind: ListKind }) {
     <>
       {tache && (
         <div className="mx-5 mb-4">
-          <Segments value={onlyMine ? 'moi' : 'tous'} onChange={(v) => setOnlyMine(v === 'moi')} options={[{ key: 'tous', label: 'Toutes les missions' }, { key: 'moi', label: 'Pour moi' }]} />
+          <Segments value={onlyMine ? 'moi' : 'tous'} onChange={(v) => setOnlyMine(v === 'moi')} options={[{ key: 'tous', label: 'Toute la liste' }, { key: 'moi', label: 'Pour moi' }]} />
         </div>
       )}
       <form
@@ -349,9 +350,9 @@ function Liste({ kind }: { kind: ListKind }) {
         <Plus size={22} strokeWidth={2.4} className="shrink-0 text-teinte" />
         <input
           ref={champ}
-          aria-label={tache ? 'Nouvelle mission' : 'Ajouter un article'}
+          aria-label={tache ? 'Ajouter une chose à faire' : 'Ajouter un article'}
           className="h-[54px] min-w-0 flex-1 bg-transparent text-corps outline-none placeholder:text-brume"
-          placeholder={tache ? 'Nouvelle mission' : 'Ajouter un article'}
+          placeholder={tache ? 'Ajouter une chose à faire' : 'Ajouter un article'}
           maxLength={80}
           enterKeyHint="done"
           value={title}
@@ -363,7 +364,7 @@ function Liste({ kind }: { kind: ListKind }) {
           </button>
         )}
       </form>
-      {/* courses : des idées en un toucher ; missions : pour qui */}
+      {/* courses : des idées en un toucher ; à faire : attribution facultative */}
       {idees.length > 0 && (
         <div className="no-bar mt-2.5 flex gap-2 overflow-x-auto px-4 pb-1" aria-label="Idées à ajouter">
           {idees.map((x) => (
@@ -373,8 +374,9 @@ function Liste({ kind }: { kind: ListKind }) {
           ))}
         </div>
       )}
-      {tache && (
-        <div className="no-bar mt-2.5 flex gap-2 overflow-x-auto px-4">
+      {tache && <button onClick={() => setAssigning(v => !v)} aria-expanded={assigning} className="presse mx-5 mt-2 flex min-h-11 items-center gap-1 text-sous font-medium text-teinte-fonce">{to ? `Pour ${members.find(m => m.id === to)?.display_name ?? 'un proche'}` : 'Attribuer à un proche (facultatif)'}<ChevronRight size={16} className={assigning ? 'rotate-90' : ''} /></button>}
+      {tache && assigning && (
+        <div className="no-bar mt-1 flex gap-2 overflow-x-auto px-4">
           <button
             onClick={() => {
               select()
@@ -404,15 +406,15 @@ function Liste({ kind }: { kind: ListKind }) {
       {items.length === 0 && (
         <Vide
           art={tache ? 'picto-missions' : 'picto-courses'}
-          title={tache ? 'Aucune mission' : 'La liste est vide'}
-          text={tache ? 'Chaque mission terminée rapporte une étoile à la maison.' : 'Tout le monde la voit et peut cocher en direct au magasin.'}
+          title={tache ? 'Rien à faire pour l’instant' : 'La liste est vide'}
+          text={tache ? 'Ajoute les choses à ne pas oublier, puis coche-les au fur et à mesure.' : 'Tout le monde la voit et peut cocher en direct au magasin.'}
         />
       )}
 
       {items.length > 0 && (
         <div className="mx-5 mt-4 flex min-h-11 items-center justify-between gap-3">
           <p className="text-note font-semibold text-brume" role="status">
-            {todo.length} {tache ? `mission${todo.length > 1 ? 's' : ''} à faire` : `article${todo.length > 1 ? 's' : ''} à prendre`}
+            {todo.length} {tache ? `chose${todo.length > 1 ? 's' : ''} à faire` : `article${todo.length > 1 ? 's' : ''} à prendre`}
             {done.length > 0 ? ` · ${done.length} ${tache ? `terminée${done.length > 1 ? 's' : ''}` : 'dans le panier'}` : ''}
           </p>
           <button onClick={() => setEditing((v) => !v)} className="presse min-h-11 text-sous font-semibold text-teinte-fonce">
@@ -578,10 +580,10 @@ export default function Organize() {
     <>
       <Screen title="Organiser" trailing={seg === 'agenda' ? <Rond label="Nouvel événement" tint onClick={() => setAdding({})}><Plus size={21} strokeWidth={2.4} /></Rond> : undefined}>
         <p className="-mt-1 px-5 text-sous text-brume">
-          {seg === 'agenda' ? 'Moins de choses à retenir, plus de temps ensemble.' : seg === 'course' ? 'Une liste commune : chacun ajoute et coche en direct.' : 'Les petites tâches de la maison. Assigne-les à quelqu’un ou à tout le monde.'}
+          {seg === 'agenda' ? 'Moins de choses à retenir, plus de temps ensemble.' : seg === 'course' ? 'Une liste commune : chacun ajoute et coche en direct.' : 'La liste des choses à faire : ajoute, coche et avance à ton rythme.'}
         </p>
         <div className="mx-4 mb-4 mt-3">
-          <Segments value={seg} onChange={setSeg} options={[{ key: 'agenda', label: 'Agenda' }, { key: 'course', label: 'Courses' }, { key: 'tache', label: 'Missions' }]} />
+          <Segments value={seg} onChange={setSeg} options={[{ key: 'agenda', label: 'Agenda' }, { key: 'course', label: 'Courses' }, { key: 'tache', label: 'À faire' }]} />
         </div>
 
         {seg === 'agenda' && coming.length > 0 && <Prochain e={coming[0].e} at={coming[0].at} onOpen={() => setOpen(coming[0])} />}
