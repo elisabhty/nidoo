@@ -5,6 +5,7 @@ import { isMemory } from './jeux'
 import { jourParis, type AnneeState, type MotLigne, type MotMoi, type Secret } from './parties'
 import type { AdventDoor, AppFlag, Answer, Backend, Game, Partie, HouseCare, Pet, Plot, Circle, Drawing, DrawingData, FamEvent, Family, FamilyState, Folder, JoinRequest, LiveEvent, LiveInvite, MyRequest, FolderItem, FolderMember, ListItem, Member, Moment, Reaction, StarEntry, Thought, Ecrit } from './types'
 import { compressImage, daysAgoKey, todayKey, uid } from './util'
+import { createSignedUrlCache } from './signedUrls'
 import { emptyCounts, type WeeklyCounts } from './weekly'
 
 function check<T>(r: { data: T; error: { message: string } | null }): T {
@@ -15,6 +16,11 @@ function check<T>(r: { data: T; error: { message: string } | null }): T {
 export function createSupabaseBackend(): Backend {
   const sb: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY, {
     auth: { persistSession: true, autoRefreshToken: true, storageKey: 'nidoo.auth' },
+  })
+  const signedUrls = createSignedUrlCache(async (bucket, paths) => {
+    const { data, error } = await sb.storage.from(bucket).createSignedUrls(paths, 3600)
+    if (error) throw new Error(error.message)
+    return (data ?? []).flatMap((item) => item.path && item.signedUrl ? [{ path: item.path, signedUrl: item.signedUrl }] : [])
   })
   let userId = ''
   const traits = new Map<string, DrawingData>()
@@ -172,8 +178,7 @@ export function createSupabaseBackend(): Backend {
       // Photos du fil et de la question du jour : même espace privé, lisible par la famille.
       const paths = [...moms.map((m) => m.image_path), ...moms.map((m) => m.audio_path), ...reponses.map((a) => a.photo_path)].filter((x): x is string => !!x)
       if (paths.length) {
-        const signed = await sb.storage.from('moments').createSignedUrls(paths, 3600)
-        const byPath = new Map((signed.data ?? []).map((s) => [s.path, s.signedUrl]))
+        const byPath = await signedUrls('moments', paths)
         for (const m of moms) {
           m.image_url = m.image_path ? (byPath.get(m.image_path) ?? null) : null
           m.audio_url = m.audio_path ? (byPath.get(m.audio_path) ?? null) : null
@@ -185,8 +190,7 @@ export function createSupabaseBackend(): Backend {
       const contenus = (check(folderItems) ?? []) as FolderItem[]
       const fichiers = [...new Set([...contenus.map((i) => i.image_path), ...dossiers.map((d) => d.cover_path)].filter((x): x is string => !!x))]
       if (fichiers.length) {
-        const signed = await sb.storage.from('dossiers').createSignedUrls(fichiers, 3600)
-        const byPath = new Map((signed.data ?? []).map((s) => [s.path, s.signedUrl]))
+        const byPath = await signedUrls('dossiers', fichiers)
         for (const i of contenus) i.image_url = i.image_path ? (byPath.get(i.image_path) ?? null) : null
         for (const d of dossiers) d.cover_url = d.cover_path ? (byPath.get(d.cover_path) ?? null) : null
       }
@@ -199,8 +203,7 @@ export function createSupabaseBackend(): Backend {
       // Photos des instants : liens signés, lisibles seulement par ceux qui voient l'instant.
       const fonds = dessins.map((d) => d.photo_path).filter((x): x is string => !!x)
       if (fonds.length) {
-        const signed = await sb.storage.from('instants').createSignedUrls(fonds, 3600)
-        const byPath = new Map((signed.data ?? []).map((x) => [x.path, x.signedUrl]))
+        const byPath = await signedUrls('instants', fonds)
         for (const d of dessins) d.photo_url = d.photo_path ? (byPath.get(d.photo_path) ?? null) : null
       }
       // Memory : les photos des cartes, lisibles par la famille.
@@ -208,8 +211,7 @@ export function createSupabaseBackend(): Backend {
       const groupes = (jeux2.data ?? []) as Partie[]
       const cartes = [...new Set([...parties.flatMap((g) => (isMemory(g.state) ? g.state.paths : [])), ...groupes.flatMap((p) => (p.kind === 'annee' ? (p.state as AnneeState).photos : []))])]
       if (cartes.length) {
-        const signed = await sb.storage.from('jeux').createSignedUrls(cartes, 3600)
-        const byPath = new Map((signed.data ?? []).map((x) => [x.path, x.signedUrl]))
+        const byPath = await signedUrls('jeux', cartes)
         for (const g of parties) if (isMemory(g.state)) g.photos = g.state.paths.map((p) => byPath.get(p) ?? null)
         for (const p of groupes) if (p.kind === 'annee') p.photos = (p.state as AnneeState).photos.map((x) => byPath.get(x) ?? null)
       }
