@@ -1,4 +1,4 @@
-import { CalendarPlus, Camera, Images, MapPin, Navigation, PenLine, Repeat, Sticker as StickerIcon, Trash2, Undo2, Users } from 'lucide-react'
+import { AlignLeft, CalendarDays, CalendarPlus, Camera, ChevronRight, Images, MapPin, Navigation, PenLine, Repeat, Sticker as StickerIcon, Trash2, Undo2, Users } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { moodOf, MOODS, THOUGHTS, thoughtOf } from '../lib/data'
 import { Smiley } from './Smiley'
@@ -9,7 +9,7 @@ import { chargerImage, photoFinale, vignettesFiltres, type FiltreKey } from '../
 import { MAX_STICKERS } from '../lib/stickers'
 import { CadreCanvas, CadreRow, FilterRow, nouveauSticker, StickerStage, StickerTray } from './stickers'
 import { vignettesCadres } from '../lib/cadres'
-import { compressImage, errorText, isToday, nextOccurrence, rythme, timeLabel } from '../lib/util'
+import { compressImage, errorText, finDe, isToday, joursEnPlus, nextOccurrence, rythme, timeLabel } from '../lib/util'
 import { ajouterAuCalendrier } from '../lib/calendrier'
 import { IncomingDrawing, markDrawingsSeen, useUnseenDrawings } from './drawing'
 import { DrawSheet } from './planche'
@@ -473,6 +473,19 @@ export function Incoming({ onClose }: {onClose?: () => void}) {
   )
 }
 
+/** Une ligne de la carte d'un événement : une icône, puis le texte. */
+function Info({ icone, children, fleche, dernier }: { icone: React.ReactNode; children: React.ReactNode; fleche?: boolean; dernier?: boolean }) {
+  return (
+    <div className="flex items-start gap-3 pl-4">
+      <span className="mt-[13px] flex h-[22px] w-[22px] shrink-0 items-center justify-center text-teinte">{icone}</span>
+      <div className={`flex min-w-0 flex-1 items-center gap-2 py-3 pr-4 text-corps ${dernier ? '' : 'border-b border-trait'}`}>
+        <div className="min-w-0 flex-1">{children}</div>
+        {fleche && <ChevronRight size={17} className="shrink-0 text-pale" />}
+      </div>
+    </div>
+  )
+}
+
 // ───────── Nouvel événement ─────────
 
 const KINDS: { key: EventKind; label: string; art: string; aide: string; exemple: string }[] = [
@@ -692,105 +705,120 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
   const { state, run } = useHome()
   const ev = state.events.find((x) => x.id === event.id) ?? event // la version à jour, après une modification
   const [modif, setModif] = useState(false)
+  const [toutLire, setToutLire] = useState(false)
   const at = nextOccurrence(ev) // recalculé : la date a pu être modifiée
   const author = state.members.find((m) => m.id === ev.created_by)
-  const full = at.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^./, (c) => c.toUpperCase())
+  const fin = finDe(ev, at)
+  // sur plusieurs jours : « Du samedi 28 au dimanche 29 novembre »
+  const full = (joursEnPlus(ev)
+    ? `Du ${at.toLocaleDateString('fr-FR', fin.getMonth() === at.getMonth() ? { weekday: 'long', day: 'numeric' } : { weekday: 'long', day: 'numeric', month: 'long' })} au ${fin.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}`
+    : at.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+  ).replace(/^./, (c) => c.toUpperCase())
   const d0 = new Date()
   d0.setHours(0, 0, 0, 0)
   const diff = Math.round((new Date(at.getFullYear(), at.getMonth(), at.getDate()).getTime() - d0.getTime()) / 86400000)
-  const soon = diff === 0 ? 'Aujourd’hui' : diff === 1 ? 'Demain' : diff > 1 && diff <= 30 ? `Dans ${diff} jours` : null
+  const soon = diff < 0 ? 'En ce moment' : diff === 0 ? 'Aujourd’hui' : diff === 1 ? 'Demain' : diff <= 30 ? `Dans ${diff} jours` : null
   if (modif) return <EventSheet event={ev} onClose={() => setModif(false)} />
+  const concernes = (ev.members ?? []).length ? state.members.filter((m) => ev.members!.includes(m.id)) : []
+  const noms = concernes.map((m) => (m.id === state.me.id ? 'toi' : m.display_name))
+  const qui = !concernes.length ? 'Toute la famille' : noms.length === 1 ? noms[0].replace(/^toi$/, 'Toi') : `${noms.slice(0, -1).join(', ')} et ${noms[noms.length - 1]}`.replace(/^toi/, 'Toi')
+  const supprimer = async () => {
+    if (!(await confirmer({ title: `Supprimer « ${ev.title} » ?`, message: 'Il disparaîtra de l’agenda de toute la famille.', confirm: 'Supprimer l’événement', destructive: true }))) return
+    if (await run((api) => api.deleteEvent(ev.id), 'Événement supprimé')) onClose()
+  }
 
+  // Tout tient sur un écran : l'en-tête (image, titre, quand), une seule carte d'infos, deux boutons côte à côte.
   return (
     <Sheet title={KINDS.find((k) => k.key === ev.kind)?.label ?? 'Événement'} onClose={onClose}>
-      <div className="flex flex-col items-center text-center">
-        <Art name={eventArt(ev.kind)} size={72} />
-        <p className="mt-2 font-rond text-titre2">{ev.title}</p>
-        <p className="mt-1 text-corps text-brume">
-          {full}
-          {ev.all_day ? ' · toute la journée' : ` · ${timeLabel(at)}`}
-        </p>
-        <span className="mt-2 flex flex-wrap justify-center gap-1.5">
-          {soon && <span className="rounded-full bg-peche-doux px-2.5 py-1 text-legende font-semibold text-peche-fonce">{soon}</span>}
-          {ev.yearly && (
-            <span className="flex items-center gap-1 rounded-full bg-remplissage px-2.5 py-1 text-legende font-semibold text-brume">
-              <Repeat size={12} strokeWidth={2.6} /> Chaque année
-            </span>
-          )}
-          {rythme(ev, at) && (
-            <span className="flex items-center gap-1 rounded-full bg-remplissage px-2.5 py-1 text-legende font-semibold text-brume">
-              {ev.weekly && <Repeat size={12} strokeWidth={2.6} />} {rythme(ev, at)}
-            </span>
-          )}
+      <div className="flex items-center gap-3.5">
+        <span className="flex h-[68px] w-[68px] shrink-0 items-center justify-center rounded-[22px] bg-teinte-doux">
+          <Art name={eventArt(ev.kind)} size={48} />
         </span>
-        {ev.lieu && (
-          <a
-            href={lienPlans(ev.lieu)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="presse mt-3 flex w-full items-center gap-3 rounded-[18px] bg-teinte-doux py-3 pl-3 pr-4 text-left"
-          >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-teinte">
-              <MapPin size={20} />
+        <div className="min-w-0 flex-1">
+          <p className="break-words font-rond text-titre2 leading-tight">{ev.title}</p>
+          {(soon || ev.yearly || ev.weekly) && (
+            <span className="mt-1.5 flex flex-wrap gap-1.5">
+              {soon && <span className="rounded-full bg-peche-doux px-2.5 py-0.5 text-legende font-semibold text-peche-fonce">{soon}</span>}
+              {ev.yearly && (
+                <span className="flex items-center gap-1 rounded-full bg-remplissage px-2.5 py-0.5 text-legende font-semibold text-brume">
+                  <Repeat size={12} strokeWidth={2.6} /> Chaque année
+                </span>
+              )}
+              {ev.weekly && (
+                <span className="flex items-center gap-1 rounded-full bg-remplissage px-2.5 py-0.5 text-legende font-semibold text-brume">
+                  <Repeat size={12} strokeWidth={2.6} /> {rythme(ev, at)}
+                </span>
+              )}
             </span>
-            <span className="min-w-0">
-              <span className="block break-words text-corps font-semibold text-encre">{ev.lieu}</span>
-              <span className="flex items-center gap-1 text-note font-semibold text-teinte-fonce">
-                <Navigation size={12} strokeWidth={2.6} /> Ouvrir dans Plans
-              </span>
-            </span>
-          </a>
-        )}
+          )}
+        </div>
       </div>
 
-      <p className="entete mt-5 !px-1">Qui est concerné</p>
-      <WhoList ids={ev.members ?? []} />
-
-      {ev.description && (
-        <>
-          <p className="entete mt-5 !px-1">Détails</p>
-          <p className="groupe whitespace-pre-wrap break-words px-4 py-3 text-corps">{ev.description}</p>
-        </>
-      )}
-
+      <div className="groupe mt-4">
+        <Info icone={<CalendarDays size={18} strokeWidth={2.3} />}>
+          {full}
+          <span className="text-brume">{ev.all_day ? ' · toute la journée' : ` · ${timeLabel(at)}`}</span>
+        </Info>
+        {ev.lieu && (
+          <a href={lienPlans(ev.lieu)} target="_blank" rel="noopener noreferrer" className="presse-ligne block">
+            <Info icone={<MapPin size={18} strokeWidth={2.3} />} fleche>
+              <span className="block break-words">{ev.lieu}</span>
+              <span className="flex items-center gap-1 text-note font-semibold text-teinte-fonce">
+                <Navigation size={11} strokeWidth={2.6} /> Ouvrir dans Plans
+              </span>
+            </Info>
+          </a>
+        )}
+        <Info icone={<Users size={18} strokeWidth={2.3} />} dernier={!ev.description}>
+          <span className="flex items-center gap-2">
+            {concernes.length > 0 && (
+              <span className="flex shrink-0 -space-x-2">
+                {concernes.slice(0, 4).map((m) => (
+                  <span key={m.id} className="rounded-full ring-2 ring-carte">
+                    <Avatar m={m} size={24} />
+                  </span>
+                ))}
+              </span>
+            )}
+            <span className="min-w-0">{qui}</span>
+          </span>
+        </Info>
+        {ev.description && (
+          <Info icone={<AlignLeft size={18} strokeWidth={2.3} />} dernier>
+            <button onClick={() => setToutLire((x) => !x)} className="block w-full whitespace-pre-wrap break-words text-left" style={toutLire ? undefined : { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+              {ev.description}
+            </button>
+          </Info>
+        )}
+      </div>
       {author && (
-        <div className="groupe mt-4 flex items-center gap-3 px-4 py-3">
-          <Avatar m={author} size={34} />
-          <p className="text-sous">
-            Ajouté par <span className="font-semibold">{author.id === state.me.id ? 'toi' : author.display_name}</span>
-          </p>
-        </div>
+        <p className="mt-2 px-1 text-note text-brume">
+          Ajouté par {author.id === state.me.id ? 'toi' : author.display_name} · toute la famille peut le modifier
+        </p>
       )}
-      <Btn
-        className="mt-4"
-        onClick={() => {
-          tap()
-          setModif(true)
-        }}
-      >
-        <PenLine size={17} strokeWidth={2.4} /> Modifier
-      </Btn>
-      <Btn
-        className="mt-2"
-        kind="gris"
-        onClick={() => {
-          tap()
-          ajouterAuCalendrier(ev)
-        }}
-      >
-        <CalendarPlus size={17} strokeWidth={2.4} /> Ajouter à mon calendrier
-      </Btn>
-      <p className="px-1 pt-1.5 text-center text-note text-brume">Toute la famille voit cet événement et peut le modifier.</p>
-      <Btn
-        className="mt-3 !text-rouge"
-        kind="gris"
-        onClick={async () => {
-          if (!(await confirmer({ title: `Supprimer « ${ev.title} » ?`, message: 'Il disparaîtra de l’agenda de toute la famille.', confirm: 'Supprimer l’événement', destructive: true }))) return
-          if (await run((api) => api.deleteEvent(ev.id), 'Événement supprimé')) onClose()
-        }}
-      >
-        <Trash2 size={17} strokeWidth={2.4} /> Supprimer l’événement
-      </Btn>
+
+      <div className="mt-4 grid grid-cols-2 gap-2.5">
+        <Btn
+          onClick={() => {
+            tap()
+            setModif(true)
+          }}
+        >
+          <PenLine size={17} strokeWidth={2.4} /> Modifier
+        </Btn>
+        <Btn
+          kind="gris"
+          onClick={() => {
+            tap()
+            ajouterAuCalendrier(ev)
+          }}
+        >
+          <CalendarPlus size={17} strokeWidth={2.4} /> Calendrier
+        </Btn>
+      </div>
+      <button onClick={() => void supprimer()} className="presse mt-1 flex min-h-11 w-full items-center justify-center gap-1.5 text-sous font-semibold text-rouge">
+        <Trash2 size={15} strokeWidth={2.4} /> Supprimer l’événement
+      </button>
     </Sheet>
   )
 }
