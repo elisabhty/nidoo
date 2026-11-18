@@ -243,3 +243,9 @@ html, body { overflow: hidden; width: 100%; }
   25% { transform: translateX(4px); }
   40% { transform: translateX(-1px); }
 }
+
+/* les trois petits points de celui qui cherche */
+@keyframes points {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}

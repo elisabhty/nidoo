@@ -668,7 +668,30 @@ function DessineDevine({ p, sec, me, members = [], busy, act, dire }: Props) {
               </button>
             </form>
           ) : (
-            <p className="mt-3 text-center text-sous text-brume">{nom(members, p.turn, me)} cherche ton dessin…</p>
+            // celui qui devine, en direct : son personnage, ses propositions, et « … » pendant qu'il cherche
+            <div className="mt-4">
+              <div className="flex items-end gap-2.5">
+                {(() => {
+                  const g = members.find((x) => x.id === p.turn)
+                  return g ? <Avatar m={g} size={44} /> : null
+                })()}
+                <div className="flex min-w-0 flex-1 flex-wrap items-end gap-1.5">
+                  {s.essais.map((e, i) => (
+                    <span key={i} className="anim-pop rounded-[18px] rounded-bl-md bg-white px-3.5 py-2 text-sous font-semibold text-encre shadow-carte">
+                      <span className="line-through decoration-[#FF8A7A] decoration-2">{e}</span> <span className="text-[#E0604F]">✗</span>
+                    </span>
+                  ))}
+                  <span className="flex h-9 items-center gap-1 rounded-[18px] rounded-bl-md bg-white px-3.5 shadow-carte" aria-label={`${nom(members, p.turn, me)} cherche`}>
+                    {[0, 1, 2].map((k) => (
+                      <span key={k} className="h-2 w-2 rounded-full bg-brume" style={{ animation: `points 1.2s ${k * 0.18}s ease-in-out infinite` }} />
+                    ))}
+                  </span>
+                </div>
+              </div>
+              <p className="mt-2 text-center text-note text-brume">
+                {nom(members, p.turn, me)} cherche ton dessin · {3 - s.essais.length} essai{3 - s.essais.length > 1 ? 's' : ''} restant{3 - s.essais.length > 1 ? 's' : ''}
+              </p>
+            </div>
           )}
           {monTour && <p className="mt-1.5 text-center text-note text-brume">{3 - s.essais.length} essai{3 - s.essais.length > 1 ? 's' : ''} pour trouver</p>}
         </div>
@@ -684,6 +707,7 @@ function DessineDevine({ p, sec, me, members = [], busy, act, dire }: Props) {
                 <p className={`text-mini ${r.trouve ? 'text-teinte' : 'text-brume'}`}>
                   par {nom(members, r.par, me)} · {r.trouve ? 'trouvé' : 'pas trouvé'}
                 </p>
+                {r.essais?.length > 0 && <p className="mt-0.5 truncate text-mini text-brume">Propositions : {r.essais.join(', ')}</p>}
               </div>
             ))}
           </div>
