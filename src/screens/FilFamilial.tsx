@@ -5,7 +5,7 @@ import Fil from './Moments'
 export default function FilFamilial() {
   return (
     <Screen title="Fil familial">
-      <p className="-mt-1 mb-2 px-5 text-sous text-brume">Écris, envoie une photo, un vocal ou un sticker à toute la famille.</p>
+      <p className="-mt-1 mb-2 px-5 text-sous text-brume">Écris, partage une photo, un vocal, un sticker ou crée un sondage pour toute la famille.</p>
       <Fil />
     </Screen>
   )
