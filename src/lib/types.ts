@@ -87,7 +87,7 @@ export type Folder = {
   updated_at: string
 }
 export type FolderMember = { folder_id: string; member_id: string }
-export type ItemKind = 'photo' | 'note' | 'message'
+export type ItemKind = 'photo' | 'note' | 'message' | 'dessin' | 'audio' | 'video'
 export type FolderItem = {
   id: string
   folder_id: string
@@ -99,6 +99,9 @@ export type FolderItem = {
   body: string | null
   image_path: string | null
   image_url?: string | null
+  media_path?: string | null
+  media_url?: string | null
+  source_moment_id?: string | null
   created_at: string
   updated_at: string
 }
@@ -324,7 +327,8 @@ export interface Backend {
   setFolderMembers(rootId: string, memberIds: string[]): Promise<void>
   leaveFolder(rootId: string, memberId: string): Promise<void>
   deleteFolder(folder: Folder): Promise<void>
-  addFolderItem(folder: Folder, memberId: string, i: { kind: ItemKind; title?: string; body?: string; blob?: Blob }): Promise<void>
+  addFolderItem(folder: Folder, memberId: string, i: { kind: ItemKind; title?: string; body?: string; blob?: Blob; sourceMomentId?: string }): Promise<void>
+  replaceFolderMedia(item: FolderItem, blob: Blob, patch?: { body?: string | null; title?: string | null; sourceMomentId?: string | null }): Promise<void>
   updateFolderItem(id: string, patch: { title: string | null; body: string | null }): Promise<void>
   deleteFolderItem(item: FolderItem): Promise<void>
   react(moment: Moment, memberId: string, emoji: string | null): Promise<void>

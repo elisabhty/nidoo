@@ -10,12 +10,12 @@ export function subtreeIds(folders: Folder[], id: string): Set<string> {
   return ids
 }
 
-export type FolderStats = { photos: number; notes: number; messages: number; subfolders: number; last: number; cover: string | null }
+export type FolderStats = { photos: number; notes: number; messages: number; audios: number; videos: number; subfolders: number; last: number; cover: string | null }
 
 /** Ce que contient un dossier (sous-dossiers compris) et sa dernière activité. */
 export function folderStats(folders: Folder[], items: FolderItem[], folder: Folder): FolderStats {
   const ids = subtreeIds(folders, folder.id)
-  let photos = 0, notes = 0, messages = 0
+  let photos = 0, notes = 0, messages = 0, audios = 0, videos = 0
   let last = new Date(folder.updated_at).getTime()
   let cover: { url: string; at: number } | null = null
   for (const i of items) {
@@ -25,11 +25,13 @@ export function folderStats(folders: Folder[], items: FolderItem[], folder: Fold
     if (i.kind === 'photo') {
       photos++
       if (i.image_url && (!cover || at > cover.at)) cover = { url: i.image_url, at }
-    } else if (i.kind === 'note') notes++
+    } else if (i.kind === 'note' || i.kind === 'dessin') notes++
+    else if (i.kind === 'audio') audios++
+    else if (i.kind === 'video') videos++
     else if (i.folder_id === folder.id) messages++
   }
   for (const d of folders) if (ids.has(d.id)) last = Math.max(last, new Date(d.updated_at).getTime())
-  return { photos, notes, messages, subfolders: ids.size - 1, last, cover: folder.cover_url ?? cover?.url ?? null }
+  return { photos, notes, messages, audios, videos, subfolders: ids.size - 1, last, cover: folder.cover_url ?? cover?.url ?? null }
 }
 
 export const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`
@@ -38,6 +40,8 @@ export function contentLine(s: FolderStats): string {
   const parts = [
     s.photos && plural(s.photos, 'photo', 'photos'),
     s.notes && plural(s.notes, 'note', 'notes'),
+    s.audios && plural(s.audios, 'vocal', 'vocaux'),
+    s.videos && plural(s.videos, 'vidéo', 'vidéos'),
     s.subfolders && plural(s.subfolders, 'dossier', 'dossiers'),
   ].filter(Boolean)
   return parts.length ? parts.join(' · ') : 'Vide pour l’instant'

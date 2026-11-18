@@ -147,6 +147,14 @@ export const uid = () =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)
 
 const ERRORS: Record<string, string> = {
+  FORMAT_SOUVENIR_INVALIDE: 'Ce format n’est pas pris en charge. Choisis un autre fichier.',
+  FICHIER_VIDE: 'Ce fichier est vide. Choisis-en un autre.',
+  VIDEO_TROP_LOURDE: 'Choisis une vidéo de moins de 25 Mo.',
+  VOCAL_TROP_LOURD: 'Choisis un audio de moins de 10 Mo.',
+  IMAGE_TROP_LOURDE: 'Choisis une image de moins de 8 Mo.',
+  PHOTO_DU_FIL_INACCESSIBLE: 'Cette photo n’est plus disponible dans le fil. Actualise puis réessaie.',
+  MICRO_INDISPONIBLE: 'L’enregistrement n’est pas disponible ici. Tu peux importer un audio.',
+
   PAS_ADMIN: 'Seul le créateur du dossier peut faire ça.',
   DOSSIER_INCONNU: 'Ce dossier n’existe plus ou tu n’y as plus accès.',
   STOCKAGE_PLEIN: 'La mémoire de démo de ce téléphone est pleine. Supprime quelques photos.',

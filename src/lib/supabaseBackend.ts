@@ -1,3 +1,4 @@
+import { folderAsset } from './folderMedia'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { SUPABASE_KEY, SUPABASE_URL } from '../config'
 import type { RealtimeChannel } from '@supabase/supabase-js'
@@ -22,6 +23,13 @@ export function createSupabaseBackend(): Backend {
     if (error) throw new Error(error.message)
     return (data ?? []).flatMap((item) => item.path && item.signedUrl ? [{ path: item.path, signedUrl: item.signedUrl }] : [])
   })
+  const removeUnusedAsset = async (path: string) => {
+    const [items, covers] = await Promise.all([
+      sb.from('folder_items').select('id').or(`image_path.eq.${path},media_path.eq.${path}`).limit(1),
+      sb.from('folders').select('id').eq('cover_path', path).limit(1),
+    ])
+    if (!items.error && !covers.error && !items.data?.length && !covers.data?.length) await sb.storage.from('dossiers').remove([path])
+  }
   let userId = ''
   const traits = new Map<string, DrawingData>()
   // Un seul canal privé par famille pour les invitations à dessiner à deux.
@@ -188,10 +196,13 @@ export function createSupabaseBackend(): Backend {
       // Photos et couvertures des dossiers : liens signés, lisibles par les seuls membres.
       const dossiers = (check(folders) ?? []) as Folder[]
       const contenus = (check(folderItems) ?? []) as FolderItem[]
-      const fichiers = [...new Set([...contenus.map((i) => i.image_path), ...dossiers.map((d) => d.cover_path)].filter((x): x is string => !!x))]
+      const fichiers = [...new Set([...contenus.flatMap((i) => [i.image_path, i.media_path]), ...dossiers.map((d) => d.cover_path)].filter((x): x is string => !!x))]
       if (fichiers.length) {
         const byPath = await signedUrls('dossiers', fichiers)
-        for (const i of contenus) i.image_url = i.image_path ? (byPath.get(i.image_path) ?? null) : null
+        for (const i of contenus) {
+          i.image_url = i.image_path ? (byPath.get(i.image_path) ?? null) : null
+          i.media_url = i.media_path ? (byPath.get(i.media_path) ?? null) : null
+        }
         for (const d of dossiers) d.cover_url = d.cover_path ? (byPath.get(d.cover_path) ?? null) : null
       }
       // Dessins : les traits ne sont téléchargés qu'une fois, puis gardés en mémoire.
@@ -480,31 +491,57 @@ export function createSupabaseBackend(): Backend {
         grew = false
         for (const d of all) if (d.parent_id && ids.has(d.parent_id) && !ids.has(d.id)) ids.add(d.id), (grew = true)
       }
-      const rows = (check(await sb.from('folder_items').select('image_path').in('folder_id', [...ids]).not('image_path', 'is', null)) ?? []) as { image_path: string }[]
+      const rows = (check(await sb.from('folder_items').select('image_path,media_path').in('folder_id', [...ids])) ?? []) as { image_path: string | null; media_path: string | null }[]
       const covers = all.filter((d) => ids.has(d.id) && d.cover_path?.includes('/couverture-')).map((d) => d.cover_path!)
       check(await sb.from('folders').delete().eq('id', folder.id))
-      const paths = [...rows.map((r) => r.image_path), ...covers]
+      const paths = [...rows.flatMap((r) => [r.image_path, r.media_path]), ...covers].filter((p): p is string => !!p)
       if (paths.length) await sb.storage.from('dossiers').remove(paths)
     },
     async addFolderItem(folder, memberId, i) {
-      let image_path: string | null = null
+      let path: string | null = null
       if (i.blob) {
-        image_path = `${folder.root_id}/${uid()}.jpg`
-        const up = await sb.storage.from('dossiers').upload(image_path, i.blob, { contentType: 'image/jpeg' })
-        if (up.error) throw new Error(up.error.message)
+        const asset = folderAsset(i.kind, i.blob)
+        path = `${folder.root_id}/${uid()}.${asset.extension}`
+        check(await sb.storage.from('dossiers').upload(path, i.blob, { contentType: asset.mime }))
       }
-      check(
-        await sb.from('folder_items').insert({
-          folder_id: folder.id, author_id: memberId, kind: i.kind, title: i.title?.trim() || null, body: i.body?.trim() || null, image_path,
-        }),
-      )
+      try {
+        check(await sb.from('folder_items').insert({
+          folder_id: folder.id, author_id: memberId, kind: i.kind, title: i.title?.trim() || null, body: i.body?.trim() || null,
+          image_path: i.kind === 'photo' || i.kind === 'dessin' ? path : null,
+          media_path: i.kind === 'audio' || i.kind === 'video' ? path : null,
+          source_moment_id: i.sourceMomentId ?? null,
+        }))
+      } catch (error) {
+        if (path) await sb.storage.from('dossiers').remove([path])
+        throw error
+      }
+    },
+    async replaceFolderMedia(item, blob, patch = {}) {
+      const asset = folderAsset(item.kind, blob)
+      const path = `${item.root_id}/${uid()}.${asset.extension}`
+      check(await sb.storage.from('dossiers').upload(path, blob, { contentType: asset.mime }))
+      const isImage = item.kind === 'photo' || item.kind === 'dessin'
+      try {
+        check(await sb.from('folder_items').update({
+          ...(isImage ? { image_path: path } : { media_path: path }),
+          ...(patch.body !== undefined ? { body: patch.body } : {}),
+          ...(patch.title !== undefined ? { title: patch.title } : {}),
+          ...(patch.sourceMomentId !== undefined ? { source_moment_id: patch.sourceMomentId } : {}),
+        }).eq('id', item.id).select('id').single())
+      } catch (error) {
+        await sb.storage.from('dossiers').remove([path])
+        throw error
+      }
+      const old = isImage ? item.image_path : item.media_path
+      if (old) await removeUnusedAsset(old)
     },
     async updateFolderItem(id, patch) {
       check(await sb.from('folder_items').update({ title: patch.title?.trim() || null, body: patch.body?.trim() || null }).eq('id', id))
     },
     async deleteFolderItem(item) {
       check(await sb.from('folder_items').delete().eq('id', item.id))
-      if (item.image_path) await sb.storage.from('dossiers').remove([item.image_path])
+      if (item.image_path) await removeUnusedAsset(item.image_path)
+      if (item.media_path) await removeUnusedAsset(item.media_path)
     },
 
     async react(moment, memberId, emoji) {

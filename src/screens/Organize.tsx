@@ -583,7 +583,7 @@ export default function Organize() {
           {seg === 'agenda' ? 'Moins de choses à retenir, plus de temps ensemble.' : seg === 'course' ? 'Une liste commune : chacun ajoute et coche en direct.' : 'La liste des choses à faire : ajoute, coche et avance à ton rythme.'}
         </p>
         <div className="mx-4 mb-4 mt-3">
-          <Segments value={seg} onChange={setSeg} options={[{ key: 'agenda', label: 'Agenda' }, { key: 'course', label: 'Courses' }, { key: 'tache', label: 'À faire' }]} />
+          <Segments value={seg} onChange={setSeg} options={[{ key: 'agenda', label: 'Agenda' }, { key: 'tache', label: 'À faire' }, { key: 'course', label: 'Courses' }]} />
         </div>
 
         {seg === 'agenda' && coming.length > 0 && <Prochain e={coming[0].e} at={coming[0].at} onOpen={() => setOpen(coming[0])} />}

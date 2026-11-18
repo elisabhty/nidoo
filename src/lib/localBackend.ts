@@ -1,3 +1,4 @@
+import { folderAsset } from './folderMedia'
 import { ANIMALS, CARE, DECOS, FOOD, GONE_AFTER, PET_COST, PLAN_LIMITS, plantOf, shopItem, THOUGHTS } from './data'
 import { demoDrawing, type DemoArt } from './drawing'
 import { DEMO_LOOKS } from './look'
@@ -271,11 +272,13 @@ export function createLocalBackend(): Backend {
       save()
     }, 3800)
   }
-  const save = (): boolean => {
+  const save = (prune = true): boolean => {
     let ok = true
     try {
       localStorage.setItem(KEY, JSON.stringify(db))
     } catch {
+      if (!prune) ok = false
+      else {
       // Stockage plein : on allège en retirant les plus anciennes photos du fil.
       for (const f of Object.values(db.families)) {
         f.moments = f.moments.slice(0, 6)
@@ -285,6 +288,7 @@ export function createLocalBackend(): Backend {
         localStorage.setItem(KEY, JSON.stringify(db))
       } catch {
         ok = false // l'état reste en mémoire
+      }
       }
     }
     listeners.forEach((l) => l())
@@ -707,7 +711,7 @@ export function createLocalBackend(): Backend {
         drawings: f.drawings.filter((d) => !d.to_member || d.to_member === me.id || d.from_member === me.id).slice(0, 30).map((d) => ({ ...d, photo_url: d.photo_path ?? null })),
         folders: f.folders.filter((d) => mine.has(d.root_id)).map((d) => ({ ...d, cover_url: d.cover_path })),
         folderMembers: f.folderMembers.filter((x) => mine.has(x.folder_id)),
-        folderItems: f.folderItems.filter((i) => mine.has(i.root_id)).map((i) => ({ ...i, image_url: i.image_path })),
+        folderItems: f.folderItems.filter((i) => mine.has(i.root_id)).map((i) => ({ ...i, image_url: i.image_path, media_url: i.media_path ?? null })),
         dossiersDemo: undefined,
         decks: undefined,
         jeuxDemo: undefined,
@@ -839,20 +843,37 @@ export function createLocalBackend(): Backend {
       save()
     },
     async addFolderItem(folder, memberId, x) {
+      if (x.blob) folderAsset(x.kind, x.blob)
       const { f, d } = folderById(folder.id)
       const now = new Date().toISOString()
       const item: FolderItem = {
         id: uid(), folder_id: d.id, root_id: d.root_id, family_id: d.family_id, author_id: memberId, kind: x.kind,
-        title: x.title?.trim() || null, body: x.body?.trim() || null, image_path: x.blob ? await photo(x.blob) : null, created_at: now, updated_at: now,
+        title: x.title?.trim() || null, body: x.body?.trim() || null, image_path: x.blob && (x.kind === 'photo' || x.kind === 'dessin') ? await photo(x.blob) : null,
+        media_path: x.blob && (x.kind === 'audio' || x.kind === 'video') ? await blobToDataUrl(x.blob) : null,
+        source_moment_id: x.sourceMomentId ?? null, created_at: now, updated_at: now,
       }
       f.folderItems.push(item)
       d.updated_at = now
-      if (!save()) {
+      if (!save(false)) {
         f.folderItems = f.folderItems.filter((i) => i.id !== item.id)
-        save()
+        save(false)
         throw new Error('STOCKAGE_PLEIN')
       }
       if (x.kind === 'message') answerIn(f, d)
+    },
+    async replaceFolderMedia(item, blob, patch = {}) {
+      folderAsset(item.kind, blob)
+      const { f } = folderById(item.folder_id)
+      const current = f.folderItems.find(i => i.id === item.id)
+      if (!current) throw new Error('DOSSIER_INCONNU')
+      const before = { ...current }
+      if (item.kind === 'photo' || item.kind === 'dessin') current.image_path = await photo(blob)
+      else current.media_path = await blobToDataUrl(blob)
+      if (patch.body !== undefined) current.body = patch.body
+      if (patch.title !== undefined) current.title = patch.title
+      if (patch.sourceMomentId !== undefined) current.source_moment_id = patch.sourceMomentId
+      current.updated_at = new Date().toISOString()
+      if (!save(false)) { Object.assign(current, before); save(false); throw new Error('STOCKAGE_PLEIN') }
     },
     async updateFolderItem(id, patch) {
       for (const f of Object.values(db.families)) {

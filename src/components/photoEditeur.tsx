@@ -1,6 +1,7 @@
-import { ArrowUp, Brush, Smile, Type, Undo2, X } from 'lucide-react'
+import { ArrowUp, Brush, Frame, Smile, Type, Undo2, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { CADRES, peindreCadre, type CadreKey } from '../lib/cadres'
 import { select, tap } from '../lib/haptic'
 import { drawStickers, MAX_STICKERS } from '../lib/stickers'
 import type { Sticker } from '../lib/types'
@@ -31,15 +32,18 @@ function dessinerTraits(ctx: CanvasRenderingContext2D, traits: Trait[], w: numbe
   }
 }
 
-export function PhotoEditeur({ file, onClose, onSend }: { file: File; onClose: () => void; onSend: (blob: Blob, legende: string) => void }) {
+export function PhotoEditeur({ file, onClose, onSend, confirmLabel = 'Envoyer la photo', initialCaption = '', title = 'Préparer la photo', initialDrawing = false }: { file: File; onClose: () => void; onSend: (blob: Blob, legende: string) => void | Promise<void>; confirmLabel?: string; initialCaption?: string; title?: string; initialDrawing?: boolean }) {
   const [img, setImg] = useState<HTMLImageElement | null>(null)
-  const [mode, setMode] = useState<'dessin' | 'rien'>('rien')
-  const [couleur, setCouleur] = useState('#FFFFFF')
+  const [mode, setMode] = useState<'dessin' | 'rien'>(initialDrawing ? 'dessin' : 'rien')
+  const [couleur, setCouleur] = useState(initialDrawing ? '#7050D5' : '#FFFFFF')
   const [traits, setTraits] = useState<Trait[]>([])
   const [mots, setMots] = useState<Mot[]>([])
   const [gestes, setGestes] = useState<Geste[]>([])
   const [saisie, setSaisie] = useState<{ id: number | null; t: string } | null>(null)
-  const [legende, setLegende] = useState('')
+  const [legende, setLegende] = useState(initialCaption)
+  const [cadre, setCadre] = useState<CadreKey>('aucun')
+  const [cadresOuverts, setCadresOuverts] = useState(false)
+  const [error, setError] = useState('')
   const [taille, setTaille] = useState({ w: 0, h: 0 })
   const [envoi, setEnvoi] = useState(false)
   const [colles, setColles] = useState<Sticker[]>([])
@@ -84,8 +88,16 @@ export function PhotoEditeur({ file, onClose, onSend }: { file: File; onClose: (
     const ctx = cv.getContext('2d')!
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.clearRect(0, 0, taille.w, taille.h)
-    dessinerTraits(ctx, enCours.current ? [...traits, enCours.current] : traits, taille.w, taille.h)
-  }, [traits, taille])
+    let active = true
+    const render = () => {
+      if (!active) return
+      ctx.clearRect(0, 0, taille.w, taille.h)
+      peindreCadre(ctx, cadre, taille.w, taille.h, render)
+      dessinerTraits(ctx, enCours.current ? [...traits, enCours.current] : traits, taille.w, taille.h)
+    }
+    render()
+    return () => { active = false }
+  }, [traits, taille, cadre])
 
   const SH = img ? Math.round((SW * img.naturalHeight) / img.naturalWidth) : SW
 
@@ -97,8 +109,9 @@ export function PhotoEditeur({ file, onClose, onSend }: { file: File; onClose: (
     const cv = toile.current
     if (!cv) return
     const ctx = cv.getContext('2d')!
-    ctx.clearRect(0, 0, taille.w, taille.h)
-    dessinerTraits(ctx, enCours.current ? [...traits, enCours.current] : traits, taille.w, taille.h)
+    ctx.clearRect(0,0,taille.w,taille.h)
+    peindreCadre(ctx,cadre,taille.w,taille.h)
+    dessinerTraits(ctx,enCours.current ? [...traits,enCours.current] : traits,taille.w,taille.h)
   }
 
   const annuler = () => {
@@ -129,6 +142,8 @@ export function PhotoEditeur({ file, onClose, onSend }: { file: File; onClose: (
   const envoyer = async () => {
     if (!img || envoi) return
     setEnvoi(true)
+    setError('')
+    try {
     const s = Math.min(1, 1400 / Math.max(img.naturalWidth, img.naturalHeight))
     const W = Math.round(img.naturalWidth * s)
     const H = Math.round(img.naturalHeight * s)
@@ -136,7 +151,17 @@ export function PhotoEditeur({ file, onClose, onSend }: { file: File; onClose: (
     cv.width = W
     cv.height = H
     const ctx = cv.getContext('2d')!
-    ctx.drawImage(img, 0, 0, W, H)
+    await new Promise<void>((resolve, reject) => {
+      let active = true
+      const timer = window.setTimeout(() => { active = false; reject(new Error('Le cadre ne s’est pas chargé. Réessaie.')) }, 8000)
+      const render = () => {
+        if (!active) return
+        ctx.clearRect(0, 0, W, H)
+        ctx.drawImage(img, 0, 0, W, H)
+        if (peindreCadre(ctx, cadre, W, H, render)) { active = false; clearTimeout(timer); resolve() }
+      }
+      render()
+    })
     dessinerTraits(ctx, traits, W, H)
     const k = W / Math.max(1, taille.w) // les mots gardent la même taille relative qu'à l'écran
     for (const m of mots) {
@@ -171,20 +196,24 @@ export function PhotoEditeur({ file, onClose, onSend }: { file: File; onClose: (
       ctx.restore()
     }
     const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, 'image/jpeg', 0.86))
-    setEnvoi(false)
-    if (blob) onSend(blob, legende.trim())
+    if (!blob) throw new Error('Impossible de préparer cette image.')
+    await onSend(blob, legende.trim())
+    } catch (e) { setError(e instanceof Error ? e.message : 'Impossible d’enregistrer cette image.') }
+    finally { setEnvoi(false) }
   }
 
   return createPortal(
     <div
       className="anim-fondu fixed inset-x-0 top-0 z-[80] flex flex-col bg-[#0E0C16] text-white"
-      style={{ height: 'var(--app-height, 100%)', transform: 'translateY(var(--app-top, 0px))', paddingTop: 'var(--sat)' }}
+      style={{ height: 'var(--app-height, 100%)', transform: 'translateY(var(--app-top, 0px))', paddingTop: 'var(--sat)', pointerEvents: envoi ? 'none' : undefined }}
       role="dialog"
-      aria-label="Préparer la photo"
+      aria-busy={envoi}
+      aria-label={title}
     >
+      {error && <p role="alert" className="bg-rouge px-4 py-2 text-sous text-white">{error}</p>}
       {/* outils */}
       <div className="flex items-center gap-2 px-3 pb-2 pt-2">
-        <button onClick={onClose} className="presse flex h-11 w-11 items-center justify-center rounded-full bg-white/15" aria-label="Annuler">
+        <button onClick={onClose} disabled={envoi} className="presse flex h-11 w-11 items-center justify-center rounded-full bg-white/15" aria-label="Annuler">
           <X size={22} />
         </button>
         <span className="flex-1" />
@@ -199,15 +228,17 @@ export function PhotoEditeur({ file, onClose, onSend }: { file: File; onClose: (
             setSaisie({ id: null, t: '' })
           }}
           className="presse flex h-11 w-11 items-center justify-center rounded-full bg-white/15"
-          aria-label="Écrire sur la photo"
+          aria-label={initialDrawing ? 'Écrire sur le dessin' : 'Écrire sur la photo'}
         >
           <Type size={20} />
         </button>
+        <button onClick={() => { setCadresOuverts(v => !v); setTiroir(false) }} aria-label="Choisir un cadre" aria-pressed={cadresOuverts} className={`presse flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${cadresOuverts ? 'bg-white text-[#0E0C16]' : 'bg-white/15'}`}><Frame size={21} /></button>
         <button
           onClick={() => {
             tap()
             setMode('rien')
             setSel(null)
+            setCadresOuverts(false)
             setTiroir((t) => !t)
           }}
           className={`presse flex h-11 w-11 items-center justify-center rounded-full ${tiroir ? 'bg-white text-[#0E0C16]' : 'bg-white/15'}`}
@@ -225,7 +256,7 @@ export function PhotoEditeur({ file, onClose, onSend }: { file: File; onClose: (
           }}
           className={`presse flex h-11 w-11 items-center justify-center rounded-full ${mode === 'dessin' ? 'bg-white text-[#0E0C16]' : 'bg-white/15'}`}
           aria-pressed={mode === 'dessin'}
-          aria-label="Dessiner sur la photo"
+          aria-label={initialDrawing ? 'Dessiner sur la note' : 'Dessiner sur la photo'}
         >
           <Brush size={20} />
         </button>
@@ -331,6 +362,7 @@ export function PhotoEditeur({ file, onClose, onSend }: { file: File; onClose: (
         )}
       </div>
 
+      {cadresOuverts && <div className="no-bar flex shrink-0 gap-2 overflow-x-auto px-3 py-2" role="group" aria-label="Cadres photo">{CADRES.map(c => <button key={c.key} onClick={() => { select(); setCadre(c.key) }} aria-pressed={cadre === c.key} className={`presse min-h-11 shrink-0 rounded-full px-4 text-sous font-semibold ${cadre === c.key ? 'bg-white text-[#0E0C16]' : 'bg-white/15 text-white'}`}>{c.label}</button>)}</div>}
       {/* les stickers à coller */}
       {tiroir && (
         <div className="px-3">
@@ -354,12 +386,12 @@ export function PhotoEditeur({ file, onClose, onSend }: { file: File; onClose: (
         <input
           value={legende}
           onChange={(e) => setLegende(e.target.value)}
-          maxLength={500}
-          placeholder="Ajoute une légende…"
-          aria-label="Légende"
+          maxLength={initialDrawing ? 80 : 500}
+          placeholder={initialDrawing ? 'Nom du dessin (facultatif)…' : 'Ajoute une légende…'}
+          aria-label={initialDrawing ? 'Nom du dessin' : 'Légende'}
           className="h-12 min-w-0 flex-1 rounded-full bg-white/15 px-4 text-appel text-white outline-none placeholder:text-white/50"
         />
-        <button onClick={() => void envoyer()} disabled={!img || envoi} className="presse ios-primary flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-white" aria-label="Envoyer la photo">
+        <button onClick={() => void envoyer()} disabled={!img || envoi} className="presse ios-primary flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-white" aria-label={confirmLabel}>
           <ArrowUp size={24} strokeWidth={2.6} />
         </button>
       </div>
