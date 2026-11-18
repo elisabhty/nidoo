@@ -221,7 +221,13 @@ export const accessoryOf = (look: Look) => ACCESSORIES[look.v ?? 0] ?? ''
  *  ou étirés sur le corps (le manteau) : chaque pièce a sa boîte (fractions de la toile) et peut être retournée.
  *  Les repères du corps viennent de scripts/corps_personnages.py (src/lib/corps.ts). */
 export type AccPiece = { art: string; l: number; t: number; w: number; h: number; flip: boolean }
-const PIECE_AR: Record<string, number> = { boucle: 159 / 107, manteau: 298 / 300, botte: 255 / 150, basket: 234 / 150 }
+export const PIECE_AR: Record<string, number> = {
+  boucle: 159 / 107, manteau: 298 / 300, botte: 255 / 150, basket: 234 / 150,
+  fourrure: 384 / 481, trench: 464 / 478, blazer: 414 / 476, robe: 476 / 343, jupe: 404 / 474, short: 402 / 472,
+}
+/** Les habits qu'on porte sur le corps : le visage, les cheveux (et parfois les mains) repassent devant. */
+export const VESTES = ['manteau', 'fourrure', 'trench', 'blazer']
+export const BAS = ['robe', 'jupe', 'short']
 
 /** La hauteur du menton (fraction de la toile), d'après la bouche et l'écart des yeux. */
 export function menton(p: Perso): number {
@@ -255,6 +261,25 @@ export function accPieces(p: Perso, acc: string): AccPiece[] | null {
     // le col s'arrête sous le menton (plus haut, il cachait le bas du visage des grandes figurines)
     const top = Math.max(t + h * 0.78, menton(p) - 0.01)
     return [{ art: 'acc-manteau', l: bx - w / 2, t: top, w, h: hy + (yb - hy) * 0.32 - top, flip: false }]
+  }
+  if (acc === 'fourrure' || acc === 'trench' || acc === 'blazer') {
+    // comme le manteau : du menton aux hanches (le trench descend plus bas), à ses vraies proportions
+    const w = bw * 1.36
+    const top = Math.max(t + h * 0.78, menton(p) - 0.01)
+    const hgt = Math.min((w * PIECE_AR[acc]) / R, yb - 0.06 - top)
+    return [{ art: `acc-${acc}`, l: bx - w / 2, t: top, w, h: hgt, flip: false }]
+  }
+  if (acc === 'robe') {
+    // les bretelles sur les épaules, le haut de la robe sur le buste, l'ourlet en haut des cuisses
+    const w = bw * 1.3
+    const top = menton(p) + 0.006
+    return [{ art: 'acc-robe', l: bx - w / 2, t: top, w, h: hy + (yb - hy) * 0.36 - top, flip: false }]
+  }
+  if (acc === 'jupe' || acc === 'short') {
+    // de la taille (bien au-dessus des hanches, pour cacher la ceinture de son propre bas) au milieu des cuisses
+    const w = bw * (acc === 'jupe' ? 1.08 : 1)
+    const top = hy - (hy - menton(p)) * 0.31
+    return [{ art: `acc-${acc}`, l: bx - w / 2, t: top, w, h: hy + (yb - hy) * (acc === 'jupe' ? 0.42 : 0.36) - top, flip: false }]
   }
   if (acc === 'bottes' || acc === 'baskets') {
     const art = acc === 'bottes' ? 'botte' : 'basket'

@@ -41,7 +41,7 @@ export const GLASSES = ['Sans', 'Rondes', 'Carrées', 'Soleil']
 export const BEARDS = ['Sans', 'Courte', 'Moustache', 'Longue']
 export const MOLES = ['Sans', 'Joue gauche', 'Joue droite', 'Au-dessus de la lèvre']
 /** Les accessoires achetés à la boutique du centre commercial (clé « mode:<nom> »). */
-export const ACCESSORIES = ['', 'bonnet', 'casquette', 'paille', 'fleurs', 'echarpe', 'lunettes', 'couronne', 'noeud', 'boucles', 'manteau', 'bottes', 'baskets']
+export const ACCESSORIES = ['', 'bonnet', 'casquette', 'paille', 'fleurs', 'echarpe', 'lunettes', 'couronne', 'noeud', 'boucles', 'manteau', 'bottes', 'baskets', 'fourrure', 'trench', 'blazer', 'robe', 'jupe', 'short']
 
 export type Look = {
   s: number // peau

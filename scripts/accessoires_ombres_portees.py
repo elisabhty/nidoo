@@ -11,7 +11,7 @@ import numpy as np
 from PIL import Image, ImageFilter
 
 DOSSIER = Path(__file__).resolve().parent.parent / 'public/art/persos'
-NOMS = ['bonnet', 'casquette', 'paille', 'fleurs', 'echarpe', 'couronne', 'noeud', 'manteau']
+NOMS = ['bonnet', 'casquette', 'paille', 'fleurs', 'echarpe', 'couronne', 'noeud', 'manteau', 'fourrure', 'trench', 'blazer', 'robe', 'jupe', 'short']
 MARGE = 0.1  # fraction de la largeur, de chaque côté
 
 for nom in NOMS:

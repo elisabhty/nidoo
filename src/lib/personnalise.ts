@@ -250,9 +250,13 @@ export function teinteMain(avatar?: string | null): number {
  *  porté, pas collé par-dessus. Les masques de la figurine : vert = cheveux, rouge = peau. */
 const dessus = new Map<string, Promise<string>>()
 const dessusFait = new Map<string, string>()
-export const dessusPret = (src: string, cut: number) => dessusFait.get(`${src}|${cut.toFixed(3)}`)
-export function renderDessus(p: Perso, src: string, cut: number): Promise<string> {
-  const key = `${src}|${cut.toFixed(3)}`
+/** `mains` : la peau repasse aussi devant sur les côtés (bras et mains), plus loin que `demi` du centre `cx`
+ *  (fractions de la largeur) — pour une robe, une jupe ou un short, que les bras longent. */
+export type Mains = { cx: number; demi: number }
+const cleDessus = (src: string, cut: number, mains?: Mains | null) => `${src}|${cut.toFixed(3)}|${mains ? `${mains.cx.toFixed(3)},${mains.demi.toFixed(3)}` : ''}`
+export const dessusPret = (src: string, cut: number, mains?: Mains | null) => dessusFait.get(cleDessus(src, cut, mains))
+export function renderDessus(p: Perso, src: string, cut: number, mains?: Mains | null): Promise<string> {
+  const key = cleDessus(src, cut, mains)
   const hit = dessus.get(key)
   if (hit) return hit
   const job = (async () => {
@@ -267,12 +271,16 @@ export function renderDessus(p: Perso, src: string, cut: number): Promise<string
     // l'opacité de ce qui repasse devant, adoucie d'un pixel (les masques ont des bords nets)
     const a = new Float32Array(W * H)
     const y0 = cut * H, fondu = 0.018 * H
+    const mx = mains ? mains.cx * W : 0, md = mains ? mains.demi * W : 0
     for (let y = 0; y < H; y++) {
-      const peau = y < y0 ? 1 : Math.max(0, 1 - (y - y0) / fondu)
+      const haut = y < y0 ? 1 : Math.max(0, 1 - (y - y0) / fondu)
       for (let x = 0; x < W; x++) {
         const i = (y * W + x) * 4
+        // sur les côtés, les bras et les mains (fondu sur quelques pixels)
+        const cote = mains ? Math.max(0, Math.min(1, (Math.abs(x - mx) - md) / (0.02 * W))) : 0
+        const peau = Math.max(haut, cote)
         // la peau, et les yeux, la bouche et les sourcils (bleu), qui sont dans le visage
-        a[y * W + x] = Math.max(m[i + 1] / 255, (Math.max(m[i], m[i + 2] > 40 ? 255 : 0) / 255) * peau)
+        a[y * W + x] = Math.max(m[i + 1] / 255, (Math.max(m[i], haut && m[i + 2] > 40 ? 255 : 0) / 255) * peau)
       }
     }
     const b = new Float32Array(W * H)

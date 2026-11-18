@@ -1,8 +1,9 @@
-import { useEffect, useId, useState, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
 import { ACCESSORIES, EYES, HAIR_COLORS, HAIRSTYLES, SKINS, TOPS, type Look } from '../lib/look'
 import { COULEURS_MONTURE, FORMES_LUNETTES, LUNETTES_IMG } from '../lib/lunettes'
-import { cachedSrc, dessusPret, labHex, peauOf, persoImg, pixelKey, renderDessus, renderPerso, skinLab } from '../lib/personnalise'
-import { accessoryOf, accPieces, accPlace, accTop, CH, CW, headCut, menton, persoOf, type Perso } from '../lib/persos'
+import { cachedSrc, dessusPret, labHex, peauOf, persoImg, pixelKey, renderDessus, renderPerso, skinLab, type Mains } from '../lib/personnalise'
+import { CORPS } from '../lib/corps'
+import { accessoryOf, accPieces, accPlace, accTop, BAS, CH, CW, headCut, menton, persoOf, PIECE_AR, VESTES, type Perso } from '../lib/persos'
 import { VISAGES } from '../lib/visages'
 
 // Un personnage de la famille : une figurine en feutrine qui lui ressemble (public/art/persos),
@@ -50,22 +51,22 @@ function usePersoSrc(p: Perso, look: Look) {
 }
 
 /** Les cheveux et le visage de la figurine, à redessiner devant un vêtement (null tant que ce n'est pas prêt). */
-function useDessus(p: Perso, src: string, cut: number | null) {
-  const [url, setUrl] = useState(() => (cut == null ? null : dessusPret(src, cut) ?? null))
+function useDessus(p: Perso, src: string, cut: number | null, mains: Mains | null) {
+  const [url, setUrl] = useState(() => (cut == null ? null : dessusPret(src, cut, mains) ?? null))
   useEffect(() => {
     if (cut == null) return setUrl(null)
     let live = true
-    const hit = dessusPret(src, cut)
+    const hit = dessusPret(src, cut, mains)
     if (hit) setUrl(hit)
     else
-      renderDessus(p, src, cut)
+      renderDessus(p, src, cut, mains)
         .then((u) => live && setUrl(u))
         .catch(() => live && setUrl(null))
     return () => {
       live = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [src, cut, p.id])
+  }, [src, cut, p.id, mains?.cx, mains?.demi])
   return url
 }
 
@@ -103,6 +104,12 @@ const OMBRES: Record<string, { dy: number; force: number }> = {
   noeud: { dy: 0.008, force: 0.3 },
   echarpe: { dy: 0.014, force: 0.4 },
   manteau: { dy: 0.01, force: 0.3 },
+  fourrure: { dy: 0.01, force: 0.3 },
+  trench: { dy: 0.01, force: 0.3 },
+  blazer: { dy: 0.01, force: 0.3 },
+  robe: { dy: 0.01, force: 0.3 },
+  jupe: { dy: 0.01, force: 0.32 },
+  short: { dy: 0.01, force: 0.32 },
 }
 
 /** Ce qui se dessine sur le visage : nez, bouche, taches de rousseur, blush, lunettes (toile 300x440). */
@@ -270,8 +277,12 @@ export function Character({ look, mood = null, bust = false, extras = false, cla
   const hw = h * R
   const at = pl ? accTop(pl) : 0
   // l'écharpe et le manteau se portent : le visage, la barbe et les cheveux repassent devant
-  const habit = acc === 'echarpe' || acc === 'manteau'
-  const dessus = useDessus(p, src, acc === 'echarpe' ? menton(p) : acc === 'manteau' ? headCut(p) : null)
+  const veste = VESTES.includes(acc), bas = BAS.includes(acc)
+  const habit = acc === 'echarpe' || veste || bas
+  // pour une robe, une jupe ou un short, les bras et les mains longent l'habit : ils repassent devant
+  const corps = CORPS[p.id]
+  const mains = useMemo(() => (bas && corps ? { cx: corps[5], demi: corps[6] * 0.34 } : null), [bas, corps])
+  const dessus = useDessus(p, src, acc === 'echarpe' ? menton(p) : veste || bas ? headCut(p) : null, mains)
   const boitePl: Boite | null = pl ? { l: pl.x - pl.w / 2, t: at, w: pl.w, h: (pl.w * pl.ar) / R } : null
   const ombre = acc ? OMBRES[acc] : undefined
   const accImg = pl && (
@@ -287,7 +298,7 @@ export function Character({ look, mood = null, bust = false, extras = false, cla
   const figure = (
     <>
       <img src={src} alt="" draggable={false} className="absolute inset-0 h-full w-full select-none" />
-      {acc === 'manteau' && ombre && pieces && <Ombre src={src} art="acc-manteau" ar={298 / 300} boites={pieces} dy={ombre.dy} force={ombre.force} />}
+      {(veste || bas) && ombre && pieces && <Ombre src={src} art={`acc-${acc}`} ar={PIECE_AR[acc]} boites={pieces} dy={ombre.dy} force={ombre.force} />}
       {pieces?.map((pc, i) => (
         <img
           key={i}
@@ -304,7 +315,7 @@ export function Character({ look, mood = null, bust = false, extras = false, cla
         (dessus ? (
           <img src={dessus} alt="" draggable={false} className="absolute inset-0 h-full w-full select-none" />
         ) : (
-          acc === 'manteau' && (
+          veste && (
             // en attendant : la tête repasse devant le col, effacée en douceur sur les épaules
             <img src={src} alt="" draggable={false} className="absolute inset-0 h-full w-full select-none" style={{ WebkitMaskImage: cut, maskImage: cut }} />
           )
