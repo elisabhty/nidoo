@@ -205,7 +205,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
             </div>
           </div>
           {/* ce qui attend (la case du jour, « À toi de jouer »), puis tout le reste rangé dans « Explorer » */}
-          <div className="no-bar mt-3 flex gap-2 overflow-x-auto px-5" aria-label="Les lieux de la maison">
+          <div className="no-bar mt-1 flex gap-2 overflow-x-auto px-5 py-2" aria-label="Les lieux de la maison">
             {[
               ...(caseDuJour ? [{ k: 'avent' as const, label: 'Case du jour', icon: <img src="./art/avent-sapin-mini.webp" alt="" className="h-[32px] w-[32px] object-contain" /> }] : []),
               ...(tours.length ? [{ k: 'jeux' as const, label: `À toi de jouer (${tours.length})`, icon: <img src="./art/jeu-puissance4.webp" alt="" className="h-[30px] w-[30px] object-contain" /> }] : []),
@@ -236,7 +236,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
                   }
                 }
               }}
-              className="presse relative flex h-11 shrink-0 items-center gap-2 rounded-full pl-1.5 pr-3 text-sous font-bold text-white shadow-[0_6px_16px_rgba(102,70,204,0.35)]"
+              className="presse relative flex h-11 shrink-0 items-center gap-2 rounded-full pl-1.5 pr-3 text-sous font-bold text-white shadow-[0_3px_8px_rgba(102,70,204,0.3)]"
               style={{ background: 'linear-gradient(120deg, #8E6CF0, #6646CC)' }}
               aria-label="Explorer : compagnon, potager, centre commercial et jeux"
             >
@@ -252,7 +252,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
           </div>
           {/* les proches : choisir quelqu'un, avec son prénom et son humeur (moi, je suis dans le jardin) */}
           {others.length > 0 && (
-            <div className="no-bar mx-5 mt-4 flex gap-5 overflow-x-auto pb-2" aria-label="Les humeurs de la famille">
+            <div className="no-bar mx-5 mt-2 flex gap-5 overflow-x-auto pb-2" aria-label="Les humeurs de la famille">
               {others.map((m) => (
                 <button key={m.id} onClick={() => setSheet({ k: 'pensee', to: m })} className="presse flex w-[68px] shrink-0 flex-col items-center gap-1">
                   <Avatar m={m} size={58} mood />
