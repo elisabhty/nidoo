@@ -6,7 +6,10 @@ import { select, success, tap } from '../lib/haptic'
 import { copy, shareInvite } from '../lib/share'
 import { useStore } from '../lib/store'
 import type { HouseType } from '../lib/types'
-import { encodeLook, randomLook } from '../lib/look'
+import { encodeLook, lookOf, randomLook } from '../lib/look'
+import { PEAUX } from '../lib/peaux'
+import { PERSOS } from '../lib/persos'
+import { AGES, cheveuxPossibles, figurinePour, GENRES, TEINTS, type Presentation } from '../lib/presentation'
 import { errorText, familyLabel } from '../lib/util'
 import { ONBOARDING as T } from '../lib/textes'
 
@@ -15,7 +18,7 @@ import { ONBOARDING as T } from '../lib/textes'
    Premier passage : bonjour → prénom → ce qui t'amène → tes proches → créer ou rejoindre
    → (personnage, maison) ou (code, personnage) → connexion → invitation.
    Depuis Famille (« ajouter une maison ») : on va droit au choix, sans les questions ni la connexion. */
-type Step = 'bonjour' | 'prenom' | 'raison' | 'proches' | 'choix' | 'code' | 'perso' | 'maison' | 'connexion' | 'invite'
+type Step = 'bonjour' | 'prenom' | 'qui' | 'allure' | 'raison' | 'proches' | 'choix' | 'code' | 'perso' | 'maison' | 'connexion' | 'invite'
 
 const RAISONS = [
   { key: 'lien', label: 'Garder le lien avec mes proches éloignés', Icon: Heart, fond: '#FFE6EE', encre: '#D23F72' },
@@ -89,6 +92,9 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
   const [color, setColor] = useState('lavande')
   const [raison, setRaison] = useState<string | null>(null)
   const [proches, setProches] = useState<string[]>([])
+  // se présenter, pour qu'on propose la figurine qui ressemble
+  const [pres, setPres] = useState<Presentation>({})
+  const propose = useRef('')
   const [busy, setBusy] = useState(false)
   const [created, setCreated] = useState<{ id: string; code: string } | null>(null)
   const container = useRef<HTMLDivElement>(null)
@@ -100,6 +106,15 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
     heading?.focus({ preventScroll: true })
   }, [step])
 
+  // En arrivant au personnage : la figurine qui ressemble à ce qu'on a dit (une seule fois par réponses données).
+  const cleProposition = JSON.stringify(pres)
+  useEffect(() => {
+    if (step !== 'perso' || cleProposition === '{}' || propose.current === cleProposition) return
+    propose.current = cleProposition
+    const f = figurinePour(pres, PERSOS, PEAUX)
+    if (f) setAvatar((v) => encodeLook({ ...lookOf(v), k: f.k, a: f.a, q: f.q, x: f.x, p: 0 }))
+  }, [step, cleProposition, pres])
+
   // Invité par un lien : on montre tout de suite la maison qui l'attend.
   useEffect(() => {
     if (!invite || urlCode.length !== 6) return
@@ -108,7 +123,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
 
   // Le parcours, selon qu'on crée ou qu'on rejoint
   const flow = useMemo<Step[]>(() => {
-    const debut: Step[] = onCancel ? ['choix'] : invite ? ['bonjour', 'prenom'] : ['bonjour', 'prenom', 'raison', 'proches', 'choix']
+    const debut: Step[] = onCancel ? ['choix'] : invite ? ['bonjour', 'prenom', 'qui', 'allure'] : ['bonjour', 'prenom', 'qui', 'allure', 'raison', 'proches', 'choix']
     const suite: Step[] = path === 'rejoindre' ? ['code', 'perso'] : ['perso', 'maison']
     return [...debut, ...suite, ...(onCancel ? [] : ['connexion' as Step])]
   }, [onCancel, invite, path])
@@ -157,7 +172,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
   // on garde les réponses pour plus tard (elles ne quittent pas l'appareil)
   const garderReponses = () => {
     try {
-      localStorage.setItem('nidoo.bienvenue', JSON.stringify({ raison, proches }))
+      localStorage.setItem('nidoo.bienvenue', JSON.stringify({ raison, proches, ...pres }))
     } catch {
       /* rien */
     }
@@ -226,6 +241,10 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
     switch (step) {
       case 'prenom':
         return { label: 'Continuer', ok: !!prenom, go: suivant }
+      case 'qui':
+        return { label: 'Continuer', ok: !!pres.genre && !!pres.age, go: suivant, passer: true }
+      case 'allure':
+        return { label: 'Continuer', ok: !!pres.cheveux && pres.teint !== undefined, go: suivant, passer: true }
       case 'raison':
         return { label: 'Continuer', ok: !!raison, go: suivant, passer: true }
       case 'proches':
@@ -342,6 +361,61 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
               />
               <p className="mt-2 px-1 text-note text-white/75">Il apparaît sous ton personnage, pour toute la famille.</p>
             </form>
+          )}
+
+          {step === 'qui' && (
+            <div className="flex flex-1 flex-col">
+              <div className="mt-4"><Titre avant="Qui " mot="es-tu" apres=" ?" /></div>
+              <p className="ob-sous mt-2 text-center">Pour te proposer un personnage qui te ressemble.</p>
+              <Panda>{prenom ? `Enchanté, ${prenom} ! Dis-m’en un peu plus.` : 'Enchanté ! Dis-m’en un peu plus.'}</Panda>
+              <p id="ob-genre" className="mb-2 mt-6 px-1 text-sous font-bold">Tu es</p>
+              <div className="flex flex-wrap gap-2" role="group" aria-labelledby="ob-genre">
+                {GENRES.map((g) => (
+                  <button key={g.key} type="button" className="ob-puce" aria-pressed={pres.genre === g.key} onClick={() => (select(), setPres((p) => ({ ...p, genre: g.key })))}>
+                    {g.label}
+                  </button>
+                ))}
+              </div>
+              <p id="ob-age" className="mb-2 mt-6 px-1 text-sous font-bold">Ton âge</p>
+              <div className="grid grid-cols-2 gap-2" role="group" aria-labelledby="ob-age">
+                {AGES.map((g, i) => (
+                  <button key={g.key} type="button" className={`ob-puce ${i === AGES.length - 1 ? 'col-span-2' : ''}`} aria-pressed={pres.age === g.key} onClick={() => (select(), setPres((p) => ({ ...p, age: g.key, cheveux: p.cheveux && cheveuxPossibles({ ...p, age: g.key }).some((c) => c.key === p.cheveux) ? p.cheveux : undefined })))}>
+                    {g.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {step === 'allure' && (
+            <div className="flex flex-1 flex-col">
+              <div className="mt-4"><Titre avant="Ton " mot="allure" apres="." /></div>
+              <p className="ob-sous mt-2 text-center">Encore quelques détails, et ton personnage est prêt.</p>
+              <Panda humeur="motive">Et tes cheveux, ils sont comment ?</Panda>
+              <p id="ob-cheveux" className="mb-2 mt-6 px-1 text-sous font-bold">Tes cheveux</p>
+              <div className="flex flex-wrap gap-2" role="group" aria-labelledby="ob-cheveux">
+                {cheveuxPossibles(pres).map((c) => (
+                  <button key={c.key} type="button" className="ob-puce !pl-2.5" aria-pressed={pres.cheveux === c.key} onClick={() => (select(), setPres((p) => ({ ...p, cheveux: c.key })))}>
+                    <span className="h-6 w-6 shrink-0 rounded-full ring-2 ring-white/70" style={{ background: c.couleur }} aria-hidden="true" />
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+              <p id="ob-peau" className="mb-2 mt-6 px-1 text-sous font-bold">Ta peau</p>
+              <div className="flex justify-between gap-2 px-1" role="group" aria-labelledby="ob-peau">
+                {TEINTS.map((t, i) => (
+                  <button key={t.couleur} type="button" className="ob-teint" style={{ background: t.couleur }} aria-label={t.label} aria-pressed={pres.teint === i} onClick={() => (select(), setPres((p) => ({ ...p, teint: i })))} />
+                ))}
+              </div>
+              <p id="ob-lunettes" className="mb-2 mt-6 px-1 text-sous font-bold">Des lunettes ?</p>
+              <div className="flex gap-2" role="group" aria-labelledby="ob-lunettes">
+                {([[true, 'Oui'], [false, 'Non']] as const).map(([v, l]) => (
+                  <button key={l} type="button" className="ob-puce min-w-[96px]" aria-pressed={pres.lunettes === v} onClick={() => (select(), setPres((p) => ({ ...p, lunettes: v })))}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
 
           {step === 'raison' && (
@@ -465,7 +539,9 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
                 </div>
               )}
               <div className="mt-4"><Titre avant="Ton " mot="personnage" apres="." /></div>
-              <p className="ob-sous mb-4 mt-2 text-center">{prenom ? `À quoi tu ressembles, ${prenom} ? ` : ''}Tu pourras le changer quand tu veux.</p>
+              <p className="ob-sous mb-4 mt-2 text-center">
+                {propose.current ? `Voilà ton personnage${prenom ? `, ${prenom}` : ''} ! Change-le si tu veux, quand tu veux.` : `${prenom ? `À quoi tu ressembles, ${prenom} ? ` : ''}Tu pourras le changer quand tu veux.`}
+              </p>
               <ProfileStep name={name} setName={setName} avatar={avatar} setAvatar={setAvatar} color={color} setColor={setColor} sansNom />
               {onCancel && (
                 <>
