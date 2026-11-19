@@ -897,12 +897,32 @@ export default function Fil(_: { onCompose?: () => void }) {
   let jourPrecedent = ''
   return (
     <div ref={racine} className="flex flex-col px-3" style={{ minHeight: 'calc(100dvh - var(--sat) - 278px)' }} onClick={() => ouvert && setOuvert(null)}>
-      <div className="sticky z-10 -mx-3 mb-3 bg-fond px-3 pb-2 pt-1" style={{ top: 'calc(var(--sat) + 52px)' }}>
-        <div className="flex items-center gap-2"><div role="group" aria-label="Filtrer le fil" className="flex min-w-0 flex-1 gap-1 rounded-full bg-carte p-1 shadow-carte">
-          {[['tout', 'Tout'], ['photos', 'Photos'], ['vocaux', 'Vocaux'], ['sondages', 'Sondages']].map(([id, label]) => <button key={id} type="button" aria-pressed={filtre === id} onClick={() => { colle.current = false; setFiltre(id); setOuvert(null) }} className={`presse min-h-11 min-w-0 flex-1 rounded-full text-note font-semibold ${filtre === id ? 'bg-teinte text-white' : 'text-brume'}`}>{label}</button>)}
+      <div className="sticky z-10 -mx-3 mb-2 border-b border-encre/5 bg-fond/95 px-3 pb-2 pt-2 backdrop-blur-xl" style={{ top: 'calc(var(--sat) + 52px)' }}>
+        <div className="flex items-center gap-2">
+          <div role="group" aria-label="Filtrer le fil" className="no-bar flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
+            {[['tout', 'Tout'], ['photos', 'Photos'], ['vocaux', 'Vocaux'], ['sondages', 'Sondages']].map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                aria-pressed={filtre === id}
+                onClick={() => { select(); colle.current = false; setFiltre(id); setOuvert(null) }}
+                className={`presse flex h-[42px] shrink-0 items-center justify-center whitespace-nowrap rounded-full px-3 text-[13px] font-bold leading-none transition-colors ${filtre === id ? 'bg-teinte text-white shadow-[0_3px_9px_rgba(104,76,210,0.18)]' : 'bg-carte/80 text-brume hover:bg-carte'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            aria-label={chercher ? 'Fermer la recherche' : 'Rechercher dans le fil'}
+            aria-expanded={chercher}
+            onClick={() => { tap(); setChercher(!chercher); setRecherche('') }}
+            className={`presse grid h-[42px] w-[42px] shrink-0 place-items-center rounded-full transition-colors ${chercher ? 'bg-teinte text-white' : 'bg-carte text-teinte-fonce'}`}
+          >
+            {chercher ? <X size={19} strokeWidth={2.2} /> : <Search size={19} strokeWidth={2.2} />}
+          </button>
         </div>
-        <button type="button" aria-label={chercher ? 'Fermer la recherche' : 'Rechercher dans le fil'} aria-expanded={chercher} onClick={() => { setChercher(!chercher); setRecherche('') }} className="presse grid h-11 w-11 shrink-0 place-items-center rounded-full bg-carte text-teinte-fonce shadow-carte">{chercher ? <X size={19} /> : <Search size={19} />}</button></div>
-        {chercher && <input autoFocus type="search" aria-label="Rechercher dans le fil" placeholder="Rechercher un message ou un sondage" value={recherche} onChange={(e) => { colle.current = false; setRecherche(e.target.value) }} className="mt-2 h-11 w-full rounded-[16px] bg-carte px-4 text-sous outline-none focus:ring-2 focus:ring-teinte" />}
+        {chercher && <input autoFocus type="search" aria-label="Rechercher dans le fil" placeholder="Rechercher un message ou un sondage" value={recherche} onChange={(e) => { colle.current = false; setRecherche(e.target.value) }} className="mt-2 h-11 w-full rounded-[14px] border border-encre/5 bg-carte px-4 text-sous outline-none focus:ring-2 focus:ring-teinte" />}
       </div>
       <div className="flex-1" />
       {liste.length === 0 && (
