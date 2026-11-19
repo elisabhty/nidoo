@@ -1,4 +1,4 @@
-import { Check, Heart, ImagePlus, Star } from 'lucide-react'
+import { Check, Heart, ImagePlus, Star, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { select, success, tap } from '../lib/haptic'
 import { COLS, dropCell, GAMES, isMemory, MEMORY_MAX, MEMORY_MIN, ROWS, type GameKind, type GridState, type MemoryState } from '../lib/jeux'
@@ -52,7 +52,8 @@ const EN_FAMILLE: PartieKind[] = ['tour', 'quidenous', 'telephone']
 const meta = (k: GameKind | PartieKind) => (k in GAMES ? GAMES[k as GameKind] : PARTIES[k as PartieKind])
 
 export function JeuxPage({ onClose, start }: { onClose: () => void; start?: string }) {
-  const { state } = useHome()
+  const { state, run } = useHome()
+  const [fermeture, setFermeture] = useState<string | null>(null)
   const { members, me } = state
   const [open, setOpen] = useState<string | null>(start ?? null)
   const [nouveau, setNouveau] = useState<{ k: GameKind; against?: string } | null>(null)
@@ -72,6 +73,26 @@ export function JeuxPage({ onClose, start }: { onClose: () => void; start?: stri
   const game = open ? state.games.find((g) => g.id === open) : null
   const partie = open ? state.parties.find((p) => p.id === open) : null
 
+  const fermer = async (x: Item) => {
+    if (fermeture || !joue(x) || !enCours(x)) return
+    const partie = x.t === 'g' ? x.g : x.p
+    const duel = x.t === 'g' || PARTIES[x.p.kind].max === 2
+    setFermeture(partie.id)
+    try {
+      const ok = await confirmer({
+        title: 'Fermer la partie ?',
+        message: duel
+          ? `Si tu fermes cette partie de « ${meta(partie.kind).name} », l’autre joueur gagne.`
+          : `Cette partie de « ${meta(partie.kind).name} » sera terminée pour tout le monde.`,
+        confirm: 'Fermer la partie',
+        destructive: true,
+      })
+      if (ok) await run((api) => x.t === 'g' ? api.quitGame(x.g.id) : api.quitPartie(x.p.id))
+    } finally {
+      setFermeture(null)
+    }
+  }
+
   const row = (x: Item, i: number, list: Item[]) => {
     const id = x.t === 'g' ? x.g.id : x.p.id
     const kind = x.t === 'g' ? x.g.kind : x.p.kind
@@ -79,34 +100,46 @@ export function JeuxPage({ onClose, start }: { onClose: () => void; start?: stri
     const autres = joue(x) ? joueurs.filter((y) => y !== me.id) : joueurs
     const mineTurn = enCours(x) && aMoiItem(x)
     return (
-      <button
-        key={id}
-        onClick={() => {
-          tap()
-          setOpen(id)
-        }}
-        className="presse-ligne flex w-full items-center gap-3 pl-3.5 text-left"
-      >
-        <span className="flex -space-x-3">
-          {autres.slice(0, 3).map((y) => {
-            const m = members.find((z) => z.id === y)
-            if (y === PANDA) return <img key={y} src="./art/stickers/panda-heureux.webp" alt="" className="h-10 w-10 rounded-full bg-[#FFEDE2]" />
-            return m ? <Avatar key={y} m={m} size={40} /> : null
-          })}
-        </span>
-        <span className={`flex min-w-0 flex-1 items-center gap-2 py-2.5 pr-4 ${i < list.length - 1 ? 'border-b border-trait' : ''}`}>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-sous font-semibold">
-              {meta(kind).name}
-              {joue(x) ? ` avec ${autres.map((y) => nameOf(members, y, me.id)).join(', ')}` : ` · ${joueurs.map((y) => nameOf(members, y, me.id)).join(', ')}`}
-            </span>
-            <span className={`block truncate text-note ${mineTurn ? 'font-semibold text-teinte' : 'text-brume'}`}>
-              {x.t === 'g' ? statusLine(x.g, members, me.id) : statutPartie(x.p, members, me.id)} · {ago(x.t === 'g' ? x.g.updated_at : x.p.updated_at)}
-            </span>
+      <div key={id} className={`flex items-center pr-2 ${i < list.length - 1 ? 'border-b border-trait' : ''}`}>
+        <button
+          onClick={() => {
+            tap()
+            setOpen(id)
+          }}
+          className="presse-ligne flex min-w-0 flex-1 items-center gap-3 pl-3.5 text-left"
+        >
+          <span className="flex -space-x-3">
+            {autres.slice(0, 3).map((y) => {
+              const m = members.find((z) => z.id === y)
+              if (y === PANDA) return <img key={y} src="./art/stickers/panda-heureux.webp" alt="" className="h-10 w-10 rounded-full bg-[#FFEDE2]" />
+              return m ? <Avatar key={y} m={m} size={40} /> : null
+            })}
           </span>
-          <img src={`./art/${meta(kind).art}.webp`} alt="" className="h-10 w-10 shrink-0 object-contain" />
-        </span>
-      </button>
+          <span className="flex min-w-0 flex-1 items-center gap-2 py-2.5">
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sous font-semibold">
+                {meta(kind).name}
+                {joue(x) ? ` avec ${autres.map((y) => nameOf(members, y, me.id)).join(', ')}` : ` · ${joueurs.map((y) => nameOf(members, y, me.id)).join(', ')}`}
+              </span>
+              <span className={`block truncate text-note ${mineTurn ? 'font-semibold text-teinte' : 'text-brume'}`}>
+                {x.t === 'g' ? statusLine(x.g, members, me.id) : statutPartie(x.p, members, me.id)} · {ago(x.t === 'g' ? x.g.updated_at : x.p.updated_at)}
+              </span>
+            </span>
+            <img src={`./art/${meta(kind).art}.webp`} alt="" className="h-10 w-10 shrink-0 object-contain" />
+          </span>
+        </button>
+        {enCours(x) && joue(x) && (
+          <button
+            type="button"
+            aria-label={`Fermer la partie « ${meta(kind).name} » avec ${autres.map((y) => nameOf(members, y, me.id)).join(', ')}`}
+            disabled={fermeture !== null}
+            onClick={() => void fermer(x)}
+            className="presse grid h-11 w-11 shrink-0 place-items-center rounded-full text-brume disabled:opacity-50"
+          >
+            <span className="grid h-7 w-7 place-items-center rounded-full bg-remplissage"><X size={16} aria-hidden="true" /></span>
+          </button>
+        )}
+      </div>
     )
   }
   const group = (title: string, list: Item[]) =>
