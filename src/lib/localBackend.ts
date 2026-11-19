@@ -6,7 +6,7 @@ import { applyMove, botMemory, botMorpion, botPuissance4, isMemory, MEMORY_MAX, 
 import { partiesDemo, type Cache, type MotDemo } from './partiesDemo'
 import type { AnneeState } from './parties'
 import { etoilesDe, parisToday } from './avent'
-import type { AdventDoor, AppFlag, Backend, Drawing, Ecrit, Game, Family, FamilyState, Folder, FolderItem, JoinRequest, LiveEvent, Member, Moment, MyRequest, PollVote, Sticker, ThoughtKind } from './types'
+import type { AdventDoor, AppFlag, Backend, Drawing, Ecrit, Game, Family, FamilyState, Folder, FolderItem, JoinRequest, LiveEvent, Member, Moment, MyRequest, Sticker, ThoughtKind } from './types'
 import { blobToDataUrl, compressImage, daysAgoKey, todayKey, uid } from './util'
 import { challenge, nextReward, WEEKLY, weekIndex, weekKey, weekStart, type WeeklyCounts, type WeeklyKey } from './weekly'
 
