@@ -77,7 +77,7 @@ export function TourJeu({ p, me, members = [], busy, act }: Props) {
   const [largeur, setLargeur] = useState(358)
   // assez haut pour voir la tour, assez bas pour garder le bouton « Lâcher » à l'écran
   const hauteur = Math.round(Math.min(520, Math.max(330, Math.min(largeur * 1.35, window.innerHeight - 480))))
-  const echelle = largeur / LARGEUR_VUE
+  const echelle = useRef(1)
   const sommet = useMemo(() => new Monde(pieces).sommet(), [pieces])
   const depart = hauteurDeDepart(sommet)
   const [x, setX] = useState(0)
@@ -85,7 +85,6 @@ export function TourJeu({ p, me, members = [], busy, act }: Props) {
   const [phase, setPhase] = useState<'vise' | 'chute' | 'envoi'>('vise')
   const [tombe, setTombe] = useState(false)
   const monde = useRef<Monde | null>(null)
-  const camera = useRef<number | null>(null)
   const glisse = useRef<{ id: number; dx: number } | null>(null)
   const arrivee = useRef<{ i: number; t0: number } | null>(null)
   const enChute = useRef(false)
@@ -114,12 +113,14 @@ export function TourJeu({ p, me, members = [], busy, act }: Props) {
     monde.current = null
     enChute.current = false
     chute.current = null
+    const pandaVu = pourPanda.current
     pourPanda.current = false
+    arrivee.current = null
     setPhase('vise')
     setTombe(!!s0.tombe)
     setX(0)
     setAngle(0)
-    if (pieces.length && s0.dernier && s0.dernier !== me && !s0.tombe) arrivee.current = { i: pieces.length - 1, t0: performance.now() + (premier ? 250 : 0) }
+    if (pieces.length && s0.dernier && s0.dernier !== me && !(s0.dernier === PANDA && pandaVu) && !s0.tombe) arrivee.current = { i: pieces.length - 1, t0: performance.now() + (premier ? 250 : 0) }
   }, [cle, pieces.length, s0.dernier, s0.tombe, me])
 
   // ── le dessin ──
@@ -134,18 +135,40 @@ export function TourJeu({ p, me, members = [], busy, act }: Props) {
       c.height = Math.round(hauteur * dpr)
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    const s = echelle
-    const vueH = hauteur / s
-    // la caméra suit la tour : on voit toujours la pièce à lâcher, et le socle tant que possible
+    // Un même repère pour la visée tactile, le socle et les pièces en mouvement.
     const m = monde.current
-    const hautVisible = m ? Math.min(m.sommet(), ...(phase === 'chute' ? [] : [depart])) : depart
-    const base = -(vueH - 70) // le socle en bas de l'écran
-    const voulu = Math.min(base, (phase === 'vise' && aMoi ? depart : hautVisible) - 60)
-    camera.current = camera.current === null ? voulu : camera.current + (voulu - camera.current) * 0.12
-    const cam = camera.current
+    let anime = false
+    let brillante = -1
+    const traces = m?.contours() ?? pieces.map((q, i) => {
+      let piece: Piece = q
+      const ar = arrivee.current
+      if (ar?.i === i) {
+        const age = now - ar.t0
+        const t = Math.min(1, Math.max(0, age / 520))
+        piece = { ...q, y: q.y - 190 * (1 - t * t) }
+        if (age < 1900) {
+          anime = true
+          if (t === 1) brillante = i
+        } else arrivee.current = null
+      }
+      return { k: q.k, pts: contour(piece) }
+    })
+    const rayon = Math.max(...(FORMES[s0.prochaine] ?? FORMES[0]).pts.map(([px, py]) => Math.hypot(px, py)))
+    let demiLargeur = Math.max(LARGEUR_VUE / 2, BORD + rayon)
+    let haut = depart - rayon
+    let bas = SOCLE.epaisseur + 12
+    for (const trace of traces) {
+      for (const pt of trace.pts) {
+        demiLargeur = Math.max(demiLargeur, Math.abs(pt.x))
+        haut = Math.min(haut, pt.y)
+        bas = Math.max(bas, pt.y)
+      }
+    }
+    const s = Math.min((largeur - 20) / (2 * demiLargeur), (hauteur - 24) / (bas - haut))
+    if (s <= 0) return false
+    echelle.current = s
     const ox = largeur / 2
-    const oy = -cam * s
-    let anime = Math.abs(voulu - cam) > 0.5
+    const oy = hauteur - 12 - bas * s
 
     // le ciel
     const ciel = ctx.createLinearGradient(0, 0, 0, hauteur)
@@ -194,24 +217,7 @@ export function TourJeu({ p, me, members = [], busy, act }: Props) {
     ctx.restore()
 
     // les pièces
-    if (m) {
-      for (const t of m.contours()) dessinerPiece(ctx, t, s, ox, oy)
-    } else {
-      pieces.forEach((q, i) => {
-        let piece: Piece = q
-        const ar = arrivee.current
-        let lueur = false
-        if (ar && ar.i === i) {
-          // la dernière pièce posée par un proche arrive en tombant, puis brille un instant
-          const t = Math.min(1, Math.max(0, (now - ar.t0) / 520))
-          piece = { ...q, y: q.y - 190 * (1 - t * t) }
-          lueur = t >= 1 && now - ar.t0 < 1900
-          if (now - ar.t0 < 1900) anime = true
-          else arrivee.current = null
-        }
-        dessinerPiece(ctx, { k: q.k, pts: contour(piece) }, s, ox, oy, { lueur })
-      })
-    }
+    traces.forEach((trace, i) => dessinerPiece(ctx, trace, s, ox, oy, { lueur: i === brillante }))
 
     // la pièce à lâcher, et son fil d'aplomb
     if (aMoi && phase === 'vise') {
@@ -309,7 +315,7 @@ export function TourJeu({ p, me, members = [], busy, act }: Props) {
   // glisser la pièce du doigt, n'importe où sur la scène
   const versMonde = (clientX: number) => {
     const r = canvas.current!.getBoundingClientRect()
-    return (clientX - r.left - largeur / 2) / echelle
+    return (clientX - r.left - largeur / 2) / echelle.current
   }
   const borne = (v: number) => Math.max(-BORD, Math.min(BORD, v))
 
@@ -329,6 +335,17 @@ export function TourJeu({ p, me, members = [], busy, act }: Props) {
           Ta forme : {forme.nom}. Glisse-la du doigt, tourne-la, puis lâche-la.
         </p>
       )}
+        {tourPanda && phase !== 'envoi' && !tombe && (
+          <div className="anim-pop pointer-events-none  mx-auto mb-2 flex w-fit items-center gap-2 rounded-full bg-white/95 py-1 pl-1 pr-3 shadow-carte">
+            <img src="./art/stickers/panda-motive.webp" alt="" className="h-8 w-8" />
+            <span className="text-note font-bold text-encre">{phase === 'vise' ? 'Le panda réfléchit…' : 'Le panda lâche sa pièce !'}</span>
+          </div>
+        )}
+        {tombe && (
+          <div className="anim-pop pointer-events-none  text-center">
+            <span className="rounded-full bg-white/95 px-5 py-2 font-rond text-titre2 text-[#E5484D] shadow-carte">Patatras !</span>
+          </div>
+        )}
       <div ref={boite} className="relative overflow-hidden rounded-[24px] shadow-carte" style={{ height: hauteur, touchAction: 'none' }}>
         <canvas
           ref={canvas}
@@ -350,17 +367,7 @@ export function TourJeu({ p, me, members = [], busy, act }: Props) {
           onPointerUp={() => (glisse.current = null)}
           onPointerCancel={() => (glisse.current = null)}
         />
-        {tourPanda && phase !== 'envoi' && !tombe && (
-          <div className="anim-pop pointer-events-none absolute left-3 top-3 flex items-center gap-2 rounded-full bg-white/95 py-1 pl-1 pr-3 shadow-carte">
-            <img src="./art/stickers/panda-motive.webp" alt="" className="h-8 w-8" />
-            <span className="text-note font-bold text-encre">{phase === 'vise' ? 'Le panda réfléchit…' : 'Le panda lâche sa pièce !'}</span>
-          </div>
-        )}
-        {tombe && (
-          <div className="anim-pop pointer-events-none absolute inset-x-0 top-[38%] text-center">
-            <span className="rounded-full bg-white/95 px-5 py-2 font-rond text-titre2 text-[#E5484D] shadow-carte">Patatras !</span>
-          </div>
-        )}
+
       </div>
       {aMoi && (
         <div className="mt-3 flex items-center gap-2.5">
