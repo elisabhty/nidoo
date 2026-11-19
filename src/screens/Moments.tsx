@@ -897,7 +897,7 @@ export default function Fil(_: { onCompose?: () => void }) {
   let jourPrecedent = ''
   return (
     <div ref={racine} className="flex flex-col px-3" style={{ minHeight: 'calc(100dvh - var(--sat) - 278px)' }} onClick={() => ouvert && setOuvert(null)}>
-      <div className="sticky z-10 -mx-3 mb-2 bg-fond/95 px-3 py-1 backdrop-blur-xl" style={{ top: 'calc(var(--sat) + 52px)' }}>
+      <div className="sticky top-0 z-10 -mx-3 mb-2 bg-fond/95 px-3 py-1 backdrop-blur-xl">
         <div className="flex h-11 items-center rounded-full border border-white/80 bg-carte p-1 shadow-[0_2px_12px_rgba(40,26,90,0.045)]">
           <div role="group" aria-label="Filtrer le fil" className="no-bar flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
             {[['tout', 'Tout'], ['photos', 'Photos'], ['vocaux', 'Vocaux'], ['sondages', 'Sondages']].map(([id, label]) => (
