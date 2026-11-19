@@ -162,26 +162,36 @@ function Vocal({ mo, mine }: { mo: Moment; mine: boolean }) {
 }
 
 
-/** Un sondage fait partie de la conversation, avec les résultats partagés en direct. */
+/** Un sondage fait partie de la conversation, avec les résultats partagés en direct.
+ *  Le vote s'affiche tout de suite (sans attendre le serveur) et les barres glissent : rien ne clignote. */
 function Sondage({ mo, mine, envoi }: { mo: Moment; mine: boolean; envoi?: boolean }) {
   const { state, run } = useHome()
   const options = mo.poll_options ?? []
-  const votes = state.pollVotes.filter((v) => v.moment_id === mo.id)
-  const mien = votes.find((v) => v.member_id === state.me.id)?.option_index
+  const moi = state.me.id
+  const duServeur = state.pollVotes.filter((v) => v.moment_id === mo.id)
+  const serveur = duServeur.find((v) => v.member_id === moi)?.option_index
+  // mon choix, affiché dès le toucher ; il s'efface quand le serveur dit la même chose (ou en cas d'erreur)
+  const [optimiste, setOptimiste] = useState<number | null>(null)
+  useEffect(() => {
+    if (optimiste != null && serveur === optimiste) setOptimiste(null)
+  }, [serveur, optimiste])
+  const mien = optimiste ?? serveur
+  const votes = optimiste == null ? duServeur : [...duServeur.filter((v) => v.member_id !== moi), { member_id: moi, option_index: optimiste }]
   const total = votes.length
-  const [voteEnCours, setVoteEnCours] = useState(false)
+  const enCours = useRef(false)
   const choisirVote = async (index: number) => {
-    if (envoi || voteEnCours || mien === index) return
+    if (envoi || enCours.current || mien === index) return
     select()
-    setVoteEnCours(true)
-    try {
-      await run((api) => api.votePoll(mo, state.me.id, index))
-    } finally {
-      setVoteEnCours(false)
-    }
+    enCours.current = true
+    setOptimiste(index)
+    const ok = await run((api) => api.votePoll(mo, moi, index))
+    enCours.current = false
+    if (!ok) setOptimiste(null)
   }
+  const vu = mien !== undefined
   return (
-    <div className="w-[min(72vw,330px)] min-w-[210px] max-w-full" onClick={(e) => e.stopPropagation()}>
+    // une largeur fixe : la bulle ne bouge pas quand les pourcentages et « Tu peux changer ton vote » apparaissent
+    <div className="sondage-bulle" style={{ width: 'min(62vw, 300px)' }} onClick={(e) => e.stopPropagation()}>
       <p className={`mb-1 text-note font-bold ${mine ? 'text-white/80' : 'text-teinte-fonce'}`}>Sondage</p>
       <p className="mb-3 whitespace-pre-wrap break-words text-corps font-semibold">{mo.body}</p>
       <div className="space-y-2">
@@ -192,23 +202,34 @@ function Sondage({ mo, mine, envoi }: { mo: Moment; mine: boolean; envoi?: boole
           return (
             <button
               key={index}
-              disabled={envoi || voteEnCours || selected}
+              disabled={envoi}
+              aria-pressed={selected}
               onClick={() => void choisirVote(index)}
-              className={`presse relative flex min-h-[44px] w-full items-center gap-2 overflow-hidden rounded-[12px] border px-3 py-2 text-left text-sous disabled:opacity-85 ${mine ? 'border-white/30 bg-white/10 text-white' : 'border-teinte/20 bg-teinte-doux/60 text-encre'}`}
-              aria-label={`${option}${mien !== undefined ? `, ${pct} %` : ''}`}
+              className={`relative flex min-h-[44px] w-full items-center gap-2 overflow-hidden rounded-[12px] border px-3 py-2 text-left text-sous transition-[transform,background-color,border-color] duration-200 active:scale-[0.98] ${
+                mine ? (selected ? 'border-white/70 bg-white/15 text-white' : 'border-white/30 bg-white/10 text-white') : selected ? 'border-teinte/50 bg-teinte-doux text-encre' : 'border-teinte/20 bg-teinte-doux/60 text-encre'
+              }`}
+              aria-label={`${option}${vu ? `, ${pct} %` : ''}`}
             >
-              {mien !== undefined && <span className={`absolute inset-y-0 left-0 ${mine ? 'bg-white/20' : 'bg-teinte/15'}`} style={{ width: `${pct}%` }} aria-hidden="true" />}
+              {/* la barre des résultats, toujours là, qui glisse jusqu'à sa largeur */}
+              <span
+                className={`absolute inset-y-0 left-0 ${mine ? 'bg-white/20' : 'bg-teinte/15'}`}
+                style={{ width: `${vu ? pct : 0}%`, transition: 'width 0.45s cubic-bezier(0.22, 0.8, 0.24, 1)' }}
+                aria-hidden="true"
+              />
               <span className="relative flex min-w-0 flex-1 items-center gap-1.5">
-                {selected && <Check size={15} className="shrink-0" strokeWidth={3} />}
+                <Check size={15} className="shrink-0 transition-[opacity,width] duration-200" strokeWidth={3} style={{ opacity: selected ? 1 : 0, width: selected ? 15 : 0 }} aria-hidden="true" />
                 <span className="break-words">{option}</span>
               </span>
-              {mien !== undefined && <span className="relative shrink-0 font-bold tabular-nums">{pct} %</span>}
+              <span className="relative shrink-0 font-bold tabular-nums transition-opacity duration-300" style={{ opacity: vu ? 1 : 0 }} aria-hidden="true">
+                {pct} %
+              </span>
             </button>
           )
         })}
       </div>
       <p className={`mt-2 text-note ${mine ? 'text-white/80' : 'text-brume'}`}>
-        {total} vote{total > 1 ? 's' : ''}{mien === undefined ? ' · Choisis une réponse' : ' · Tu peux changer ton vote'}
+        {total} vote{total > 1 ? 's' : ''}
+        {vu ? ' · Tu peux changer ton vote' : ' · Choisis une réponse'}
       </p>
     </div>
   )
@@ -313,7 +334,8 @@ function Bulle({ mo, auteur, mine, premier, dernier, ouvert, onOuvrir, onPhoto, 
             tap()
             onOuvrir()
           }}
-          className={`presse relative overflow-hidden transition-opacity ${anim ? (mine ? (mo.image_url ? 'anim-photo-envoi' : 'anim-envoi reflet') : 'anim-arrive') : ''} ${envoi && !mo.image_url ? 'opacity-75' : ''} ${coin} ${photoSeule ? 'p-1' : mo.image_url ? 'p-1 pb-2' : 'px-3.5 py-2'} ${mine ? 'text-white' : 'bg-white text-encre shadow-carte'}`}
+          // un sondage : pas d'effet d'appui sur toute la bulle (toucher une réponse la faisait rétrécir d'un coup)
+          className={`${mo.poll_options?.length ? '' : 'presse '}relative overflow-hidden transition-opacity ${anim ? (mine ? (mo.image_url ? 'anim-photo-envoi' : 'anim-envoi reflet') : 'anim-arrive') : ''} ${envoi && !mo.image_url ? 'opacity-75' : ''} ${coin} ${photoSeule ? 'p-1' : mo.image_url ? 'p-1 pb-2' : 'px-3.5 py-2'} ${mine ? 'text-white' : 'bg-white text-encre shadow-carte'}`}
           style={mine ? { background: 'linear-gradient(150deg, #8E6CF0, #6646CC)' } : undefined}
         >
           {mo.challenge && (
