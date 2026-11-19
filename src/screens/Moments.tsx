@@ -897,29 +897,30 @@ export default function Fil(_: { onCompose?: () => void }) {
   let jourPrecedent = ''
   return (
     <div ref={racine} className="flex flex-col px-3" style={{ minHeight: 'calc(100dvh - var(--sat) - 278px)' }} onClick={() => ouvert && setOuvert(null)}>
-      <div className="sticky z-10 -mx-3 mb-2 border-b border-encre/5 bg-fond/95 px-3 pb-2 pt-2 backdrop-blur-xl" style={{ top: 'calc(var(--sat) + 52px)' }}>
-        <div className="flex items-center gap-2">
-          <div role="group" aria-label="Filtrer le fil" className="no-bar flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
+      <div className="sticky z-10 -mx-3 mb-2 bg-fond/95 px-3 py-1 backdrop-blur-xl" style={{ top: 'calc(var(--sat) + 52px)' }}>
+        <div className="flex h-11 items-center rounded-full border border-white/80 bg-carte p-1 shadow-[0_2px_12px_rgba(40,26,90,0.045)]">
+          <div role="group" aria-label="Filtrer le fil" className="no-bar flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
             {[['tout', 'Tout'], ['photos', 'Photos'], ['vocaux', 'Vocaux'], ['sondages', 'Sondages']].map(([id, label]) => (
               <button
                 key={id}
                 type="button"
                 aria-pressed={filtre === id}
                 onClick={() => { select(); colle.current = false; setFiltre(id); setOuvert(null) }}
-                className={`presse flex h-[42px] shrink-0 items-center justify-center whitespace-nowrap rounded-full px-3 text-[13px] font-bold leading-none transition-colors ${filtre === id ? 'bg-teinte text-white shadow-[0_3px_9px_rgba(104,76,210,0.18)]' : 'bg-carte/80 text-brume hover:bg-carte'}`}
+                className={`presse h-9 shrink-0 whitespace-nowrap rounded-full px-2.5 text-[12.5px] font-bold leading-none transition-colors ${filtre === id ? 'bg-teinte text-white' : 'text-brume hover:bg-remplissage'}`}
               >
                 {label}
               </button>
             ))}
           </div>
+          <span aria-hidden="true" className="mx-1 h-5 w-px shrink-0 bg-encre/10" />
           <button
             type="button"
             aria-label={chercher ? 'Fermer la recherche' : 'Rechercher dans le fil'}
             aria-expanded={chercher}
             onClick={() => { tap(); setChercher(!chercher); setRecherche('') }}
-            className={`presse grid h-[42px] w-[42px] shrink-0 place-items-center rounded-full transition-colors ${chercher ? 'bg-teinte text-white' : 'bg-carte text-teinte-fonce'}`}
+            className={`presse grid h-9 w-9 shrink-0 place-items-center rounded-full transition-colors ${chercher ? 'bg-teinte text-white' : 'text-teinte-fonce hover:bg-remplissage'}`}
           >
-            {chercher ? <X size={19} strokeWidth={2.2} /> : <Search size={19} strokeWidth={2.2} />}
+            {chercher ? <X size={18} strokeWidth={2.2} /> : <Search size={18} strokeWidth={2.2} />}
           </button>
         </div>
         {chercher && <input autoFocus type="search" aria-label="Rechercher dans le fil" placeholder="Rechercher un message ou un sondage" value={recherche} onChange={(e) => { colle.current = false; setRecherche(e.target.value) }} className="mt-2 h-11 w-full rounded-[14px] border border-encre/5 bg-carte px-4 text-sous outline-none focus:ring-2 focus:ring-teinte" />}
