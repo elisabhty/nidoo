@@ -20,3 +20,15 @@ test('la sélection survit au renouvellement des liens et ignore une photo suppr
  fresh.moments=[]
  assert.deepEqual(selectedHousePhotos(housePhotoSources(fresh),['m:a']),[])
 })
+
+test('une photo décrochée laisse sa place libre sur la corde', async () => {
+  const { housePhotoSlots } = await loadTs('src/lib/housePhotos.ts')
+  const sources = [
+    { id: 'm:1', url: 'u1', at: '2026-11-18T10:00:00Z' },
+    { id: 'm:2', url: 'u2', at: '2026-11-17T10:00:00Z' },
+  ]
+  assert.deepEqual(housePhotoSlots(sources, null).map((p) => p?.id ?? null), ['m:1', 'm:2'])
+  assert.deepEqual(housePhotoSlots(sources, ['m:2', '', 'm:1']).map((p) => p?.id ?? null), ['m:2', null, 'm:1'])
+  // une photo qui n'existe plus laisse aussi une place libre
+  assert.deepEqual(housePhotoSlots(sources, ['m:9', 'm:1']).map((p) => p?.id ?? null), [null, 'm:1'])
+})

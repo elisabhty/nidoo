@@ -1,4 +1,4 @@
-import { CalendarDays, Camera, ChevronRight, Heart, MessageCircleHeart, Mic } from 'lucide-react'
+import { CalendarDays, Camera, ChevronRight, Heart, MessageCircleHeart, Mic, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useAvent } from '../components/avent'
 import { DefisDuJour, QuestionSheet } from '../components/defis'
@@ -8,7 +8,7 @@ import { DecorPage, GoneSheet, useGone } from '../components/decor'
 import { DrawingsSheet, useUnseenDrawings } from '../components/drawing'
 import { DrawSheet } from '../components/planche'
 import { HousePhotosSheet } from '../components/housePhotos'
-import { housePhotoSources, selectedHousePhotos } from '../lib/housePhotos'
+import { housePhotoSlots, housePhotoSources } from '../lib/housePhotos'
 import House, { type HouseScene } from '../components/House'
 import { myTurns } from '../components/jeux'
 import { useLieux } from '../components/lieux'
@@ -76,16 +76,39 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
     if (!family.invite_code || new Date(family.invite_expires_at).getTime() < Date.now()) return go('famille')
     if ((await shareInvite(family.name, family.invite_code)) === 'copie') toast('Invitation copiée')
   }
-  const accrochees = selectedHousePhotos(housePhotoSources(state), family.house_photo_ids)
-  const photos = accrochees.map((p) => p.url)
-  // toucher une photo de la corde : la remplacer, ou la décrocher (elle reste dans le fil)
+  // les places de la corde : une photo, ou une place libre là où on en a décroché une
+  const places = housePhotoSlots(housePhotoSources(state), family.house_photo_ids)
+  const photos = places.map((p) => p?.url ?? null)
+  const [cordeVue, setCordeVue] = useState(() => {
+    try {
+      return !!localStorage.getItem('nidoo.corde.vu')
+    } catch {
+      return true
+    }
+  })
+  const voirCorde = () => {
+    setCordeVue(true)
+    try {
+      localStorage.setItem('nidoo.corde.vu', '1')
+    } catch {
+      /* rien */
+    }
+  }
+  // toucher une photo de la corde : la remplacer, ou la décrocher (sa place reste libre, elle reste dans le fil)
   const surPhoto = async (i: number) => {
     tap()
-    const c = await choisir({ title: 'Cette photo de la maison', message: 'Elle reste dans le fil même si tu la décroches.', actions: [{ label: 'Remplacer par une autre' }, { label: 'Décrocher', destructive: true }] })
-    if (c === 0) setSheet({ k: 'photosMaison', mode: 'replace', index: i })
-    if (c === 1) {
-      const ids = accrochees.map((p) => p.id).filter((_, j) => j !== i)
-      await run((a) => a.updateFamily(family.id, { house_photo_ids: ids }), 'Photo décrochée')
+    voirCorde()
+    const libres = places.filter((p) => !p).length
+    const actions = [{ label: 'Remplacer par une autre photo' }, { label: 'Décrocher (la place reste libre)', destructive: true }]
+    if (places.length < 6 && !libres) actions.splice(1, 0, { label: 'Accrocher une photo en plus' })
+    const c = await choisir({ title: 'Cette photo de la maison', message: 'Elle reste dans le fil même si tu la décroches.', actions })
+    const choix = c < 0 ? '' : actions[c].label
+    if (choix.startsWith('Remplacer')) setSheet({ k: 'photosMaison', mode: 'replace', index: i })
+    if (choix.startsWith('Accrocher')) setSheet({ k: 'photosMaison', mode: 'add' })
+    if (choix.startsWith('Décrocher')) {
+      const ids = places.map((p, j) => (j === i || !p ? '' : p.id))
+      // plus aucune photo : la corde redevient vide
+      await run((a) => a.updateFamily(family.id, { house_photo_ids: ids.some(Boolean) ? ids : [] }), 'Photo décrochée : touche le cadre « + » pour en mettre une autre')
     }
   }
   const now = season()
@@ -199,15 +222,31 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
           {/* La maison et les proches restent au cœur de l’accueil. */}
           <div className="mx-4 mt-5">
             <div ref={houseRef} className="relative overflow-hidden rounded-[22px]">
+              {!cordeVue && places.some(Boolean) && (
+                <button
+                  onClick={() => {
+                    tap()
+                    voirCorde()
+                  }}
+                  className="anim-pop absolute left-1/2 top-[35%] z-20 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-encre/85 py-1.5 pl-3 pr-2 text-note font-semibold text-white shadow-carte backdrop-blur"
+                  aria-label="Compris : on touche une photo pour la changer"
+                >
+                  <span aria-hidden className="absolute -top-1 left-1/2 h-2.5 w-2.5 -translate-x-1/2 rotate-45 bg-encre/85" />
+                  Touche une photo pour la changer
+                  <X size={14} aria-hidden="true" className="opacity-75" />
+                </button>
+              )}
               <House
                 className="!aspect-[16/10]"
                 type={family.house_type}
                 items={houseItems}
                 photos={photos}
                 onPhoto={(i) => void surPhoto(i)}
-                onAddPhoto={() => {
+                onAddPhoto={(i) => {
                   tap()
-                  setSheet({ k: 'photosMaison', mode: 'add' })
+                  voirCorde()
+                  // une place libre : la photo choisie va à cet endroit ; corde vide : au début
+                  setSheet(i < places.length ? { k: 'photosMaison', mode: 'replace', index: i } : { k: 'photosMaison', mode: 'add' })
                 }}
                 season={now}
                 people={members.map((m) => ({ m, mood: isToday(m.mood_at) ? m.mood : null, label: m.id === me.id ? 'Moi' : m.display_name, me: m.id === me.id }))}

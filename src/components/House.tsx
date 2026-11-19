@@ -104,11 +104,11 @@ export default function House({
   /** La maison suit les saisons : feuilles, neige, pétales, papillons. */
   season?: Season
   /** Les dernières photos partagées, accrochées au fil avec des pinces à linge. */
-  photos?: string[]
+  photos?: (string | null)[]
   /** toucher une photo accrochée (pour la remplacer ou la décrocher) */
   onPhoto?: (i: number) => void
-  /** une place libre sur la corde : un cadre vide « + » pour accrocher une photo */
-  onAddPhoto?: () => void
+  /** toucher une place libre (un cadre vide « + », là où une photo a été décrochée) */
+  onAddPhoto?: (i: number) => void
   /** La famille devant la maison, chacun avec son humeur. */
   people?: HousePerson[]
   onPerson?: (m: Member) => void
@@ -576,20 +576,28 @@ export default function House({
             <path d="M-2 3 Q 50 17 102 3" fill="none" stroke="#1D1A2B" strokeWidth={2} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
           </svg>
           {(() => {
-            const shown = photos.slice(0, 6)
-            // une place libre (si on peut encore accrocher) : un cadre vide avec un +, au bout de la corde
-            const slots: (string | null)[] = onAddPhoto && shown.length < 6 ? [...shown, null] : shown
+            // les places libres (photos décrochées) ne se montrent que si on peut les remplir ; corde vide : un cadre « + »
+            const shown = photos.slice(0, 6).filter((p) => p || onAddPhoto)
+            const slots: (string | null)[] = shown.length ? shown : onAddPhoto ? [null] : []
             return slots.map((src, i, all) => {
               const x = ((i + 1) / (all.length + 1)) * 100
               const t = (x + 2) / 104
               const y = 3 + 28 * t * (1 - t) // le creux du cordon à cet endroit (sur 40)
               const r = [-5, 4, -3, 5, -4, 3, -2][i]
               const cadre = src ? (
-                <span className="block bg-white p-[7%] pb-[22%] shadow-[0_5px_12px_rgba(29,26,43,0.28)]" style={{ transform: `translateY(14%) rotate(${r}deg)`, transformOrigin: '50% 0' }}>
+                <span className="relative block bg-white p-[7%] pb-[22%] shadow-[0_5px_12px_rgba(29,26,43,0.28)]" style={{ transform: `translateY(14%) rotate(${r}deg)`, transformOrigin: '50% 0' }}>
                   <img src={src} alt="" className="block aspect-square w-full object-cover" />
+                  {/* un petit crayon dans la marge du bas : la photo se change */}
+                  {onPhoto && (
+                    <span className="absolute bottom-[2.5%] right-[5%] flex aspect-square w-[22%] items-center justify-center rounded-full bg-teinte text-white">
+                      <svg viewBox="0 0 24 24" className="h-[62%] w-[62%]" fill="none" stroke="currentColor" strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M4 20h4L19 9l-4-4L4 16v4z" />
+                      </svg>
+                    </span>
+                  )}
                 </span>
               ) : (
-                <span className="block rounded-[3px] border-[1.5px] border-dashed border-white/85 bg-white/20 p-[7%] pb-[22%] backdrop-blur-[2px]" style={{ transform: `translateY(14%) rotate(${r}deg)`, transformOrigin: '50% 0' }}>
+                <span className="block rounded-[3px] border-[1.5px] border-dashed border-white bg-teinte/35 p-[7%] pb-[22%] shadow-[0_3px_10px_rgba(29,26,43,0.18)] backdrop-blur-[2px]" style={{ transform: `translateY(14%) rotate(${r}deg)`, transformOrigin: '50% 0' }}>
                   <span className="flex aspect-square w-full items-center justify-center text-white">
                     <svg viewBox="0 0 24 24" className="h-[55%] w-[55%]" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" aria-hidden>
                       <path d="M12 5v14M5 12h14" />
@@ -597,7 +605,7 @@ export default function House({
                   </span>
                 </span>
               )
-              const touche = src ? onPhoto && (() => onPhoto(i)) : onAddPhoto
+              const touche = src ? onPhoto && (() => onPhoto(i)) : onAddPhoto && (() => onAddPhoto(i))
               return (
                 <span key={(src ?? 'libre').slice(-32) + i} className="absolute -translate-x-1/2" style={{ left: `${x}%`, top: `${(y / 40) * 100}%`, width: `${11.5 * s}%` }}>
                   <span className="block origin-top" style={{ animation: `balance ${4.2 + (i % 3) * 0.9}s ease-in-out ${-i * 0.7}s infinite` }}>
@@ -609,7 +617,7 @@ export default function House({
                           touche()
                         }}
                         className="presse pointer-events-auto block w-full"
-                        aria-label={src ? `Photo ${i + 1} accrochée : la remplacer ou la décrocher` : 'Accrocher une photo dans la maison'}
+                        aria-label={src ? `Photo ${i + 1} accrochée : la remplacer ou la décrocher` : 'Place libre : accrocher une photo'}
                       >
                         {cadre}
                       </button>
