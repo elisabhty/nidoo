@@ -516,16 +516,16 @@ export function HousePicker({ value, onChange }: { value: HouseType; onChange: (
             onChange(h.key)
           }}
           aria-pressed={value === h.key}
-          className={`presse relative overflow-hidden rounded-[20px] bg-carte pb-2.5 ${value === h.key ? 'ring-[2.5px] ring-inset ring-teinte' : ''}`}
+          className={`presse relative flex min-w-0 flex-col overflow-hidden rounded-[20px] border-[2.5px] p-0 text-center transition-colors ${value === h.key ? 'border-teinte bg-[#F2ECFF]' : 'border-transparent bg-carte'}`}
         >
-          <House type={h.key} items={[]} phase="jour" className="!aspect-[1/1]" bare />
+          <div className="w-full shrink-0 overflow-hidden"><House type={h.key} items={[]} phase="jour" className="!aspect-[1/1] !w-full" bare /></div>
           {value === h.key && (
             <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-teinte text-white shadow-carte" aria-hidden="true">
               <Check size={14} strokeWidth={3.2} />
             </span>
           )}
-          <span className={`mt-2 block text-sous ${value === h.key ? 'font-semibold text-teinte-fonce' : 'font-medium'}`}>{h.label}</span>
-          <span className="block px-1 text-note text-[#625A75]">{h.hint}</span>
+          <span className={`mt-2 block w-full px-1 text-sous ${value === h.key ? 'font-semibold text-teinte-fonce' : 'font-medium'}`}>{h.label}</span>
+          <span className="block w-full flex-1 px-1 pb-3 text-note text-[#625A75]">{h.hint}</span>
         </button>
       ))}
     </div>
