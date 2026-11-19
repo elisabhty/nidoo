@@ -122,15 +122,35 @@ input[type='date'], input[type='time'] { -webkit-appearance: none; appearance: n
 /* un geste lancé vers une fenêtre (ou depuis) : il vole d'une personne à l'autre */
 @keyframes envoi { 0% { left: var(--x0); bottom: var(--y0); transform: translateX(-50%) scale(0.35); opacity: 0; } 15% { opacity: 1; } 80% { opacity: 1; } 100% { left: var(--x1); bottom: var(--y1); transform: translateX(-50%) scale(1); opacity: 0; } }
 
-/* Compacter l'accueil sans masquer la démonstration sur les petits iPhone. */
-@media (max-height: 740px) {
-  .onboarding-mascot { width: 72px; height: 72px; border-radius: 20px; }
-  .onboarding-welcome { padding-top: 0; padding-bottom: 16px; }
-  .onboarding-welcome h1 { font-size: 22px; line-height: 28px; }
-  .onboarding-preview { margin-top: 12px; max-width: 260px; }
+.welcome-layout {
+  width: 100%;
+  margin-block: auto;
+  padding-block: 24px 6px;
+  display: grid;
+  gap: 24px;
 }
-@media (max-height: 620px) {
-  .onboarding-preview > [role="img"] { display: none; }
+.welcome-intro { text-align: center; }
+.welcome-intro > div { justify-content: center; }
+
+@media (min-width: 1024px) {
+  .app-frame:has(> [data-feuilles] .welcome-layout) {
+    max-width: min(1000px, 94vw);
+    height: min(620px, 92vh);
+  }
+  .app-frame > [data-feuilles] .welcome-layout {
+    max-width: 880px;
+    margin-inline: auto;
+    padding: 32px 20px;
+    grid-template-columns: 0.9fr 1.1fr;
+    grid-template-areas: "intro scene" "actions scene";
+    gap: 28px 48px;
+    align-items: center;
+  }
+  .app-frame > [data-feuilles] .welcome-intro { grid-area: intro; align-self: end; text-align: left; }
+  .app-frame > [data-feuilles] .welcome-intro > div { justify-content: flex-start; }
+  .app-frame > [data-feuilles] .welcome-intro h1 { font-size: 40px; line-height: 1.12; }
+  .app-frame > [data-feuilles] .welcome-scene { grid-area: scene; }
+  .app-frame > [data-feuilles] .welcome-actions { grid-area: actions; align-self: start; }
 }
 
 /* Shared reading and interaction rhythm across the five tabs. */
