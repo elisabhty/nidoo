@@ -1,4 +1,4 @@
-import { ChevronLeft, Copy, Heart, Share } from 'lucide-react'
+import { ChevronLeft, Copy, Share } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import House from '../components/House'
 import { HousePicker, ProfileStep } from '../components/pickers'
@@ -124,7 +124,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
   return (
     <div data-feuilles className="relative flex h-full flex-col bg-fond" style={{ paddingTop: 'var(--sat)' }}>
     <div ref={container} className="no-bar flex min-h-0 flex-1 flex-col overflow-y-auto px-5" style={{ paddingBottom: step === 'profil' ? '20px' : 'calc(var(--sab) + 18px)' }}>
-      <div className="flex h-[52px] shrink-0 items-center">
+      <div className={showBack ? "flex h-[52px] shrink-0 items-center" : "hidden"}>
         {showBack && (
           <button onClick={back} className="presse -ml-2 flex h-11 items-center gap-0.5 pr-3 text-corps text-teinte" aria-label="Retour">
             <ChevronLeft size={26} strokeWidth={2.4} /> {step === 'accueil' ? 'Annuler' : T.join.back}
@@ -143,24 +143,30 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
         </ol>
       )}
       {step === 'accueil' && (
-        <div className="anim-entre flex flex-1 flex-col">
-          <div className="onboarding-welcome flex flex-1 flex-col items-center justify-center pb-6 pt-3 text-center">
-            <img src="./panda.webp" alt="Nidoo, le panda roux" width={100} height={100} className="onboarding-mascot anim-flotte h-[100px] w-[100px] rounded-[26px] shadow-[0_24px_50px_-18px_rgba(102,70,204,0.55)]" />
-            <p aria-hidden="true" className="mt-4 font-rond text-[32px] font-extrabold leading-none tracking-[-0.5px]">NIDOO</p>
-            <h1 className="outline-none mt-3 max-w-[310px] font-rond text-titre1">{T.home.headline}</h1>
-            <p className="mt-3 max-w-[300px] text-sous text-[#625A75]">{T.home.description}</p>
-            <div className="onboarding-preview mt-5 w-full max-w-[300px] overflow-hidden rounded-groupe bg-carte shadow-carte">
-              <div role="img" aria-label="Une maison virtuelle à partager avec tes proches">
-                <House type="maison" items={[]} phase="jour" className="!aspect-[2/1]" />
-              </div>
-              <div className="flex items-center gap-3 px-4 py-3 text-left">
-                <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teinte-doux text-teinte-fonce"><Heart size={20} /></span>
-                <div>
-                  <p className="text-note text-brume">Une petite attention pour toi</p>
-                  <p className="font-rond text-appel font-bold">« Je pense à toi »</p>
-                </div>
+        <div className="welcome-layout anim-entre">
+          <div className="welcome-intro">
+            <div className="flex items-center gap-3">
+              <img src="./panda.webp" alt="" width={58} height={58} className="rounded-2xl shadow-carte" />
+              <span className="font-rond text-[23px] font-extrabold">NIDOO</span>
+            </div>
+            <h1 className="mt-5 font-rond text-titre1 outline-none [text-wrap:balance]">{T.home.headline}</h1>
+            <p className="mt-2 text-sous text-[#625A75] [text-wrap:pretty]">{T.home.description}</p>
+          </div>
+          <div className="welcome-scene">
+            <div role="img" aria-label="Une maison virtuelle à partager avec tes proches" className="overflow-hidden rounded-groupe">
+              <House type="maison" items={[]} phase="jour" className="!aspect-[2/1] lg:!aspect-[5/4]" />
+            </div>
+            <div className="relative mx-4 -mt-7 flex w-fit max-w-full items-center gap-3 rounded-2xl bg-carte py-2 pl-2 pr-5 text-left shadow-carte">
+              <img src="./art/persos/gf1-v.webp" alt="" width={44} height={44} className="h-11 w-11 rounded-full bg-teinte-doux object-contain" />
+              <div>
+                <p className="text-note font-semibold text-teinte-fonce">Mamie</p>
+                <p className="font-rond text-appel font-bold">Je pense à toi 💜</p>
               </div>
             </div>
+          </div>
+          <div className="welcome-actions">
+            <Btn onClick={() => { setPath('creer'); setStep('profil') }}>{T.home.create_cta}</Btn>
+            <Btn kind="teinte" className="mt-2.5" onClick={() => { setPath('rejoindre'); setStep('code') }}>{T.home.join_cta}</Btn>
           </div>
         </div>
       )}
@@ -295,12 +301,6 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
         </div>
       )}
     </div>
-    {step === 'accueil' && (
-      <div className="shrink-0 bg-fond px-5 pt-2" style={{ paddingBottom: 'calc(var(--sab) + 18px)' }}>
-        <Btn onClick={() => { setPath('creer'); setStep('profil') }}>{T.home.create_cta}</Btn>
-        <Btn kind="teinte" className="mt-2.5" onClick={() => { setPath('rejoindre'); setStep('code') }}>{T.home.join_cta}</Btn>
-      </div>
-    )}
     {step === 'profil' && (
       <div className="shrink-0 border-t border-trait bg-fond px-5 pt-3" style={{ paddingBottom: 'calc(var(--sab) + 18px)' }}>
         <p className="mb-2 text-center text-note text-brume">{name.trim() ? 'Tout se modifie plus tard, dans Famille.' : 'Ajoute ton prénom pour continuer.'}</p>
