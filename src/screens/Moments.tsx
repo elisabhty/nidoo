@@ -226,8 +226,10 @@ function Sondage({ mo, mine, envoi }: { mo: Moment; mine: boolean; envoi?: boole
               {qui[index].length > 0 && (
                 <span className="relative flex shrink-0 items-center pl-1" aria-hidden="true">
                   {qui[index].slice(0, 4).map((m, k) => (
-                    <span key={m.id} className={`anim-pop rounded-full ${mine ? 'ring-2 ring-[#7a5ee0]' : 'ring-2 ring-white'}`} style={{ marginLeft: k ? -7 : 0, zIndex: 4 - k }}>
-                      <Avatar m={m} size={22} />
+                    // un cercle net de la taille du portrait (pas de boîte de texte autour, qui l'ovalisait),
+                    // avec un fin liseré blanc qui sépare les portraits superposés
+                    <span key={m.id} className="anim-pop flex h-6 w-6 shrink-0 rounded-full" style={{ marginLeft: k ? -7 : 0, zIndex: 4 - k, boxShadow: '0 0 0 1.5px rgba(255,255,255,0.9)' }}>
+                      <Avatar m={m} size={24} />
                     </span>
                   ))}
                   {qui[index].length > 4 && <span className="ml-1 text-note font-bold">+{qui[index].length - 4}</span>}
