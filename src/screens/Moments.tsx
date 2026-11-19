@@ -558,7 +558,7 @@ function Saisie({ onPhoto, envoyer }: { onPhoto: (f: File) => void; envoyer: (m:
           else signal(null)
         }}
       />
-      {sondage && <SondageCompose onClose={() => setSondage(false)} envoyer={envoyer} />}
+      {sondage && createPortal(<div className="fixed inset-0 z-[95]"><SondageCompose onClose={() => setSondage(false)} envoyer={envoyer} /></div>, document.body)}
       {tiroir && !enreg && (
         <div className="mb-2 [&>div]:!mt-0">
           <StickerTray
