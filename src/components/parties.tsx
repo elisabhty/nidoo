@@ -1,3 +1,4 @@
+import { GamePresentation, GameStatus } from './gamePresentation'
 import { Check, ImagePlus, Lightbulb, RotateCcw } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { select, success, tap } from '../lib/haptic'
@@ -337,68 +338,73 @@ export function PartieView({ partie: p, onClose, onOpen, onNouvelle }: { partie:
   return (
     <Page title={PARTIES[p.kind].name} onClose={onClose} scrollKey={p.id}>
       <style>{CSS}</style>
-      <div className="mx-4 flex flex-wrap justify-center gap-2 pb-1">
-        {p.players.map((x) => {
-          const m = members.find((y) => y.id === x)
-          const doit = p.status === 'en_cours' && att.includes(x)
-          return (
-            <div key={x} className={`flex shrink-0 items-center gap-2 rounded-full bg-white p-1 pr-3 ${doit ? 'shadow-carte' : ''}`} style={doit ? { boxShadow: `0 0 0 2.5px ${VIOLET}` } : undefined}>
-              {m && <Avatar m={m} size={34} />}
-              {x === PANDA && <img src="./art/stickers/panda-heureux.webp" alt="" className="h-[34px] w-[34px]" />}
-              <span className="text-sous font-semibold">{nom(members, x, me.id)}</span>
-              {p.status === 'en_cours' && !doit && (
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-teinte text-white" aria-label="a joué">
-                  <Check size={12} strokeWidth={3.2} />
+      <GamePresentation kind={p.kind}>
+        <GameStatus art={PARTIES[p.kind].art} status={statutPartie(p, members, me.id)} active={aMoi(p, me.id)} finished={p.status === 'fini'} />
+        <div className="game-players game-players-family">
+          {p.players.map((x) => {
+            const m = members.find((y) => y.id === x)
+            const doit = p.status === 'en_cours' && att.includes(x)
+            return (
+              <div key={x} className="game-player" data-active={doit}>
+                {m && <Avatar m={m} size={34} />}
+                {x === PANDA && <img src="./art/stickers/panda-heureux.webp" alt="" className="h-[34px] w-[34px]" />}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sous font-semibold">{nom(members, x, me.id)}</span>
+                  <span className="block text-mini text-brume">{p.status === 'fini' ? 'Partie terminée' : doit ? 'À son tour' : 'A joué'}</span>
                 </span>
-              )}
-            </div>
-          )
-        })}
-      </div>
-      {p.status === 'en_cours' && !deux && <p className="mt-1 text-center text-mini text-brume">Entouré : doit jouer · ✓ : a déjà joué</p>}
-      <p className={`mt-4 px-4 text-center font-rond text-titre3 ${aMoi(p, me.id) ? 'text-teinte-fonce' : ''}`}>{statutPartie(p, members, me.id)}</p>
-      {p.status === 'fini' && p.kind === 'tour' && !(p.state as { abandon?: boolean }).abandon && (
-        <LigneSous>{(p.state as TourState).perdant === me.id ? 'Les autres ont tenu bon : une étoile chacun pour la maison' : 'Tu as tenu bon : +1 étoile pour la maison'}</LigneSous>
-      )}
-      {p.status === 'fini' && p.kind !== 'tour' && p.winner && !(p.state as { abandon?: boolean }).abandon && (
-        <LigneSous>{p.winner === me.id ? 'Bravo ! +2 étoiles pour la maison' : 'Bien joué ! La maison gagne quand même 2 étoiles'}</LigneSous>
-      )}
-      {p.status === 'fini' && p.winner === me.id && !(p.state as { abandon?: boolean }).abandon && !finiAuDebut.current && <Confettis />}
-      {msg && <p className="anim-pop mx-auto mt-2 w-fit rounded-full bg-teinte px-4 py-1.5 text-sous font-semibold text-white">{msg}</p>}
-
-      <div className="mx-4 mt-4">
-        {p.kind === 'bataille' && <Bataille p={p} sec={sec} me={me.id} members={members} busy={busy} act={act} dire={dire} />}
-        {p.kind === 'quidenous' && <QuiDeNous p={p} sec={sec} me={me.id} members={members} busy={busy} act={act} dire={dire} />}
-        {p.kind === 'dessin' && <DessineDevine p={p} sec={sec} me={me.id} members={members} busy={busy} act={act} dire={dire} />}
-        {p.kind === 'annee' && <DevineAnnee p={p} sec={sec} me={me.id} members={members} busy={busy} act={act} />}
-        {p.kind === 'telephone' && <Telephone p={p} sec={sec} me={me.id} members={members} busy={busy} act={act} />}
-        {p.kind === 'tour' && <TourJeu p={p} me={me.id} members={members} busy={busy} act={act} />}
-      </div>
-
-      <div className="mx-4 mb-4 mt-6 flex flex-col gap-2.5">
-        {p.status === 'fini' && playing && <Btn onClick={() => void revanche()}>{deux ? 'Revanche' : 'Rejouer'}</Btn>}
-        {p.status === 'fini' && (
-          <Btn kind="gris" onClick={onClose}>
-            Autres jeux
-          </Btn>
+                {p.status === 'en_cours' && !doit && (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-teinte text-white" aria-label="a joué">
+                    <Check size={12} strokeWidth={3.2} />
+                  </span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+        {p.status === 'fini' && p.kind === 'tour' && !(p.state as { abandon?: boolean }).abandon && (
+          <LigneSous>{(p.state as TourState).perdant === me.id ? 'Les autres ont tenu bon : une étoile chacun pour la maison' : 'Tu as tenu bon : +1 étoile pour la maison'}</LigneSous>
         )}
-        {p.status === 'en_cours' && playing && (
-          <Btn
-            kind="gris"
-            onClick={async () => {
-              const ok = await confirmer(
-                deux
-                  ? { title: 'Abandonner la partie ?', message: 'L’autre joueur gagne.', confirm: 'Abandonner', destructive: true }
-                  : { title: 'Arrêter la partie ?', message: 'Elle s’arrête pour tout le monde.', confirm: 'Arrêter', destructive: true },
-              )
-              if (ok) await run((a) => a.quitPartie(p.id))
-            }}
-          >
-            {deux ? 'Abandonner' : 'Arrêter la partie'}
-          </Btn>
+        {p.status === 'fini' && p.kind !== 'tour' && p.winner && !(p.state as { abandon?: boolean }).abandon && (
+          <LigneSous>{p.winner === me.id ? 'Bravo ! +2 étoiles pour la maison' : 'Bien joué ! La maison gagne quand même 2 étoiles'}</LigneSous>
         )}
-      </div>
-      {!playing && <p className="mx-8 mb-4 text-center text-note text-brume">Tu regardes la partie : encourage-les !</p>}
+        {p.status === 'fini' && p.winner === me.id && !(p.state as { abandon?: boolean }).abandon && !finiAuDebut.current && <Confettis />}
+        {msg && <p className="anim-pop mx-auto mt-2 w-fit rounded-full bg-teinte px-4 py-1.5 text-sous font-semibold text-white">{msg}</p>}
+
+        <div className="game-table">
+          {p.kind === 'bataille' && <Bataille p={p} sec={sec} me={me.id} members={members} busy={busy} act={act} dire={dire} />}
+          {p.kind === 'quidenous' && <QuiDeNous p={p} sec={sec} me={me.id} members={members} busy={busy} act={act} dire={dire} />}
+          {p.kind === 'dessin' && <DessineDevine p={p} sec={sec} me={me.id} members={members} busy={busy} act={act} dire={dire} />}
+          {p.kind === 'annee' && <DevineAnnee p={p} sec={sec} me={me.id} members={members} busy={busy} act={act} />}
+          {p.kind === 'telephone' && <Telephone p={p} sec={sec} me={me.id} members={members} busy={busy} act={act} />}
+          {p.kind === 'tour' && <TourJeu p={p} me={me.id} members={members} busy={busy} act={act} />}
+        </div>
+
+        <div className="game-actions">
+          {p.status === 'fini' && playing && <Btn onClick={() => void revanche()}>{deux ? 'Revanche' : 'Rejouer'}</Btn>}
+          {p.status === 'fini' && (
+            <Btn kind="gris" onClick={onClose}>
+              Autres jeux
+            </Btn>
+          )}
+          {p.status === 'en_cours' && playing && (
+            <Btn
+              className="game-quit"
+              kind="gris"
+              onClick={async () => {
+                const ok = await confirmer(
+                  deux
+                    ? { title: 'Abandonner la partie ?', message: 'L’autre joueur gagne.', confirm: 'Abandonner', destructive: true }
+                    : { title: 'Arrêter la partie ?', message: 'Elle s’arrête pour tout le monde.', confirm: 'Arrêter', destructive: true },
+                )
+                if (ok) await run((a) => a.quitPartie(p.id))
+              }}
+            >
+              {deux ? 'Abandonner' : 'Arrêter la partie'}
+            </Btn>
+          )}
+        </div>
+        {!playing && <p className="mx-8 mb-4 text-center text-note text-brume">Tu regardes la partie : encourage-les !</p>}
+      </GamePresentation>
     </Page>
   )
 }

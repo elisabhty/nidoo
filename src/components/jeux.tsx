@@ -1,3 +1,4 @@
+import { GamePresentation, GameStatus } from './gamePresentation'
 import { ChevronLeft, ChevronRight, Check, Heart, ImagePlus, Star, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { select, success, tap } from '../lib/haptic'
@@ -476,13 +477,13 @@ function GameView({ game: g, onClose, onRematch, onOpen }: { game: Game; onClose
     const turn = g.status === 'en_cours' && g.turn === m?.id
     const score = mem ? mem.score[side - 1] : null
     return (
-      <div className={`flex min-w-0 flex-1 items-center gap-2 rounded-full p-1 pr-3 ${turn ? 'bg-white shadow-carte' : 'bg-remplissage/60'}`} style={turn ? { boxShadow: `0 0 0 2.5px ${color(side)}` } : undefined}>
+      <div className="game-player" data-active={turn} style={{ '--player-accent': color(side) } as CSSProperties}>
         {m && <Avatar m={m} size={36} />}
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sous font-semibold">{m ? (m.id === me.id ? 'Toi' : m.display_name) : 'Un proche'}</span>
           <span className="flex items-center gap-1 text-mini text-brume">
             {g.kind === 'morpion' ? (side === 1 ? <Heart size={11} fill={P1} color={P1} /> : <Star size={11} fill={P2} color={P2} />) : <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: color(side) }} />}
-            {score != null ? `${score} paire${score > 1 ? 's' : ''}` : side === 1 ? 'Commence' : 'Deuxième'}
+            {score != null ? `${score} paire${score > 1 ? 's' : ''}` : turn ? (m?.id === me.id ? 'À toi de jouer' : 'À son tour') : g.status === 'fini' ? 'Partie terminée' : 'En attente'}
           </span>
         </span>
       </div>
@@ -492,50 +493,55 @@ function GameView({ game: g, onClose, onRematch, onOpen }: { game: Game; onClose
   return (
     <Page title={GAMES[g.kind].name} onClose={onClose} scrollKey={g.id}>
       <style>{CSS}</style>
-      <div className="mx-4 flex items-center gap-2">
-        {chip(p1, 1)}
-        <span className="text-note font-semibold text-brume">contre</span>
-        {chip(p2, 2)}
-      </div>
-      <p className={`mt-4 text-center font-rond text-titre3 ${myTurn ? 'text-teinte-fonce' : ''}`}>{statusLine(g, members, me.id)}</p>
-      <LigneSous>
-        {g.status === 'en_cours' && playing && !myTurn
-          ? 'Pas besoin d’attendre ici : la partie te garde ta place.'
-          : g.status === 'fini' && g.winner && !(g.state as GridState).abandon
-            ? g.winner === me.id
-              ? 'Bravo ! +2 étoiles pour la maison'
-              : 'Bien joué ! La maison gagne quand même 2 étoiles'
-            : g.status === 'fini' && !g.winner && !(g.state as GridState).abandon
-              ? 'Belle partie !'
-              : ''}
-      </LigneSous>
-      {g.status === 'fini' && g.winner === me.id && !(g.state as GridState).abandon && !finiAuDebut.current && <Confettis />}
+      <GamePresentation kind={g.kind}>
+        <GameStatus art={GAMES[g.kind].art} status={statusLine(g, members, me.id)} active={myTurn} finished={g.status === 'fini'} />
+        <div className="game-players">
+          {chip(p1, 1)}
+          {chip(p2, 2)}
+        </div>
+        <LigneSous>
+          {g.status === 'en_cours' && playing && !myTurn
+            ? 'Pas besoin d’attendre ici : la partie te garde ta place.'
+            : g.status === 'fini' && g.winner && !(g.state as GridState).abandon
+              ? g.winner === me.id
+                ? 'Bravo ! +2 étoiles pour la maison'
+                : 'Bien joué ! La maison gagne quand même 2 étoiles'
+              : g.status === 'fini' && !g.winner && !(g.state as GridState).abandon
+                ? 'Belle partie !'
+                : ''}
+        </LigneSous>
+        {g.status === 'fini' && g.winner === me.id && !(g.state as GridState).abandon && !finiAuDebut.current && <Confettis />}
 
-      <div className="mx-4 mt-4">
-        {g.kind === 'puissance4' && <Puissance4 st={g.state as GridState} canPlay={myTurn && !busy} onPlay={(c) => void move(c)} />}
-        {g.kind === 'morpion' && <Morpion st={g.state as GridState} canPlay={myTurn && !busy} onPlay={(i) => void move(i)} />}
-        {mem && <Memory st={mem} photos={g.photos ?? []} canPlay={myTurn && !busy} onPlay={(i) => void move(i)} members={[p1, p2]} />}
-      </div>
+        <div className="game-table">
+          {myTurn && g.kind !== 'memory' && (
+            <p className="mb-3 text-center text-note text-brume">{g.kind === 'puissance4' ? 'Choisis une colonne pour déposer ton jeton.' : 'Choisis une case pour poser ton symbole.'}</p>
+          )}
+          {g.kind === 'puissance4' && <Puissance4 st={g.state as GridState} canPlay={myTurn && !busy} onPlay={(c) => void move(c)} />}
+          {g.kind === 'morpion' && <Morpion st={g.state as GridState} canPlay={myTurn && !busy} onPlay={(i) => void move(i)} />}
+          {mem && <Memory st={mem} photos={g.photos ?? []} canPlay={myTurn && !busy} onPlay={(i) => void move(i)} members={[p1, p2]} />}
+        </div>
 
-      <div className="mx-4 mt-6 flex flex-col gap-2.5">
-        {g.status === 'fini' && playing && <Btn onClick={() => void rematch()}>Revanche</Btn>}
-        {g.status === 'fini' && (
-          <Btn kind="gris" onClick={onClose}>
-            Autres jeux
-          </Btn>
-        )}
-        {g.status === 'en_cours' && playing && (
-          <Btn
-            kind="gris"
-            onClick={async () => {
-              if (await confirmer({ title: 'Abandonner la partie ?', message: 'L’autre joueur gagne.', confirm: 'Abandonner', destructive: true })) await run((a) => a.quitGame(g.id))
-            }}
-          >
-            Abandonner
-          </Btn>
-        )}
-      </div>
-      {!playing && <p className="mx-8 mt-4 text-center text-note text-brume">Tu regardes la partie : encourage-les !</p>}
+        <div className="game-actions">
+          {g.status === 'fini' && playing && <Btn onClick={() => void rematch()}>Revanche</Btn>}
+          {g.status === 'fini' && (
+            <Btn kind="gris" onClick={onClose}>
+              Autres jeux
+            </Btn>
+          )}
+          {g.status === 'en_cours' && playing && (
+            <Btn
+              className="game-quit"
+              kind="gris"
+              onClick={async () => {
+                if (await confirmer({ title: 'Abandonner la partie ?', message: 'L’autre joueur gagne.', confirm: 'Abandonner', destructive: true })) await run((a) => a.quitGame(g.id))
+              }}
+            >
+              Abandonner
+            </Btn>
+          )}
+        </div>
+        {!playing && <p className="mx-8 mt-4 text-center text-note text-brume">Tu regardes la partie : encourage-les !</p>}
+      </GamePresentation>
     </Page>
   )
 }
