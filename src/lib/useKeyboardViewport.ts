@@ -62,6 +62,15 @@ export function useKeyboardViewport() {
         // visible tant que ce décalage reste (sauf pendant un zoom à deux doigts).
         const zoom = Math.abs((viewport.scale ?? 1) - 1) > 0.01
         const coince = !open && !zoom && viewport.offsetTop > 1
+        // la première fois qu'on le voit coincé, on tente de le décoincer (un défilement « à vide » suffit
+        // parfois à Safari pour remettre la zone visible à sa place) ; sinon on la suit, comme ci-dessous
+        if (coince && !tente) {
+          tente = true
+          window.scrollTo(0, window.scrollY)
+          recaler(null)
+          window.setTimeout(update, 150)
+        }
+        if (!coince) tente = false
         setKeyboard(open)
         setDecale(open || coince)
         document.documentElement.style.setProperty('--app-height', open || coince ? `${viewport.height}px` : '100%')
@@ -83,6 +92,7 @@ export function useKeyboardViewport() {
     }
     let wasOpen = false
     let zone: HTMLElement | null = null
+    let tente = false
     viewport.addEventListener('resize', update)
     viewport.addEventListener('scroll', update)
     document.addEventListener('focusin', update)
