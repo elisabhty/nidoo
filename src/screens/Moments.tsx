@@ -290,7 +290,7 @@ function Bulle({ mo, auteur, mine, premier, dernier, ouvert, onOuvrir, onPhoto, 
   const coin = mine ? (dernier ? 'rounded-[22px] rounded-br-[8px]' : 'rounded-[22px] rounded-r-[10px]') : dernier ? 'rounded-[22px] rounded-bl-[8px]' : 'rounded-[22px] rounded-l-[10px]'
 
   return (
-    <div className={`flex items-end gap-2 ${mine ? 'justify-end' : ''} ${dernier ? 'mb-3' : 'mb-[3px]'} ${groupes.length && !dernier ? 'pb-4' : ''}`}>
+    <div className={`flex items-end gap-2 ${mine ? 'justify-end' : ''} ${dernier ? 'mb-2' : 'mb-[2px]'} ${groupes.length && !dernier ? 'pb-4' : ''}`}>
       {!mine && <span className="w-8 shrink-0">{dernier && <Avatar m={auteur} size={32} />}</span>}
       <div className={`relative flex max-w-[78%] flex-col ${mine ? 'items-end' : 'items-start'}`}>
         {!mine && premier && <span className="mb-1 ml-3 text-note font-semibold text-brume">{auteur.display_name}</span>}
@@ -336,7 +336,7 @@ function Bulle({ mo, auteur, mine, premier, dernier, ouvert, onOuvrir, onPhoto, 
               tap()
               onOuvrir()
             }}
-            className={`presse flex h-[136px] w-[116px] items-center justify-center bg-transparent py-1 ${anim ? 'anim-colle' : ''}`}
+            className={`presse flex h-[104px] w-[104px] items-center justify-center bg-transparent p-0 ${anim ? 'anim-colle' : ''}`}
           >
             <StickerImg cle={mo.sticker!} className="block h-full w-full object-contain" />
           </div>
