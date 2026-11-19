@@ -156,8 +156,11 @@ export function JeuxPage({ onClose, start }: { onClose: () => void; start?: stri
                 {meta(kind).name}
                 {joue(x) ? ` avec ${autres.map((y) => nameOf(members, y, me.id)).join(', ')}` : ` · ${joueurs.map((y) => nameOf(members, y, me.id)).join(', ')}`}
               </span>
-              <span className={`block truncate text-note ${mineTurn ? 'font-semibold text-teinte' : 'text-brume'}`}>
-                {x.t === 'g' ? statusLine(x.g, members, me.id) : statutPartie(x.p, members, me.id)} · {ago(x.t === 'g' ? x.g.updated_at : x.p.updated_at)}
+              <span className="flex min-w-0 items-center gap-1.5 text-note text-brume">
+                <span className={mineTurn ? 'shrink-0 rounded-full bg-teinte-doux px-2 py-0.5 text-mini font-semibold text-teinte-fonce' : 'truncate'}>
+                  {x.t === 'g' ? statusLine(x.g, members, me.id) : statutPartie(x.p, members, me.id)}
+                </span>
+                <span className="truncate">· {ago(x.t === 'g' ? x.g.updated_at : x.p.updated_at)}</span>
               </span>
             </span>
             <img src={`./art/${meta(kind).art}.webp`} alt="" className="h-10 w-10 shrink-0 object-contain" />
@@ -205,12 +208,11 @@ export function JeuxPage({ onClose, start }: { onClose: () => void; start?: stri
       <Page title="Jouer ensemble" onClose={onClose}>
         <p className="-mt-1 px-5 text-sous text-brume">Chacun joue quand il veut : la partie vous attend. Et si vous êtes là en même temps, ça se joue en direct.</p>
         <MotCarte onOpen={() => setMot(true)} />
-        {group('À toi de jouer', aJouer)}
+        <ListePaginee titre="Mes parties" parties={[...aJouer, ...attente]} ligne={row} />
         <p className="entete mt-6">À deux</p>
         <div className="mx-4 grid grid-cols-3 gap-2.5">{A_DEUX.map(tuile)}</div>
         <p className="entete mt-6">En famille</p>
         <div className="mx-4 grid grid-cols-3 gap-2.5">{EN_FAMILLE.map(tuile)}</div>
-        <ListePaginee titre="En attente" parties={attente} ligne={row} />
         {group('Dans la famille', famille)}
         <ListePaginee titre="Terminées" parties={finies} ligne={row} />
         {!mine.length && !famille.length && <p className="mx-8 mb-4 mt-8 text-center text-note text-brume">Choisis un jeu, puis avec qui jouer. Une partie gagnée rapporte des étoiles à la maison.</p>}
