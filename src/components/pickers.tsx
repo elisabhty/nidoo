@@ -470,7 +470,7 @@ export function ProfilePicker({ name, setName, avatar, setAvatar, color, setColo
 }
 
 /** Le premier écran du personnage : l'aperçu, le prénom, et les choix dans une fenêtre à part (l'aperçu y reste visible). */
-export function ProfileStep({ name, setName, avatar, setAvatar, color, setColor, placeholder = 'Ton prénom ou ton surnom', owned = [] }: ProfileProps) {
+export function ProfileStep({ name, setName, avatar, setAvatar, color, setColor, placeholder = 'Ton prénom ou ton surnom', owned = [], sansNom = false }: ProfileProps & { sansNom?: boolean }) {
   const ed = usePerso(avatar, setAvatar)
   const [open, setOpen] = useState(false)
   // la fenêtre s'ouvre par-dessus tout l'écran (data-feuilles), pas dans l'étape qui s'anime
@@ -485,8 +485,8 @@ export function ProfileStep({ name, setName, avatar, setAvatar, color, setColor,
       <div ref={here}>
         <Portrait ed={ed} color={color} />
       </div>
-      <NameField name={name} setName={setName} placeholder={placeholder} />
-      <Btn kind="teinte" className="mt-3" onClick={() => setOpen(true)}>
+      {!sansNom && <NameField name={name} setName={setName} placeholder={placeholder} />}
+      <Btn kind={sansNom ? 'blanc' : 'teinte'} className="mt-3" onClick={() => setOpen(true)}>
         <Palette size={18} strokeWidth={2.4} /> Changer mon personnage
       </Btn>
       {open && target && createPortal(
