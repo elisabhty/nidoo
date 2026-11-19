@@ -69,8 +69,8 @@ export function Screen({ title, trailing, leading, children, compact = false }: 
         </div>
       </div>
       <div
-        className="no-bar h-full overflow-y-auto overscroll-contain pb-[120px]"
-        style={{ paddingTop: 'calc(var(--sat) + 52px)' }}
+        className={`no-bar overflow-y-auto overscroll-contain pb-[120px] ${compact ? 'absolute inset-x-0 bottom-0' : 'h-full'}`}
+        style={compact ? { top: 'calc(var(--sat) + 52px)' } : { paddingTop: 'calc(var(--sat) + 52px)' }}
         onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 34)}
       >
         {!compact && <h1 className="px-5 pb-3 pt-2 tracking-[-0.8px] font-sans text-grand">{title}</h1>}
