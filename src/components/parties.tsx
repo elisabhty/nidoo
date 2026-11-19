@@ -65,7 +65,8 @@ export function statutPartie(p: Partie, members: Member[], me: string) {
   if (p.kind === 'tour' && p.turn) return `Au tour de ${nom(members, p.turn, me)}`
   if (PARTIES[p.kind].max === 2 && p.turn && p.turn !== me) return `Au tour de ${nom(members, p.turn, me)}`
   const att = attendus(p).filter((x) => x !== me)
-  return att.length ? `En attente de ${noms(att, members, me)}` : 'En cours'
+  if (att.length > 1) return `${att.length} joueurs doivent jouer`
+  return att.length ? `Au tour de ${nom(members, att[0], me)}` : 'En cours'
 }
 
 // ───────── Nouvelle partie ─────────

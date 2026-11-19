@@ -57,7 +57,7 @@ const PARTIES_PAR_PAGE = 5
 type FiltreParties = 'jouer' | 'attente' | 'terminees'
 const FILTRES_PARTIES: { id: FiltreParties; label: string; vide: string }[] = [
   { id: 'jouer', label: 'À toi de jouer', vide: 'Tu as joué tous tes tours pour le moment.' },
-  { id: 'attente', label: 'En attente', vide: 'Aucune partie en attente.' },
+  { id: 'attente', label: 'À leur tour', vide: 'Aucune partie en attente.' },
   { id: 'terminees', label: 'Terminées', vide: 'Aucune partie terminée dans ton historique récent.' },
 ]
 
@@ -179,7 +179,7 @@ export function JeuxPage({ onClose, start }: { onClose: () => void; start?: stri
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sous font-semibold">
                 {meta(kind).name}
-                {joue(x) ? ` avec ${autres.map((y) => nameOf(members, y, me.id)).join(', ')}` : ` · ${joueurs.map((y) => nameOf(members, y, me.id)).join(', ')}`}
+                {joue(x) ? (autres.length > 2 ? ` avec ${autres.length} joueurs` : ` avec ${autres.map((y) => nameOf(members, y, me.id)).join(', ')}`) : ` · ${joueurs.map((y) => nameOf(members, y, me.id)).join(', ')}`}
               </span>
               <span className="flex min-w-0 items-center gap-1.5 text-note text-brume">
                 <span className={mineTurn ? 'shrink-0 rounded-full bg-teinte-doux px-2 py-0.5 text-mini font-semibold text-teinte-fonce' : 'truncate'}>
