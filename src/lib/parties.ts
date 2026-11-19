@@ -3,7 +3,7 @@
 // Les règles sont vérifiées par la base (supabase/migrations/0019_jeux_famille.sql) ; ce fichier les reprend
 // pour le mode démo, où les proches fictifs jouent aussi.
 
-export type PartieKind = 'bataille' | 'quidenous' | 'dessin' | 'annee' | 'telephone'
+export type PartieKind = 'bataille' | 'quidenous' | 'dessin' | 'annee' | 'telephone' | 'tour'
 
 /** Un trait de dessin sur une feuille de 1000 × 750 : couleur, épaisseur, points [x, y, x, y…]. */
 export type Trait = { c: number; w: number; p: number[] }
@@ -31,7 +31,10 @@ export type DessinState = Fin & { n: number; i: number; phase: 'dessin' | 'devin
 export type AnneeState = Fin & { photos: string[]; fait: string[]; annees?: number[]; reponses?: Record<string, number[]>; totaux?: Record<string, number> }
 export type Etape = { par: string; v: string | Dessin }
 export type TelState = Fin & { avance: number[]; album?: Etape[][] }
-export type PartieState = BatailleState | QdnState | DessinState | AnneeState | TelState
+/** La tour : les pièces posées (forme, centre, angle, qui l'a posée) et la forme du prochain (tirée par la base). */
+export type PieceTour = { k: number; x: number; y: number; a: number; par: string }
+export type TourState = Fin & { pieces: PieceTour[]; prochaine: number; dernier?: string; tombe?: boolean; perdant?: string }
+export type PartieState = BatailleState | QdnState | DessinState | AnneeState | TelState | TourState
 
 /** Ce que chacun est seul à voir (public.secret_partie). */
 export type Secret = {
@@ -49,6 +52,7 @@ export const PARTIES: Record<PartieKind, { name: string; hint: string; art: stri
   quidenous: { name: 'Qui de nous ?', hint: 'Votez en secret', art: 'jeu-quidenous', min: 2, max: 8 },
   annee: { name: 'Devine l’année', hint: 'Dater une photo', art: 'jeu-annee', min: 2, max: 8 },
   telephone: { name: 'Téléphone', hint: 'Phrase, dessin…', art: 'jeu-telephone', min: 3, max: 8 },
+  tour: { name: 'La tour', hint: 'Ne la fais pas tomber', art: 'jeu-tour', min: 2, max: 15 },
 }
 
 export const ANNEE_MIN = 1850
@@ -189,6 +193,8 @@ export function aMoi(p: { kind: PartieKind; players: string[]; turn: string | nu
       return side > 0 && !(p.state as AnneeState).fait.includes(me)
     case 'telephone':
       return (p.state as TelState).avance.some((j, k) => j < n && p.players[(k + j) % n] === me)
+    case 'tour':
+      return p.turn === me
   }
 }
 
@@ -210,6 +216,8 @@ export function attendus(p: { kind: PartieKind; players: string[]; turn: string 
       const s = p.state as TelState
       return [...new Set(s.avance.flatMap((j, k) => (j < n ? [p.players[(k + j) % n]] : [])))]
     }
+    case 'tour':
+      return p.turn ? [p.turn] : []
   }
 }
 

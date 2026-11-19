@@ -22,7 +22,9 @@ import {
   type QdnState,
   type Secret,
   type TelState,
+  type TourState,
 } from './parties'
+import { FORMES, hauteurDeDepart, lacher, LIGNE_CHUTE, Monde } from './tour'
 import type { Member, Partie } from './types'
 import { uid } from './util'
 
@@ -56,7 +58,7 @@ export function partiesDemo({ award: awardAny, save, myId: myIdAny }: Deps) {
     for (const x of others) if (x && !pl.includes(x)) pl.push(x)
     if (pl.some((x) => !f.members.find((m) => m.id === x && m.user_id))) throw new Error('ADVERSAIRE_INCONNU')
     const n = pl.length
-    if ((['bataille', 'dessin'].includes(kind) && n !== 2) || (['quidenous', 'annee'].includes(kind) && (n < 2 || n > 8)) || (kind === 'telephone' && (n < 3 || n > 8))) throw new Error('JOUEURS')
+    if ((['bataille', 'dessin'].includes(kind) && n !== 2) || (['quidenous', 'annee'].includes(kind) && (n < 2 || n > 8)) || (kind === 'telephone' && (n < 3 || n > 8)) || (kind === 'tour' && (n < 2 || n > 15))) throw new Error('JOUEURS')
     let state: Partie['state']
     let cache: Cache = {}
     let turn: string | null = null
@@ -71,6 +73,9 @@ export function partiesDemo({ award: awardAny, save, myId: myIdAny }: Deps) {
     } else if (kind === 'dessin') {
       state = { n: 4, i: 0, phase: 'dessin', dessin: null, essais: [], rondes: [], trouves: 0 }
       cache = { mot: hasard(MOTS_A_DESSINER) }
+      turn = me
+    } else if (kind === 'tour') {
+      state = { pieces: [], prochaine: Math.floor(Math.random() * FORMES.length) }
       turn = me
     } else if (kind === 'annee') {
       const annees = setup.annees as number[]
@@ -103,6 +108,28 @@ export function partiesDemo({ award: awardAny, save, myId: myIdAny }: Deps) {
     const n = p.players.length
     const t = a.t
     p.updated_at = now()
+
+    if (p.kind === 'tour') {
+      const s = p.state as TourState
+      if (t !== 'pose') throw new Error('COUP_INTERDIT')
+      if (p.turn !== who) throw new Error('PAS_TON_TOUR')
+      const tas = a.tas as number[][]
+      if (a.k !== s.prochaine || typeof a.tombe !== 'boolean' || !Array.isArray(tas) || tas.length !== s.pieces.length + 1) throw new Error('COUP_INTERDIT')
+      if (tas.some((v) => !Array.isArray(v) || v.length !== 3 || v.some((x) => typeof x !== 'number' || !Number.isFinite(x) || Math.abs(x) > 100000))) throw new Error('COUP_INTERDIT')
+      const r2 = (x: number, d: number) => Math.round(x * 10 ** d) / 10 ** d
+      s.pieces = tas.map(([x, y, an], i) => ({ k: i < s.pieces.length ? s.pieces[i].k : s.prochaine, par: i < s.pieces.length ? s.pieces[i].par : who, x: r2(x, 2), y: r2(y, 2), a: r2(an, 4) }))
+      s.dernier = who
+      s.prochaine = Math.floor(Math.random() * FORMES.length)
+      if (a.tombe) {
+        s.tombe = true
+        s.perdant = who
+        finir(p, n === 2 ? (p.players.find((x) => x !== who) ?? null) : null)
+        for (const x of p.players) if (x !== who) award(f, x, 'tour', 1, 5)
+        return { fini: true }
+      }
+      p.turn = p.players[side % n]
+      return { fini: false }
+    }
 
     if (p.kind === 'bataille') {
       const s = p.state as BatailleState
@@ -291,6 +318,8 @@ export function partiesDemo({ award: awardAny, save, myId: myIdAny }: Deps) {
         return p.status === 'en_cours' && (p.state as DessinState).phase === 'dessin' && p.turn === who ? { mot: c.mot } : {}
       case 'annee':
         return side === 1 ? { annees: c.annees } : { mes: c.reponses?.[who] ?? null }
+      case 'tour':
+        return {}
       case 'telephone': {
         if (p.status !== 'en_cours') return {}
         const s = p.state as TelState
@@ -372,6 +401,17 @@ export function partiesDemo({ award: awardAny, save, myId: myIdAny }: Deps) {
         if (side === 1 || s.fait.includes(bot)) return null
         const an = new Date().getFullYear()
         return { t: 'reponses', r: (c.annees ?? []).map((y) => Math.min(an, Math.max(1850, y + Math.round((Math.random() - 0.5) * 24)))) }
+      }
+      case 'tour': {
+        // le proche vise le haut de la tour, plus ou moins adroitement, et laisse tomber la pièce
+        if (p.turn !== bot) return null
+        const s = p.state as TourState
+        const m = new Monde(s.pieces)
+        const haut = s.pieces.filter((q) => q.y < LIGNE_CHUTE).sort((u, v) => u.y - v.y)[0]
+        const vise = haut ? haut.x : 0
+        const piece = { k: s.prochaine, x: vise + (Math.random() - 0.5) * 24, y: hauteurDeDepart(m.sommet()), a: Math.random() < 0.85 ? 0 : (Math.round(Math.random() * 3) * Math.PI) / 2 }
+        const r = lacher(s.pieces, piece)
+        return { t: 'pose', k: s.prochaine, tas: r.pieces.map((q) => [q.x, q.y, q.a]), tombe: r.tombe }
       }
       case 'telephone': {
         const s = p.state as TelState

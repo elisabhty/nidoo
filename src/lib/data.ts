@@ -111,6 +111,7 @@ export const STAR_REASONS: Record<string, string> = {
   caresse: 'a caressé un animal',
   jeu: 'a joué avec le compagnon',
   partie: 'a gagné une partie',
+  tour: 'a tenu bon à la tour',
   accord: 'était d’accord avec toute la famille',
   trouve: 'a deviné un dessin',
   mot: 'a trouvé le mot mystère',

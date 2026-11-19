@@ -19,6 +19,7 @@ import {
   type QdnState,
   type Secret,
   type TelState,
+  type TourState,
 } from '../lib/parties'
 import { jouer } from '../lib/sons'
 import { shareInvite } from '../lib/share'
@@ -26,6 +27,7 @@ import { useHome } from '../lib/store'
 import type { Member, Partie } from '../lib/types'
 import { errorText } from '../lib/util'
 import { Ardoise, DessinVue } from './ardoise'
+import { TourJeu } from './tourJeu'
 import { Avatar, Btn, confirmer, Confettis, LigneSous, Page, Sheet } from './ui'
 
 // Les jeux à plusieurs : bataille navale, Qui de nous ?, dessine et devine, devine l'année, téléphone dessiné.
@@ -49,10 +51,15 @@ export function statutPartie(p: Partie, members: Member[], me: string) {
     if (p.kind === 'quidenous') return `Terminée · ${(p.state as QdnState).accords} fois tous d’accord`
     if (p.kind === 'dessin') return `Terminée · ${(p.state as DessinState).trouves} dessins trouvés sur ${(p.state as DessinState).n}`
     if (p.kind === 'telephone') return 'L’album est prêt !'
+    if (p.kind === 'tour') {
+      const t = p.state as TourState
+      return t.perdant === me ? 'Patatras ! Tu as fait tomber la tour' : `Patatras ! ${nom(members, t.perdant, me)} a fait tomber la tour`
+    }
     if (!p.winner) return 'Égalité !'
     return p.winner === me ? 'Tu as gagné !' : `${nom(members, p.winner, me)} a gagné`
   }
   if (aMoi(p, me)) return 'À toi de jouer'
+  if (p.kind === 'tour' && p.turn) return `Au tour de ${nom(members, p.turn, me)}`
   if (PARTIES[p.kind].max === 2 && p.turn && p.turn !== me) return `Au tour de ${nom(members, p.turn, me)}`
   const att = attendus(p).filter((x) => x !== me)
   return att.length ? `En attente de ${noms(att, members, me)}` : 'En cours'
@@ -169,6 +176,7 @@ export function NewPartie({ kind, onClose, onStarted, avec }: { kind: PartieKind
       {kind === 'quidenous' && <p className="mt-5 text-center text-note text-brume">{QUESTIONS_QDN.length > 0 && `${quiDeNous(nbJoueurs)} ${QUESTIONS_QDN[0]} ?`} Huit questions, chacun retourne en secret la carte de quelqu’un, puis on découvre les choix.</p>}
       {kind === 'telephone' && <p className="mt-5 text-center text-note text-brume">Chacun écrit une phrase, le suivant la dessine, le suivant devine le dessin… À la fin, on découvre ce que sont devenues les phrases.</p>}
       {kind === 'dessin' && <p className="mt-5 text-center text-note text-brume">Quatre manches : l’un dessine un mot, l’autre a trois essais pour le deviner, puis on échange.</p>}
+      {kind === 'tour' && <p className="mt-5 text-center text-note text-brume">Chacun son tour, on reçoit une forme en feutrine : on la glisse, on la tourne, on la lâche sur la tour. Celui qui fait tomber une pièce a perdu. De 2 joueurs à toute la famille !</p>}
       {kind === 'bataille' && <p className="mt-5 text-center text-note text-brume">Chacun place ses 4 bateaux (au hasard, on peut mélanger), puis on tire chacun son tour. Le premier qui coule toute la flotte gagne.</p>}
 
       {annee && (
@@ -329,7 +337,10 @@ export function PartieView({ partie: p, onClose, onOpen, onNouvelle }: { partie:
       </div>
       {p.status === 'en_cours' && !deux && <p className="mt-1 text-center text-mini text-brume">Entouré : doit jouer · ✓ : a déjà joué</p>}
       <p className={`mt-4 px-4 text-center font-rond text-titre3 ${aMoi(p, me.id) ? 'text-teinte-fonce' : ''}`}>{statutPartie(p, members, me.id)}</p>
-      {p.status === 'fini' && p.winner && !(p.state as { abandon?: boolean }).abandon && (
+      {p.status === 'fini' && p.kind === 'tour' && !(p.state as { abandon?: boolean }).abandon && (
+        <LigneSous>{(p.state as TourState).perdant === me.id ? 'Les autres ont tenu bon : une étoile chacun pour la maison' : 'Tu as tenu bon : +1 étoile pour la maison'}</LigneSous>
+      )}
+      {p.status === 'fini' && p.kind !== 'tour' && p.winner && !(p.state as { abandon?: boolean }).abandon && (
         <LigneSous>{p.winner === me.id ? 'Bravo ! +2 étoiles pour la maison' : 'Bien joué ! La maison gagne quand même 2 étoiles'}</LigneSous>
       )}
       {p.status === 'fini' && p.winner === me.id && !(p.state as { abandon?: boolean }).abandon && !finiAuDebut.current && <Confettis />}
@@ -341,6 +352,7 @@ export function PartieView({ partie: p, onClose, onOpen, onNouvelle }: { partie:
         {p.kind === 'dessin' && <DessineDevine p={p} sec={sec} me={me.id} members={members} busy={busy} act={act} dire={dire} />}
         {p.kind === 'annee' && <DevineAnnee p={p} sec={sec} me={me.id} members={members} busy={busy} act={act} />}
         {p.kind === 'telephone' && <Telephone p={p} sec={sec} me={me.id} members={members} busy={busy} act={act} />}
+        {p.kind === 'tour' && <TourJeu p={p} me={me.id} members={members} busy={busy} act={act} />}
       </div>
 
       <div className="mx-4 mb-4 mt-6 flex flex-col gap-2.5">

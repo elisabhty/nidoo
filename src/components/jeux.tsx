@@ -48,7 +48,7 @@ function statusLine(g: Game, members: Member[], me: string) {
 type Item = { t: 'g'; g: Game } | { t: 'p'; p: Partie }
 const A_DEUX: (GameKind | PartieKind)[] = ['puissance4', 'morpion', 'memory', 'bataille', 'dessin']
 // (« Devine l'année » a été retiré : ses anciennes parties ne s'affichent plus.)
-const EN_FAMILLE: PartieKind[] = ['quidenous', 'telephone']
+const EN_FAMILLE: PartieKind[] = ['tour', 'quidenous', 'telephone']
 const meta = (k: GameKind | PartieKind) => (k in GAMES ? GAMES[k as GameKind] : PARTIES[k as PartieKind])
 
 export function JeuxPage({ onClose, start }: { onClose: () => void; start?: string }) {
