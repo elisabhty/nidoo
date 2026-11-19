@@ -6,6 +6,7 @@ import {
   ANNEE_PHOTOS,
   attendus,
   BN,
+  PANDA,
   PARTIES,
   PHRASES_DEMO,
   questionsAuHasard,
@@ -37,7 +38,7 @@ import { Avatar, Btn, confirmer, Confettis, LigneSous, Page, Sheet } from './ui'
 const VIOLET = '#7A5AE0'
 const CORAIL = '#FF8A7A'
 
-const nom = (members: Member[], id: string | null | undefined, me: string) => (id === me ? 'Toi' : (members.find((m) => m.id === id)?.display_name ?? 'Un proche'))
+const nom = (members: Member[], id: string | null | undefined, me: string) => (id === PANDA ? 'Le panda' : id === me ? 'Toi' : (members.find((m) => m.id === id)?.display_name ?? 'Un proche'))
 const noms = (ids: string[], members: Member[], me: string) => {
   const l = ids.map((x) => nom(members, x, me))
   return l.length <= 1 ? (l[0] ?? '') : `${l.slice(0, -1).join(', ')} et ${l[l.length - 1]}`
@@ -59,6 +60,7 @@ export function statutPartie(p: Partie, members: Member[], me: string) {
     return p.winner === me ? 'Tu as gagné !' : `${nom(members, p.winner, me)} a gagné`
   }
   if (aMoi(p, me)) return 'À toi de jouer'
+  if (p.kind === 'tour' && p.turn === PANDA) return 'Au tour du panda'
   if (p.kind === 'tour' && p.turn) return `Au tour de ${nom(members, p.turn, me)}`
   if (PARTIES[p.kind].max === 2 && p.turn && p.turn !== me) return `Au tour de ${nom(members, p.turn, me)}`
   const att = attendus(p).filter((x) => x !== me)
@@ -75,7 +77,8 @@ export function NewPartie({ kind, onClose, onStarted, avec }: { kind: PartieKind
   const meta = PARTIES[kind]
   const proches = members.filter((m) => m.user_id && m.id !== me.id)
   const seul = meta.max === 2
-  const [who, setWho] = useState<string[]>(avec ?? (seul && proches.length === 1 ? [proches[0].id] : !seul ? proches.slice(0, meta.max - 1).map((m) => m.id) : []))
+  const tour = kind === 'tour'
+  const [who, setWho] = useState<string[]>(avec ?? (seul && proches.length === 1 ? [proches[0].id] : !seul ? [...(tour ? [PANDA] : []), ...proches.slice(0, meta.max - (tour ? 2 : 1)).map((m) => m.id)] : []))
   const [picks, setPicks] = useState<Pick[]>([])
   const [busy, setBusy] = useState(false)
   const input = useRef<HTMLInputElement>(null)
@@ -123,7 +126,7 @@ export function NewPartie({ kind, onClose, onStarted, avec }: { kind: PartieKind
 
   const manque = meta.min - nbJoueurs
   // pas assez de proches dans la maison pour ce jeu (le téléphone se joue à 3 ou plus)
-  const pasAssez = proches.length < meta.min - 1
+  const pasAssez = !tour && proches.length < meta.min - 1
   const inviter = async () => {
     tap()
     const f = state.family
@@ -151,8 +154,24 @@ export function NewPartie({ kind, onClose, onStarted, avec }: { kind: PartieKind
         </p>
       )}
       <p className="text-center text-sous text-brume">{seul ? 'Avec qui ?' : `Qui joue ? (${meta.min} joueurs ou plus, toi compris)`}</p>
-      {proches.length ? (
+      {proches.length || tour ? (
         <div className="no-bar mt-3 flex justify-center gap-4 overflow-x-auto pb-1">
+          {tour && (
+            // le panda roux : toujours là pour jouer, même seul
+            <button onClick={() => toggleWho(PANDA)} aria-pressed={who.includes(PANDA)} className="presse flex w-[70px] shrink-0 flex-col items-center gap-1">
+              <span className={`relative rounded-full ${who.includes(PANDA) ? 'ring-[3px] ring-teinte ring-offset-2' : ''}`}>
+                <span className="flex h-[58px] w-[58px] items-center justify-center rounded-full bg-[#FFEDE2]">
+                  <img src="./art/stickers/panda-heureux.webp" alt="" className="h-[50px] w-[50px]" />
+                </span>
+                {who.includes(PANDA) && (
+                  <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-teinte text-white ring-2 ring-white">
+                    <Check size={12} strokeWidth={3.2} />
+                  </span>
+                )}
+              </span>
+              <span className={`w-full truncate text-sous ${who.includes(PANDA) ? 'font-semibold text-teinte-fonce' : ''}`}>Le panda</span>
+            </button>
+          )}
           {proches.map((m) => {
             const on = who.includes(m.id)
             return (
@@ -176,7 +195,7 @@ export function NewPartie({ kind, onClose, onStarted, avec }: { kind: PartieKind
       {kind === 'quidenous' && <p className="mt-5 text-center text-note text-brume">{QUESTIONS_QDN.length > 0 && `${quiDeNous(nbJoueurs)} ${QUESTIONS_QDN[0]} ?`} Huit questions, chacun retourne en secret la carte de quelqu’un, puis on découvre les choix.</p>}
       {kind === 'telephone' && <p className="mt-5 text-center text-note text-brume">Chacun écrit une phrase, le suivant la dessine, le suivant devine le dessin… À la fin, on découvre ce que sont devenues les phrases.</p>}
       {kind === 'dessin' && <p className="mt-5 text-center text-note text-brume">Quatre manches : l’un dessine un mot, l’autre a trois essais pour le deviner, puis on échange.</p>}
-      {kind === 'tour' && <p className="mt-5 text-center text-note text-brume">Chacun son tour, on reçoit une forme en feutrine : on la glisse, on la tourne, on la lâche sur la tour. Celui qui fait tomber une pièce a perdu. De 2 joueurs à toute la famille !</p>}
+      {kind === 'tour' && <p className="mt-5 text-center text-note text-brume">Chacun son tour, on reçoit une forme en feutrine : on la glisse, on la tourne, on la lâche sur la tour. Celui qui fait tomber une pièce a perdu. De 2 joueurs à toute la famille ! Le panda peut jouer aussi : il joue son tour dès qu’un joueur ouvre la partie.</p>}
       {kind === 'bataille' && <p className="mt-5 text-center text-note text-brume">Chacun place ses 4 bateaux (au hasard, on peut mélanger), puis on tire chacun son tour. Le premier qui coule toute la flotte gagne.</p>}
 
       {annee && (
@@ -325,6 +344,7 @@ export function PartieView({ partie: p, onClose, onOpen, onNouvelle }: { partie:
           return (
             <div key={x} className={`flex shrink-0 items-center gap-2 rounded-full bg-white p-1 pr-3 ${doit ? 'shadow-carte' : ''}`} style={doit ? { boxShadow: `0 0 0 2.5px ${VIOLET}` } : undefined}>
               {m && <Avatar m={m} size={34} />}
+              {x === PANDA && <img src="./art/stickers/panda-heureux.webp" alt="" className="h-[34px] w-[34px]" />}
               <span className="text-sous font-semibold">{nom(members, x, me.id)}</span>
               {p.status === 'en_cours' && !doit && (
                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-teinte text-white" aria-label="a joué">

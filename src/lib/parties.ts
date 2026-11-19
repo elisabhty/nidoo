@@ -31,6 +31,9 @@ export type DessinState = Fin & { n: number; i: number; phase: 'dessin' | 'devin
 export type AnneeState = Fin & { photos: string[]; fait: string[]; annees?: number[]; reponses?: Record<string, number[]>; totaux?: Record<string, number> }
 export type Etape = { par: string; v: string | Dessin }
 export type TelState = Fin & { avance: number[]; album?: Etape[][] }
+/** Le panda roux, qui peut jouer à la tour (ce n'est pas un membre : la base l'accepte seulement à ce jeu). */
+export const PANDA = '00000000-0000-4000-8000-00000000da7a'
+
 /** La tour : les pièces posées (forme, centre, angle, qui l'a posée) et la forme du prochain (tirée par la base). */
 export type PieceTour = { k: number; x: number; y: number; a: number; par: string }
 export type TourState = Fin & { pieces: PieceTour[]; prochaine: number; dernier?: string; tombe?: boolean; perdant?: string }

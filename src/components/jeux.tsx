@@ -5,7 +5,7 @@ import { COLS, dropCell, GAMES, isMemory, MEMORY_MAX, MEMORY_MIN, ROWS, type Gam
 import { jouer } from '../lib/sons'
 import { useHome } from '../lib/store'
 import type { FamilyState, Game, Member, Partie } from '../lib/types'
-import { aMoi, PARTIES, type PartieKind } from '../lib/parties'
+import { aMoi, PANDA, PARTIES, type PartieKind } from '../lib/parties'
 import { MotCarte, MotPage } from './motmystere'
 import { NewPartie, PartieView, statutPartie } from './parties'
 import { ago, errorText } from '../lib/util'
@@ -25,7 +25,7 @@ export const myTurns = (state: FamilyState): (Game | Partie)[] => [
   ...state.parties.filter((p) => p.kind !== 'annee' && aMoi(p, state.me.id)),
 ]
 
-const nameOf = (members: Member[], id: string | null, me: string) => (id === me ? 'Toi' : (members.find((m) => m.id === id)?.display_name ?? 'Un proche'))
+const nameOf = (members: Member[], id: string | null, me: string) => (id === PANDA ? 'le panda' : id === me ? 'Toi' : (members.find((m) => m.id === id)?.display_name ?? 'Un proche'))
 
 function statusLine(g: Game, members: Member[], me: string) {
   const other = g.p1 === me ? g.p2 : g.p1
@@ -90,6 +90,7 @@ export function JeuxPage({ onClose, start }: { onClose: () => void; start?: stri
         <span className="flex -space-x-3">
           {autres.slice(0, 3).map((y) => {
             const m = members.find((z) => z.id === y)
+            if (y === PANDA) return <img key={y} src="./art/stickers/panda-heureux.webp" alt="" className="h-10 w-10 rounded-full bg-[#FFEDE2]" />
             return m ? <Avatar key={y} m={m} size={40} /> : null
           })}
         </span>

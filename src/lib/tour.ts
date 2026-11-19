@@ -439,3 +439,30 @@ export function lacher(tour: Piece[], p: Piece, maxImages = 900): { pieces: Piec
   }
   return { pieces: m.etat(), tombe: m.tombees().length > 0 }
 }
+
+/**
+ * Le coup du panda : il essaie quelques endroits au-dessus de la tour (en faisant tomber la pièce « dans sa tête »)
+ * et garde le plus sûr, celui qui bouge le moins la tour. Parfois il est un peu maladroit, pour qu'on puisse le battre.
+ */
+export function coupDuPanda(tour: Piece[], k: number, hasard: () => number = Math.random): Piece {
+  const m = new Monde(tour)
+  const y = hauteurDeDepart(m.sommet())
+  const debout = tour.filter((q) => q.y < LIGNE_CHUTE)
+  const haut = [...debout].sort((u, v) => u.y - v.y)[0]
+  const centre = haut ? haut.x : 0
+  const essais: Piece[] = [-28, -14, 0, 14, 28].map((dx) => ({ k, x: Math.max(-BORD, Math.min(BORD, centre + dx + (hasard() - 0.5) * 6)), y, a: 0 }))
+  // maladroit une fois sur huit : il lâche sans réfléchir
+  if (hasard() < 0.125) return essais[Math.floor(hasard() * essais.length)]
+  let meilleur = essais[2]
+  let score = Infinity
+  for (const e of essais) {
+    const r = lacher(tour, e, 600)
+    const bouge = r.pieces.slice(0, tour.length).reduce((s, q, i) => s + Math.hypot(q.x - tour[i].x, q.y - tour[i].y) + Math.abs(q.a - tour[i].a) * 30, 0)
+    const s = (r.tombe ? 10000 : 0) + bouge + Math.abs(e.x) * 0.05
+    if (s < score) {
+      score = s
+      meilleur = e
+    }
+  }
+  return meilleur
+}

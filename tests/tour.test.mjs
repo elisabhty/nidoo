@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import { strict as assert } from 'node:assert'
 import { loadTs } from './loadTs.mjs'
-const { Monde, lacher, hauteurDeDepart, SOCLE, FORMES } = await loadTs('src/lib/tour.ts')
+const { Monde, lacher, hauteurDeDepart, SOCLE, FORMES, coupDuPanda } = await loadTs('src/lib/tour.ts')
 
 const empiler = (ks, dx = () => 0) => {
   let tour = []
@@ -45,4 +45,11 @@ test('chaque forme a ses couleurs et un nom', () => {
   }
   // la base tire la forme suivante parmi 9 (floor(random() * 9))
   assert.equal(FORMES.length, 9)
+})
+
+test('le panda pose sa pièce sans faire tomber une tour bien droite', () => {
+  const { tour } = empiler([0, 1, 0])
+  const coup = coupDuPanda(tour, 5, () => 0.5)
+  assert.equal(coup.k, 5)
+  assert.equal(lacher(tour, coup).tombe, false)
 })

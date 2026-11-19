@@ -23,6 +23,7 @@ import {
   type Secret,
   type TelState,
   type TourState,
+  PANDA,
 } from './parties'
 import { FORMES, hauteurDeDepart, lacher, LIGNE_CHUTE, Monde } from './tour'
 import type { Member, Partie } from './types'
@@ -56,7 +57,7 @@ export function partiesDemo({ award: awardAny, save, myId: myIdAny }: Deps) {
     const me = myId(f)
     const pl = [me]
     for (const x of others) if (x && !pl.includes(x)) pl.push(x)
-    if (pl.some((x) => !f.members.find((m) => m.id === x && m.user_id))) throw new Error('ADVERSAIRE_INCONNU')
+    if (pl.some((x) => !(kind === 'tour' && x === PANDA) && !f.members.find((m) => m.id === x && m.user_id))) throw new Error('ADVERSAIRE_INCONNU')
     const n = pl.length
     if ((['bataille', 'dessin'].includes(kind) && n !== 2) || (['quidenous', 'annee'].includes(kind) && (n < 2 || n > 8)) || (kind === 'telephone' && (n < 3 || n > 8)) || (kind === 'tour' && (n < 2 || n > 15))) throw new Error('JOUEURS')
     let state: Partie['state']
@@ -100,7 +101,8 @@ export function partiesDemo({ award: awardAny, save, myId: myIdAny }: Deps) {
   }
 
   /** Les règles, comme dans la base. */
-  function act(f: Fam, p: Partie, who: string, a: Record<string, unknown>): Record<string, unknown> {
+  function act(f: Fam, p: Partie, qui: string, a: Record<string, unknown>): Record<string, unknown> {
+    let who = qui
     if (p.status !== 'en_cours') throw new Error('PARTIE_FINIE')
     const side = p.players.indexOf(who) + 1
     if (!side) throw new Error('PAS_JOUEUR')
@@ -111,6 +113,12 @@ export function partiesDemo({ award: awardAny, save, myId: myIdAny }: Deps) {
 
     if (p.kind === 'tour') {
       const s = p.state as TourState
+      // le panda joue par le téléphone d'un joueur
+      if (a.pour === 'panda') {
+        if (p.turn !== PANDA) throw new Error('PAS_TON_TOUR')
+        who = PANDA
+      }
+      const sideJ = p.players.indexOf(who) + 1
       if (t !== 'pose') throw new Error('COUP_INTERDIT')
       if (p.turn !== who) throw new Error('PAS_TON_TOUR')
       const tas = a.tas as number[][]
@@ -124,10 +132,10 @@ export function partiesDemo({ award: awardAny, save, myId: myIdAny }: Deps) {
         s.tombe = true
         s.perdant = who
         finir(p, n === 2 ? (p.players.find((x) => x !== who) ?? null) : null)
-        for (const x of p.players) if (x !== who) award(f, x, 'tour', 1, 5)
+        for (const x of p.players) if (x !== who && x !== PANDA) award(f, x, 'tour', 1, 5)
         return { fini: true }
       }
-      p.turn = p.players[side % n]
+      p.turn = p.players[sideJ % n]
       return { fini: false }
     }
 
@@ -336,7 +344,7 @@ export function partiesDemo({ award: awardAny, save, myId: myIdAny }: Deps) {
     for (const p of f.parties ?? []) {
       if (p.status !== 'en_cours') continue
       for (const bot of p.players) {
-        if (bot === me) continue
+        if (bot === me || bot === PANDA) continue
         const key = `${p.id}:${bot}`
         if (enCours.has(key)) continue
         const action = coup(f, p, bot)

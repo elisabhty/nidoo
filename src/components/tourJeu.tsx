@@ -1,9 +1,9 @@
 import { RotateCcw, RotateCw } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { select, tap } from '../lib/haptic'
-import type { PieceTour, TourState } from '../lib/parties'
+import { PANDA, type PieceTour, type TourState } from '../lib/parties'
 import { jouer } from '../lib/sons'
-import { BORD, contour, FORMES, hauteurDeDepart, LIGNE_CHUTE, Monde, SOCLE, type Piece } from '../lib/tour'
+import { BORD, contour, coupDuPanda, FORMES, hauteurDeDepart, LIGNE_CHUTE, Monde, SOCLE, type Piece } from '../lib/tour'
 import type { Member, Partie } from '../lib/types'
 
 // La tour : on glisse la forme reçue, on la tourne, on la lâche. La physique tourne ici, dans le téléphone de
@@ -13,7 +13,9 @@ type Props = { p: Partie; me: string; members?: Member[]; busy: boolean; act: (a
 
 const LARGEUR_VUE = 320 // ce qu'on voit de large, en unités du monde
 const PAS_ANGLE = Math.PI / 4
-const nomDe = (members: Member[], id: string | undefined, me: string) => (id === me ? 'Toi' : (members.find((m) => m.id === id)?.display_name ?? 'Un proche'))
+const nomDe = (members: Member[], id: string | undefined, me: string) => (id === PANDA ? 'Le panda' : id === me ? 'Toi' : (members.find((m) => m.id === id)?.display_name ?? 'Un proche'))
+/** « de Mamie », « de toi », « du panda » */
+const deQui = (members: Member[], id: string | undefined, me: string) => (id === PANDA ? 'du panda' : id === me ? 'de toi' : `de ${nomDe(members, id, me)}`)
 
 type Trace = { k: number; pts: { x: number; y: number }[]; dort?: boolean }
 
@@ -87,6 +89,9 @@ export function TourJeu({ p, me, members = [], busy, act }: Props) {
   const glisse = useRef<{ id: number; dx: number } | null>(null)
   const arrivee = useRef<{ i: number; t0: number } | null>(null)
   const enChute = useRef(false)
+  // le panda joue par ce téléphone quand c'est son tour (un des joueurs regarde la partie)
+  const pourPanda = useRef(false)
+  const tourPanda = p.status === 'en_cours' && p.turn === PANDA && p.players.includes(me)
   const chute = useRef<number | null>(null)
 
   // la largeur réelle de l'écran
@@ -109,6 +114,7 @@ export function TourJeu({ p, me, members = [], busy, act }: Props) {
     monde.current = null
     enChute.current = false
     chute.current = null
+    pourPanda.current = false
     setPhase('vise')
     setTombe(!!s0.tombe)
     setX(0)
@@ -256,16 +262,34 @@ export function TourJeu({ p, me, members = [], busy, act }: Props) {
     if (phase !== 'envoi' || !monde.current) return
     const m = monde.current
     const tomb = m.tombees().length > 0
-    void act({ t: 'pose', k: s0.prochaine, tas: m.etat().map((q) => [q.x, q.y, q.a]), tombe: tomb }).then((r) => {
+    void act({ t: 'pose', k: s0.prochaine, tas: m.etat().map((q) => [q.x, q.y, q.a]), tombe: tomb, ...(pourPanda.current ? { pour: 'panda' } : {}) }).then((r) => {
       if (!r) {
         // pas envoyé (réseau) : on peut réessayer
         monde.current = null
         chute.current = null
+        pourPanda.current = false
         setTombe(false)
         setPhase('vise')
       }
     })
   }, [phase]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // au tour du panda : il réfléchit un instant, puis lâche sa pièce sous nos yeux
+  useEffect(() => {
+    if (!tourPanda || phase !== 'vise' || pourPanda.current) return
+    const t = window.setTimeout(() => {
+      if (monde.current) return
+      pourPanda.current = true
+      const piece = coupDuPanda(pieces, s0.prochaine)
+      const m = new Monde(pieces)
+      m.ajouter(piece)
+      monde.current = m
+      chute.current = null
+      enChute.current = true
+      setPhase('chute')
+    }, 1300)
+    return () => window.clearTimeout(t)
+  }, [tourPanda, phase, cle]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const lacher = () => {
     if (!aMoi || phase !== 'vise' || busy) return
@@ -298,7 +322,7 @@ export function TourJeu({ p, me, members = [], busy, act }: Props) {
     <div>
       <p className="mb-2 text-center text-note text-brume">
         {posees} {posees > 1 ? 'pièces' : 'pièce'} · {haut} cm de haut
-        {dernier && !s0.tombe && ` · dernière : ${FORMES[dernier.k]?.nom ?? 'une forme'} de ${nomDe(members, dernier.par, me)}`}
+        {dernier && !s0.tombe && ` · dernière : ${FORMES[dernier.k]?.nom ?? 'une forme'} ${deQui(members, dernier.par, me)}`}
       </p>
       {aMoi && (
         <p className="mb-2 px-2 text-center text-sous font-semibold text-teinte-fonce">
@@ -326,6 +350,12 @@ export function TourJeu({ p, me, members = [], busy, act }: Props) {
           onPointerUp={() => (glisse.current = null)}
           onPointerCancel={() => (glisse.current = null)}
         />
+        {tourPanda && phase !== 'envoi' && !tombe && (
+          <div className="anim-pop pointer-events-none absolute left-3 top-3 flex items-center gap-2 rounded-full bg-white/95 py-1 pl-1 pr-3 shadow-carte">
+            <img src="./art/stickers/panda-motive.webp" alt="" className="h-8 w-8" />
+            <span className="text-note font-bold text-encre">{phase === 'vise' ? 'Le panda réfléchit…' : 'Le panda lâche sa pièce !'}</span>
+          </div>
+        )}
         {tombe && (
           <div className="anim-pop pointer-events-none absolute inset-x-0 top-[38%] text-center">
             <span className="rounded-full bg-white/95 px-5 py-2 font-rond text-titre2 text-[#E5484D] shadow-carte">Patatras !</span>
