@@ -16,14 +16,14 @@ export function HousePhotosSheet({ mode, index, onClose }: { mode: 'add' | 'repl
   const places = housePhotoSlots(sources, state.family.house_photo_ids)
   const ids = places.map((p) => p?.id ?? '')
   const remplace = mode === 'replace' && index != null && index < ids.length
-  const full = !remplace && !ids.includes('') && ids.length >= 6
+  const full = !remplace && !ids.includes('') && ids.length >= 5
   /** les places une fois `id` posé : à la place touchée, sinon dans la première place libre, sinon au bout */
   const avec = (liste: string[], id: string) => {
     const out = liste.map((x) => (x === id ? '' : x))
     const i = remplace ? index! : out.indexOf('')
     if (i >= 0 && i < out.length) out[i] = id
     else out.push(id)
-    return out.slice(0, 6)
+    return out.slice(0, 5)
   }
   const save = async (id: string) => {
     if (busy || ids.includes(id) || full) return
@@ -74,7 +74,7 @@ export function HousePhotosSheet({ mode, index, onClose }: { mode: 'add' | 'repl
           <p className="text-sous text-brume">Choisis la photo qui prend sa place sur la corde. Celle-ci reste dans le fil.</p>
         </div>
       ) : (
-        <p className="mb-4 text-sous text-brume">{remplace ? 'Choisis la photo à accrocher à cette place libre.' : 'Choisis une photo à accrocher dans la maison (6 au plus).'} Toute la famille la voit.</p>
+        <p className="mb-4 text-sous text-brume">{remplace ? 'Choisis la photo à accrocher à cette place libre.' : 'Choisis une photo à accrocher dans la maison (5 au plus).'} Toute la famille la voit.</p>
       )}
       {busy && <p role="status" className="mb-3 text-note font-semibold text-teinte-fonce">Enregistrement…</p>}
       {error && <p role="alert" className="mb-4 rounded-[16px] bg-rouge/10 p-3 text-sous text-rouge">{error}</p>}

@@ -100,7 +100,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
     voirCorde()
     const libres = places.filter((p) => !p).length
     const actions = [{ label: 'Remplacer par une autre photo' }, { label: 'Décrocher (la place reste libre)', destructive: true }]
-    if (places.length < 6 && !libres) actions.splice(1, 0, { label: 'Accrocher une photo en plus' })
+    if (places.length < 5 && !libres) actions.splice(1, 0, { label: 'Accrocher une photo en plus' })
     const c = await choisir({ title: 'Cette photo de la maison', message: 'Elle reste dans le fil même si tu la décroches.', actions })
     const choix = c < 0 ? '' : actions[c].label
     if (choix.startsWith('Remplacer')) setSheet({ k: 'photosMaison', mode: 'replace', index: i })

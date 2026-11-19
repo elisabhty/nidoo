@@ -577,7 +577,7 @@ export default function House({
           </svg>
           {(() => {
             // les places libres (photos décrochées) ne se montrent que si on peut les remplir ; corde vide : un cadre « + »
-            const shown = photos.slice(0, 6).filter((p) => p || onAddPhoto)
+            const shown = photos.slice(0, 5).filter((p) => p || onAddPhoto)
             const slots: (string | null)[] = shown.length ? shown : onAddPhoto ? [null] : []
             return slots.map((src, i, all) => {
               const x = ((i + 1) / (all.length + 1)) * 100
