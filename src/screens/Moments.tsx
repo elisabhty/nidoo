@@ -1,4 +1,4 @@
-import { ArrowUp, Check, ImagePlus, ListPlus, Mic, Pause, Play, Plus, Smile, Trash2, X } from 'lucide-react'
+import { ArrowUp, ChartNoAxesColumn, Check, ImagePlus, Mic, Pause, Play, Plus, Smile, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { PhotoEditeur } from '../components/photoEditeur'
@@ -600,7 +600,7 @@ function Saisie({ onPhoto, envoyer }: { onPhoto: (f: File) => void; envoyer: (m:
           >
             <ImagePlus size={20} />
           </button>
-          <button onClick={() => { tap(); setTiroir(false); signal(null); setSondage(true) }} className="presse flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-teinte-doux text-teinte-fonce" aria-label="Créer un sondage" title="Sondage"><ListPlus size={20} /></button>
+          <button onClick={() => { tap(); setTiroir(false); signal(null); setSondage(true) }} className="presse flex h-[42px] shrink-0 items-center gap-1 rounded-full bg-teinte-doux px-2.5 text-teinte-fonce" aria-label="Créer un sondage" title="Créer un sondage"><ChartNoAxesColumn size={19} aria-hidden="true" /><span className="text-[11px] font-semibold">Sondage</span></button>
           <textarea
             ref={zone}
             rows={1}
