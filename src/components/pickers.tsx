@@ -58,7 +58,7 @@ function Portrait({ ed, color, size = 206 }: { ed: Perso_; color: string; size?:
     bx -= extra / 2
   }
   const over = pl ? Math.max(0, -at) : 0
-  const wf = size * 0.54 * (AGE_SCALE[look.a] ?? 1) * echelleTaille(look)
+  const wf = Math.min(size * 0.54 * (AGE_SCALE[look.a] ?? 1) * echelleTaille(look), size * 0.88 / (R * (1 + over)))
   const he = wf * R * (1 + over)
   const left = (size - wf) / 2, top = size * 0.93 - he
   const ox = (bx + bs / 2) * wf, oy = (R * over + by + bs / 2) * wf
@@ -74,7 +74,7 @@ function Portrait({ ed, color, size = 206 }: { ed: Perso_; color: string; size?:
           tap()
           ed.setZoom(v => !v)
         }}
-        className="absolute inset-0 block"
+        className="absolute inset-0 block h-full w-full overflow-hidden"
         // zoomé, le personnage est découpé dans le rond (le découpage s'anime avec lui)
         style={{ clipPath: zoom ? 'circle(42% at 50% 51%)' : 'circle(75% at 50% 50%)', transition: `clip-path 0.45s ${doux}` }}
         aria-label={`${zoom ? 'Voir le personnage en entier' : 'Zoomer sur le personnage'} : ${mine.label}`}
@@ -482,11 +482,11 @@ export function ProfileStep({ name, setName, avatar, setAvatar, color, setColor,
   const target = here.current?.closest<HTMLElement>('[data-feuilles]') ?? null
   return (
     <>
-      <div ref={here}>
+      <div ref={here} className="isolate shrink-0 overflow-hidden">
         <Portrait ed={ed} color={color} />
       </div>
       {!sansNom && <NameField name={name} setName={setName} placeholder={placeholder} />}
-      <Btn kind={sansNom ? 'blanc' : 'teinte'} className="mt-3" onClick={() => setOpen(true)}>
+      <Btn kind={sansNom ? 'blanc' : 'teinte'} className="mt-4" onClick={() => setOpen(true)}>
         <Palette size={18} strokeWidth={2.4} /> Changer mon personnage
       </Btn>
       {open && target && createPortal(

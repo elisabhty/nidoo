@@ -67,10 +67,10 @@ function ListePaginee({ titre, parties, ligne }: {
   const bouton = 'presse grid h-11 w-11 place-items-center rounded-full text-teinte disabled:opacity-30'
   return (
     <section aria-label={titre}>
-      <div className="mt-6 flex items-center justify-between gap-2 pr-4">
+      <div className={`mt-6 flex items-center justify-between gap-2 pr-4 ${total > 1 ? 'mb-3' : ''}`}>
         <h2 className="entete">{titre}</h2>
         {total > 1 && (
-          <nav aria-label={`Pages des parties · ${titre}`} className="flex items-center rounded-full bg-white shadow-carte">
+          <nav aria-label={`Pages des parties · ${titre}`} className="flex items-center rounded-full bg-teinte-doux ring-1 ring-inset ring-teinte/15">
             <button type="button" className={bouton} aria-label="Page précédente" disabled={page === 1} onClick={() => setSelection(page - 1)}>
               <ChevronLeft size={18} />
             </button>
