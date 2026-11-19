@@ -54,35 +54,59 @@ const meta = (k: GameKind | PartieKind) => (k in GAMES ? GAMES[k as GameKind] : 
 
 const PARTIES_PAR_PAGE = 5
 
-function ListePaginee({ titre, parties, ligne }: {
-  titre: string
-  parties: Item[]
+type FiltreParties = 'jouer' | 'attente' | 'terminees'
+const FILTRES_PARTIES: { id: FiltreParties; label: string; vide: string }[] = [
+  { id: 'jouer', label: 'À toi de jouer', vide: 'Tu as joué tous tes tours pour le moment.' },
+  { id: 'attente', label: 'En attente', vide: 'Aucune partie en attente.' },
+  { id: 'terminees', label: 'Terminées', vide: 'Aucune partie terminée dans ton historique récent.' },
+]
+
+function MesParties({ listes, ligne }: {
+  listes: Record<FiltreParties, Item[]>
   ligne: (partie: Item, index: number, liste: Item[]) => ReactNode
 }) {
+  const [filtre, setFiltre] = useState<FiltreParties>('jouer')
   const [selection, setSelection] = useState(1)
+  const parties = listes[filtre]
   const total = Math.max(1, Math.ceil(parties.length / PARTIES_PAR_PAGE))
   const page = Math.min(selection, total)
   useEffect(() => setSelection((courante) => Math.min(courante, total)), [total])
-  if (!parties.length) return null
   const debut = (page - 1) * PARTIES_PAR_PAGE
   const bouton = 'presse grid h-11 w-11 place-items-center rounded-full text-teinte disabled:opacity-30'
   return (
-    <section aria-label={titre}>
-      <div className={`mt-6 flex items-center justify-between gap-2 pr-4 ${total > 1 ? 'mb-3' : ''}`}>
-        <h2 className="entete">{titre}</h2>
+    <section aria-label="Mes parties" className="mt-6">
+      <h2 className="entete mb-2">Mes parties</h2>
+      <div className="groupe mx-4 shadow-carte">
+        <div role="group" aria-label="Filtrer les parties" className="flex gap-1 border-b border-trait p-2">
+          {FILTRES_PARTIES.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              aria-pressed={filtre === f.id}
+              onClick={() => { setFiltre(f.id); setSelection(1) }}
+              className={`presse min-h-11 min-w-0 flex-1 rounded-full px-1 text-mini font-semibold transition-colors ${filtre === f.id ? 'bg-teinte text-white shadow-sm' : 'text-brume'}`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <div>
+          {parties.length > 0
+            ? parties.slice(debut, debut + PARTIES_PAR_PAGE).map(ligne)
+            : <p role="status" className="px-5 py-8 text-center text-note text-brume">{FILTRES_PARTIES.find((f) => f.id === filtre)?.vide}</p>}
+        </div>
         {total > 1 && (
-          <nav aria-label={`Pages des parties · ${titre}`} className="flex items-center rounded-full bg-teinte-doux ring-1 ring-inset ring-teinte/15">
+          <nav aria-label="Pages des parties" className="flex items-center justify-between border-t border-trait px-3 py-2">
             <button type="button" className={bouton} aria-label="Page précédente" disabled={page === 1} onClick={() => setSelection(page - 1)}>
               <ChevronLeft size={18} />
             </button>
-            <span aria-live="polite" aria-atomic="true" className="whitespace-nowrap text-mini font-semibold tabular-nums text-brume">Page {page} sur {total}</span>
+            <span aria-live="polite" aria-atomic="true" className="text-mini font-semibold tabular-nums text-brume">Page {page} sur {total}</span>
             <button type="button" className={bouton} aria-label="Page suivante" disabled={page === total} onClick={() => setSelection(page + 1)}>
               <ChevronRight size={18} />
             </button>
           </nav>
         )}
       </div>
-      <div className="groupe mx-4 shadow-carte">{parties.slice(debut, debut + PARTIES_PAR_PAGE).map(ligne)}</div>
     </section>
   )
 }
@@ -209,13 +233,12 @@ export function JeuxPage({ onClose, start }: { onClose: () => void; start?: stri
       <Page title="Jouer ensemble" onClose={onClose}>
         <p className="-mt-1 px-5 text-sous text-brume">Chacun joue quand il veut : la partie vous attend. Et si vous êtes là en même temps, ça se joue en direct.</p>
         <MotCarte onOpen={() => setMot(true)} />
-        <ListePaginee titre="Mes parties" parties={[...aJouer, ...attente]} ligne={row} />
+        <MesParties listes={{ jouer: aJouer, attente, terminees: finies }} ligne={row} />
         <p className="entete mt-6">À deux</p>
         <div className="mx-4 grid grid-cols-3 gap-2.5">{A_DEUX.map(tuile)}</div>
         <p className="entete mt-6">En famille</p>
         <div className="mx-4 grid grid-cols-3 gap-2.5">{EN_FAMILLE.map(tuile)}</div>
         {group('Dans la famille', famille)}
-        <ListePaginee titre="Terminées" parties={finies} ligne={row} />
         {!mine.length && !famille.length && <p className="mx-8 mb-4 mt-8 text-center text-note text-brume">Choisis un jeu, puis avec qui jouer. Une partie gagnée rapporte des étoiles à la maison.</p>}
       </Page>
       {game && <GameView game={game} onClose={() => setOpen(null)} onRematch={(k, against) => setNouveau({ k, against })} onOpen={setOpen} />}
