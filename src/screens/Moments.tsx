@@ -588,7 +588,9 @@ function Saisie({ onPhoto, envoyer }: { onPhoto: (f: File) => void; envoyer: (m:
           </button>
         </div>
       ) : (
-        <div className="flex items-end gap-2 rounded-[28px] bg-white p-1.5 shadow-[0_8px_28px_rgba(29,26,43,0.16)]">
+        <div className="flex flex-col gap-1.5">
+          <div className="flex justify-end pr-2"><button onClick={() => { tap(); setTiroir(false); signal(null); setSondage(true) }} className="presse flex h-[42px] shrink-0 items-center gap-1 rounded-full bg-teinte-doux px-2.5 text-teinte-fonce" aria-label="Créer un sondage" title="Créer un sondage"><ChartNoAxesColumn size={19} aria-hidden="true" /><span className="text-[11px] font-semibold">Sondage</span></button></div>
+          <div className="flex items-end gap-2 rounded-[28px] bg-white p-1.5 shadow-[0_8px_28px_rgba(29,26,43,0.16)]">
           <button
             onClick={() => {
               tap()
@@ -600,7 +602,6 @@ function Saisie({ onPhoto, envoyer }: { onPhoto: (f: File) => void; envoyer: (m:
           >
             <ImagePlus size={20} />
           </button>
-          <button onClick={() => { tap(); setTiroir(false); signal(null); setSondage(true) }} className="presse flex h-[42px] shrink-0 items-center gap-1 rounded-full bg-teinte-doux px-2.5 text-teinte-fonce" aria-label="Créer un sondage" title="Créer un sondage"><ChartNoAxesColumn size={19} aria-hidden="true" /><span className="text-[11px] font-semibold">Sondage</span></button>
           <textarea
             ref={zone}
             rows={1}
@@ -646,6 +647,7 @@ function Saisie({ onPhoto, envoyer }: { onPhoto: (f: File) => void; envoyer: (m:
               <Mic size={20} />
             </button>
           )}
+          </div>
         </div>
       )}
     </div>
