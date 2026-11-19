@@ -141,6 +141,7 @@ function demoDossiers(f: Raw) {
 
 // Mise à niveau des maisons créées avec l'ancienne version des dossiers.
 function migrate(f: Raw, userId: string) {
+  f.pollVotes ??= []
   f.folderMembers ??= []
   f.folderItems ??= []
   f.folders = ((f.folders ?? []) as (Folder | OldFolder)[]).map((d) => {
@@ -409,6 +410,7 @@ export function createLocalBackend(): Backend {
       games: [],
       parties: [],
       requests: joined ? [] : [demoRequest(fid)],
+      pollVotes: [],
       moments: [
         { id: uid(), family_id: fid, member_id: lea.id, image_path: null, body: 'Devinez qui rentre ce week-end avec un gâteau ?', challenge: null, created_at: iso(55) },
         { id: uid(), family_id: fid, member_id: mamie.id, image_path: null, body: 'Le jardin est tout blanc ce matin. Pensées pour vous tous.', challenge: null, created_at: iso(60 * 20) },
@@ -773,14 +775,14 @@ export function createLocalBackend(): Backend {
         id: uid(), family_id: fid, member_id: memberId, image_path: m.blob ? await blobToDataUrl(m.blob) : null,
         body: m.body?.trim() || null, challenge: m.challenge ?? null, created_at: new Date().toISOString(),
         audio_path: m.audio ? await blobToDataUrl(m.audio.blob) : null, duree: m.audio ? Math.round(m.audio.duree) : null, ondes: m.audio?.ondes ?? null,
-        sticker: m.sticker ?? null,
+        sticker: m.sticker ?? null, poll_options: m.pollOptions ?? null,
       }
       f.moments.unshift(moment)
       award(f, memberId, 'moment', 3, 5)
-      repondre(fid, m.audio ? 'vocal' : m.blob ? 'photo' : m.sticker ? 'sticker' : 'texte')
+      if (!m.pollOptions) repondre(fid, m.audio ? 'vocal' : m.blob ? 'photo' : m.sticker ? 'sticker' : 'texte')
       // Un proche réagit à la photo, comme dans une vraie famille.
       const other = f.members.find((x) => x.user_id !== db.userId)
-      if (other && !m.sticker) {
+      if (other && !m.sticker && !m.pollOptions) {
         window.setTimeout(() => {
           f.reactions.push({ moment_id: moment.id, member_id: other.id, emoji: 'amour' })
           save()
@@ -796,10 +798,19 @@ export function createLocalBackend(): Backend {
       ecrivains.add(f)
       return () => void ecrivains.delete(f)
     },
+    async votePoll(moment, memberId, optionIndex) {
+      const f = fam(moment.family_id)
+      const poll = f.moments.find((m) => m.id === moment.id)
+      if (!poll?.poll_options || optionIndex < 0 || optionIndex >= poll.poll_options.length || !f.members.some((m) => m.id === memberId)) throw new Error('SONDAGE_INVALIDE')
+      f.pollVotes = f.pollVotes.filter((v) => !(v.moment_id === moment.id && v.member_id === memberId))
+      f.pollVotes.push({ moment_id: moment.id, member_id: memberId, family_id: moment.family_id, option_index: optionIndex })
+      save()
+    },
     async deleteMoment(moment) {
       const f = fam(moment.family_id)
       f.moments = f.moments.filter((m) => m.id !== moment.id)
       f.reactions = f.reactions.filter((r) => r.moment_id !== moment.id)
+      f.pollVotes = f.pollVotes.filter((v) => v.moment_id !== moment.id)
       save()
     },
     async createFolder(fid, x) {
