@@ -70,9 +70,6 @@ function Titre({ avant = '', mot, apres = '' }: { avant?: string; mot: string; a
   )
 }
 
-function Bientot() {
-  return <span className="ob-bientot">BIENTÔT</span>
-}
 
 export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
   const { api, open, toast, reload } = useStore()
@@ -229,8 +226,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
     else suivant()
   }
   // Se connecter : Apple, Google et l'e-mail arrivent bientôt ; en attendant, n'importe quel bouton fait entrer.
-  const entrer = (via?: string) => {
-    if (via) toast(`${via} arrive bientôt : en attendant, ta maison est gardée sur cet appareil.`)
+  const entrer = () => {
     if (path === 'rejoindre') void join()
     else void create()
   }
@@ -296,50 +292,35 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
       <div ref={container} className="no-bar flex min-h-0 flex-1 flex-col overflow-y-auto" style={{ paddingBottom: pied ? 12 : step === 'connexion' ? 0 : 'calc(var(--sab) + 18px)' }}>
         <div key={step} className={`anim-entre flex flex-1 flex-col ${step === 'connexion' ? '' : 'px-5'}`}>
           {step === 'bonjour' && (
-            <div className="flex flex-1 flex-col items-center text-center">
-              <div className="flex-1" />
-              <div className="ob-bulle queue-bas mx-auto mt-4 px-6 py-4 font-rond text-[19px] leading-6">Coucou ! Bienvenue chez vous 🧡</div>
-              {/* le panda au milieu de petites cartes de la vie de la maison */}
-              <div className="relative mt-5 h-[300px] w-full max-w-[340px]" aria-hidden="true">
-                {/* centré par son cadre : l'animation du salut prend la transformation de l'image */}
-                <div className="absolute left-1/2 top-[34px] -translate-x-1/2">
-                  <img src={PANDA('heureux')} alt="" className="ob-salut h-[210px] w-[210px] drop-shadow-[0_14px_22px_rgba(30,10,90,0.4)]" />
+            <div className="flex flex-1 flex-col">
+              <div className="mx-auto flex w-full max-w-[370px] flex-1 flex-col items-center py-5 text-center">
+                <p className="font-rond text-[22px] font-extrabold tracking-[0.12em] text-[#FFD27A]">NIDOO</p>
+                <div className="relative my-5 flex h-[170px] w-[220px] items-center justify-center">
+                  <span className="absolute inset-2 rounded-full bg-white/10" />
+                  <img src={PANDA('heureux')} alt="" width={160} height={160} className="relative h-40 w-40 object-contain drop-shadow-xl" />
+                  <span className="absolute bottom-0 right-0 rounded-[18px] bg-white p-3 shadow-lg"><HouseIcon size={26} className="text-teinte" /></span>
                 </div>
-                <div className="ob-flotte absolute left-0 top-[26px] w-[118px] rounded-[10px] bg-white p-1.5 pb-4 shadow-[0_4px_0_rgba(36,16,110,0.3)]" style={{ ['--r' as string]: '-7deg' }}>
-                  <div className="h-[78px] overflow-hidden rounded-[6px]"><House type="maison" items={[]} phase="jour" className="!aspect-auto h-full" bare /></div>
-                </div>
-                <div className="ob-flotte absolute -right-1 top-[6px] flex items-center gap-2 rounded-2xl bg-white py-2 pl-2 pr-3 text-left shadow-[0_4px_0_rgba(36,16,110,0.3)]" style={{ ['--r' as string]: '5deg', animationDelay: '-1.4s' }}>
-                  <Tete id="gf1" size={34} />
-                  <div>
-                    <p className="text-[11px] font-bold leading-3 text-teinte-fonce">Mamie</p>
-                    <p className="text-[13.5px] font-extrabold leading-4 text-encre">Je pense à toi 💜</p>
-                  </div>
-                </div>
-                <div className="ob-flotte absolute bottom-6 left-1 flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-left shadow-[0_4px_0_rgba(36,16,110,0.3)]" style={{ ['--r' as string]: '4deg', animationDelay: '-2.6s' }}>
-                  <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-[#E3F6EC] text-[#14955A]"><CalendarDays size={17} strokeWidth={2.4} /></span>
-                  <div>
-                    <p className="text-[11px] font-bold leading-3 text-[#625A75]">Dimanche · 12 h</p>
-                    <p className="text-[13.5px] font-extrabold leading-4 text-encre">Déjeuner chez Mamie</p>
-                  </div>
-                </div>
-                <img src="./art/reaction-amour.webp" alt="" className="ob-flotte absolute bottom-10 right-3 h-[58px] w-[58px] drop-shadow-[0_4px_0_rgba(36,16,110,0.3)]" style={{ ['--r' as string]: '-8deg', animationDelay: '-0.7s' }} />
+                <Titre avant="Bienvenue " mot="chez vous" apres="." />
+                <p className="ob-sous mt-3 max-w-[320px] text-center">Une maison pour discuter, jouer et garder vos souvenirs en famille.</p>
+                {invite && <p className="mt-4 rounded-full bg-white/15 px-4 py-2 text-sous font-semibold">Ton invitation est prête · {urlCode}</p>}
               </div>
-              <p className="mt-2 font-rond text-[46px] font-extrabold leading-[50px] tracking-[0.06em] text-[#FFD27A] drop-shadow-[0_3px_0_rgba(36,16,110,0.35)]">NIDOO</p>
-              <h1 className="mx-auto mt-2 max-w-[300px] text-[19px] font-extrabold leading-6 outline-none [text-wrap:balance]">{T.home.headline}</h1>
-              {invite && (
-                <div className="mt-4 flex w-full items-center gap-3 rounded-[18px] border-[1.5px] border-white/30 bg-white/[0.14] py-2.5 pl-2.5 pr-4 text-left">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-white text-teinte-fonce"><HouseIcon size={22} strokeWidth={2.3} /></span>
-                  <span className="min-w-0">
-                    <b className="block truncate text-appel font-extrabold">{preview ? `« ${familyLabel(preview.name)} » t’attend` : 'Tu as reçu une invitation'}</b>
-                    <small className="block text-note font-semibold text-white/85">Code {urlCode} · on s’occupe du reste</small>
-                  </span>
+              <div className="rounded-[28px] bg-white p-5 text-encre shadow-xl">
+                <h2 className="text-center font-rond text-titre2">Connexion</h2>
+                <p className="mt-1 text-center text-note text-brume">Entre librement pour découvrir Nidoo.</p>
+                <button className="ob-cta violet mt-5" onClick={() => { tap(); aller('prenom') }}>
+                  Commencer <ChevronRight size={20} strokeWidth={2.8} />
+                </button>
+                <p className="my-3 text-center text-mini text-brume">Les connexions arrivent bientôt</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {['Apple', 'Google', 'E-mail'].map((service) => (
+                    <button key={service} type="button" className="presse flex min-h-[52px] items-center justify-center gap-1.5 rounded-[16px] border border-[#E4DFF3] px-2 text-note font-semibold"
+                      onClick={() => { tap(); toast(`La connexion avec ${service} arrive bientôt. Tu peux déjà découvrir Nidoo.`); aller('prenom') }}>
+                      {service === 'E-mail' && <Mail size={16} />} {service}
+                    </button>
+                  ))}
                 </div>
-              )}
-              <div className="flex-1" />
-              <button className="ob-cta mt-6" onClick={() => (tap(), aller('prenom'))}>
-                {invite ? 'Rejoindre mes proches' : 'Commencer'} <ChevronRight size={20} strokeWidth={2.8} />
-              </button>
-              <p className="mt-3 text-note font-semibold text-white/75">Photos, petits mots, rendez-vous… tout votre quotidien.</p>
+                <p className="mt-4 text-center text-mini leading-relaxed text-brume">Aucun mot de passe demandé pour le moment.</p>
+              </div>
             </div>
           )}
 
@@ -586,7 +567,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
             <div className="flex flex-1 flex-col">
               <div className="px-5 text-center">
                 <h1 className="ob-titre mt-3 outline-none">Presque fini !</h1>
-                <p className="ob-sous mt-1.5">Connecte-toi en un geste, et c’est parti.</p>
+                <p className="ob-sous mt-1.5">Un dernier regard, et votre histoire commence.</p>
               </div>
               <div className="flex-1" />
               <div className="relative mt-10">
@@ -594,29 +575,16 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
                 <div className="ob-feuille px-5 pt-3" style={{ paddingBottom: 'calc(var(--sab) + 16px)' }}>
                   <span className="mx-auto mb-4 block h-[5px] w-10 rounded-full bg-[#E4DFF3]" aria-hidden="true" />
                   <h2 className="ob-titre text-center !text-[27px] !leading-[32px] text-encre">
-                    Ta maison, <span className="ob-mot">partout avec toi</span>.
+                    Tout est <span className="ob-mot">prêt</span>.
                   </h2>
-                  <p className="mt-2 text-center text-sous text-[#625A75] [text-wrap:pretty]">Connecte-toi pour retrouver ta maison, tes photos et tes proches sur tous tes appareils.</p>
-                  <div className="mt-5 grid gap-2.5">
-                    <button className="presse flex h-[52px] items-center gap-3 rounded-[15px] bg-black px-4 text-appel font-bold text-white" onClick={() => (tap(), entrer('La connexion avec Apple'))} disabled={busy}>
-                      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M16.37 12.6c-.02-2.2 1.8-3.26 1.88-3.31-1.03-1.5-2.62-1.7-3.18-1.73-1.35-.14-2.64.8-3.33.8-.69 0-1.74-.78-2.87-.76-1.47.02-2.83.86-3.59 2.18-1.53 2.66-.39 6.6 1.1 8.76.73 1.06 1.6 2.24 2.73 2.2 1.1-.04 1.51-.71 2.84-.71 1.32 0 1.7.71 2.86.69 1.18-.02 1.93-1.08 2.65-2.14.84-1.22 1.18-2.41 1.2-2.47-.03-.01-2.3-.88-2.3-3.5ZM14.2 6.13c.6-.73 1.01-1.75.9-2.76-.87.04-1.92.58-2.54 1.31-.56.64-1.05 1.68-.92 2.67.97.08 1.96-.49 2.56-1.22Z" /></svg>
-                      <span className="flex-1 text-left">Continuer avec Apple</span>
-                      <Bientot />
-                    </button>
-                    <button className="presse flex h-[52px] items-center gap-3 rounded-[15px] bg-white px-4 text-appel font-bold text-encre ring-[1.5px] ring-inset ring-[#E4DFF3]" onClick={() => (tap(), entrer('La connexion avec Google'))} disabled={busy}>
-                      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1Z" /><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23Z" /><path fill="#FBBC05" d="M5.84 14.1A6.6 6.6 0 0 1 5.5 12c0-.73.13-1.44.34-2.1V7.06H2.18A11 11 0 0 0 1 12c0 1.77.43 3.45 1.18 4.94l3.66-2.84Z" /><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.06l3.66 2.84C6.71 7.3 9.14 5.38 12 5.38Z" /></svg>
-                      <span className="flex-1 text-left">Continuer avec Google</span>
-                      <Bientot />
-                    </button>
-                    <p className="my-0.5 text-center text-note font-semibold text-[#8C86A3]">ou</p>
-                    <button className="presse flex h-[52px] items-center gap-3 rounded-[15px] bg-white px-4 text-appel font-semibold text-[#8C86A3] ring-[1.5px] ring-inset ring-[#E4DFF3]" onClick={() => (tap(), entrer('La connexion par e-mail'))} disabled={busy}>
-                      <Mail size={19} strokeWidth={2.2} className="text-teinte" />
-                      <span className="flex-1 text-left">Ton adresse e-mail</span>
-                      <Bientot />
-                    </button>
+                  <p className="mt-2 text-center text-sous text-[#625A75] [text-wrap:pretty]">Voici ce que tu as préparé. Tu pourras le modifier ensuite dans Famille.</p>
+                  <div className="mt-5 rounded-[20px] bg-[#F5F1FD] p-4">
+                    <p className="font-semibold text-encre">{path === 'rejoindre' ? preview?.name ?? 'La maison de tes proches' : family.trim()}</p>
+                    <p className="mt-1 text-note text-brume">Ton personnage · {name.trim()}</p>
+                    <p className="mt-2 text-note text-brume">{path === 'rejoindre' ? 'Un responsable recevra ta demande et pourra t’accueillir.' : 'Tu pourras inviter tes proches avec un code, puis partager votre premier moment.'}</p>
                   </div>
                   <button className="ob-cta violet mt-5" onClick={() => (tap(), entrer())} disabled={busy}>
-                    {busy ? (path === 'rejoindre' ? 'Un instant…' : T.create.loading) : path === 'rejoindre' ? 'Demander à entrer' : 'Continuer'} {!busy && <ChevronRight size={20} strokeWidth={2.8} />}
+                    {busy ? (path === 'rejoindre' ? 'Un instant…' : T.create.loading) : path === 'rejoindre' ? 'Demander à entrer' : 'Créer ma maison'} {!busy && <ChevronRight size={20} strokeWidth={2.8} />}
                   </button>
                   <p className="mt-3 text-center text-note text-[#8C86A3] [text-wrap:pretty]">En attendant la connexion, ta maison est gardée sur cet appareil.</p>
                 </div>
