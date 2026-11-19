@@ -178,6 +178,8 @@ function Sondage({ mo, mine, envoi }: { mo: Moment; mine: boolean; envoi?: boole
   const mien = optimiste ?? serveur
   const votes = optimiste == null ? duServeur : [...duServeur.filter((v) => v.member_id !== moi), { member_id: moi, option_index: optimiste }]
   const total = votes.length
+  // qui a voté quoi (le plus récent devant) : on voit les portraits à côté de chaque réponse
+  const qui = options.map((_, i) => votes.filter((v) => v.option_index === i).map((v) => state.members.find((m) => m.id === v.member_id)).filter((m): m is NonNullable<typeof m> => !!m))
   const enCours = useRef(false)
   const choisirVote = async (index: number) => {
     if (envoi || enCours.current || mien === index) return
@@ -208,7 +210,7 @@ function Sondage({ mo, mine, envoi }: { mo: Moment; mine: boolean; envoi?: boole
               className={`relative flex min-h-[44px] w-full items-center gap-2 overflow-hidden rounded-[12px] border px-3 py-2 text-left text-sous transition-[transform,background-color,border-color] duration-200 active:scale-[0.98] ${
                 mine ? (selected ? 'border-white/70 bg-white/15 text-white' : 'border-white/30 bg-white/10 text-white') : selected ? 'border-teinte/50 bg-teinte-doux text-encre' : 'border-teinte/20 bg-teinte-doux/60 text-encre'
               }`}
-              aria-label={`${option}${vu ? `, ${pct} %` : ''}`}
+              aria-label={`${option}${vu ? `, ${pct} %` : ''}${qui[index].length ? ` : ${qui[index].map((m) => (m.id === moi ? 'toi' : m.display_name)).join(', ')}` : ''}`}
             >
               {/* la barre des résultats, toujours là, qui glisse jusqu'à sa largeur */}
               <span
@@ -220,6 +222,17 @@ function Sondage({ mo, mine, envoi }: { mo: Moment; mine: boolean; envoi?: boole
                 <Check size={15} className="shrink-0 transition-[opacity,width] duration-200" strokeWidth={3} style={{ opacity: selected ? 1 : 0, width: selected ? 15 : 0 }} aria-hidden="true" />
                 <span className="break-words">{option}</span>
               </span>
+              {/* qui a choisi cette réponse : leurs portraits, l'un sur l'autre */}
+              {qui[index].length > 0 && (
+                <span className="relative flex shrink-0 items-center pl-1" aria-hidden="true">
+                  {qui[index].slice(0, 4).map((m, k) => (
+                    <span key={m.id} className={`anim-pop rounded-full ${mine ? 'ring-2 ring-[#7a5ee0]' : 'ring-2 ring-white'}`} style={{ marginLeft: k ? -7 : 0, zIndex: 4 - k }}>
+                      <Avatar m={m} size={22} />
+                    </span>
+                  ))}
+                  {qui[index].length > 4 && <span className="ml-1 text-note font-bold">+{qui[index].length - 4}</span>}
+                </span>
+              )}
               <span className="relative shrink-0 font-bold tabular-nums transition-opacity duration-300" style={{ opacity: vu ? 1 : 0 }} aria-hidden="true">
                 {pct} %
               </span>

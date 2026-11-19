@@ -780,6 +780,17 @@ export function createLocalBackend(): Backend {
       f.moments.unshift(moment)
       award(f, memberId, 'moment', 3, 5)
       if (!m.pollOptions) repondre(fid, m.audio ? 'vocal' : m.blob ? 'photo' : m.sticker ? 'sticker' : 'texte')
+      else {
+        // un sondage : les proches de la démo votent, l'un après l'autre
+        const votants = f.members.filter((x) => x.user_id && x.user_id !== db.userId)
+        votants.forEach((v, k) => {
+          window.setTimeout(() => {
+            f.pollVotes = f.pollVotes.filter((x) => !(x.moment_id === moment.id && x.member_id === v.id))
+            f.pollVotes.push({ moment_id: moment.id, member_id: v.id, family_id: fid, option_index: Math.floor(Math.random() * m.pollOptions!.length) })
+            save()
+          }, 2200 + k * 1700)
+        })
+      }
       // Un proche réagit à la photo, comme dans une vraie famille.
       const other = f.members.find((x) => x.user_id !== db.userId)
       if (other && !m.sticker && !m.pollOptions) {

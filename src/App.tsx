@@ -41,7 +41,7 @@ function Splash({ children }: { children?: React.ReactNode }) {
 }
 
 export default function App() {
-  const keyboard = useKeyboardViewport()
+  const { keyboard, decale } = useKeyboardViewport()
   const { status, error, state, retry, requests } = useStore()
   const [tab, setTab] = useState<Tab>('maison')
   const [visited, setVisited] = useState<Tab[]>(['maison'])
@@ -97,7 +97,7 @@ export default function App() {
   const unseen = (state ? state.thoughts.filter((t) => t.to_member === state.me.id && !t.seen_at).length : 0) + drawingsUnseen
 
   return (
-    <div className="flex items-center justify-center" style={{ height: 'var(--app-height, 100%)', transform: keyboard ? 'translateY(var(--app-top, 0px))' : undefined }} data-keyboard={keyboard || undefined}>
+    <div className="flex items-center justify-center" style={{ height: 'var(--app-height, 100%)', transform: decale ? 'translateY(var(--app-top, 0px))' : undefined }} data-keyboard={keyboard || undefined}>
       <div className="relative h-full w-full overflow-hidden bg-fond sm:h-[min(880px,96vh)] sm:max-w-[410px] sm:rounded-[48px] sm:shadow-[0_40px_100px_-30px_rgba(29,26,43,0.45)]" style={{maxHeight:'100%'}}>
         {status === 'loading' && <Splash />}
         {status === 'error' && (
