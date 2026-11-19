@@ -1,5 +1,5 @@
-import { Check, Heart, ImagePlus, Star, X } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { ChevronLeft, ChevronRight, Check, Heart, ImagePlus, Star, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { select, success, tap } from '../lib/haptic'
 import { COLS, dropCell, GAMES, isMemory, MEMORY_MAX, MEMORY_MIN, ROWS, type GameKind, type GridState, type MemoryState } from '../lib/jeux'
 import { jouer } from '../lib/sons'
@@ -51,6 +51,41 @@ const A_DEUX: (GameKind | PartieKind)[] = ['puissance4', 'morpion', 'memory', 'b
 const EN_FAMILLE: PartieKind[] = ['tour', 'quidenous', 'telephone']
 const meta = (k: GameKind | PartieKind) => (k in GAMES ? GAMES[k as GameKind] : PARTIES[k as PartieKind])
 
+const PARTIES_PAR_PAGE = 5
+
+function ListePaginee({ titre, parties, ligne }: {
+  titre: string
+  parties: Item[]
+  ligne: (partie: Item, index: number, liste: Item[]) => ReactNode
+}) {
+  const [selection, setSelection] = useState(1)
+  const total = Math.max(1, Math.ceil(parties.length / PARTIES_PAR_PAGE))
+  const page = Math.min(selection, total)
+  useEffect(() => setSelection((courante) => Math.min(courante, total)), [total])
+  if (!parties.length) return null
+  const debut = (page - 1) * PARTIES_PAR_PAGE
+  const bouton = 'presse grid h-11 w-11 place-items-center rounded-full text-teinte disabled:opacity-30'
+  return (
+    <section aria-label={titre}>
+      <div className="mt-6 flex items-center justify-between gap-2 pr-4">
+        <h2 className="entete">{titre}</h2>
+        {total > 1 && (
+          <nav aria-label={`Pages des parties · ${titre}`} className="flex items-center rounded-full bg-white shadow-carte">
+            <button type="button" className={bouton} aria-label="Page précédente" disabled={page === 1} onClick={() => setSelection(page - 1)}>
+              <ChevronLeft size={18} />
+            </button>
+            <span aria-live="polite" aria-atomic="true" className="whitespace-nowrap text-mini font-semibold tabular-nums text-brume">Page {page} sur {total}</span>
+            <button type="button" className={bouton} aria-label="Page suivante" disabled={page === total} onClick={() => setSelection(page + 1)}>
+              <ChevronRight size={18} />
+            </button>
+          </nav>
+        )}
+      </div>
+      <div className="groupe mx-4 shadow-carte">{parties.slice(debut, debut + PARTIES_PAR_PAGE).map(ligne)}</div>
+    </section>
+  )
+}
+
 export function JeuxPage({ onClose, start }: { onClose: () => void; start?: string }) {
   const { state, run } = useHome()
   const [fermeture, setFermeture] = useState<string | null>(null)
@@ -69,7 +104,7 @@ export function JeuxPage({ onClose, start }: { onClose: () => void; start?: stri
   const aJouer = mine.filter((x) => enCours(x) && aMoiItem(x))
   const attente = mine.filter((x) => enCours(x) && !aMoiItem(x))
   const famille = items.filter((x) => enCours(x) && !joue(x))
-  const finies = mine.filter((x) => !enCours(x)).slice(0, 8)
+  const finies = mine.filter((x) => !enCours(x))
   const game = open ? state.games.find((g) => g.id === open) : null
   const partie = open ? state.parties.find((p) => p.id === open) : null
 
@@ -175,9 +210,9 @@ export function JeuxPage({ onClose, start }: { onClose: () => void; start?: stri
         <div className="mx-4 grid grid-cols-3 gap-2.5">{A_DEUX.map(tuile)}</div>
         <p className="entete mt-6">En famille</p>
         <div className="mx-4 grid grid-cols-3 gap-2.5">{EN_FAMILLE.map(tuile)}</div>
-        {group('En attente', attente)}
+        <ListePaginee titre="En attente" parties={attente} ligne={row} />
         {group('Dans la famille', famille)}
-        {group('Terminées', finies)}
+        <ListePaginee titre="Terminées" parties={finies} ligne={row} />
         {!mine.length && !famille.length && <p className="mx-8 mb-4 mt-8 text-center text-note text-brume">Choisis un jeu, puis avec qui jouer. Une partie gagnée rapporte des étoiles à la maison.</p>}
       </Page>
       {game && <GameView game={game} onClose={() => setOpen(null)} onRematch={(k, against) => setNouveau({ k, against })} onOpen={setOpen} />}
