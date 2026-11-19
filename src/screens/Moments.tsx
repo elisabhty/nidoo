@@ -721,6 +721,8 @@ const cleMoment = (m: Moment) => cleDe({ body: m.body, sticker: m.sticker, image
 export default function Fil(_: { onCompose?: () => void }) {
   const { state, api, run } = useHome()
   const { family, me, members, moments } = state
+  const [filtre, setFiltre] = useState('tout')
+  const [recherche, setRecherche] = useState('')
   const [ouvert, setOuvert] = useState<string | null>(null)
   const [photo, setPhoto] = useState<File | null>(null)
   const [plein, setPlein] = useState<string | null>(null)
@@ -772,6 +774,8 @@ export default function Fil(_: { onCompose?: () => void }) {
   }, [])
 
   const envoyer = async (m: NouvelEnvoi, onPreviewReady?: () => void) => {
+    setFiltre('tout')
+    setRecherche('')
     const id = `envoi-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
     const mo: Moment = {
       id, family_id: family.id, member_id: me.id, image_path: null, image_url: m.blob ? URL.createObjectURL(m.blob) : null,
@@ -806,6 +810,8 @@ export default function Fil(_: { onCompose?: () => void }) {
     nbAutresAvant.current = nbAutres
   }, [nbAutres])
   const liste = [...msgs.map((mo) => ({ mo, envoi: false })), ...enAttente.map((e) => ({ mo: e.mo, envoi: true }))]
+    .filter(({ mo }) => (filtre === 'tout' || (filtre === 'photos' ? !!mo.image_url : filtre === 'vocaux' ? !!mo.audio_path : !!mo.poll_options?.length))
+      && (!recherche.trim() || (mo.body ?? '').toLocaleLowerCase().includes(recherche.trim().toLocaleLowerCase())))
   const dernierMien = !enAttente.length && msgs.length > 0 && msgs[msgs.length - 1].member_id === me.id ? msgs[msgs.length - 1].id : null
 
   // qui écrit, en direct (on oublie quelqu'un qui ne fait plus signe depuis 6 secondes)
@@ -890,12 +896,18 @@ export default function Fil(_: { onCompose?: () => void }) {
   let jourPrecedent = ''
   return (
     <div ref={racine} className="flex flex-col px-3" style={{ minHeight: 'calc(100dvh - var(--sat) - 278px)' }} onClick={() => ouvert && setOuvert(null)}>
+      <div className="sticky top-0 z-20 -mx-3 mb-3 bg-fond px-3 pb-2 pt-1">
+        <div role="group" aria-label="Filtrer le fil" className="flex gap-1 rounded-full bg-carte p-1 shadow-carte">
+          {[['tout', 'Tout'], ['photos', 'Photos'], ['vocaux', 'Vocaux'], ['sondages', 'Sondages']].map(([id, label]) => <button key={id} type="button" aria-pressed={filtre === id} onClick={() => { colle.current = false; setFiltre(id); setOuvert(null) }} className={`presse min-h-11 min-w-0 flex-1 rounded-full text-note font-semibold ${filtre === id ? 'bg-teinte text-white' : 'text-brume'}`}>{label}</button>)}
+        </div>
+        <input type="search" aria-label="Rechercher dans le fil" placeholder="Rechercher un message ou un sondage" value={recherche} onChange={(e) => { colle.current = false; setRecherche(e.target.value) }} className="mt-2 h-11 w-full rounded-[16px] bg-carte px-4 text-sous outline-none focus:ring-2 focus:ring-teinte" />
+      </div>
       <div className="flex-1" />
       {liste.length === 0 && (
         <div className="flex flex-col items-center px-6 pb-6 pt-4 text-center">
           <Art name="picto-bulle" size={64} className="anim-flotte" />
-          <p className="mt-2 font-rond text-titre3">Le fil est tout neuf</p>
-          <p className="mt-1 max-w-[290px] text-sous text-brume">Un message, une photo sur laquelle tu écris un petit mot, un vocal : toute la famille le voit, et vous vous voyez écrire en direct.</p>
+          <p className="mt-2 font-rond text-titre3">{filtre !== 'tout' || recherche ? 'Aucun résultat' : 'Le fil est tout neuf'}</p>
+          <p className="mt-1 max-w-[290px] text-sous text-brume">{filtre !== 'tout' || recherche ? 'Essaie un autre mot ou sélectionne Tout pour retrouver la conversation.' : 'Un message, une photo, un vocal : toute la famille le voit.'}</p>
         </div>
       )}
       {liste.map(({ mo, envoi }, i) => {

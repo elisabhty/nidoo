@@ -1,3 +1,4 @@
+import { ListPages, useListPage } from '../components/listNavigation'
 import { Check, ChevronLeft, ChevronRight, MapPin, Plus } from 'lucide-react'
 import { useRef, useState, type ReactNode } from 'react'
 import { MemberStack } from '../components/folder'
@@ -252,6 +253,7 @@ function Liste({ kind }: { kind: ListKind }) {
   const [to, setTo] = useState<string | null>(null)
   const [assigning, setAssigning] = useState(false)
   const tache = kind === 'tache'
+  const [filtre, setFiltre] = useState('toutes')
   // ce qu'on vient de faire, affiché sans attendre le serveur
   const [ajouts, setAjouts] = useState<(ListItem & { connus: Set<string> })[]>([])
   const [changes, setChanges] = useState<Record<string, { done?: boolean; parti?: boolean }>>({})
@@ -266,7 +268,12 @@ function Liste({ kind }: { kind: ListKind }) {
     ...enAttente,
   ]
   const todo = items.filter((i) => !i.done)
+  if (tache) todo.sort((a, b) => b.created_at.localeCompare(a.created_at))
   const done = items.filter((i) => i.done)
+  const choisies = filtre === 'terminees' ? done : todo.filter((i) => filtre === 'toutes' || (filtre === 'moi' ? i.assigned_to === me.id : filtre === 'libres' ? !i.assigned_to : !!i.assigned_to && i.assigned_to !== me.id))
+  const navigation = useListPage(choisies, 5, kind + filtre)
+  const todoVisible = tache ? (filtre === 'terminees' ? [] : navigation.visible) : todo
+  const doneVisible = tache ? (filtre === 'terminees' ? navigation.visible : []) : done
   const idees = tache ? [] : IDEES_COURSES.filter((x) => !todo.some((i) => i.title.toLowerCase() === x.toLowerCase())).slice(0, 8)
 
   /** Enregistre en arrière-plan ; en cas d'échec on remet comme avant. */
@@ -295,6 +302,7 @@ function Liste({ kind }: { kind: ListKind }) {
     if (!texte) setTitle('')
     const tmp = { id: `attente-${Date.now()}-${Math.random()}`, family_id: family.id, kind, title: t, done: false, done_by: null, assigned_to: tache ? to : null, created_by: me.id, created_at: new Date().toISOString(), connus: new Set(state.items.map((i) => i.id)) }
     setAjouts((a) => [...a, tmp])
+    if (tache) { setFiltre('toutes'); navigation.setPage(1) }
     const pour = tache ? to : null
     if (tache) { setTo(null); setAssigning(false) } // la tâche suivante repart « pour tous » : pas de mauvaise personne par erreur
     champ.current?.focus()
@@ -416,9 +424,15 @@ function Liste({ kind }: { kind: ListKind }) {
           </button>
         </div>
       )}
-      {todo.length > 0 && (
+      {tache && <div role="group" aria-label="Filtrer les tâches" className="no-bar mx-4 mt-3 mb-3 flex gap-1.5 overflow-x-auto">
+        {[['toutes', 'À faire'], ['moi', 'Pour moi'], ['autres', 'Pour les autres'], ['libres', 'Sans responsable'], ['terminees', 'Terminées']].map(([id, label]) => (
+          <button key={id} type="button" aria-pressed={filtre === id} onClick={() => setFiltre(id)} className={`presse min-h-11 shrink-0 rounded-full px-3 text-note font-semibold ${filtre === id ? 'bg-teinte text-white' : 'bg-carte text-brume'}`}>{label}</button>
+        ))}
+      </div>}
+      {tache && items.length > 0 && choisies.length === 0 && <p role="status" className="mx-5 py-6 text-center text-note text-brume">Aucune tâche dans cette catégorie.</p>}
+      {todoVisible.length > 0 && (
         <div className="groupe mx-4 mt-1 overflow-hidden shadow-carte">
-          {todo.map((i, k) => {
+          {todoVisible.map((i, k) => {
             const who = members.find((m) => m.id === i.assigned_to)
             const attente = i.id.startsWith('attente-')
             return (
@@ -426,7 +440,7 @@ function Liste({ kind }: { kind: ListKind }) {
                 <div className={`flex items-center ${attente ? 'anim-pop opacity-60' : ''}`}>
                   <button onClick={() => basculer(i)} className="presse-ligne flex min-w-0 flex-1 items-center gap-3 pl-4 text-left" aria-label={`Cocher ${i.title}`}>
                     <Coche fait={false} />
-                    <span className={`flex min-h-[54px] min-w-0 flex-1 items-center gap-2 py-2 pr-3 ${k < todo.length - 1 ? 'border-b border-trait' : ''}`}>
+                    <span className={`flex min-h-[54px] min-w-0 flex-1 items-center gap-2 py-2 pr-3 ${k < todoVisible.length - 1 ? 'border-b border-trait' : ''}`}>
                       <span className="min-w-0 flex-1 text-corps">{i.title}</span>
                       {who && <Avatar m={who} size={28} />}
                     </span>
@@ -444,7 +458,7 @@ function Liste({ kind }: { kind: ListKind }) {
       )}
       {todo.length > 0 && !tache && <p className="mt-2 px-5 text-mini text-pale">Touche pour cocher · glisse vers la gauche pour retirer</p>}
 
-      {done.length > 0 && (
+      {doneVisible.length > 0 && (
         <>
           <div className="mt-6 flex items-baseline justify-between px-5">
             <p className="entete !px-0">{tache ? 'Terminées' : 'Dans le panier'}</p>
@@ -453,13 +467,13 @@ function Liste({ kind }: { kind: ListKind }) {
             </button>
           </div>
           <div className="groupe mx-4 overflow-hidden shadow-carte">
-            {done.map((i, k) => {
+            {doneVisible.map((i, k) => {
               const who = members.find((m) => m.id === i.assigned_to)
               return (
                 <Glisse key={i.id} onRetirer={() => retirer([i.id])} label={`Glisse vers la gauche pour retirer ${i.title}`}>
                   <button onClick={() => basculer(i)} className="presse-ligne flex w-full items-center gap-3 pl-4 text-left" aria-label={`Décocher ${i.title}`}>
                     <Coche fait />
-                    <span className={`flex min-h-[50px] min-w-0 flex-1 items-center gap-2 py-2 pr-3 ${k < done.length - 1 ? 'border-b border-trait' : ''}`}>
+                    <span className={`flex min-h-[50px] min-w-0 flex-1 items-center gap-2 py-2 pr-3 ${k < doneVisible.length - 1 ? 'border-b border-trait' : ''}`}>
                       <span className="min-w-0 flex-1 text-corps text-pale line-through">{i.title}</span>
                       {who && (
                         <span className="opacity-70">
@@ -474,6 +488,7 @@ function Liste({ kind }: { kind: ListKind }) {
           </div>
         </>
       )}
+      {tache && <ListPages {...navigation} label="Pages des tâches" />}
     </>
   )
 }

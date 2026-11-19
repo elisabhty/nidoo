@@ -1,3 +1,4 @@
+import { ProgressiveList } from '../components/listNavigation'
 import {
   Check, ChevronLeft, ChevronRight, Ellipsis, FolderPlus, ImagePlus, Lock, Mic, Minus, NotebookPen, Plus, Video, Trash2, UsersRound, X,
 } from 'lucide-react'
@@ -59,12 +60,12 @@ function Accueil({ onOpen }: { onOpen: (id: string) => void }) {
             {roots.length === 0 ? (
               <p className="px-8 py-10 text-center text-sous text-brume">Aucun dossier ne correspond à « {query.trim()} ».</p>
             ) : (
-              <div className="space-y-3 px-4">
-                {roots.map(({ f, s }) => (
+              <ProgressiveList key={query} items={roots} size={6}>{(pageRoots) => <div className="space-y-3 px-4">
+                {pageRoots.map(({ f, s }) => (
                   <FolderCard key={f.id} folder={f} cover={s.cover} line={contentLine(s)} last={s.last} onOpen={() => onOpen(f.id)} />
                 ))}
 
-              </div>
+              </div>}</ProgressiveList>
             )}
           </>
         )}
@@ -307,31 +308,31 @@ function FolderView({ id, onBack }: { id: string; onBack: () => void }) {
 
             {showPhotos && (!q || visiblePhotos.length > 0) && (!empty || filter === 'photos') && <Bloc title="Photos" count={visiblePhotos.length}>
               <p className="-mt-1 mb-3 px-5 text-note text-brume">Ajoute des photos depuis ton téléphone ou le fil familial.</p>
-              <div className="mx-4 grid grid-cols-3 gap-2">
-                {visiblePhotos.map(p => <div key={p.id} className="relative aspect-square overflow-hidden rounded-[16px] bg-remplissage">
+              <ProgressiveList key={query + filter + id + 'photos'} items={visiblePhotos} size={12}>{(pagePhotos) => <div className="mx-4 grid grid-cols-3 gap-2">
+                {pagePhotos.map(p => <div key={p.id} className="relative aspect-square overflow-hidden rounded-[16px] bg-remplissage">
                   <button onClick={() => setViewer(photos.indexOf(p))} className="absolute inset-0 h-full w-full" aria-label={p.body ?? 'Ouvrir la photo'}>{p.image_url && <img src={p.image_url} alt="" loading="lazy" className="h-full w-full object-cover" />}</button>
                   {(admin || p.author_id === me.id) && <button onClick={() => void removeItem(p)} className="presse absolute right-0 top-0 flex h-11 w-11 items-center justify-center" aria-label="Retirer cette photo du dossier"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/95 text-rouge shadow-carte"><Minus size={17} /></span></button>}
                 </div>)}
                 {!q && <button onClick={() => setSheet({k:'photos'})} className="presse flex aspect-square flex-col items-center justify-center gap-2 rounded-[16px] border-2 border-dashed border-teinte/30 bg-teinte-doux text-teinte-fonce" aria-label="Ajouter des photos"><Plus size={28} /><span className="text-note font-semibold">Ajouter</span></button>}
-              </div>
+              </div>}</ProgressiveList>
             </Bloc>}
 
             {showNotes && visibleNotes.length > 0 && <Bloc title="Notes" count={visibleNotes.length}>
-              <div className="space-y-2 px-4">{visibleNotes.map(n => {
+              <ProgressiveList key={query + filter + id + 'notes'} items={visibleNotes} size={5}>{(pageNotes) => <div className="space-y-2 px-4">{pageNotes.map(n => {
                 const by = members.find(m => m.id === n.author_id)
                 return <button key={n.id} onClick={() => { tap(); n.kind === 'dessin' ? setDrawingViewer(n) : setSheet({ k:'note', note:n }) }} className="presse flex w-full items-start gap-3 rounded-[20px] bg-carte p-4 text-left shadow-carte">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-[#FFF5D7] text-[#AD7A13]">{n.kind === 'dessin' && n.image_url ? <img src={n.image_url} alt="" className="h-full w-full rounded-[12px] object-cover" /> : <NotebookPen size={20} />}</span>
                   <span className="min-w-0 flex-1"><span className="line-clamp-2 block text-corps font-semibold">{n.title || (n.kind === 'dessin' ? 'Note dessinée' : 'Note sans titre')}</span><span className="mt-1 line-clamp-2 block whitespace-pre-line text-sous text-brume">{n.body}</span><span className="mt-2 flex items-center gap-1.5 text-note text-brume">{by && <Avatar m={by} size={18} />}<span className="truncate">{by?.display_name ?? 'Un proche'} · {ago(n.updated_at)}</span></span></span>
                   <ChevronRight size={16} className="mt-2 shrink-0 text-brume" />
                 </button>
-              })}</div>
+              })}</div>}</ProgressiveList>
             </Bloc>}
             {(['audio','video'] as const).map(kind => { const entries = visibleMedia.filter(m => m.kind === kind); return entries.length > 0 && <Bloc key={kind} title={kind === 'audio' ? 'À écouter' : 'Vidéos'} count={entries.length}>
-              <div className="space-y-3 px-4">{entries.map(m => <div key={m.id} className="rounded-[22px] bg-carte p-4 shadow-carte">
+              <ProgressiveList key={query + filter + id + kind} items={entries} size={5}>{(pageMedia) => <div className="space-y-3 px-4">{pageMedia.map(m => <div key={m.id} className="rounded-[22px] bg-carte p-4 shadow-carte">
                 <div className="mb-3 flex items-center gap-2.5">{m.kind === 'audio' ? <Mic size={21} className="shrink-0 text-teinte" /> : <Video size={21} className="shrink-0 text-teinte" />}<span className="min-w-0 flex-1 truncate text-corps font-semibold">{m.title || (m.kind === 'audio' ? 'Un souvenir vocal' : 'Un souvenir vidéo')}</span>{(admin || m.author_id === me.id) && <button onClick={() => void removeItem(m)} aria-label={`Retirer ${m.title || 'ce souvenir'}`} className="presse flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-remplissage text-rouge"><Minus size={19} /></button>}</div>
                 {m.media_url ? m.kind === 'audio' ? <audio src={m.media_url} controls preload="metadata" className="w-full" /> : <video src={m.media_url} controls playsInline preload="metadata" className="max-h-[320px] w-full rounded-[14px] bg-black" /> : <p className="text-sous text-brume">Ce souvenir ne peut pas être chargé. Réessaie dans un instant.</p>}
                 <p className="mt-2 text-note text-brume">Ajouté par {members.find(member => member.id === m.author_id)?.display_name ?? 'un proche'} · {ago(m.created_at)}</p>
-              </div>)}</div>
+              </div>)}</div>}</ProgressiveList>
             </Bloc> })}
 
           </div>
