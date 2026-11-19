@@ -666,7 +666,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
             {pied.label} {pied.ok && !busy && !checking && <ChevronRight size={20} strokeWidth={2.8} />}
           </button>
           {pied.passer && (
-            <button className="presse mx-auto mt-1.5 flex h-10 items-center px-4 text-sous font-bold text-white/80" onClick={() => (tap(), suivant())}>
+            <button className="presse mx-auto mt-1.5 flex min-h-11 items-center px-4 text-sous font-bold text-white/80" onClick={() => (tap(), suivant())}>
               Passer
             </button>
           )}

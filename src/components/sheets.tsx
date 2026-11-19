@@ -207,7 +207,7 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
                 setStickers([])
                 setTray(false)
               }}
-              className="presse verre absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full text-encre"
+              className="presse verre absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full text-encre"
               aria-label="Retirer la photo"
             >
               <Trash2 size={17} />
@@ -257,7 +257,7 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
                       setOnglet(k)
                     }}
                     aria-pressed={onglet === k}
-                    className={`h-8 rounded-full px-3.5 text-note font-semibold transition-colors ${onglet === k ? 'bg-teinte text-white' : 'bg-remplissage text-encre'}`}
+                    className={`min-h-11 rounded-full px-3.5 text-note font-semibold transition-colors ${onglet === k ? 'bg-teinte text-white' : 'bg-remplissage text-encre'}`}
                   >
                     {label}
                   </button>

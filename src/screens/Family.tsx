@@ -272,7 +272,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
             {api.demoDecos && (
               <button
                 onClick={() => run((a) => a.demoDecos!(family.id, !allDecos), allDecos ? 'Maison remise à zéro' : 'Toutes les décorations sont installées')}
-                className="presse mt-2.5 h-9 rounded-full bg-white px-4 text-sous font-semibold text-peche-fonce"
+                className="presse mt-2.5 min-h-11 rounded-full bg-white px-4 text-sous font-semibold text-peche-fonce"
               >
                 {allDecos ? 'Remettre la maison à zéro' : 'Débloquer toutes les décorations'}
               </button>
@@ -299,7 +299,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
                 {members.filter((m) => m.user_id).length} membres avec l’appli (jusqu’à {limit}){members.some((m) => !m.user_id) ? `, ${members.filter((m) => !m.user_id).length} sans téléphone` : ''} · offre {family.plan === 'plus' ? 'Famille+' : 'gratuite'}
               </p>
             </div>
-            <button onClick={() => setSheet('maison')} className="presse flex h-9 w-9 items-center justify-center rounded-full bg-remplissage text-teinte" aria-label="Modifier la maison">
+            <button onClick={() => setSheet('maison')} className="presse flex h-11 w-11 items-center justify-center rounded-full bg-remplissage text-teinte" aria-label="Modifier la maison">
               <Pencil size={16} strokeWidth={2.4} />
             </button>
           </div>
@@ -317,7 +317,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
             >
               <Avatar m={m} size={42} mood />
               <div className="min-w-0 flex-1 border-b border-trait py-2.5 pr-4">
-                <p className="flex items-center gap-1.5 truncate text-corps">
+                <p className="flex flex-wrap items-center gap-1.5 text-corps">
                   <span className="truncate">
                     {m.display_name}
                     {m.id === me.id && <span className="text-brume"> (toi)</span>}
@@ -351,7 +351,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
             </span>
             <span className="min-w-0 flex-1 py-3 pr-4">
               <span className="block text-corps text-teinte">Ajouter un enfant ou un bébé</span>
-              <span className="block truncate text-note text-brume">Pour les petits qui n’ont pas de téléphone</span>
+              <span className="block text-note text-brume">Pour les petits qui n’ont pas de téléphone</span>
             </span>
           </button>
         </div>

@@ -49,7 +49,7 @@ function Semaine({ onOpen, onAdd }: { onOpen: (o: Ouvert) => void; onAdd: (day: 
               select()
               setOffset((o) => o - 1)
             }}
-            className="presse flex h-9 w-9 items-center justify-center rounded-full text-teinte"
+            className="presse flex h-11 w-11 items-center justify-center rounded-full text-teinte"
             aria-label="Semaine précédente"
           >
             <ChevronLeft size={22} strokeWidth={2.4} />
@@ -66,7 +66,7 @@ function Semaine({ onOpen, onAdd }: { onOpen: (o: Ouvert) => void; onAdd: (day: 
               select()
               setOffset((o) => o + 1)
             }}
-            className="presse flex h-9 w-9 items-center justify-center rounded-full text-teinte"
+            className="presse flex h-11 w-11 items-center justify-center rounded-full text-teinte"
             aria-label="Semaine suivante"
           >
             <ChevronRight size={22} strokeWidth={2.4} />
@@ -125,7 +125,7 @@ function Semaine({ onOpen, onAdd }: { onOpen: (o: Ouvert) => void; onAdd: (day: 
                     tap()
                     onAdd(day)
                   }}
-                  className="presse -mr-1.5 flex h-8 w-8 items-center justify-center rounded-full text-teinte"
+                  className="presse -mr-1.5 flex h-11 w-11 items-center justify-center rounded-full text-teinte"
                   aria-label={`Ajouter un événement le ${day.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}`}
                 >
                   <Plus size={19} strokeWidth={2.5} />
@@ -424,8 +424,8 @@ function Liste({ kind }: { kind: ListKind }) {
           </button>
         </div>
       )}
-      {tache && <div role="group" aria-label="Filtrer les tâches" className="no-bar mx-4 mt-3 mb-3 flex gap-1.5 overflow-x-auto">
-        {[['toutes', 'À faire'], ['moi', 'Pour moi'], ['autres', 'Pour les autres'], ['libres', 'Sans responsable'], ['terminees', 'Terminées']].map(([id, label]) => (
+      {tache && <div role="group" aria-label="Filtrer les tâches" className="mx-4 mt-3 mb-3 flex flex-wrap gap-1.5">
+        {[['toutes', 'À faire'], ['moi', 'Pour moi'], ['autres', 'Pour les autres'], ['libres', 'Pour tout le monde'], ['terminees', 'Terminées']].map(([id, label]) => (
           <button key={id} type="button" aria-pressed={filtre === id} onClick={() => setFiltre(id)} className={`presse min-h-11 shrink-0 rounded-full px-3 text-note font-semibold ${filtre === id ? 'bg-teinte text-white' : 'bg-carte text-brume'}`}>{label}</button>
         ))}
       </div>}
@@ -463,7 +463,7 @@ function Liste({ kind }: { kind: ListKind }) {
           <div className="mt-6 flex items-baseline justify-between px-5">
             <p className="entete !px-0">{tache ? 'Terminées' : 'Dans le panier'}</p>
             <button onClick={() => retirer(done.map((d) => d.id))} className="presse min-h-11 text-sous font-semibold text-teinte">
-              {tache ? 'Tout effacer' : 'Vider le panier'}
+              {tache ? 'Effacer les tâches terminées' : 'Vider le panier'}
             </button>
           </div>
           <div className="groupe mx-4 overflow-hidden shadow-carte">

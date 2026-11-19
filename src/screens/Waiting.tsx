@@ -75,7 +75,7 @@ export default function Waiting() {
         {!refused && <><p className="mt-5 text-center text-sous text-brume">Tu peux fermer l’application et revenir plus tard avec ce même appareil.</p><Btn className="mt-4" disabled={checking || busy} onClick={() => void check()}>{checking ? 'Vérification…' : 'Vérifier ma demande'}</Btn>{checked && <p role="status" className="mt-2 text-center text-note text-brume">Ta demande est toujours en attente de validation.</p>}</>}
         <div className="flex-1" />
         <Btn kind={refused ? 'plein' : 'gris'} className="mt-6" disabled={busy || checking} onClick={drop}>
-          {refused ? 'Compris' : 'Annuler ma demande'}
+          {busy ? 'Un instant…' : refused ? 'Revenir à l’accueil' : 'Annuler ma demande'}
         </Btn>
       </div>
     </div>

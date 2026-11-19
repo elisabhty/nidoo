@@ -337,9 +337,9 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
                 {index > 0 && <span aria-hidden className="absolute left-[72px] right-4 top-0 h-px bg-trait" />}
                 <Vignette h={h} />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-note font-semibold text-teinte-fonce">{h.label}</span>
+                  <span className="block text-note font-semibold text-teinte-fonce">{h.label}</span>
                   <span className="line-clamp-2 block text-sous font-bold leading-snug text-encre">{h.title}</span>
-                  <span className="block truncate text-note text-brume">{h.detail}</span>
+                  <span className="line-clamp-2 block text-note text-brume">{h.detail}</span>
                 </span>
                 <ChevronRight size={17} className="shrink-0 text-pale" aria-hidden="true" />
               </button>

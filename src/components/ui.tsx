@@ -84,17 +84,24 @@ export function Screen({ title, trailing, leading, children }: { title: string; 
 export function Page({ title, back = 'Retour', onClose, trailing, children, scrollKey }: { title: string; back?: string; onClose: () => void; trailing?: ReactNode; children: ReactNode; scrollKey?: string }) {
   const [scrolled, setScrolled] = useState(false)
   const body = useRef<HTMLDivElement>(null)
+  const page = useRef<HTMLDivElement>(null)
   // un nouveau contenu (par exemple juste après l'adoption) repart du haut
   useEffect(() => {
     body.current?.scrollTo({ top: 0 })
   }, [scrollKey])
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      const dialogs = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"], [role="alertdialog"]')).filter((el) => el.getClientRects().length > 0)
+      if (dialogs[dialogs.length - 1] !== page.current) return
+      e.preventDefault()
+      onClose()
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
   return (
-    <div className="anim-glisse absolute inset-0 z-40 bg-fond shadow-[-8px_0_30px_rgba(29,26,43,0.12)]" role="dialog" aria-modal="true" aria-label={title}>
+    <div ref={page} className="anim-glisse absolute inset-0 z-40 bg-fond shadow-[-8px_0_30px_rgba(29,26,43,0.12)]" role="dialog" aria-modal="true" aria-label={title}>
       <div
         className={`ios-topbar absolute inset-x-0 top-0 z-20 transition-[background-color,backdrop-filter,border-color] duration-200 ${scrolled ? 'ios-toolbar-active' : 'border-b border-transparent'}`}
         style={{ paddingTop: 'var(--sat)' }}
@@ -181,8 +188,8 @@ export function Sheet({ title, onClose, children, tall = false, footer }: { titl
           onPointerCancel={() => {start.current = null; setDy(0)}}
         >
           <div className="mx-auto mt-[6px] h-[5px] w-9 rounded-full bg-pale" />
-          <div className="relative flex h-[52px] items-center justify-center px-5">
-            <h2 className="text-corps font-semibold">{title}</h2>
+          <div className="relative flex min-h-[60px] items-center justify-center px-5 py-2">
+            <h2 className="px-12 text-center text-corps font-semibold leading-snug">{title}</h2>
             <button
               onClick={onClose}
               onPointerDown={(e) => e.stopPropagation()}
@@ -217,7 +224,7 @@ export function Btn({
         onClick?.()
       }}
       disabled={disabled}
-      className={`presse flex min-h-[52px] shrink-0 w-full items-center justify-center gap-2 rounded-full px-5 text-corps font-bold btn-desactive ${styles} ${className}`}
+      className={`presse flex min-h-[52px] py-3 leading-snug shrink-0 w-full items-center justify-center gap-2 rounded-full px-5 text-corps font-bold btn-desactive ${styles} ${className}`}
     >
       {children}
     </button>
@@ -252,7 +259,7 @@ export function SearchField({value,onChange,placeholder='Rechercher',label=place
   return <div className="ios-search mx-4 mb-5 flex items-center gap-3">
     <div className={`flex min-h-[46px] min-w-0 flex-1 items-center gap-2 rounded-[14px] bg-remplissage pl-3 ${editing ? 'ring-2 ring-teinte/20' : ''}`}>
       <Search size={18} strokeWidth={2.2} className="shrink-0 text-brume" />
-      <input ref={input} type="search" enterKeyHint="search" autoComplete="off" aria-label={label} placeholder={placeholder} value={value} onChange={e=>onChange(e.target.value)} onFocus={()=>setEditing(true)} onKeyDown={e=>{if(e.key==='Enter') input.current?.blur();if(e.key==='Escape'){onChange('');setEditing(false);input.current?.blur()}}} className="min-w-0 flex-1 appearance-none bg-transparent py-3 text-corps text-encre outline-none placeholder:text-brume" />
+      <input ref={input} type="search" enterKeyHint="search" autoComplete="off" aria-label={label} placeholder={placeholder} value={value} onChange={e=>onChange(e.target.value)} onFocus={()=>setEditing(true)} onKeyDown={e=>{if(e.key==='Enter') input.current?.blur();if(e.key==='Escape'){e.preventDefault();e.stopPropagation();onChange('');setEditing(false);input.current?.blur()}}} className="min-w-0 flex-1 appearance-none bg-transparent py-3 text-corps text-encre outline-none placeholder:text-brume" />
       {value ? <button aria-label="Effacer la recherche" onPointerDown={e=>e.preventDefault()} onClick={()=>{onChange('');input.current?.focus()}} className="flex h-11 w-11 shrink-0 items-center justify-center text-brume"><span className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-brume text-white"><X size={12} strokeWidth={3} /></span></button> : <span className="w-3" />}
     </div>
     {editing && <button onPointerDown={e=>e.preventDefault()} onClick={()=>{onChange('');setEditing(false);input.current?.blur()}} className="presse min-h-11 shrink-0 text-corps text-teinte-fonce">Annuler</button>}
@@ -338,7 +345,7 @@ export function Segments<T extends string>({ value, onChange, options }: { value
             select()
             onChange(o.key)
           }}
-          className={`relative z-10 flex-1 rounded-full text-note ${value === o.key ? 'font-semibold text-encre' : 'font-medium text-encre/80'}`}
+          className={`relative z-10 min-h-11 min-w-0 flex-1 rounded-full px-2 py-2 text-note ${value === o.key ? 'font-semibold text-encre' : 'font-medium text-encre/80'}`}
         >
           {o.label}
         </button>
