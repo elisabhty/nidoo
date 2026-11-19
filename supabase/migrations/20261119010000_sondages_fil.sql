@@ -15,7 +15,6 @@ returns boolean language sql immutable set search_path = '' as $$
   )
 $$;
 
-alter table public.moments drop constraint moments_poll_options_valid;
 alter table public.moments
   add constraint moments_poll_options_valid check (
     private.valid_poll_options(poll_options)
