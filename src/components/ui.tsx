@@ -54,17 +54,17 @@ export function Rond({ children, onClick, label, tint = false }: { children: Rea
 }
 
 /** Écran à grand titre : le titre se replie dans une barre floutée au défilement. */
-export function Screen({ title, trailing, leading, children }: { title: string; trailing?: ReactNode; leading?: ReactNode; children: ReactNode }) {
+export function Screen({ title, trailing, leading, children, compact = false }: { title: string; trailing?: ReactNode; leading?: ReactNode; children: ReactNode; compact?: boolean }) {
   const [scrolled, setScrolled] = useState(false)
   return (
     <div className="relative h-full">
       <div
-        className={`ios-topbar pointer-events-none absolute inset-x-0 top-0 z-20 transition-[background-color,backdrop-filter,border-color] duration-200 ${scrolled ? 'ios-toolbar-active' : 'border-b border-transparent'}`}
+        className={`ios-topbar pointer-events-none absolute inset-x-0 top-0 z-20 transition-[background-color,backdrop-filter,border-color] duration-200 ${compact || scrolled ? 'ios-toolbar-active' : 'border-b border-transparent'}`}
         style={{ paddingTop: 'var(--sat)' }}
       >
         <div className="relative flex h-[52px] items-center justify-between px-4">
           <div className="pointer-events-auto flex items-center gap-2">{leading}</div>
-          <p className={`absolute inset-x-24 truncate text-center text-corps font-semibold transition-opacity duration-200 ${scrolled ? 'opacity-100' : 'opacity-0'}`}>{title}</p>
+          {compact ? <h1 className="absolute inset-x-20 truncate text-center text-corps font-bold tracking-[-0.2px]">{title}</h1> : <p className={`absolute inset-x-24 truncate text-center text-corps font-semibold transition-opacity duration-200 ${scrolled ? 'opacity-100' : 'opacity-0'}`}>{title}</p>}
           <div className="pointer-events-auto flex items-center gap-2">{trailing}</div>
         </div>
       </div>
@@ -73,7 +73,7 @@ export function Screen({ title, trailing, leading, children }: { title: string; 
         style={{ paddingTop: 'calc(var(--sat) + 52px)' }}
         onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 34)}
       >
-        <h1 className="px-5 pb-3 pt-2 tracking-[-0.8px] font-sans text-grand">{title}</h1>
+        {!compact && <h1 className="px-5 pb-3 pt-2 tracking-[-0.8px] font-sans text-grand">{title}</h1>}
         {children}
       </div>
     </div>
