@@ -112,6 +112,7 @@ export const STAR_REASONS: Record<string, string> = {
   jeu: 'a joué avec le compagnon',
   partie: 'a gagné une partie',
   tour: 'a tenu bon à la tour',
+  porte: 'a porté sans rien casser',
   accord: 'était d’accord avec toute la famille',
   trouve: 'a deviné un dessin',
   mot: 'a trouvé le mot mystère',

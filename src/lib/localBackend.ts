@@ -16,6 +16,7 @@ import { challenge, nextReward, WEEKLY, weekIndex, weekKey, weekStart, type Week
 type Raw = Omit<FamilyState, 'me' | 'weekly' | 'houseSince' | 'mot' | 'flags' | 'advent'> & { houseSince?: Record<string, string>; advent?: AdventDoor[] }
   & { caches?: Record<string, Cache>; motDemo?: MotDemo } & { dossiersDemo?: boolean; enfantsDemo?: boolean; weeklyClaims?: Record<string, string>; aventDemo?: number }
   & { jeuxDemo?: boolean; decks?: Record<string, { deck: number[]; pending: number | null }> }
+  & { porte?: Record<string, Record<number, { e: number; t: number }>> }
 type Pending = MyRequest & { profile: { displayName: string; avatar: string; color: string } }
 type Db = { userId: string; families: Record<string, Raw>; pending?: Pending[] }
 const KEY = 'nidoo.demo.v2'
@@ -1268,6 +1269,24 @@ export function createLocalBackend(): Backend {
         return
       }
       throw new Error('PARTIE_INCONNUE')
+    },
+    // ───── « À deux, on porte ! » : comme la base (un niveau ne compte que si le précédent est fini, étoiles nouvelles seulement) ─────
+    async porteRecords(fid, memberId) {
+      return { ...(fam(fid).porte?.[memberId] ?? {}) }
+    },
+    async porteFini(fid, niveau, etoiles, temps) {
+      const f = fam(fid)
+      const me = myId(f)
+      const mes = ((f.porte ??= {})[me] ??= {})
+      if (!Number.isInteger(niveau) || niveau < 0 || niveau > 7) throw new Error('NIVEAU_INCONNU')
+      if (![1, 2, 3].includes(etoiles)) throw new Error('ETOILES_INVALIDES')
+      if (niveau > 0 && !mes[niveau - 1]) throw new Error('NIVEAU_FERME')
+      const avant = mes[niveau]
+      const gain = Math.max(0, etoiles - (avant?.e ?? 0))
+      if (!avant || etoiles > avant.e || (etoiles === avant.e && temps < avant.t)) mes[niveau] = { e: etoiles, t: Math.round(temps * 10) / 10 }
+      if (gain > 0) award(f, me, 'porte', gain)
+      save()
+      return { gain }
     },
     // ───── Dessiner à deux, en démo : le proche invité arrive et dessine pour de vrai sous tes yeux ─────
     async inviteLive(_fid, _from, to, jeu) {

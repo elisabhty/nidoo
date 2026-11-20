@@ -404,6 +404,10 @@ export interface Backend {
   quitPartie(partieId: string): Promise<void>
   motEssai(familyId: string, mot: string): Promise<{ motif: string; trouve: boolean; solution: string | null }>
   motMesEssais(familyId: string): Promise<MotMoi>
+  /** « À deux, on porte ! » : mes records sur le compte, par niveau (e : étoiles, t : temps). */
+  porteRecords(familyId: string, memberId: string): Promise<Record<number, { e: number; t: number }>>
+  /** Une partie gagnée : garde le meilleur résultat, et renvoie les étoiles gagnées pour la maison (les nouvelles seulement). */
+  porteFini(familyId: string, niveau: number, etoiles: number, temps: number): Promise<{ gain: number }>
   /** Mode démo uniquement : installe toutes les décorations, ou revient à la maison de départ. */
   demoDecos?(familyId: string, all: boolean): Promise<void>
 }

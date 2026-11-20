@@ -19,26 +19,42 @@ import type { LiveEvent, LiveRoom, Member } from '../lib/types'
 import { Character } from './Character'
 import { Avatar, Btn, Confettis, Page } from './ui'
 
-// ───────── Les records, gardés sur l'appareil ─────────
+// ───────── Les records : sur le compte (la base), avec une copie sur l'appareil ─────────
+// La copie sert tout de suite (les niveaux ouverts, les étoiles affichées) et quand le réseau manque ;
+// ce qu'elle a de mieux que le compte y est envoyé à la prochaine ouverture du jeu.
 
-const CLE = 'nidoo.porte'
 type Records = Record<number, { e: number; t: number }>
-function lireRecords(): Records {
+const cle = (membre: string) => `nidoo.porte.${membre}`
+function lireRecords(membre: string): Records {
   try {
-    return JSON.parse(localStorage.getItem(CLE) ?? '{}') as Records
+    // (les tout premiers records étaient gardés sans le nom du membre)
+    const ancien = localStorage.getItem('nidoo.porte')
+    if (ancien && !localStorage.getItem(cle(membre))) localStorage.setItem(cle(membre), ancien)
+    if (ancien) localStorage.removeItem('nidoo.porte')
+    return JSON.parse(localStorage.getItem(cle(membre)) ?? '{}') as Records
   } catch {
     return {}
   }
 }
-function noterRecord(i: number, e: number, t: number) {
-  const r = lireRecords()
-  const avant = r[i]
-  if (!avant || e > avant.e || (e === avant.e && t < avant.t)) r[i] = { e, t: Math.round(t * 10) / 10 }
+function ecrireRecords(membre: string, r: Records) {
   try {
-    localStorage.setItem(CLE, JSON.stringify(r))
+    localStorage.setItem(cle(membre), JSON.stringify(r))
   } catch {
-    /* tant pis : le record ne sera pas retenu */
+    /* tant pis : la copie ne sera pas retenue */
   }
+}
+const mieux = (x: { e: number; t: number }, y?: { e: number; t: number }) => !y || x.e > y.e || (x.e === y.e && x.t < y.t)
+function noterRecord(membre: string, i: number, e: number, t: number) {
+  const r = lireRecords(membre)
+  const neuf = { e, t: Math.round(t * 10) / 10 }
+  if (mieux(neuf, r[i])) r[i] = neuf
+  ecrireRecords(membre, r)
+  return r
+}
+/** Le meilleur des deux, niveau par niveau. */
+function fusion(x: Records, y: Records): Records {
+  const r: Records = { ...x }
+  for (const [k, v] of Object.entries(y)) if (mieux(v, r[Number(k)])) r[Number(k)] = v
   return r
 }
 
@@ -164,7 +180,7 @@ type Phase = 'attente' | 'decompte' | 'jeu' | 'chute' | 'fin' | 'parti'
 
 /** La partie elle-même, en plein écran. */
 export function PorteJeu({ mode, niveau: depart, onClose, onRecords }: { mode: ModePorte; niveau: number; onClose: () => void; onRecords?: (r: Records) => void }) {
-  const { state, api } = useHome()
+  const { state, api, reload } = useHome()
   const { me, family } = state
   const direct = mode.k === 'direct'
   /** en démo, le proche invité est fictif : il joue tout seul, chez nous */
@@ -177,7 +193,7 @@ export function PorteJeu({ mode, niveau: depart, onClose, onRecords }: { mode: M
   const n = NIVEAUX[idx]
   const [phase, setPhase] = useState<Phase>(direct ? 'attente' : 'decompte')
   const [compte, setCompte] = useState(3)
-  const [bilan, setBilan] = useState<{ gagne: boolean; e: number; temps: number; mot: string } | null>(null)
+  const [bilan, setBilan] = useState<{ gagne: boolean; e: number; temps: number; mot: string; gain: number } | null>(null)
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null)
   const [sansReponse, setSansReponse] = useState(false)
 
@@ -298,17 +314,28 @@ export function PorteJeu({ mode, niveau: depart, onClose, onRecords }: { mode: M
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  /** La partie est finie : les étoiles, le record. */
+  /** La partie est finie : les étoiles du niveau, le record, et les étoiles pour la maison. */
   const finir = () => {
     const p = g.current
     const gagne = p.fin === 'gagne'
+    const i = NIVEAUX.indexOf(niv.current)
     const e = gagne ? etoiles(niv.current, p.t, p.pic) : 0
     if (gagne) {
       success()
       jouer('etoiles', 0.7)
-      onRecords?.(noterRecord(NIVEAUX.indexOf(niv.current), e, p.t))
+      onRecords?.(noterRecord(me.id, i, e, p.t))
+      // sur le compte : le record, et une étoile pour la maison par étoile gagnée pour la première fois
+      // (si ça ne passe pas — pas de réseau, niveau pas encore ouvert sur le compte — ce sera envoyé plus tard)
+      api
+        .porteFini(family.id, i, e, p.t)
+        .then(({ gain }) => {
+          if (!gain) return
+          setBilan((b) => b && { ...b, gain })
+          void reload().catch(() => undefined)
+        })
+        .catch(() => undefined)
     } else warn()
-    setBilan({ gagne, e, temps: p.t, mot: motDeFin(p, niv.current) })
+    setBilan({ gagne, e, temps: p.t, mot: motDeFin(p, niv.current), gain: 0 })
     setPhase('fin')
   }
 
@@ -663,6 +690,11 @@ export function PorteJeu({ mode, niveau: depart, onClose, onRecords }: { mode: M
                     <Star key={i} size={40} strokeWidth={1.6} className="anim-pop" style={{ animationDelay: `${i * 0.16}s` }} fill={i <= bilan.e ? '#F5B83D' : 'transparent'} color={i <= bilan.e ? '#E09A1A' : '#C9C4D6'} />
                   ))}
                 </div>
+                {bilan.gain > 0 && (
+                  <p className="anim-pop mx-auto mt-2.5 flex w-fit items-center gap-1.5 rounded-full bg-[#FFF3D6] px-3 py-1 text-sous font-semibold text-[#8A5A00]">
+                    <img src="./art/picto-etoile.webp" alt="" className="h-5 w-5" /> +{bilan.gain} étoile{bilan.gain > 1 ? 's' : ''} pour la maison
+                  </p>
+                )}
                 <p className="mt-2 text-note text-brume">
                   {fmt(bilan.temps)} · {bilan.e === 3 ? 'parfait' : bilan.e === 2 ? `moins de ${fmt(n.par)} pour la troisième étoile` : 'sans grosse frayeur pour la deuxième étoile'}
                 </p>
@@ -689,12 +721,46 @@ export function PorteJeu({ mode, niveau: depart, onClose, onRecords }: { mode: M
 // ───────── Le choix : avec qui, où, quel niveau ─────────
 
 export function PortePage({ onClose }: { onClose: () => void }) {
-  const { state, api } = useHome()
+  const { state, api, reload, toast } = useHome()
   const { me, members, family } = state
   const autres = members.filter((m) => m.id !== me.id)
   const [avec, setAvec] = useState<string>('panda')
   const [ou, setOu] = useState<'ici' | 'direct'>('ici')
-  const [records, setRecords] = useState<Records>(lireRecords)
+  const [records, setRecords] = useState<Records>(() => lireRecords(me.id))
+  // Les records du compte : on prend le meilleur des deux, et ce que l'appareil a de mieux part sur le compte
+  // (les livraisons faites avant, ou sans réseau, comptent alors pour la maison).
+  useEffect(() => {
+    let vivant = true
+    void (async () => {
+      try {
+        let compte = await api.porteRecords(family.id, me.id)
+        const ici = lireRecords(me.id)
+        let gain = 0
+        for (let i = 0; i < NIVEAUX.length; i++) {
+          if (!ici[i] || !mieux(ici[i], compte[i])) continue
+          try {
+            gain += (await api.porteFini(family.id, i, ici[i].e, Math.max(5, ici[i].t))).gain
+          } catch {
+            break
+          }
+        }
+        if (gain) {
+          compte = await api.porteRecords(family.id, me.id)
+          toast(`+${gain} étoile${gain > 1 ? 's' : ''} pour la maison : vos livraisons comptent.`)
+          void reload().catch(() => undefined)
+        }
+        const tout = fusion(ici, compte)
+        ecrireRecords(me.id, tout)
+        if (vivant) setRecords(tout)
+      } catch {
+        /* pas de réseau : on garde la copie de l'appareil */
+      }
+    })()
+    return () => {
+      vivant = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [partie, setPartie] = useState<{ mode: ModePorte; niveau: number } | null>(null)
   const [occupe, setOccupe] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
@@ -786,6 +852,7 @@ export function PortePage({ onClose }: { onClose: () => void }) {
         {erreur && <p role="alert" className="mx-5 mt-2 text-note font-semibold text-[#C2362F]">{erreur}</p>}
 
         <p className="entete mt-6">Que porte-t-on ?</p>
+        <p className="mx-5 -mt-1 mb-2.5 text-note text-brume">Chaque étoile gagnée pour la première fois rapporte une étoile à la maison.</p>
         <div className="mx-4 grid grid-cols-2 gap-2.5 pb-6">
           {NIVEAUX.map((n, i) => {
             const ouvert = i === 0 || !!records[i - 1]

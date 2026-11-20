@@ -362,6 +362,14 @@ export function createSupabaseBackend(): Backend {
     async motMesEssais(fid) {
       return check(await sb.rpc('mot_mes_essais', { p_family: fid })) as MotMoi
     },
+    // ───── « À deux, on porte ! » : les records et les étoiles (supabase/migrations/20261120183500_porte.sql) ─────
+    async porteRecords(fid, memberId) {
+      const rows = check(await sb.from('porte_records').select('niveau, etoiles, temps').eq('family_id', fid).eq('member_id', memberId)) as { niveau: number; etoiles: number; temps: number }[]
+      return Object.fromEntries(rows.map((r) => [r.niveau, { e: r.etoiles, t: Number(r.temps) }]))
+    },
+    async porteFini(fid, niveau, etoiles, temps) {
+      return check(await sb.rpc('porte_fini', { p_family: fid, p_niveau: niveau, p_etoiles: etoiles, p_temps: Math.round(temps * 10) / 10 })) as { gain: number }
+    },
     // ───── Dessiner à deux : canaux privés de Supabase Realtime (règles dans 0014_dessin_a_deux.sql) ─────
     async inviteLive(fid, from, to, jeu) {
       const session = uid()
