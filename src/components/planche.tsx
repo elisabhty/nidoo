@@ -8,9 +8,10 @@ import { photoFinale, vignettesFiltres, type FiltreKey } from '../lib/filtres'
 import { select, success, tap } from '../lib/haptic'
 import { MAX_STICKERS } from '../lib/stickers'
 import { useHome } from '../lib/store'
-import type { DrawingData, DrawTool, LiveEvent, LiveInvite, LiveRoom, Sticker, Stroke } from '../lib/types'
+import type { DrawingData, DrawTool, LiveEvent, LiveInvite, LiveRoom, Member, Sticker, Stroke } from '../lib/types'
 import { compressImage, errorText, uid } from '../lib/util'
 import { DrawingCanvas, usePhoto } from './drawing'
+import { PorteJeu } from './porte'
 import { FilterRow, nouveauSticker, StickerStage, StickerTray } from './stickers'
 import { Avatar, Btn, choisir, confirmer, Sheet } from './ui'
 
@@ -982,10 +983,38 @@ export function LiveInvites() {
   useEffect(() => {
     if (inv) success()
   }, [inv])
+  const [porte, setPorte] = useState<{ session: string; avec: Member } | null>(null)
+  if (porte) return <PorteJeu mode={{ k: 'direct', avec: porte.avec, session: porte.session, hote: false }} niveau={0} onClose={() => setPorte(null)} />
   if (open) return <DrawSheet live={open} to={open.partner} onClose={() => setOpen(null)} />
   if (!inv) return null
   const from = state.members.find((m) => m.id === inv.from)
   if (!from) return null
+  // une invitation à jouer en direct (« À deux, on porte ! »), pas à dessiner
+  if (inv.jeu === 'porte')
+    return (
+      <div className="absolute inset-0 z-50 flex items-center justify-center px-5" role="dialog" aria-modal="true" aria-label="Invitation à jouer à deux">
+        <div className="anim-fondu absolute inset-0 bg-black/40 backdrop-blur-md" />
+        <div className="anim-pop relative w-full max-w-[360px] rounded-[34px] bg-fond px-5 pb-5 pt-6 text-center shadow-[0_30px_80px_-20px_rgba(29,26,43,0.5)]">
+          <span className="anim-bat mx-auto flex w-fit">
+            <Avatar m={from} size={84} />
+          </span>
+          <p className="mt-4 font-rond text-titre2">{from.display_name} a besoin de toi pour porter !</p>
+          <p className="mt-1 text-sous text-brume">« À deux, on porte ! » : vous transportez ensemble quelque chose de fragile, chacun sur son téléphone, en direct.</p>
+          <Btn
+            className="mt-5"
+            onClick={() => {
+              setPorte({ session: inv.session, avec: from })
+              setInv(null)
+            }}
+          >
+            <UsersRound size={18} strokeWidth={2.4} /> Porter avec {from.display_name}
+          </Btn>
+          <Btn kind="gris" className="mt-2" onClick={() => setInv(null)}>
+            Pas maintenant
+          </Btn>
+        </div>
+      </div>
+    )
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center px-5" role="dialog" aria-modal="true" aria-label="Invitation à dessiner à deux">
       <div className="anim-fondu absolute inset-0 bg-black/40 backdrop-blur-md" />

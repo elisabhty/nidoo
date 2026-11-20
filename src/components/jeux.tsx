@@ -6,6 +6,7 @@ import { COLS, dropCell, GAMES, isMemory, MEMORY_MAX, MEMORY_MIN, ROWS, type Gam
 import { jouer } from '../lib/sons'
 import { useHome } from '../lib/store'
 import type { FamilyState, Game, Member, Partie } from '../lib/types'
+import { PortePage, PorteTuile } from './porte'
 import { aMoi, PANDA, PARTIES, type PartieKind } from '../lib/parties'
 import { MotCarte, MotPage } from './motmystere'
 import { NewPartie, PartieView, statutPartie } from './parties'
@@ -119,6 +120,7 @@ export function JeuxPage({ onClose, start }: { onClose: () => void; start?: stri
   const [nouveau, setNouveau] = useState<{ k: GameKind; against?: string } | null>(null)
   const [nouvelle, setNouvelle] = useState<{ k: PartieKind; avec?: string[] } | null>(null)
   const [mot, setMot] = useState(start === 'mot')
+  const [porte, setPorte] = useState(start === 'porte')
   const items: Item[] = [...state.games.map((g) => ({ t: 'g' as const, g })), ...state.parties.filter((p) => p.kind !== 'annee').map((p) => ({ t: 'p' as const, p }))].sort((a, b) =>
     (b.t === 'g' ? b.g.updated_at : b.p.updated_at).localeCompare(a.t === 'g' ? a.g.updated_at : a.p.updated_at),
   )
@@ -235,7 +237,10 @@ export function JeuxPage({ onClose, start }: { onClose: () => void; start?: stri
         <MotCarte onOpen={() => setMot(true)} />
         <MesParties listes={{ jouer: aJouer, attente, terminees: finies }} ligne={row} />
         <p className="entete mt-6">À deux</p>
-        <div className="mx-4 grid grid-cols-3 gap-2.5">{A_DEUX.map(tuile)}</div>
+        <div className="mx-4 grid grid-cols-3 gap-2.5">
+          {A_DEUX.map(tuile)}
+          <PorteTuile onOpen={() => setPorte(true)} />
+        </div>
         <p className="entete mt-6">En famille</p>
         <div className="mx-4 grid grid-cols-3 gap-2.5">{EN_FAMILLE.map(tuile)}</div>
         {group('Dans la famille', famille)}
@@ -244,6 +249,7 @@ export function JeuxPage({ onClose, start }: { onClose: () => void; start?: stri
       {game && <GameView game={game} onClose={() => setOpen(null)} onRematch={(k, against) => setNouveau({ k, against })} onOpen={setOpen} />}
       {partie && <PartieView partie={partie} onClose={() => setOpen(null)} onOpen={setOpen} onNouvelle={(k, avec) => setNouvelle({ k, avec })} />}
       {mot && <MotPage onClose={() => setMot(false)} />}
+      {porte && <PortePage onClose={() => setPorte(false)} />}
       {nouveau && (
         <NewGame
           kind={nouveau.k}

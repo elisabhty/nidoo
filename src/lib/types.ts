@@ -1,5 +1,6 @@
 import type { GameKind, GameState } from './jeux'
 import type { MotLigne, MotMoi, PartieKind, PartieState, Secret } from './parties'
+import type { MsgPorte } from './porte'
 import type { WeeklyState } from './weekly'
 
 export type HouseType = 'maison' | 'appartement' | 'chalet'
@@ -117,7 +118,8 @@ export type Reaction = { moment_id: string; member_id: string; emoji: string }
 
 /** Dessins : enregistrés trait par trait sur une feuille de 1000 × DRAW_H (forme d'un widget moyen). */
 /** Dessiner à deux : une invitation reçue. */
-export type LiveInvite = { session: string; from: string; to: string; at: number }
+/** `jeu` : l'invitation est pour un jeu en direct (« À deux, on porte ! »), pas pour dessiner. */
+export type LiveInvite = { session: string; from: string; to: string; at: number; jeu?: 'porte' }
 /** Ce qui passe entre les deux téléphones pendant qu'on dessine à deux. */
 export type LiveEvent =
   /** je suis là (le premier arrivé renvoie alors toute la feuille) */
@@ -134,6 +136,8 @@ export type LiveEvent =
   | { t: 'fond'; who: string; bg: string; fr?: string }
   /** le dessin est envoyé : la séance est finie */
   | { t: 'fin'; who: string }
+  /** « À deux, on porte ! » en direct (le même canal sert aux deux) */
+  | MsgPorte
 export interface LiveRoom {
   send(e: LiveEvent): void
   leave(): void
@@ -380,7 +384,7 @@ export interface Backend {
   linkEmail(email: string): Promise<void>
   accountEmail(): Promise<string | null>
   /** Dessiner à deux : inviter un proche sur une feuille partagée (renvoie le numéro de la séance). */
-  inviteLive(familyId: string, from: string, to: string): Promise<string>
+  inviteLive(familyId: string, from: string, to: string, jeu?: 'porte'): Promise<string>
   /** Être prévenu quand un proche nous invite à dessiner à deux. */
   onLiveInvite(familyId: string, me: string, cb: (inv: LiveInvite) => void): () => void
   /** Rejoindre la feuille partagée : on y envoie et on y reçoit les traits en direct. */

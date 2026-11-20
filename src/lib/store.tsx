@@ -6,7 +6,8 @@ import { createSupabaseBackend } from './supabaseBackend'
 import type { Backend, Circle, FamilyState, MyRequest } from './types'
 import { errorText, familyLabel } from './util'
 
-const EN_LIGNE = !!(SUPABASE_URL && SUPABASE_KEY)
+/** Faux en démo : pas de serveur, les proches sont fictifs. */
+export const EN_LIGNE = !!(SUPABASE_URL && SUPABASE_KEY)
 const backend: Backend = EN_LIGNE ? createSupabaseBackend() : createLocalBackend()
 const LAST = 'nidoo.maison'
 /** La copie de démarrage : ce qu'on a vu la dernière fois (seulement avec le vrai serveur ; en démo tout est déjà sur l'appareil). */

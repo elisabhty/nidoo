@@ -363,10 +363,10 @@ export function createSupabaseBackend(): Backend {
       return check(await sb.rpc('mot_mes_essais', { p_family: fid })) as MotMoi
     },
     // ───── Dessiner à deux : canaux privés de Supabase Realtime (règles dans 0014_dessin_a_deux.sql) ─────
-    async inviteLive(fid, from, to) {
+    async inviteLive(fid, from, to, jeu) {
       const session = uid()
       const ch = await canalFamille(fid)
-      const r = await ch.send({ type: 'broadcast', event: 'invite', payload: { session, from, to, at: Date.now() } satisfies LiveInvite })
+      const r = await ch.send({ type: 'broadcast', event: 'invite', payload: { session, from, to, at: Date.now(), ...(jeu ? { jeu } : {}) } satisfies LiveInvite })
       if (r !== 'ok') throw new Error('RESEAU')
       return session
     },

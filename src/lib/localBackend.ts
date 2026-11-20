@@ -21,6 +21,8 @@ type Db = { userId: string; families: Record<string, Raw>; pending?: Pending[] }
 const KEY = 'nidoo.demo.v2'
 /** Dessiner à deux en démo : la séance et le proche invité. */
 const seances = new Map<string, string>()
+/** les séances qui sont un jeu en direct (pas un dessin) */
+const seancesJeu = new Set<string>()
 const DINER = 'À partir de 19 h 30. Chacun apporte un plat : Léa s’occupe du dessert, Mamie Jo du gratin.'
 
 // Démo : ce que répondent les proches fictifs à la question du jour (des réponses qui collent à la question).
@@ -1268,9 +1270,10 @@ export function createLocalBackend(): Backend {
       throw new Error('PARTIE_INCONNUE')
     },
     // ───── Dessiner à deux, en démo : le proche invité arrive et dessine pour de vrai sous tes yeux ─────
-    async inviteLive(_fid, _from, to) {
+    async inviteLive(_fid, _from, to, jeu) {
       const session = uid()
       seances.set(session, to)
+      if (jeu) seancesJeu.add(session)
       return session
     },
     onLiveInvite() {
@@ -1282,7 +1285,10 @@ export function createLocalBackend(): Backend {
       let fini = false
       let leurs: Sticker[] = []
       const later = (ms: number, f: () => void) => timers.push(window.setTimeout(() => !fini && f(), ms))
-      if (who && who !== me) {
+      if (who && who !== me && seancesJeu.has(session)) {
+        // un jeu en direct : le proche arrive, puis joue (c'est le jeu lui-même qui le fait jouer, en démo)
+        later(1500, () => on({ t: 'hello', who }))
+      } else if (who && who !== me) {
         // un dessin de démo, tracé petit à petit sur la droite de la feuille
         const arts: DemoArt[] = ['fleur', 'soleil', 'coeurs', 'maison']
         const art = demoDrawing(arts[Math.floor(Math.random() * arts.length)], Date.now() % 997)
