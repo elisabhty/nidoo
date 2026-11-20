@@ -1,0 +1,96 @@
+name: iOS (compilation et aperçus des widgets)
+
+# Sur un Mac de GitHub : vérifie que l'appli iPhone et ses widgets se compilent,
+# puis dessine chaque widget avec la famille d'exemple (captures à télécharger dans « Artifacts »).
+
+on:
+  push:
+    branches: [widgets, 'ios-*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  appli:
+    name: Compiler l'appli et ses widgets
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: xcodebuild -version && ls /Applications | grep -i xcode
+      - run: npm ci
+      - run: npx vite build
+      - run: npx cap sync ios
+      - name: Compiler (simulateur, sans signature)
+        run: |
+          cd ios/App
+          xcodebuild -list -project App.xcodeproj || true
+          set -o pipefail
+          xcodebuild -project App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/dd" \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee "$RUNNER_TEMP/appli.log" | grep -E "error|warning: unused|BUILD (SUCCEEDED|FAILED)|^\*\*" || true
+          grep -q "BUILD SUCCEEDED" "$RUNNER_TEMP/appli.log"
+      - name: L'extension est bien dans l'appli
+        run: |
+          ls "$RUNNER_TEMP/dd/Build/Products/Debug-iphonesimulator/App.app/PlugIns"
+          plutil -p "$RUNNER_TEMP/dd/Build/Products/Debug-iphonesimulator/App.app/PlugIns/NidooWidgets.appex/Info.plist" | head -30
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: journal-appli
+          path: ${{ runner.temp }}/appli.log
+
+  galerie:
+    name: Dessiner les widgets
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - run: xcodebuild -version
+      - run: brew install xcodegen
+      - run: cd ci/galerie && xcodegen generate
+      - name: Compiler la galerie
+        run: |
+          cd ci/galerie
+          set -o pipefail
+          xcodebuild -project Galerie.xcodeproj -scheme Galerie -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/dg" \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee "$RUNNER_TEMP/galerie.log" | grep -E "error|BUILD (SUCCEEDED|FAILED)|^\*\*" || true
+          grep -q "BUILD SUCCEEDED" "$RUNNER_TEMP/galerie.log"
+      - name: Captures
+        run: |
+          set -x
+          UDID=$(xcrun simctl list devices available -j | python3 -c "
+          import json, sys
+          d = json.load(sys.stdin)['devices']
+          tous = [x for k, v in sorted(d.items(), reverse=True) if 'iOS' in k for x in v if x['name'].startswith('iPhone')]
+          choix = [x for x in tous if 'Pro Max' in x['name']] or tous
+          print(choix[0]['udid'])")
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl ui "$UDID" appearance light || true
+          xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 || true
+          xcrun simctl install "$UDID" "$RUNNER_TEMP/dg/Build/Products/Debug-iphonesimulator/Galerie.app"
+          mkdir -p captures
+          for p in 1 2 3 4 5 6 7 8; do
+            xcrun simctl launch "$UDID" com.getupworkspace.nidoo.galerie -page $p
+            sleep 4
+            xcrun simctl io "$UDID" screenshot "captures/page-$p.png"
+            xcrun simctl terminate "$UDID" com.getupworkspace.nidoo.galerie || true
+          done
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: widgets
+          path: |
+            captures
+            ${{ runner.temp }}/galerie.log

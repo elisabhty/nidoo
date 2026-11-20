@@ -16,7 +16,46 @@
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
+		A1D0EBA92C6FF0786E090832 /* NidooPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D0658EBBE8367DEBA87309 /* NidooPlugin.swift */; };
+		A1D06FDE67DEF3161A37EC74 /* NidooViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D0F9469105D442FF5638E5 /* NidooViewController.swift */; };
+		A1D071564B0E84EB5C545655 /* Partage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D0651E5753A09CCA810AD8 /* Partage.swift */; };
+		A1D0F3FD73115023D5E4FDDA /* Partage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D0651E5753A09CCA810AD8 /* Partage.swift */; };
+		A1D0202838289660956C26ED /* Actions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D0299355CD9E4327738429 /* Actions.swift */; };
+		A1D0E123951FD0EC2215B756 /* Controles.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D031F70241C49F469193CC /* Controles.swift */; };
+		A1D09950D36C44537ACFA771 /* Donnees.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D0E84873BE85B6BDE6B80E /* Donnees.swift */; };
+		A1D0D1CD08139A6B15CFFB45 /* Modeles.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D07F1CE42CB74CE5D2A326 /* Modeles.swift */; };
+		A1D09043A28BB274DDA14BE4 /* NidooWidgetsBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D03716D8C7BE6A51953B0C /* NidooWidgetsBundle.swift */; };
+		A1D0C4E4C1BFCC21DF36CB89 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D08783D48139B37B031823 /* Theme.swift */; };
+		A1D0DE60A459595C0A03363A /* VuesJeux.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D0BD6026031AB5C0F64851 /* VuesJeux.swift */; };
+		A1D0217D272516C614B909B9 /* VuesOrganisation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D0F882478FC3848FB49E44 /* VuesOrganisation.swift */; };
+		A1D0D6B358B7DF8B750F829C /* VuesTendresse.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D0A7AE37399237217AC37E /* VuesTendresse.swift */; };
+		A1D097ED9D0966C7C50BC71D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1D063744C4C2ED4E7AFEF17 /* Assets.xcassets */; };
+		A1D0CBDAD97A1C19490E73F5 /* NidooWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A1D0522FFF92C5389DEF873C /* NidooWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A1D0431387EB7262E1CFC79B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A1D0166262BAF892DF9004CD;
+			remoteInfo = NidooWidgets;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		A1D0BCC7513C1C8D6FCD55E2 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				A1D0CBDAD97A1C19490E73F5 /* NidooWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
@@ -30,9 +69,33 @@
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		9582B6822FE993A50072D4E8 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		A1D0658EBBE8367DEBA87309 /* NidooPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NidooPlugin.swift; sourceTree = "<group>"; };
+		A1D0F9469105D442FF5638E5 /* NidooViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NidooViewController.swift; sourceTree = "<group>"; };
+		A1D0651E5753A09CCA810AD8 /* Partage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Partage.swift; sourceTree = "<group>"; };
+		A1D0299355CD9E4327738429 /* Actions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Actions.swift; sourceTree = "<group>"; };
+		A1D031F70241C49F469193CC /* Controles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Controles.swift; sourceTree = "<group>"; };
+		A1D0E84873BE85B6BDE6B80E /* Donnees.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Donnees.swift; sourceTree = "<group>"; };
+		A1D07F1CE42CB74CE5D2A326 /* Modeles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Modeles.swift; sourceTree = "<group>"; };
+		A1D03716D8C7BE6A51953B0C /* NidooWidgetsBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NidooWidgetsBundle.swift; sourceTree = "<group>"; };
+		A1D08783D48139B37B031823 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		A1D0BD6026031AB5C0F64851 /* VuesJeux.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VuesJeux.swift; sourceTree = "<group>"; };
+		A1D0F882478FC3848FB49E44 /* VuesOrganisation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VuesOrganisation.swift; sourceTree = "<group>"; };
+		A1D0A7AE37399237217AC37E /* VuesTendresse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VuesTendresse.swift; sourceTree = "<group>"; };
+		A1D063744C4C2ED4E7AFEF17 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A1D0C17300FB869013ED1EFF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A1D0C3DC20B965370B0F85AB /* NidooWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = NidooWidgets.entitlements; sourceTree = "<group>"; };
+		A1D01664B27B4A99793898E4 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
+		A1D0522FFF92C5389DEF873C /* NidooWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = NidooWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		A1D09EDBE898DA50DDAACF22 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		504EC3011FED79650016851F /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -50,6 +113,8 @@
 				958DCC722DB07C7200EA8C5F /* debug.xcconfig */,
 				504EC3061FED79650016851F /* App */,
 				504EC3051FED79650016851F /* Products */,
+				A1D01B608A4F2BE75555BD7D /* Partage */,
+				A1D0894F82A0EB94D28D0F8C /* NidooWidgets */,
 			);
 			sourceTree = "<group>";
 		};
@@ -57,6 +122,7 @@
 			isa = PBXGroup;
 			children = (
 				504EC3041FED79650016851F /* App.app */,
+				A1D0522FFF92C5389DEF873C /* NidooWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -73,8 +139,38 @@
 				504EC3131FED79650016851F /* Info.plist */,
 				2FAD9762203C412B000D30F8 /* config.xml */,
 				50B271D01FEDC1A000F3C39B /* public */,
+				A1D0658EBBE8367DEBA87309 /* NidooPlugin.swift */,
+				A1D0F9469105D442FF5638E5 /* NidooViewController.swift */,
+				A1D01664B27B4A99793898E4 /* App.entitlements */,
 			);
 			path = App;
+			sourceTree = "<group>";
+		};
+		A1D0894F82A0EB94D28D0F8C /* NidooWidgets */ = {
+			isa = PBXGroup;
+			children = (
+				A1D0299355CD9E4327738429 /* Actions.swift */,
+				A1D031F70241C49F469193CC /* Controles.swift */,
+				A1D0E84873BE85B6BDE6B80E /* Donnees.swift */,
+				A1D07F1CE42CB74CE5D2A326 /* Modeles.swift */,
+				A1D03716D8C7BE6A51953B0C /* NidooWidgetsBundle.swift */,
+				A1D08783D48139B37B031823 /* Theme.swift */,
+				A1D0BD6026031AB5C0F64851 /* VuesJeux.swift */,
+				A1D0F882478FC3848FB49E44 /* VuesOrganisation.swift */,
+				A1D0A7AE37399237217AC37E /* VuesTendresse.swift */,
+				A1D063744C4C2ED4E7AFEF17 /* Assets.xcassets */,
+				A1D0C17300FB869013ED1EFF /* Info.plist */,
+				A1D0C3DC20B965370B0F85AB /* NidooWidgets.entitlements */,
+			);
+			path = NidooWidgets;
+			sourceTree = "<group>";
+		};
+		A1D01B608A4F2BE75555BD7D /* Partage */ = {
+			isa = PBXGroup;
+			children = (
+				A1D0651E5753A09CCA810AD8 /* Partage.swift */,
+			);
+			path = Partage;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -87,10 +183,12 @@
 				504EC3001FED79650016851F /* Sources */,
 				504EC3011FED79650016851F /* Frameworks */,
 				504EC3021FED79650016851F /* Resources */,
+				A1D0BCC7513C1C8D6FCD55E2 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				A1D05A5757FC04E546AC5D31 /* PBXTargetDependency */,
 			);
 			name = App;
 			packageProductDependencies = (
@@ -99,6 +197,23 @@
 			productName = App;
 			productReference = 504EC3041FED79650016851F /* App.app */;
 			productType = "com.apple.product-type.application";
+		};
+		A1D0166262BAF892DF9004CD /* NidooWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1D0DC80F1756C08F50283B6 /* Build configuration list for PBXNativeTarget "NidooWidgets" */;
+			buildPhases = (
+				A1D07A70D71C385290AF96BF /* Sources */,
+				A1D09EDBE898DA50DDAACF22 /* Frameworks */,
+				A1D0F281CA9E1995BBA4AFFA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = NidooWidgets;
+			productName = NidooWidgets;
+			productReference = A1D0522FFF92C5389DEF873C /* NidooWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -114,6 +229,10 @@
 						LastSwiftMigration = 1100;
 						ProvisioningStyle = Automatic;
 					};
+					A1D0166262BAF892DF9004CD = {
+						CreatedOnToolsVersion = 16.0;
+						ProvisioningStyle = Automatic;
+					};
 				};
 			};
 			buildConfigurationList = 504EC2FF1FED79650016851F /* Build configuration list for PBXProject "App" */;
@@ -122,6 +241,7 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				fr,
 				Base,
 			);
 			mainGroup = 504EC2FB1FED79650016851F;
@@ -133,6 +253,7 @@
 			projectRoot = "";
 			targets = (
 				504EC3031FED79650016851F /* App */,
+				A1D0166262BAF892DF9004CD /* NidooWidgets */,
 			);
 		};
 /* End PBXProject section */
@@ -151,6 +272,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A1D0F281CA9E1995BBA4AFFA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1D097ED9D0966C7C50BC71D /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -160,10 +289,38 @@
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */,
+				A1D0EBA92C6FF0786E090832 /* NidooPlugin.swift in Sources */,
+				A1D06FDE67DEF3161A37EC74 /* NidooViewController.swift in Sources */,
+				A1D071564B0E84EB5C545655 /* Partage.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1D07A70D71C385290AF96BF /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1D0F3FD73115023D5E4FDDA /* Partage.swift in Sources */,
+				A1D0202838289660956C26ED /* Actions.swift in Sources */,
+				A1D0E123951FD0EC2215B756 /* Controles.swift in Sources */,
+				A1D09950D36C44537ACFA771 /* Donnees.swift in Sources */,
+				A1D0D1CD08139A6B15CFFB45 /* Modeles.swift in Sources */,
+				A1D09043A28BB274DDA14BE4 /* NidooWidgetsBundle.swift in Sources */,
+				A1D0C4E4C1BFCC21DF36CB89 /* Theme.swift in Sources */,
+				A1D0DE60A459595C0A03363A /* VuesJeux.swift in Sources */,
+				A1D0217D272516C614B909B9 /* VuesOrganisation.swift in Sources */,
+				A1D0D6B358B7DF8B750F829C /* VuesTendresse.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A1D05A5757FC04E546AC5D31 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A1D0166262BAF892DF9004CD /* NidooWidgets */;
+			targetProxy = A1D0431387EB7262E1CFC79B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
 		504EC30B1FED79650016851F /* Main.storyboard */ = {
@@ -300,6 +457,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
@@ -322,6 +480,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
@@ -333,6 +492,59 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.getupworkspace.nidoo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		A1D068EB10A6BE9B2796BD78 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = NidooWidgets/NidooWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = NidooWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.getupworkspace.nidoo.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A1D0ED6704AA85BC51D24B74 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = NidooWidgets/NidooWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = NidooWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.getupworkspace.nidoo.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -355,6 +567,15 @@
 			buildConfigurations = (
 				504EC3171FED79650016851F /* Debug */,
 				504EC3181FED79650016851F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1D0DC80F1756C08F50283B6 /* Build configuration list for PBXNativeTarget "NidooWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1D068EB10A6BE9B2796BD78 /* Debug */,
+				A1D0ED6704AA85BC51D24B74 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
