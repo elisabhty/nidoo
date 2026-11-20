@@ -33,7 +33,14 @@ export function surveillerMiseAJour() {
       sessionStorage.setItem(cle, enLigne)
       const neuf = new URL(location.href)
       neuf.searchParams.set('maj', enLigne.slice(6, 14))
-      location.replace(neuf.toString())
+      // pas de page blanche : l'écran d'attente (le même que celui d'index.html) recouvre l'appli en fondu,
+      // puis la nouvelle version démarre dessus
+      const voile = document.createElement('div')
+      voile.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:#f8f7fc;opacity:0;transition:opacity .18s ease-out'
+      voile.innerHTML = '<img src="./panda.webp" alt="" width="120" height="120" style="border-radius:28px;box-shadow:0 24px 50px -18px rgba(102,70,204,.55)">'
+      document.body.appendChild(voile)
+      requestAnimationFrame(() => (voile.style.opacity = '1'))
+      window.setTimeout(() => location.replace(neuf.toString()), 220)
     } catch {
       /* hors ligne : on réessaiera au prochain retour */
     } finally {

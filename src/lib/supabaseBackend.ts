@@ -7,6 +7,11 @@ import { jourParis, type AnneeState, type MotLigne, type MotMoi, type Secret } f
 import type { AdventDoor, AppFlag, Answer, Backend, Game, Partie, HouseCare, Pet, Plot, Circle, Drawing, DrawingData, FamEvent, Family, FamilyState, Folder, JoinRequest, LiveEvent, LiveInvite, MyRequest, FolderItem, FolderMember, ListItem, Member, Moment, PollVote, Reaction, StarEntry, Thought, Ecrit } from './types'
 import { compressImage, daysAgoKey, todayKey, uid } from './util'
 import { createSignedUrlCache } from './signedUrls'
+import { ecrireCopie, effacerCopies, lireCopie } from './cacheEtat'
+
+/** Durée des liens signés des photos, en jours. */
+const LIENS_JOURS = 7
+let liensTimer: number | undefined
 import { emptyCounts, type WeeklyCounts } from './weekly'
 
 function check<T>(r: { data: T; error: { message: string } | null }): T {
@@ -18,11 +23,26 @@ export function createSupabaseBackend(): Backend {
   const sb: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY, {
     auth: { persistSession: true, autoRefreshToken: true, storageKey: 'nidoo.auth' },
   })
-  const signedUrls = createSignedUrlCache(async (bucket, paths) => {
-    const { data, error } = await sb.storage.from(bucket).createSignedUrls(paths, 3600)
-    if (error) throw new Error(error.message)
-    return (data ?? []).flatMap((item) => item.path && item.signedUrl ? [{ path: item.path, signedUrl: item.signedUrl }] : [])
-  })
+  // Les liens des photos durent 7 jours et sont gardés sur l'appareil (renouvelés au bout de 6) : une photo garde
+  // la même adresse d'un lancement à l'autre, donc le téléphone la ressort de son cache au lieu de la retélécharger.
+  const signedUrls = createSignedUrlCache(
+    async (bucket, paths) => {
+      const { data, error } = await sb.storage.from(bucket).createSignedUrls(paths, LIENS_JOURS * 86400)
+      if (error) throw new Error(error.message)
+      return (data ?? []).flatMap((item) => item.path && item.signedUrl ? [{ path: item.path, signedUrl: item.signedUrl }] : [])
+    },
+    undefined,
+    (LIENS_JOURS - 1) * 86400000,
+    {
+      lire: async () => (userId ? ((await lireCopie<Record<string, { url: string; refreshAt: number }>>('liens', userId))?.valeur ?? null) : null),
+      ecrire: (liens) => {
+        if (!userId) return
+        window.clearTimeout(liensTimer)
+        const u = userId
+        liensTimer = window.setTimeout(() => void ecrireCopie('liens', u, liens), 2000)
+      },
+    },
+  )
   const removeUnusedAsset = async (path: string) => {
     const [items, covers] = await Promise.all([
       sb.from('folder_items').select('id').or(`image_path.eq.${path},media_path.eq.${path}`).limit(1),
@@ -76,6 +96,16 @@ export function createSupabaseBackend(): Backend {
         userId = data.session.user.id
         return userId
       }
+      // Une session est gardée sur l'appareil mais n'a pas pu être prolongée (pas de réseau à cet instant) : surtout
+      // ne pas ouvrir un nouveau compte invisible par-dessus — on perdrait sa famille. On réessaiera.
+      // (Une session vraiment révoquée est retirée de l'appareil par la bibliothèque : on ne passe pas ici.)
+      let gardee = false
+      try {
+        gardee = !!JSON.parse(localStorage.getItem('nidoo.auth') ?? 'null')?.refresh_token
+      } catch {
+        /* stockage indisponible ou illisible */
+      }
+      if (gardee) throw new Error('Failed to fetch (session)')
       // Pas de mot de passe à retenir : chaque téléphone reçoit un compte invisible,
       // qu'on peut ensuite rattacher à un e-mail depuis « Notre famille ».
       const r = await sb.auth.signInAnonymously()
@@ -414,6 +444,9 @@ export function createSupabaseBackend(): Backend {
       const r = await sb.rpc('delete_my_account')
       if (r.error) throw new Error(r.error.message)
       await sb.auth.signOut().catch(() => undefined)
+      // plus rien de cette maison ne reste sur l'appareil
+      window.clearTimeout(liensTimer)
+      await effacerCopies()
     },
 
     async postMoment(fid, memberId, m) {

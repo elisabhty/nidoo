@@ -4,8 +4,8 @@
   "description": "Le petit chez-nous qui tient dans un widget.",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#FFF8F0",
-  "theme_color": "#FFF8F0",
+  "background_color": "#F8F7FC",
+  "theme_color": "#F8F7FC",
   "icons": [
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
     { "src": "icon-1024.png", "sizes": "1024x1024", "type": "image/png" }

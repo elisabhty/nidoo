@@ -1,9 +1,10 @@
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
-import { ACCESSORIES, echelleCarrure, EYES, HAIR_COLORS, HAIRSTYLES, porteA, SKINS, TOPS, type Look } from '../lib/look'
+import { ACCESSORIES, echelleCarrure, encodeLook, EYES, HAIR_COLORS, HAIRSTYLES, porteA, SKINS, TOPS, type Look } from '../lib/look'
 import { COULEURS_MONTURE, FORMES_LUNETTES, LUNETTES_IMG } from '../lib/lunettes'
-import { cachedSrc, dessusPret, jambesPret, labHex, peauOf, persoImg, pixelKey, renderDessus, renderJambes, renderPerso, renderSans, sansPret, skinLab, type HautNu, type Mains, type Remplacement } from '../lib/personnalise'
+import { cachedSrc, dessusPret, enfilePret, jambesPret, labHex, peauOf, persoImg, pixelKey, renderDessus, renderEnfile, renderJambes, renderPerso, renderSans, sansPret, skinLab, type Cou, type Enfile, type HautNu, type Mains, type Remplacement } from '../lib/personnalise'
 import { CORPS } from '../lib/corps'
-import { accPieces, accPlace, accTop, CH, CW, headCut, menton, persoOf, PIECE_AR, type AccPiece, type Perso } from '../lib/persos'
+import { accPieces, accPlace, accTop, CH, CW, HABITS, headCut, menton, persoOf, PIECE_AR, type AccPiece, type Perso } from '../lib/persos'
+import { MAINS } from '../lib/mains'
 import { VISAGES } from '../lib/visages'
 
 // Un personnage de la famille : une figurine en feutrine qui lui ressemble (public/art/persos),
@@ -31,16 +32,20 @@ type Props = {
 /** Une image calculée en tâche de fond à partir d'une autre (recolorée, sans l'ancien habit…).
  *  Tant qu'elle n'est pas prête, on montre la précédente de la même figurine, sinon `repli` — jamais une image
  *  calculée pour une autre figurine : sa silhouette apparaîtrait un instant par-dessus la nouvelle. */
+/** Pendant le rendu d'une figurine : le nombre d'images pas encore à jour (calculs en cours, habits pas chargés).
+ *  À zéro, la figurine est complète — c'est ce qu'attend `Character` pour changer de tenue d'un seul coup. */
+let attente = 0
+
 function useCalcul(pid: string, cle: string | null, pret: () => string | undefined, calcul: () => Promise<string>, repli: string): string {
-  const [etat, setEtat] = useState<{ pid: string; url: string } | null>(null)
+  const [etat, setEtat] = useState<{ pid: string; cle: string; url: string } | null>(null)
   const hit = cle == null ? undefined : pret()
   useEffect(() => {
     if (cle == null) return
-    if (hit) return setEtat({ pid, url: hit })
+    if (hit) return setEtat({ pid, cle, url: hit })
     let live = true
     calcul()
-      .then((u) => live && setEtat({ pid, url: u }))
-      .catch(() => live && setEtat({ pid, url: repli }))
+      .then((u) => live && setEtat({ pid, cle, url: u }))
+      .catch(() => live && setEtat({ pid, cle, url: repli }))
     return () => {
       live = false
     }
@@ -48,7 +53,48 @@ function useCalcul(pid: string, cle: string | null, pret: () => string | undefin
   }, [cle, pid])
   if (cle == null) return repli
   if (hit) return hit
+  if (!etat || etat.cle !== cle || etat.pid !== pid) attente++
   return etat && etat.pid === pid ? etat.url : repli
+}
+
+/** Les images déjà chargées (habits, ombres) : une tenue n'est montrée que quand les siennes le sont. */
+const chargees = new Set<string>()
+function useChargees(urls: string[]) {
+  const cle = urls.join('|')
+  const [, encore] = useState(0)
+  useEffect(() => {
+    let live = true
+    for (const u of urls) {
+      if (chargees.has(u)) continue
+      const im = new Image()
+      const fin = () => {
+        chargees.add(u)
+        if (live) encore((n) => n + 1)
+      }
+      im.onload = fin
+      im.onerror = fin
+      im.src = u
+    }
+    return () => {
+      live = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cle])
+  if (urls.some((u) => !chargees.has(u))) attente++
+}
+
+/** Charger d'avance les images de ce qu'on pourrait mettre (la boutique le fait en s'ouvrant) : la tenue change
+ *  alors sans attendre le réseau. */
+export function prechargerHabits(look: Look, accs: string[]) {
+  const p = persoOf(look)
+  for (const a of accs)
+    for (const q of accPieces(p, a) ?? []) {
+      const u = `./art/persos/${q.art}.webp`
+      if (chargees.has(u)) continue
+      const im = new Image()
+      im.onload = () => chargees.add(u)
+      im.src = u
+    }
 }
 
 /** L'image de la figurine (avec la peau choisie), recolorée si on a changé ses cheveux, ses yeux ou sa bouche. */
@@ -59,18 +105,18 @@ function usePersoSrc(p: Perso, look: Look) {
 }
 
 /** Les cheveux et le visage de la figurine, à redessiner devant un vêtement : [image ou null, fini]. */
-function useDessus(p: Perso, src: string, cut: number | null, mains: Mains | null): [string | null, boolean] {
-  const cle = cut == null ? null : `${src}|${cut}|${mains ? `${mains.cx},${mains.demi},${mains.depuis ?? 0}` : ''}`
-  const [etat, setEtat] = useState<{ pid: string; url: string | null } | null>(null)
-  const hit = cut == null ? undefined : dessusPret(src, cut, mains)
+function useDessus(p: Perso, src: string, cut: number | null, mains: Mains | null, cou: Cou | null = null): [string | null, boolean] {
+  const cle = cut == null ? null : `${src}|${cut}|${mains ? `${mains.cx},${mains.demi},${mains.depuis ?? 0}` : ''}|${cou ? `${cou.cx},${cou.demi},${cou.bas}` : ''}`
+  const [etat, setEtat] = useState<{ pid: string; cle: string | null; url: string | null } | null>(null)
+  const hit = cut == null ? undefined : dessusPret(src, cut, mains, cou)
   useEffect(() => {
     if (cut == null) return
-    if (hit) return setEtat({ pid: p.id, url: hit })
+    if (hit) return setEtat({ pid: p.id, cle, url: hit })
     let live = true
-    renderDessus(p, src, cut, mains)
-      .then((u) => live && setEtat({ pid: p.id, url: u }))
+    renderDessus(p, src, cut, mains, cou)
+      .then((u) => live && setEtat({ pid: p.id, cle, url: u }))
       // en cas d'échec, l'habit s'affiche quand même (posé par-dessus)
-      .catch(() => live && setEtat({ pid: p.id, url: null }))
+      .catch(() => live && setEtat({ pid: p.id, cle, url: null }))
     return () => {
       live = false
     }
@@ -78,6 +124,7 @@ function useDessus(p: Perso, src: string, cut: number | null, mains: Mains | nul
   }, [cle, p.id])
   if (cut == null) return [null, true]
   if (hit) return [hit, true]
+  if (!etat || etat.cle !== cle || etat.pid !== p.id) attente++
   // pas encore prêt : celui d'avant pour la même figurine, sinon on attend (les habits restent cachés)
   return etat && etat.pid === p.id ? [etat.url, true] : [null, false]
 }
@@ -92,15 +139,24 @@ function useSans(p: Perso, src: string, r: Remplacement | null) {
   return useCalcul(p.id, r ? `${src}|${JSON.stringify(r)}` : null, () => sansPret(src, r!), () => renderSans(p, src, r!), src)
 }
 
+const COLS_OUVERTS = ['chemise', 'gilet']
+
+/** La figurine dont l'ancien haut ne dépasse plus du haut ou de la veste « porté » (src tant que ce n'est pas prêt). */
+function useEnfile(p: Perso, src: string, e: Enfile | null) {
+  return useCalcul(p.id, e ? `${src}|${JSON.stringify(e)}` : null, () => enfilePret(src, e!), () => renderEnfile(p, src, e!), src)
+}
+
 /** Une image d'habit posée dans sa boîte (fractions de la toile). */
-function Piece({ pc }: { pc: { art: string; l: number; t: number; w: number; h: number; flip?: boolean } }) {
+function Piece({ pc, entre }: { pc: { art: string; l: number; t: number; w: number; h: number; flip?: boolean }; entre?: [number, number] }) {
+  // `entre` (fractions de la toile) : ce qui dépasse à gauche et à droite est coupé (un haut sous une veste)
+  const g = entre ? Math.max(0, (entre[0] - pc.l) / pc.w) : 0, dr = entre ? Math.max(0, (pc.l + pc.w - entre[1]) / pc.w) : 0
   return (
     <img
       src={`./art/persos/${pc.art}.webp`}
       alt=""
       draggable={false}
       className="absolute max-w-none select-none"
-      style={{ left: `${pc.l * 100}%`, top: `${pc.t * 100}%`, width: `${pc.w * 100}%`, height: `${pc.h * 100}%`, transform: pc.flip ? 'scaleX(-1)' : undefined }}
+      style={{ left: `${pc.l * 100}%`, top: `${pc.t * 100}%`, width: `${pc.w * 100}%`, height: `${pc.h * 100}%`, transform: pc.flip ? 'scaleX(-1)' : undefined, clipPath: g || dr ? `inset(0 ${dr * 100}% 0 ${g * 100}%)` : undefined }}
     />
   )
 }
@@ -307,7 +363,34 @@ export function FaceExtras({ p, look }: { p: Perso; look: Look }) {
   )
 }
 
-export function Character({ look, mood = null, bust = false, extras = false, className = '', pose, blush = false, recul = 1 }: Props) {
+/** La figurine. Quand on change sa tenue, la nouvelle se prépare d'abord à côté, invisible (les calques se calculent,
+ *  les habits se chargent), puis remplace l'ancienne d'un seul coup : plus d'habit posé un instant sur l'ancien haut,
+ *  ni de visage qui repasse devant après coup. */
+export function Character(props: Props) {
+  const cle = encodeLook(props.look)
+  const [montre, setMontre] = useState<{ cle: string; look: Look }>({ cle, look: props.look })
+  const attend = montre.cle !== cle
+  useEffect(() => {
+    if (!attend) return
+    // au pire, on n'attend pas plus d'une seconde et demie
+    const t = window.setTimeout(() => setMontre({ cle, look: props.look }), 1500)
+    return () => window.clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cle, attend])
+  return (
+    <>
+      <Figurine key="vue" {...props} look={attend ? montre.look : props.look} />
+      {attend && (
+        <span key="suite" aria-hidden className="pointer-events-none absolute block h-0 w-0 overflow-hidden opacity-0">
+          <Figurine {...props} look={props.look} onPret={() => setMontre({ cle, look: props.look })} />
+        </span>
+      )}
+    </>
+  )
+}
+
+function Figurine({ look, mood = null, bust = false, extras = false, className = '', pose, blush = false, recul = 1, onPret }: Props & { onPret?: () => void }) {
+  attente = 0
   const p = persoOf(look)
   const src0 = usePersoSrc(p, look)
   // ce qu'on porte, place par place (voir PLACES)
@@ -324,7 +407,14 @@ export function Character({ look, mood = null, bust = false, extras = false, cla
   const hautNu = useMemo(() => (robe && pRobe[0] ? { menton: menton(p), bretelles: pRobe[0].t } : null), [robe, p, pRobe[0]?.t]) // eslint-disable-line react-hooks/exhaustive-deps
   const srcA = useJambes(p, src0, ourlet, hautNu)
   // un haut remplace l'ancien : ce qui dépassait autour du cou et des épaules s'en va
-  const srcB = useSans(p, srcA, haut && pHaut[0] ? { pieces: pHaut, y0: pHaut[0].t - 0.05, y1: pHaut[0].t + pHaut[0].h * 0.4, regle: 'etendue' } : null)
+  const hautPose = !!pHaut[0]?.art.startsWith('hab-'), vestePose = !!pVeste[0]?.art.startsWith('hab-')
+  const srcB0 = useSans(p, srcA, haut && pHaut[0] && !hautPose ? { pieces: pHaut, y0: pHaut[0].t - 0.05, y1: pHaut[0].t + pHaut[0].h * 0.4, regle: 'etendue' } : null)
+  // les hauts et les vestes « portés » (manches le long du corps) : l'ancien haut ne dépasse plus
+  const ment = menton(p)
+  const mn = MAINS[p.id]
+  const b0 = mn ? mn[0] + mn[4] * 0.55 : 0, b1 = mn ? mn[2] - mn[4] * 0.55 : 1
+  const srcB1 = useEnfile(p, srcB0, useMemo(() => (hautPose ? { piece: pHaut[0], mode: 'peau' as const, menton: ment, buste: [b0, b1] as [number, number], poignets: mn ? (mn[1] + mn[3]) / 2 : undefined } : null), [hautPose, b0, b1, pHaut[0]?.art, pHaut[0]?.l, pHaut[0]?.t, pHaut[0]?.w, pHaut[0]?.h, ment])) // eslint-disable-line react-hooks/exhaustive-deps
+  const srcB = useEnfile(p, srcB1, useMemo(() => (vestePose ? { piece: pVeste[0], mode: 'garde' as const, menton: ment, buste: [b0, b1] as [number, number] } : null), [vestePose, b0, b1, pVeste[0]?.art, pVeste[0]?.l, pVeste[0]?.t, pVeste[0]?.w, pVeste[0]?.h, ment])) // eslint-disable-line react-hooks/exhaustive-deps
   // un jean remplace le pantalon : ce qui dépasse de ses jambes s'en va
   const srcC = useSans(p, srcB, bas === 'jean' && pBas[0] ? { pieces: pBas, y0: pBas[0].t + pBas[0].h * 0.12, y1: pBas[0].t + pBas[0].h, regle: 'etendue' } : null)
   // des chaussures remplacent les siennes ; s'il le faut, des chevilles nues entre le bas et les nouvelles
@@ -337,24 +427,47 @@ export function Character({ look, mood = null, bust = false, extras = false, cla
   // le visage, la barbe et les cheveux repassent devant ce qui se porte sur le corps ; sans veste, les mains aussi
   const corpsHabille = !!(haut || robe || veste || bas || cou)
   const mains = useMemo(
-    () => (veste || !corps || !(haut || robe || bas) ? null : { cx: corps[5], demi: corps[6] * 0.34, ...(haut ? { depuis: corps[7] - 0.09 } : {}) }),
-    [veste, haut, robe, bas, corps],
+    // une veste « portée » laisse sortir les mains au bout de ses manches ; les anciennes vestes (à plat) les cachaient
+    () => ((veste && !vestePose) || !corps || !(haut || robe || bas || veste) ? null : { cx: corps[5], demi: corps[6] * 0.34, ...(haut || veste ? { depuis: corps[7] - 0.09 } : {}) }),
+    [veste, vestePose, haut, robe, bas, corps],
   )
-  const [dessus, dessusFini] = useDessus(p, src, cou ? menton(p) : corpsHabille ? headCut(p) : null, corpsHabille ? mains : null)
+  // devant un col ouvert (chemise, gilet, veste), le cou reste visible : le dos du col passe derrière lui
+  const colOuvert = (vestePose && !!veste) || (hautPose && COLS_OUVERTS.includes(haut))
+  const devant = useMemo<Cou | null>(() => (colOuvert && !cou ? { cx: p.m[2], demi: 0.075, bas: ment + 0.028 } : null), [colOuvert, cou, p, ment])
+  const [dessus, dessusFini] = useDessus(p, src, cou ? menton(p) : corpsHabille ? headCut(p) : null, corpsHabille ? mains : null, devant)
   // tant que le visage et les cheveux ne sont pas prêts à repasser devant, les habits attendent (sinon
   // l'écharpe apparaîtrait un instant par-dessus le menton) ; ils arrivent ensuite en fondu
   const habille = !corpsHabille || !!dessus || dessusFini
+  // les images des habits et de leurs ombres
+  useChargees(
+    useMemo(
+      () => [
+        ...[...pHaut, ...pRobe, ...pVeste, ...pBas, ...pPieds, ...pOreilles, ...pPoignet].map((q) => `./art/persos/${q.art}.webp`),
+        ...(cou ? [`./art/persos/acc-${cou}.webp`] : []),
+        ...(tete ? [`./art/persos/acc-${tete}.webp`] : []),
+      ],
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [p.id, tete, cou, oreilles, poignet, haut, robe, veste, bas, pieds],
+    ),
+  )
+  const complet = attente === 0
+  useEffect(() => {
+    if (complet) onPret?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [complet])
   const vetements = { opacity: habille ? 1 : 0, transition: 'opacity 0.18s ease-out' }
-  const ombre = (a: string, boites: Boite[], ar: number) => {
+  const ombre = (a: string, boites: Boite[], ar: number, art = `acc-${a}`) => {
     const o = OMBRES[a]
-    return o && boites.length ? <Ombre src={src} art={`acc-${a}`} ar={ar} boites={boites} dy={o.dy} force={o.force} /> : null
+    return o && boites.length ? <Ombre src={src} art={art} ar={ar} boites={boites} dy={o.dy} force={o.force} /> : null
   }
-  const habit = (a: string, ps: AccPiece[]) =>
+  // sous une veste « portée », on ne voit du haut que son milieu (l'encolure, le devant, l'ourlet) : ses manches sont dans celles de la veste
+  const sousVeste: [number, number] | undefined = hautPose && vestePose ? [pVeste[0].l + pVeste[0].w * 0.25, pVeste[0].l + pVeste[0].w * 0.75] : undefined
+  const habit = (a: string, ps: AccPiece[], entre?: [number, number]) =>
     a && ps.length ? (
       <>
-        {ombre(a, ps, PIECE_AR[a] ?? 1)}
+        {!entre && ombre(a, ps, (ps[0].art.startsWith('hab-') ? HABITS[a]?.ar : PIECE_AR[a]) ?? 1, ps[0].art)}
         {ps.map((q, i) => (
-          <Piece key={i} pc={q} />
+          <Piece key={i} pc={q} entre={entre} />
         ))}
       </>
     ) : null
@@ -366,7 +479,7 @@ export function Character({ look, mood = null, bust = false, extras = false, cla
       {pieds && pPieds.map((q, i) => <Piece key={i} pc={q} />)}
       <span className="absolute inset-0 block" style={vetements}>
         {habit(bas, pBas)}
-        {habit(haut, pHaut)}
+        {habit(haut, pHaut, sousVeste)}
         {habit(robe, pRobe)}
         {habit(veste, pVeste)}
         {plCou && (

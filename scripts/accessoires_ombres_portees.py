@@ -14,8 +14,12 @@ DOSSIER = Path(__file__).resolve().parent.parent / 'public/art/persos'
 NOMS = ['bonnet', 'casquette', 'paille', 'fleurs', 'echarpe', 'couronne', 'noeud', 'manteau', 'fourrure', 'trench', 'blazer', 'robe', 'jupe', 'short', 'colroule', 'chemise', 'mariniere', 'torsade', 'sweat', 'gilet', 'jean']
 MARGE = 0.1  # fraction de la largeur, de chaque côté
 
-for nom in NOMS:
-    im = Image.open(DOSSIER / f'acc-{nom}.webp').convert('RGBA')
+# les habits « portés » (manches le long du corps, scripts/habits_poses.py) ont leur propre image : hab-<nom>.webp
+POSES = ['colroule', 'chemise', 'mariniere', 'torsade', 'sweat', 'gilet', 'manteau', 'fourrure', 'trench', 'blazer']
+
+for nom in NOMS + [f'hab:{n}' for n in POSES]:
+    prefixe, nom = ('hab', nom[4:]) if nom.startswith('hab:') else ('acc', nom)
+    im = Image.open(DOSSIER / f'{prefixe}-{nom}.webp').convert('RGBA')
     w, h = im.size
     m = int(round(w * MARGE))
     al = Image.new('L', (w + 2 * m, h + 2 * m), 0)
@@ -25,5 +29,5 @@ for nom in NOMS:
     out = np.zeros((*a.shape, 4), np.uint8)
     out[..., :3] = (38, 26, 30)  # une ombre chaude, pas un gris froid
     out[..., 3] = a
-    Image.fromarray(out).save(DOSSIER / f'acc-{nom}-ombre.webp', quality=80, method=6)
+    Image.fromarray(out).save(DOSSIER / f'{prefixe}-{nom}-ombre.webp', quality=80, method=6)
     print(nom, w, h, '→', out.shape[1], out.shape[0])

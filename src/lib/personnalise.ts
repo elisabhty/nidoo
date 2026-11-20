@@ -267,10 +267,13 @@ const dessusFait = new Map<string, string>()
 /** `mains` : la peau repasse aussi devant sur les côtés (bras et mains), plus loin que `demi` du centre `cx`
  *  (fractions de la largeur) — pour une robe, une jupe ou un short, que les bras longent. */
 export type Mains = { cx: number; demi: number; depuis?: number }
-const cleDessus = (src: string, cut: number, mains?: Mains | null) => `${src}|${cut.toFixed(3)}|${mains ? `${mains.cx.toFixed(3)},${mains.demi.toFixed(3)},${mains.depuis ?? 0}` : ''}`
-export const dessusPret = (src: string, cut: number, mains?: Mains | null) => dessusFait.get(cleDessus(src, cut, mains))
-export function renderDessus(p: Perso, src: string, cut: number, mains?: Mains | null): Promise<string> {
-  const key = cleDessus(src, cut, mains)
+/** `cou` : le cou reste devant ce qui se porte (un col ouvert), jusqu'à `bas` (fraction de la toile). */
+export type Cou = { cx: number; demi: number; bas: number }
+const cleDessus = (src: string, cut: number, mains?: Mains | null, cou?: Cou | null) =>
+  `${src}|${cut.toFixed(3)}|${mains ? `${mains.cx.toFixed(3)},${mains.demi.toFixed(3)},${mains.depuis ?? 0}` : ''}|${cou ? `${cou.cx.toFixed(3)},${cou.demi.toFixed(3)},${cou.bas.toFixed(3)}` : ''}`
+export const dessusPret = (src: string, cut: number, mains?: Mains | null, cou?: Cou | null) => dessusFait.get(cleDessus(src, cut, mains, cou))
+export function renderDessus(p: Perso, src: string, cut: number, mains?: Mains | null, cou?: Cou | null): Promise<string> {
+  const key = cleDessus(src, cut, mains, cou)
   const hit = dessus.get(key)
   if (hit) return hit
   const job = (async () => {
@@ -292,7 +295,9 @@ export function renderDessus(p: Perso, src: string, cut: number, mains?: Mains |
         const i = (y * W + x) * 4
         // sur les côtés, les bras et les mains (fondu sur quelques pixels)
         const cote = mains && y >= (mains.depuis ?? 0) * H ? Math.max(0, Math.min(1, (Math.abs(x - mx) - md) / (0.02 * W))) : 0
-        const peau = Math.max(haut, cote)
+        // le cou, devant un col ouvert (chemise, veste) : sinon le dos du col passerait dessus
+        const devant = cou && y < (cou.bas + 0.02) * H ? Math.max(0, Math.min(1, (cou.demi * W - Math.abs(x - cou.cx * W)) / (0.015 * W))) * Math.max(0, Math.min(1, (cou.bas * H - y) / (0.02 * H) + 1)) : 0
+        const peau = Math.max(haut, cote, devant)
         // la peau, et les yeux, la bouche et les sourcils (bleu), qui sont dans le visage
         a[y * W + x] = Math.max(m[i + 1] / 255, (Math.max(m[i], haut && m[i + 2] > 40 ? 255 : 0) / 255) * peau)
       }
@@ -314,6 +319,30 @@ export function renderDessus(p: Perso, src: string, cut: number, mains?: Mains |
     ctx.drawImage(im, 0, 0)
     const img = ctx.getImageData(0, 0, W, H)
     const d = img.data
+    // le bord adouci déborde d'un pixel sur ce qui est à côté (l'ancien habit, caché sous le nouveau) : ce pixel prend
+    // la couleur de ses voisins qui repassent devant, sinon un liseré de l'ancien habit suivrait les cheveux
+    const o = new Uint8ClampedArray(d)
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        const k = y * W + x
+        if (a[k] >= 0.5 || b[k] <= 0) continue
+        let r = 0, g = 0, bl = 0, n = 0
+        for (let dy = -1; dy <= 1; dy++)
+          for (let dx = -1; dx <= 1; dx++) {
+            const yy = y + dy, xx = x + dx
+            if (yy < 0 || yy >= H || xx < 0 || xx >= W) continue
+            const w = a[yy * W + xx] * (o[(yy * W + xx) * 4 + 3] / 255)
+            if (w < 0.5) continue
+            r += o[(yy * W + xx) * 4] * w
+            g += o[(yy * W + xx) * 4 + 1] * w
+            bl += o[(yy * W + xx) * 4 + 2] * w
+            n += w
+          }
+        if (!n) continue
+        d[k * 4] = r / n
+        d[k * 4 + 1] = g / n
+        d[k * 4 + 2] = bl / n
+      }
     for (let k = 0; k < W * H; k++) d[k * 4 + 3] = Math.round(d[k * 4 + 3] * b[k])
     ctx.putImageData(img, 0, 0)
     const url = await new Promise<string>((ok) => cv.toBlob((bl) => ok(bl ? URL.createObjectURL(bl) : cv.toDataURL()), 'image/png'))
@@ -684,5 +713,280 @@ export function renderSans(p: Perso, src: string, r: Remplacement): Promise<stri
   })()
   sans.set(key, job)
   job.catch(() => sans.delete(key))
+  return job
+}
+
+/** Enfiler un haut ou une veste « porté » (hab-<nom>.webp, manches le long du corps) : l'ancien haut de la figurine
+ *  ne doit plus dépasser. Dans la bande du nouvel habit, ce qui n'est ni peau ni cheveux et qu'il ne couvre pas :
+ *  - au-dessus de lui, au milieu (l'encolure) : devient de la peau sous un haut (`peau`), reste sous une veste (`garde`,
+ *    on voit le haut porté dessous) ;
+ *  - au-dessus de lui, sur les côtés (une épaule plus haute que celle du nouvel habit) : prend son tissu ;
+ *  - sur les côtés (anciennes manches, entre le bras et le corps) : s'en va ;
+ *  - sous son ourlet (`peau` seulement) : un ancien haut un peu plus long est « rentré » — le bas de la figurine
+ *    remonte jusqu'à l'ourlet. Un haut vraiment plus long (robe, tunique) reste visible dessous. */
+export type Enfile = { piece: PieceHabit; mode: 'peau' | 'garde'; menton: number; buste?: [number, number]; poignets?: number }
+const enfile = new Map<string, Promise<string>>()
+const enfileFait = new Map<string, string>()
+const cleEnfile = (src: string, e: Enfile) => `${src}|${e.mode}|${e.menton.toFixed(3)}|${e.buste?.map((v) => v.toFixed(3)).join(',') ?? ''},${e.poignets?.toFixed(3) ?? ''}|${e.piece.art},${e.piece.l.toFixed(4)},${e.piece.t.toFixed(4)},${e.piece.w.toFixed(4)},${e.piece.h.toFixed(4)}`
+export const enfilePret = (src: string, e: Enfile) => enfileFait.get(cleEnfile(src, e))
+export function renderEnfile(p: Perso, src: string, e: Enfile): Promise<string> {
+  const key = cleEnfile(src, e)
+  const hit = enfile.get(key)
+  if (hit) return hit
+  const job = (async () => {
+    const q = e.piece
+    const [im, mask, hab] = await Promise.all([load(src), load(`./art/persos/${p.id}-m.webp`), load(`./art/persos/${q.art}.webp`)])
+    const W = im.naturalWidth, H = im.naturalHeight
+    const cv = document.createElement('canvas')
+    cv.width = W
+    cv.height = H
+    const ctx = cv.getContext('2d', { willReadFrequently: true })!
+    ctx.drawImage(mask, 0, 0, W, H)
+    const m = ctx.getImageData(0, 0, W, H).data
+    ctx.clearRect(0, 0, W, H)
+    ctx.drawImage(hab, q.l * W, q.t * H, q.w * W, q.h * H)
+    const n = ctx.getImageData(0, 0, W, H).data
+    ctx.clearRect(0, 0, W, H)
+    ctx.drawImage(im, 0, 0)
+    const img = ctx.getImageData(0, 0, W, H)
+    const d = img.data
+    // la bande où l'on travaille : jamais plus haut que le menton (le visage, les lunettes ne sont pas un habit)
+    const ya = Math.max(0, Math.round(Math.max(q.t - 0.05, e.menton - 0.03) * H)), yz = Math.min(H, Math.round((q.t + q.h + 0.012) * H))
+    const xa = Math.max(0, Math.floor(q.l * W) - 2), xz = Math.min(W, Math.ceil((q.l + q.w) * W) + 2)
+    const cx = (q.l + q.w / 2) * W
+    const max0 = Math.round(0.11 * H)
+    // la demi-largeur du cou (pas celle de l'encolure, plus large)
+    const nuque = 0.06 * W
+    const cou = q.w * W * 0.17
+    // couvert : sous le nouvel habit, là où il est bien opaque (sous son bord adouci, l'ancien se verrait au travers)
+    const couvert = (x: number, y: number) => n[(y * W + x) * 4 + 3] > 215
+    // les cheveux (sans marge : un liseré de l'ancien habit resterait le long des cheveux)
+    const cheveux = new Uint8Array(W * H)
+    for (let y = ya; y < Math.min(H, yz + max0 + 6); y++)
+      for (let x = 0; x < W; x++) {
+        if (m[(y * W + x) * 4 + 1] < 128) continue
+        cheveux[y * W + x] = 1
+      }
+    /** ce qu'on a retiré : derrière, s'il y a des cheveux juste à côté, ils continuent (voir plus bas) */
+    const vide = new Uint8Array(W * H)
+    const oter = (x: number, y: number) => {
+      d[(y * W + x) * 4 + 3] = 0
+      vide[y * W + x] = 1
+    }
+    // le bord des cheveux contre l'ancien habit (deux pixels, où les deux se mélangent) va avec l'habit
+    const rogne = new Uint8Array(W * H)
+    for (let tour = 0; tour < 2; tour++) {
+      const habit = (x: number, y: number) => {
+        if (x < 0 || x >= W || y < 0 || y >= H) return false
+        if (rogne[y * W + x]) return true
+        const i = (y * W + x) * 4
+        return d[i + 3] > 200 && m[i] <= 128 && m[i + 2] <= 40 && m[i + 1] < 128 && !cheveux[y * W + x]
+      }
+      const bord: number[] = []
+      for (let y = ya; y < yz; y++)
+        for (let x = xa; x < xz; x++)
+          if (cheveux[y * W + x] && (habit(x - 1, y) || habit(x + 1, y) || habit(x, y - 1) || habit(x, y + 1))) bord.push(y * W + x)
+      for (const k of bord) {
+        cheveux[k] = 0
+        rogne[k] = 1
+        m[k * 4 + 1] = 0
+        if (n[k * 4 + 3] > 215) d[k * 4 + 3] = 0
+      }
+    }
+    /** un pixel de l'ancien habit : opaque, ni peau, ni cheveux, ni trait du visage */
+    const ancien = (x: number, y: number) => {
+      const i = (y * W + x) * 4
+      return d[i + 3] > 0 && m[i] <= 128 && !cheveux[y * W + x] && m[i + 2] <= 40
+    }
+    // par colonne : où le nouvel habit commence et où il finit
+    const debut = new Int32Array(W).fill(-1), fin = new Int32Array(W).fill(-1)
+    for (let x = xa; x < xz; x++)
+      for (let y = 0; y < H; y++)
+        if (couvert(x, y)) {
+          if (debut[x] < 0) debut[x] = y
+          fin[x] = y
+        }
+    // l'ourlet du corps de l'habit (au milieu), et par ligne le corps de l'habit : le morceau qui contient le milieu.
+    // Près de l'ourlet (qui s'arrondit, se fend…) et dessous, on garde celui d'un peu plus haut.
+    const cxi = Math.round(cx)
+    let ourlet = -1
+    for (let x = Math.max(xa, Math.round(cx - cou)); x < Math.min(xz, Math.round(cx + cou)); x++) ourlet = Math.max(ourlet, fin[x])
+    const yRef = Math.max(ya, ourlet - Math.round(0.03 * H))
+    const tx0 = new Int32Array(H).fill(-1), tx1 = new Int32Array(H).fill(-1)
+    const morceau = (y: number): [number, number] => {
+      // on part du milieu ; s'il est dans une ouverture (encolure, veste ouverte), on cherche le tissu de chaque côté
+      let g = cxi, r = cxi
+      while (g > xa && !couvert(g, y) && cxi - g < cou * 1.6) g--
+      while (r < xz - 1 && !couvert(r, y) && r - cxi < cou * 1.6) r++
+      if (!couvert(g, y) && !couvert(r, y)) return [-1, -1]
+      let a = couvert(g, y) ? g : r, b = couvert(r, y) ? r : g
+      while (a > xa && couvert(a - 1, y)) a--
+      while (b < xz - 1 && couvert(b + 1, y)) b++
+      return [a, b]
+    }
+    const [r0, r1] = morceau(yRef)
+    for (let y = ya; y < yz; y++) {
+      const [a, b] = y <= yRef ? morceau(y) : [r0, r1]
+      tx0[y] = a
+      tx1[y] = b
+    }
+    // les colonnes du buste (entre les mains) : sous l'ourlet, seul ce qui est là peut rester
+    const b0 = Math.max(r0, Math.round((e.buste?.[0] ?? 0) * W)), b1 = Math.min(r1, Math.round((e.buste?.[1] ?? 1) * W))
+    // la couleur du cou
+    let sr = 0, sg = 0, sb = 0, k = 0
+    const yc = Math.round(e.menton * H)
+    for (let y = Math.max(0, yc - Math.round(0.01 * H)); y < Math.min(H, yc + Math.round(0.05 * H)); y++)
+      for (let x = Math.max(0, Math.round(cx - cou)); x < Math.min(W, Math.round(cx + cou)); x++) {
+        const i = (y * W + x) * 4
+        if (m[i] < 200 || d[i + 3] < 250) continue
+        sr += d[i]
+        sg += d[i + 1]
+        sb += d[i + 2]
+        k++
+      }
+    const peau = k > 12 ? [sr / k, sg / k, sb / k] : lab2rgb(...(VISAGES[p.id]?.sk ?? [75, 12, 28]))
+    const rentre: number[] = []
+    const poitrine = (q.t + q.h * 0.5) * H
+    const sousMenton = e.menton * H - 2
+    const enPeau = (i: number) => {
+      // la peau du cou, un peu dans l'ombre du menton
+      d[i] = peau[0] * 0.95
+      d[i + 1] = peau[1] * 0.94
+      d[i + 2] = peau[2] * 0.93
+    }
+    for (let y = ya; y < yz; y++)
+      for (let x = xa; x < xz; x++) {
+        if (couvert(x, y) || !ancien(x, y)) continue
+        const i = (y * W + x) * 4
+        // le cou, qui se resserre au-dessus du menton (derrière la tête)
+        const milieu = Math.abs(x - cx) < nuque * Math.max(0.35, Math.min(1, 1 - (sousMenton - y) / (0.035 * H)))
+        if (debut[x] < 0) oter(x, y)
+        else if (y < debut[x]) {
+          // au-dessus du nouvel habit : la peau du cou au milieu ; sur les côtés, une épaule plus haute que la sienne s'en va
+          if (!milieu) oter(x, y)
+          else if (e.mode === 'peau') enPeau(i)
+        } else if (y > fin[x]) {
+          // sous le nouvel habit : sous les manches, l'ancienne s'en va ; sous l'ourlet, on verra s'il faut le rentrer
+          if (e.mode === 'peau') rentre.push(x)
+          else if (x < b0 || x > b1) oter(x, y)
+        } else if (tx0[y] >= 0 && x > tx0[y] && x < tx1[y]) {
+          // dans une ouverture du corps de l'habit : un col ouvert laisse voir la peau, une veste le haut porté dessous
+          if (e.mode === 'peau' && y < poitrine) enPeau(i)
+        } else oter(x, y) // entre le bras et le corps
+      }
+    // sous l'ourlet : un ancien haut un peu plus long est rentré (le bas remonte, en miroir, jusqu'à l'ourlet).
+    // On le décide pour tout l'habit, pas colonne par colonne (sinon des rayures) : d'abord où finit l'ancien haut
+    // dans chaque colonne, puis une ligne d'ourlet lissée ; un haut vraiment long (tunique, robe) reste dessous.
+    const max = max0
+    const cols = [...new Set(rentre)].sort((u, v) => u - v)
+    const finAncien = new Map<number, number>()
+    const teintes: [number, number, number][] = []
+    for (const x of cols) {
+      const y0 = fin[x] + 1
+      // les couleurs de l'ancien haut dans cette colonne (sous le nouvel habit)
+      const refs: [number, number, number][] = []
+      for (let f = 0.35; f <= 0.9; f += 0.11) {
+        const y = Math.round(debut[x] + (fin[x] - debut[x]) * f)
+        if (ancien(x, y)) {
+          const i = (y * W + x) * 4
+          refs.push(rgb2lab(d[i], d[i + 1], d[i + 2]))
+        }
+      }
+      const meme = (y: number) => {
+        const i = (y * W + x) * 4
+        if (!ancien(x, y)) return false
+        const [L, A, B] = rgb2lab(d[i], d[i + 1], d[i + 2])
+        return refs.some(([l, a, b]) => Math.hypot((L - l) * 0.6, A - a, B - b) < 13)
+      }
+      let y1 = y0, rate = 0
+      for (let y = y0; y < Math.min(H, y0 + max * 2); y++) {
+        if (meme(y)) {
+          y1 = y + 1
+          rate = 0
+        } else if (++rate >= 3) break
+      }
+      if (y1 > y0) finAncien.set(x, y1)
+      if (teintes.length < 160) teintes.push(...refs.slice(0, 2))
+    }
+    /** de la couleur de l'ancien haut */
+    const duHaut = (x: number, y: number) => {
+      const i = (y * W + x) * 4
+      const [L, A, B] = rgb2lab(d[i], d[i + 1], d[i + 2])
+      return teintes.some(([l, a, b]) => Math.hypot((L - l) * 0.6, A - a, B - b) < 11)
+    }
+    const mediane = (v: number[]) => [...v].sort((u, w) => u - w)[v.length >> 1]
+    const longs = cols.filter((x) => x >= b0 && x <= b1 && finAncien.has(x)).map((x) => finAncien.get(x)! - fin[x] - 1)
+    // une tunique, une robe (un ourlet bien plus bas que les poignets) ne se rentre pas : elle reste dessous
+    const ourlets = cols.filter((x) => x >= b0 && x <= b1 && finAncien.has(x)).map((x) => finAncien.get(x)!)
+    const tunique = e.poignets != null && ourlets.length > 0 && mediane(ourlets) > (e.poignets + 0.05) * H
+    const rentrer = longs.length > 0 && mediane(longs) <= max && !tunique
+    for (const x of cols) {
+      const y0 = fin[x] + 1
+      const buste = x >= b0 && x <= b1
+      // la ligne de l'ancien ourlet, lissée sur les colonnes voisines
+      const autour: number[] = []
+      for (let k = -4; k <= 4; k++) if (finAncien.has(x + k)) autour.push(finAncien.get(x + k)!)
+      const y1 = autour.length ? mediane(autour) : y0
+      if (!rentrer || y1 - y0 > max || y1 <= y0) {
+        // hors du buste (sous une manche), ce qui ne peut pas être rentré s'en va
+        if (!buste) for (let y = y0; y < yz; y++) if (ancien(x, y)) oter(x, y)
+        continue
+      }
+      for (let y = y0; y < y1; y++) {
+        if (!ancien(x, y)) continue
+        // en miroir autour de l'ancien ourlet : le haut du pantalon (ou de la jupe) remonte
+        const ys = Math.min(H - 1, y1 + 1 + (y1 - 1 - y))
+        const j = (ys * W + x) * 4, i = (y * W + x) * 4
+        if (d[j + 3] < 200 || m[j] > 128 || cheveux[ys * W + x]) {
+          if (!buste) oter(x, y)
+          continue
+        }
+        d[i] = d[j]
+        d[i + 1] = d[j + 1]
+        d[i + 2] = d[j + 2]
+      }
+      // sous une manche, plus bas que l'ourlet lissé : un coin de l'ancien haut qui pendrait encore s'en va
+      if (!buste) for (let y = y1; y < yz; y++) if (ancien(x, y) && duHaut(x, y)) oter(x, y)
+    }
+    // derrière ce qu'on a retiré, les cheveux longs continuent : là où ils touchent le trou du côté extérieur, ils le
+    // remplissent (en miroir de leur bord), au lieu de laisser un jour entre la nouvelle manche et les cheveux
+    const loin = Math.round(0.08 * W)
+    const estCheveu = (x: number, y: number) => x >= 0 && x < W && m[(y * W + x) * 4 + 1] >= 128 && d[(y * W + x) * 4 + 3] > 200
+    for (let y = ya; y < yz; y++)
+      for (let x = xa; x < xz; x++) {
+        if (!vide[y * W + x]) continue
+        const s = x < cx ? -1 : 1
+        let xh = -1
+        for (let k = 1; k <= loin; k++) {
+          const xx = x + s * k
+          if (xx < 0 || xx >= W) break
+          if (estCheveu(xx, y)) {
+            xh = xx
+            break
+          }
+          if (!vide[y * W + xx] && d[(y * W + xx) * 4 + 3] > 40 && !cheveux[y * W + xx]) break
+        }
+        if (xh < 0) continue
+        // pris à quelques pixels de leur bord (une mèche fine n'a que ça)
+        let xs = xh
+        for (let k = Math.min(Math.abs(xh - x), 4); k > 0; k--)
+          if (estCheveu(xh + s * k, y)) {
+            xs = xh + s * k
+            break
+          }
+        const j = (y * W + xs) * 4, i = (y * W + x) * 4
+        // un peu dans l'ombre : ils passent derrière le bras
+        d[i] = d[j] * 0.93
+        d[i + 1] = d[j + 1] * 0.92
+        d[i + 2] = d[j + 2] * 0.91
+        d[i + 3] = 255
+      }
+    ctx.putImageData(img, 0, 0)
+    const url = await new Promise<string>((ok) => cv.toBlob((bl) => ok(bl ? URL.createObjectURL(bl) : cv.toDataURL()), 'image/png'))
+    enfileFait.set(key, url)
+    return url
+  })()
+  enfile.set(key, job)
+  job.catch(() => enfile.delete(key))
   return job
 }

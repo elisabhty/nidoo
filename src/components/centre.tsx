@@ -1,11 +1,11 @@
 import { Check, Lock } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { FOOD, SHOP, type Shop, type ShopItem } from '../lib/data'
 import { success, tap } from '../lib/haptic'
-import { enlever, encodeLook, lookOf, mettre, placeDe, portes, toutEnlever } from '../lib/look'
+import { enlever, encodeLook, lookOf, mettre, placeDe, portes, toutEnlever, type Look } from '../lib/look'
 import { useHome } from '../lib/store'
 import { BagIcon } from './care'
-import { Character } from './Character'
+import { Character, prechargerHabits } from './Character'
 import { StarsPill } from './compagnon'
 import { PetFigure } from './pet'
 import { Art, confirmerAchat, Page, Segments } from './ui'
@@ -217,76 +217,181 @@ function Animalerie() {
 function Boutique() {
   const { state, run } = useHome()
   const { family, owned, me } = state
-  const buy = useBuy()
-  const look = lookOf(me.avatar, me.user_id ?? me.id)
-  const groups = [...new Set(SHOP.filter((i) => i.shop === 'boutique').map((i) => i.group))]
+  const articles = SHOP.filter((i) => i.shop === 'boutique')
+  const groups = [...new Set(articles.map((i) => i.group))]
+  // La tenue change tout de suite à l'écran ; elle est enregistrée un instant plus tard, une seule fois pour
+  // plusieurs gestes d'affilée (sinon chaque réponse du serveur ferait clignoter la figurine).
+  const [locale, setLocale] = useState<Look | null>(null)
+  const look = locale ?? lookOf(me.avatar, me.user_id ?? me.id)
+  const dernier = useRef<Look | null>(null)
+  const minuterie = useRef<number | undefined>(undefined)
+  const envoyer = useRef(async () => {})
+  envoyer.current = async () => {
+    const l = dernier.current
+    if (!l) return
+    const avatar = encodeLook(l)
+    await run(
+      (api) => api.updateMember(me.id, { avatar }),
+      undefined,
+      (s) => ({ ...s, me: { ...s.me, avatar }, members: s.members.map((m) => (m.id === s.me.id ? { ...m, avatar } : m)) }),
+    )
+    if (dernier.current === l) {
+      dernier.current = null
+      setLocale(null)
+    }
+  }
+  const porter = (l: Look) => {
+    dernier.current = l
+    setLocale(l)
+    window.clearTimeout(minuterie.current)
+    minuterie.current = window.setTimeout(() => void envoyer.current(), 450)
+  }
+  // en quittant la boutique, ce qui n'est pas encore enregistré part tout de suite
+  useEffect(
+    () => () => {
+      window.clearTimeout(minuterie.current)
+      void envoyer.current()
+    },
+    [],
+  )
+  // les images des habits arrivent d'avance : d'abord ceux qu'on a, puis le reste (pour l'essayage)
+  const figurine = look.k
+  useEffect(() => {
+    const nom = (i: ShopItem) => i.key.slice('mode:'.length)
+    prechargerHabits(look, articles.filter((i) => owned.includes(i.key)).map(nom))
+    const t = window.setTimeout(() => prechargerHabits(look, articles.map(nom)), 1200)
+    return () => window.clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [figurine, owned.length])
   // chaque chose a sa place (tête, haut, veste, bas, chaussures…) : on peut en porter plusieurs à la fois
   const worn = portes(look).map((a) => `mode:${a}`)
+  // la cabine : ce qu'on essaie sans l'avoir (pas encore acheté), montré sur soi avant de dépenser ses étoiles
+  const [essai, setEssai] = useState<string | null>(null)
+  const essaye = essai && !owned.includes(essai) ? articles.find((i) => i.key === essai) ?? null : null
+  const vu = essaye ? mettre(look, essaye.key.slice('mode:'.length)) : look
   const put = (key: string, on: boolean) => {
     tap()
+    setEssai(null)
     const a = key.slice('mode:'.length)
-    void run((api) => api.updateMember(me.id, { avatar: encodeLook(on ? mettre(look, a) : enlever(look, a)) }), on ? 'C’est porté !' : 'Enlevé')
+    porter(on ? mettre(look, a) : enlever(look, a))
   }
   const toutRetirer = () => {
     tap()
-    void run((api) => api.updateMember(me.id, { avatar: encodeLook(toutEnlever(look)) }), 'Tout est enlevé')
+    setEssai(null)
+    porter(toutEnlever(look))
+  }
+  const acheter = async (it: ShopItem) => {
+    if (!(await confirmerAchat(it.name.toLowerCase(), it.cost))) return
+    if (!(await run((a) => a.buyItem(family.id, it.key), `${it.name} : à vous !`))) return
+    success()
+    // acheté : on le garde sur soi
+    setEssai(null)
+    porter(mettre(look, it.key.slice('mode:'.length)))
   }
   return (
     <>
-      <div className="groupe mt-4 flex items-center gap-3 px-3 py-2.5">
-        {/* en pied : on voit aussi la veste, le bas ou les chaussures qu'on porte */}
-        <span className="block w-[60px] shrink-0 rounded-[18px] bg-remplissage px-1 pt-1">
-          <Character look={look} className="block w-full" />
-        </span>
-        <p className="min-w-0 flex-1 text-sous">Un chapeau, un haut, une veste, un bas, des chaussures… tout se porte ensemble. Ce que la famille achète, chacun peut le mettre.</p>
-        {worn.length > 0 && (
-          <button onClick={toutRetirer} className="presse shrink-0 rounded-full bg-remplissage px-3 py-1.5 text-legende font-semibold text-brume">
-            Tout enlever
-          </button>
-        )}
+      {/* La cabine d'essayage : sa figurine en pied, bien visible, qui reste en haut pendant qu'on parcourt les rayons.
+          Sa hauteur ne change jamais (rien ne saute quand on met ou enlève quelque chose). */}
+      <div className="sticky top-0 z-10 -mx-1 mt-2 px-1 pb-2 pt-2" style={{ background: 'linear-gradient(to bottom, #F8F7FC 86%, rgba(248, 247, 252, 0))' }}>
+        <div className="flex h-[176px] items-stretch gap-3 overflow-hidden rounded-[24px] px-3 shadow-carte" style={{ background: 'linear-gradient(160deg, #EFE9FF 0%, #FFF4EC 100%)' }}>
+          <span className="relative block w-[108px] shrink-0 self-end" aria-label={essaye ? `Vous essayez : ${essaye.name}` : 'Votre tenue'}>
+            <span className="absolute inset-x-2 bottom-1.5 block h-3 rounded-[50%] bg-black/10 blur-[3px]" />
+            <Character look={vu} className="relative block w-full" />
+          </span>
+          <div className="flex min-w-0 flex-1 flex-col justify-center py-3">
+            <p className="text-legende font-semibold uppercase tracking-wide text-brume">Cabine d’essayage</p>
+            {essaye ? (
+              <>
+                <p className="mt-1 line-clamp-2 text-appel font-semibold">{essaye.name}</p>
+                <p className="mt-0.5 text-legende text-brume">À l’essai : pas encore à vous.</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <button
+                    disabled={family.stars < essaye.cost}
+                    onClick={() => void acheter(essaye)}
+                    className={`presse flex h-9 items-center gap-1 rounded-full px-3.5 text-sous font-semibold disabled:opacity-100 ${family.stars >= essaye.cost ? 'bg-teinte text-white' : 'bg-remplissage text-brume'}`}
+                    aria-label={`Acheter ${essaye.name} : ${essaye.cost} étoiles`}
+                  >
+                    {family.stars >= essaye.cost ? <Art name="picto-etoile" size={16} /> : <Lock size={12} strokeWidth={2.6} />} {essaye.cost}
+                  </button>
+                  <button
+                    onClick={() => {
+                      tap()
+                      setEssai(null)
+                    }}
+                    className="presse h-9 rounded-full bg-white/70 px-3.5 text-sous font-semibold text-brume"
+                  >
+                    Retirer
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="mt-1 line-clamp-3 text-sous">{worn.length ? `Vous portez ${worn.length} chose${worn.length > 1 ? 's' : ''}. Tout se porte ensemble.` : 'Touchez un habit pour l’essayer sur vous, même avant de l’acheter.'}</p>
+                <div className="mt-2">
+                  <button onClick={toutRetirer} disabled={!worn.length} className="presse h-9 rounded-full bg-white/70 px-3.5 text-sous font-semibold text-brume disabled:opacity-40">
+                    Tout enlever
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       </div>
       {groups.map((g) => (
         <div key={g}>
-          <p className="entete mt-5 !px-1">{g}</p>
+          <p className="entete mt-3 !px-1">{g}</p>
           <div className="grid grid-cols-3 gap-2.5">
-            {SHOP.filter((i) => i.group === g).map((it) => {
-              const mine = owned.includes(it.key)
-              const porte = worn.includes(it.key)
-              return (
-                <div key={it.key} className={`groupe flex flex-col items-center px-1.5 pb-2.5 pt-3 text-center shadow-carte ${porte ? 'ring-2 ring-teinte' : ''}`}>
-                  {/* ce qui se porte sur la tête ou le visage : en aperçu sur son personnage ; le reste (vestes, bas, chaussures)
-                      ne se verrait pas dans ce petit buste, on garde l'image de l'habit */}
-                  {mine && ['T', 'Y', 'O', 'C'].includes(placeDe(it.key.slice('mode:'.length)) ?? '') ? (
-                    <span className="block h-[58px] w-[58px] overflow-hidden rounded-[16px] bg-remplissage">
-                      <Character look={mettre(look, it.key.slice('mode:'.length))} bust still className="block h-full w-full" />
-                    </span>
-                  ) : (
-                    <Art name={it.art} size={58} className={!mine && family.stars < it.cost ? 'opacity-55' : ''} />
-                  )}
-                  <span className="mt-1.5 line-clamp-2 flex min-h-[32px] items-center text-legende font-medium">{it.name}</span>
-                  {mine ? (
-                    <button onClick={() => put(it.key, !porte)} className={`presse mt-1.5 flex h-[26px] items-center gap-1 rounded-full px-2.5 text-legende font-semibold ${porte ? 'bg-teinte text-white' : 'bg-teinte-doux text-teinte-fonce'}`}>
-                      {porte ? (
-                        <>
-                          <Check size={13} strokeWidth={3} /> Porté
-                        </>
+            {articles
+              .filter((i) => i.group === g)
+              .map((it) => {
+                const mine = owned.includes(it.key)
+                const porte = worn.includes(it.key)
+                const alEssai = essaye?.key === it.key
+                return (
+                  <div key={it.key} className={`groupe flex flex-col items-center px-1.5 pb-2.5 pt-3 text-center shadow-carte ${porte || alEssai ? 'ring-2 ring-teinte' : ''}`}>
+                    {/* toucher l'image : la mettre (si on l'a) ou l'essayer dans la cabine (sinon) */}
+                    <button
+                      onClick={() => {
+                        if (mine) return put(it.key, !porte)
+                        tap()
+                        setEssai(alEssai ? null : it.key)
+                      }}
+                      className="presse block"
+                      aria-label={mine ? (porte ? `Enlever ${it.name}` : `Porter ${it.name}`) : alEssai ? `Ne plus essayer ${it.name}` : `Essayer ${it.name}`}
+                    >
+                      {/* ce qui se porte sur la tête ou le visage : en aperçu sur son personnage ; le reste se voit dans la cabine */}
+                      {mine && ['T', 'Y', 'O', 'C'].includes(placeDe(it.key.slice('mode:'.length)) ?? '') ? (
+                        <span className="block h-[58px] w-[58px] overflow-hidden rounded-[16px] bg-remplissage">
+                          <Character look={mettre(look, it.key.slice('mode:'.length))} bust still className="block h-full w-full" />
+                        </span>
                       ) : (
-                        'Porter'
+                        <Art name={it.art} size={58} className={!mine && family.stars < it.cost ? 'opacity-55' : ''} />
                       )}
                     </button>
-                  ) : (
-                    <button
-                      disabled={family.stars < it.cost}
-                      onClick={() => void buy(it)}
-                      className={`presse mt-1.5 flex h-[26px] items-center gap-1 rounded-full px-2.5 text-legende font-semibold disabled:opacity-100 ${family.stars >= it.cost ? 'bg-teinte text-white' : 'bg-remplissage text-brume'}`}
-                      aria-label={`${it.name} : ${it.cost} étoiles`}
-                    >
-                      {family.stars >= it.cost ? <Art name="picto-etoile" size={15} /> : <Lock size={11} strokeWidth={2.6} />} {it.cost}
-                    </button>
-                  )}
-                </div>
-              )
-            })}
+                    <span className="mt-1.5 line-clamp-2 flex min-h-[32px] items-center text-legende font-medium">{it.name}</span>
+                    {mine ? (
+                      <button onClick={() => put(it.key, !porte)} className={`presse mt-1.5 flex h-[26px] items-center gap-1 rounded-full px-2.5 text-legende font-semibold ${porte ? 'bg-teinte text-white' : 'bg-teinte-doux text-teinte-fonce'}`}>
+                        {porte ? (
+                          <>
+                            <Check size={13} strokeWidth={3} /> Porté
+                          </>
+                        ) : (
+                          'Porter'
+                        )}
+                      </button>
+                    ) : (
+                      <button
+                        disabled={family.stars < it.cost}
+                        onClick={() => void acheter(it)}
+                        className={`presse mt-1.5 flex h-[26px] items-center gap-1 rounded-full px-2.5 text-legende font-semibold disabled:opacity-100 ${family.stars >= it.cost ? 'bg-teinte text-white' : 'bg-remplissage text-brume'}`}
+                        aria-label={`${it.name} : ${it.cost} étoiles`}
+                      >
+                        {family.stars >= it.cost ? <Art name="picto-etoile" size={15} /> : <Lock size={11} strokeWidth={2.6} />} {it.cost}
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
           </div>
         </div>
       ))}

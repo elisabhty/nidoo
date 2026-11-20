@@ -244,7 +244,41 @@ export function menton(p: Perso): number {
 /** Pour le manteau : la hauteur (fraction de la toile) où la tête redessinée par-dessus s'efface doucement. */
 export const headCut = (p: Perso) => p.m[0] + p.m[1] * 0.915
 
+/** Les hauts et les vestes « portés » : dessinés par ElevenLabs sur la poupée, les manches le long du corps
+ *  (public/art/persos/hab-<nom>.webp, scripts/habits_poses.py). Leurs repères, en fractions de l'image :
+ *  le milieu du bas de chaque manche (gauche puis droite), la hauteur du bas des manches et celle du haut du col.
+ *  On les pose en amenant les manches sur les poignets de la figurine et le col sous son menton. */
+export const HABITS: Record<string, { ar: number; gx: number; dx: number; my: number; ny: number }> = {
+  colroule: { ar: 456 / 572, gx: 65 / 572, dx: 505.5 / 572, my: 438 / 456, ny: 8 / 456 },
+  chemise: { ar: 537 / 621, gx: 91.5 / 621, dx: 531 / 621, my: 459.5 / 537, ny: 8 / 537 },
+  mariniere: { ar: 438 / 656, gx: 76.5 / 656, dx: 572 / 656, my: 405 / 438, ny: 25 / 438 },
+  torsade: { ar: 400 / 506, gx: 57.5 / 506, dx: 448.5 / 506, my: 394.5 / 400, ny: 12 / 400 },
+  sweat: { ar: 441 / 537, gx: 59.5 / 537, dx: 475.5 / 537, my: 435 / 441, ny: 12 / 441 },
+  gilet: { ar: 454 / 542, gx: 63 / 542, dx: 478 / 542, my: 447.5 / 454, ny: 16 / 454 },
+  manteau: { ar: 456 / 462, gx: 58 / 462, dx: 404.5 / 462, my: 335.5 / 456, ny: 7 / 456 },
+  fourrure: { ar: 475 / 528, gx: 70.5 / 528, dx: 470 / 528, my: 413 / 475, ny: 7 / 475 },
+  trench: { ar: 509 / 461, gx: 47 / 461, dx: 410 / 461, my: 380.5 / 509, ny: 6 / 509 },
+  blazer: { ar: 508 / 550, gx: 73.5 / 550, dx: 473 / 550, my: 422 / 508, ny: 7 / 508 },
+}
+
+/** Un haut ou une veste posé sur la figurine : les manches arrivent aux poignets, le col sous le menton. */
+function habitPose(p: Perso, acc: string): AccPiece | null {
+  const g = HABITS[acc]
+  const mn = MAINS[p.id]
+  if (!g || !mn) return null
+  const [lx, ly, rx, ry] = mn
+  if (rx - lx < 0.08) return null
+  const w = (rx - lx) / (g.dx - g.gx)
+  // le haut du col : juste sous le menton (un col roulé monte un peu plus), le bas des manches : sur les poignets
+  const col = menton(p) - (acc === 'colroule' ? 0.016 : VESTES.includes(acc) ? 0.012 : 0.006)
+  const bas = (ly + ry) / 2 + 0.012
+  const h = (bas - col) / (g.my - g.ny)
+  return { art: `hab-${acc}`, l: lx - g.gx * w, t: col - g.ny * h, w, h, flip: false }
+}
+
 export function accPieces(p: Perso, acc: string): AccPiece[] | null {
+  const pose = habitPose(p, acc)
+  if (pose) return [pose]
   const [t, h, x, c] = p.m
   const hw = h * R
   const body = CORPS[p.id]
