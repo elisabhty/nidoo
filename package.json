@@ -8,6 +8,7 @@
     "build": "npm run test && tsc --noEmit && vite build",
     "preview": "vite preview",
     "ios": "npm run build && npx cap sync ios && npx cap open ios",
+    "testflight": "bash scripts/testflight.sh",
     "test": "node --test tests/*.test.mjs && npm run test:folder-media",
     "test:folder-media": "node scripts/test-folder-media.mjs"
   },

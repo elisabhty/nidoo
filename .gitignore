@@ -4,3 +4,6 @@ dist
 *.local
 ios/App/Pods
 ios/App/App/public
+
+# archives de scripts/testflight.sh
+ios/build
