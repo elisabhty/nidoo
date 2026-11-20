@@ -17,8 +17,8 @@ enum API {
         var requete = URLRequest(url: url, timeoutInterval: 12)
         requete.httpMethod = "POST"
         requete.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        // la clé publique du projet, dans l'en-tête « apikey » seulement (ce n'est pas un jeton de session)
         requete.setValue(apikey, forHTTPHeaderField: "apikey")
-        requete.setValue("Bearer " + apikey, forHTTPHeaderField: "Authorization")
         var c = corps
         c["p_key"] = cle
         requete.httpBody = try? JSONSerialization.data(withJSONObject: c)

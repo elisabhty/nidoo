@@ -102,7 +102,7 @@ async function brancher(api: Backend, famille: string, moi: string): Promise<boo
       if (!cle) return false
       ecrire(`cle.${ou}`, cle)
     }
-    const r = await pont.configurer({ url: SUPABASE_URL, apikey: SUPABASE_KEY, cle, famille, moi })
+    const r = await pont.configurer({ url: SUPABASE_URL.replace(/\/+$/, ''), apikey: SUPABASE_KEY, cle, famille, moi })
     if (!r?.refusee) {
       branche = ou
       return true
