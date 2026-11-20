@@ -11,6 +11,8 @@ PROJET = os.path.join(RACINE, 'ios', 'App', 'App.xcodeproj', 'project.pbxproj')
 BASE = '3d6be70'
 CIBLE = 'NidooWidgets'
 IDENTIFIANT = 'com.getupworkspace.nidoo.widgets'
+# l'équipe Apple qui signe l'appli et ses widgets (Xcode > Signing & Capabilities > Team)
+EQUIPE = 'RN77C85JG4'
 
 
 def ident(nom):
@@ -231,7 +233,7 @@ def main():
     n = p.count('\t\t\t\tCURRENT_PROJECT_VERSION = 1;\n\t\t\t\tINFOPLIST_FILE = App/Info.plist;')
     assert n == 2, n
     p = p.replace('\t\t\t\tCURRENT_PROJECT_VERSION = 1;\n\t\t\t\tINFOPLIST_FILE = App/Info.plist;',
-                  '\t\t\t\tCODE_SIGN_ENTITLEMENTS = App/App.entitlements;\n\t\t\t\tCURRENT_PROJECT_VERSION = 1;\n\t\t\t\tINFOPLIST_FILE = App/Info.plist;')
+                  f'\t\t\t\tCODE_SIGN_ENTITLEMENTS = App/App.entitlements;\n\t\t\t\tCURRENT_PROJECT_VERSION = 1;\n\t\t\t\tDEVELOPMENT_TEAM = {EQUIPE};\n\t\t\t\tINFOPLIST_FILE = App/Info.plist;')
 
     def conf(idc, nom, debug):
         return f'''\t\t{idc} /* {nom} */ = {{
@@ -242,6 +244,7 @@ def main():
 \t\t\t\tCODE_SIGN_ENTITLEMENTS = {CIBLE}/{CIBLE}.entitlements;
 \t\t\t\tCODE_SIGN_STYLE = Automatic;
 \t\t\t\tCURRENT_PROJECT_VERSION = 1;
+\t\t\t\tDEVELOPMENT_TEAM = {EQUIPE};
 \t\t\t\tGENERATE_INFOPLIST_FILE = NO;
 \t\t\t\tINFOPLIST_FILE = {CIBLE}/Info.plist;
 \t\t\t\tIPHONEOS_DEPLOYMENT_TARGET = 17.0;

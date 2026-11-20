@@ -9,7 +9,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-if [ -z "${TEAM:-}" ]; then
+TEAM="${TEAM:-RN77C85JG4}"
+if [ -z "$TEAM" ]; then
   echo "Il manque l'identifiant d'équipe :  TEAM=AB12CD34EF npm run testflight" >&2
   exit 1
 fi
