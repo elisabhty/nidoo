@@ -367,6 +367,9 @@ export function createSupabaseBackend(): Backend {
       const rows = check(await sb.from('porte_records').select('niveau, etoiles, temps').eq('family_id', fid).eq('member_id', memberId)) as { niveau: number; etoiles: number; temps: number }[]
       return Object.fromEntries(rows.map((r) => [r.niveau, { e: r.etoiles, t: Number(r.temps) }]))
     },
+    async widgetCle(fid) {
+      return (check(await sb.rpc('widget_cle', { p_family: fid })) as string) ?? ''
+    },
     async porteFini(fid, niveau, etoiles, temps) {
       return check(await sb.rpc('porte_fini', { p_family: fid, p_niveau: niveau, p_etoiles: etoiles, p_temps: Math.round(temps * 10) / 10 })) as { gain: number }
     },

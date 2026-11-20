@@ -1,6 +1,7 @@
 """Les illustrations des widgets iOS : les mêmes que dans l'appli, en PNG dans le catalogue de l'extension
 (ios/App/NidooWidgets/Assets.xcassets). À relancer quand une illustration change :  python3 scripts/widgets_images.py
-Les personnages d'exemple (ex-1…) ne sont pas refaits ici : voir scripts/widgets_exemples.mjs."""
+Les personnages d'exemple (ex-1 à ex-5) ne sont pas refaits ici : ce sont les bustes de la famille de démo,
+photographiés par l'appli (window.__buste, voir src/lib/widgets.tsx)."""
 import json, os, shutil
 from PIL import Image
 

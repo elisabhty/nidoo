@@ -408,6 +408,8 @@ export interface Backend {
   porteRecords(familyId: string, memberId: string): Promise<Record<number, { e: number; t: number }>>
   /** Une partie gagnée : garde le meilleur résultat, et renvoie les étoiles gagnées pour la maison (les nouvelles seulement). */
   porteFini(familyId: string, niveau: number, etoiles: number, temps: number): Promise<{ gain: number }>
+  /** La clé des widgets de ce téléphone pour cette maison ('' en démo : pas de widgets). */
+  widgetCle(familyId: string): Promise<string>
   /** Mode démo uniquement : installe toutes les décorations, ou revient à la maison de départ. */
   demoDecos?(familyId: string, all: boolean): Promise<void>
 }

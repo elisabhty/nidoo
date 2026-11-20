@@ -1,4 +1,4 @@
-import { Baby, Check, CircleHelp, Clock, Copy, Crown, House as HouseIcon, LogOut, Mail, Pencil, Plus, RefreshCw, Share, ShieldCheck, Trash2, UserRound, Volume2 } from 'lucide-react'
+import { Baby, Check, CircleHelp, Clock, Copy, Crown, House as HouseIcon, LayoutGrid, LogOut, Mail, Pencil, Plus, RefreshCw, Share, ShieldCheck, Trash2, UserRound, Volume2 } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import House from '../components/House'
 import { careFor, careTodo, gardenKeys } from '../components/care'
@@ -12,6 +12,7 @@ import { select } from '../lib/haptic'
 import { activerSons, jouer, sonsActives } from '../lib/sons'
 import { copy, shareInvite } from '../lib/share'
 import { useHome } from '../lib/store'
+import { WIDGETS } from '../lib/widgets'
 import type { Drawing, HouseType, Member } from '../lib/types'
 import { AGES, encodeLook, lookOf, randomLook } from '../lib/look'
 import { dayLabel, errorText, familyLabel, isToday, timeLabel } from '../lib/util'
@@ -19,7 +20,7 @@ import { upcoming } from './Home'
 import { HousePicker, ProfilePicker } from '../components/pickers'
 import Onboarding from './Onboarding'
 
-type Open = null | 'profil' | 'maison' | 'plus' | 'compte' | 'ajouter'
+type Open = null | 'profil' | 'maison' | 'plus' | 'compte' | 'ajouter' | 'widgets'
 
 /** Taille des widgets iOS : petit 158 × 158, moyen 338 × 158, grand 338 × 354. */
 function Tuile({ title, hint, locked, wide, large, children }: { title: string; hint?: string; locked?: boolean; wide?: boolean; large?: boolean; children: ReactNode }) {
@@ -443,6 +444,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
         <p className="entete mt-6">Réglages</p>
         <div className="groupe mx-4 shadow-carte">
           <Row icon={<CircleHelp size={17} strokeWidth={2.4} />} tint="#F58B5C" label="Comment ça marche" onClick={onGuide} />
+          {WIDGETS && <Row icon={<LayoutGrid size={16} strokeWidth={2.4} />} tint="#8E6FF0" label="Widgets de l’écran d’accueil" onClick={() => setSheet('widgets')} />}
           <SonsRow />
           <Row icon={<UserRound size={17} strokeWidth={2.4} />} label="Mon personnage" value={me.display_name} onClick={() => setSheet('profil')} last={api.mode !== 'supabase'} />
           {api.mode === 'supabase' && <Row icon={<Mail size={16} strokeWidth={2.4} />} tint="#5AA3E0" label="Sauvegarder mon compte" value={linked ? 'Activé' : undefined} onClick={() => setSheet('compte')} last />}
@@ -541,6 +543,25 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
         </Sheet>
       )}
 
+      {sheet === 'widgets' && (
+        <Sheet title="Widgets" onClose={() => setSheet(null)}>
+          <p className="text-center text-sous text-brume">Ta famille sur ton écran d’accueil : un bisou d’un toucher, les prochaines dates, la liste à cocher, une partie de morpion…</p>
+          <ol className="mt-4 space-y-2.5">
+            {[
+              'Reste appuyé sur un coin vide de ton écran d’accueil.',
+              'Touche « Modifier », puis « Ajouter un widget ».',
+              'Cherche NIDOO, choisis un widget et sa taille.',
+              'Pour changer de proche ou de liste : reste appuyé sur le widget, puis « Modifier le widget ».',
+            ].map((t, i) => (
+              <li key={i} className="flex items-start gap-3 rounded-groupe bg-carte p-3 shadow-carte">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teinte text-[13px] font-bold text-white">{i + 1}</span>
+                <span className="text-corps">{t}</span>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-4 text-center text-note text-brume">Sur l’écran verrouillé aussi : reste appuyé dessus, « Personnaliser », puis ajoute NIDOO sous l’heure.</p>
+        </Sheet>
+      )}
       {sheet === 'compte' && (
         <Sheet title="Sauvegarder mon compte" onClose={() => setSheet(null)}>
           <p className="text-center text-sous text-brume">

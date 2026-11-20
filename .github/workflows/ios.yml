@@ -53,6 +53,8 @@ jobs:
     name: Dessiner les widgets
     runs-on: macos-26
     timeout-minutes: 40
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - run: xcodebuild -version
@@ -87,6 +89,18 @@ jobs:
             xcrun simctl io "$UDID" screenshot "captures/page-$p.png"
             xcrun simctl terminate "$UDID" com.getupworkspace.nidoo.galerie || true
           done
+      - name: Déposer les captures sur la branche tmp-widgets-captures
+        if: always()
+        run: |
+          mkdir -p captures && cd captures
+          for f in page-*.png; do [ -f "$f" ] && sips -Z 1500 "$f" >/dev/null; done
+          grep -E "error|warning: |BUILD" "$RUNNER_TEMP/galerie.log" | grep -v "appintentsmetadataprocessor" | head -200 > journal.txt || true
+          git init -q -b tmp-widgets-captures
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Captures des widgets ($GITHUB_SHA)"
+          git push -f -q "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" tmp-widgets-captures
       - if: always()
         uses: actions/upload-artifact@v4
         with:

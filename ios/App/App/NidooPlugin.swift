@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import Capacitor
 import WidgetKit
 
@@ -22,6 +23,12 @@ public class NidooPlugin: CAPPlugin, CAPBridgedPlugin {
 
     override public func load() {
         NidooPlugin.actif = self
+        // l'appli passe derrière : les widgets reprennent la main, avec des données fraîches
+        NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { _ in
+            guard Partage.branche else { return }
+            Partage.reglages.removeObject(forKey: "etat_le")
+            WidgetCenter.shared.reloadAllTimelines()
+        }
     }
 
     /// Un widget a ouvert l'appli (nidoo://ouvrir/organiser).
@@ -80,7 +87,7 @@ public class NidooPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
-    /// L'appli vient de changer quelque chose (ou passe en arrière-plan) : les widgets se remettent à jour.
+    /// L'appli vient de changer quelque chose : les widgets se remettent à jour.
     @objc func rafraichir(_ call: CAPPluginCall) {
         // ce que les widgets avaient en mémoire depuis quelques secondes n'est peut-être plus vrai
         Partage.reglages.removeObject(forKey: "etat_le")

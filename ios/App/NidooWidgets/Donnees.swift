@@ -74,11 +74,7 @@ enum Source {
     static func etat() async -> Etat? {
         // un bouton vient de ramener l'état à jour : inutile de le redemander
         if let frais = Memoire.etat(moinsDe: 20) { return frais }
-        if let e = try? await API.appeler("widget_etat") {
-            Memoire.garder(e)
-            return e
-        }
-        return Memoire.etat()
+        return await Demande.commune.etat()
     }
 
     /// La suite des instants où le widget change tout seul, sans rien redemander au serveur.
@@ -104,6 +100,27 @@ enum Source {
             entrees.append(e)
         }
         return Timeline(entries: entrees, policy: .after(suite))
+    }
+}
+
+/// Plusieurs widgets se redessinent souvent en même temps : une seule question au serveur pour tous.
+actor Demande {
+    static let commune = Demande()
+    private var enCours: Task<Etat?, Never>?
+
+    func etat() async -> Etat? {
+        if let enCours { return await enCours.value }
+        let tache = Task<Etat?, Never> {
+            if let e = try? await API.appeler("widget_etat") {
+                Memoire.garder(e)
+                return e
+            }
+            return Memoire.etat()
+        }
+        enCours = tache
+        let e = await tache.value
+        enCours = nil
+        return e
     }
 }
 

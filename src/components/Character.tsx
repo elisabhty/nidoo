@@ -27,6 +27,8 @@ type Props = {
   blush?: boolean
   /** buste vu d'un peu plus loin (1.2 = 20 % de recul) : toute la tête et un peu plus des épaules */
   recul?: number
+  /** la figurine est complète à l'écran (tous ses calques calculés, tous ses habits chargés) */
+  onPret?: () => void
 }
 
 /** Une image calculée en tâche de fond à partir d'une autre (recolorée, sans l'ancien habit…).
@@ -379,7 +381,7 @@ export function Character(props: Props) {
   }, [cle, attend])
   return (
     <>
-      <Figurine key="vue" {...props} look={attend ? montre.look : props.look} />
+      <Figurine key="vue" {...props} look={attend ? montre.look : props.look} onPret={attend ? undefined : props.onPret} />
       {attend && (
         <span key="suite" aria-hidden className="pointer-events-none absolute block h-0 w-0 overflow-hidden opacity-0">
           <Figurine {...props} look={props.look} onPret={() => setMontre({ cle, look: props.look })} />
