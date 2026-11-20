@@ -34,6 +34,30 @@ def runs(row):
     return out
 
 
+def bas_des_mains(pid, a, neck, yb):
+    """Le bas des deux mains d'après le masque (rouge = peau) : la peau de chaque côté, entre le cou et les pieds."""
+    from scipy import ndimage
+    mk = np.array(Image.open(ROOT / f'public/art/persos/{pid}-m.webp').convert('RGB').resize((W, H), Image.NEAREST))
+    peau = (mk[:, :, 0] > 160) & a
+    cols = np.where(a[neck:yb].any(0))[0]
+    cx = (cols.min() + cols.max()) / 2
+    y0, y1 = neck + int((yb - neck) * 0.22), yb - int((yb - neck) * 0.22)
+    bas = []
+    for side in (-1, 1):
+        zone = np.zeros_like(peau)
+        cote = (np.arange(W) - cx) * side > 0.09 * W
+        zone[y0:y1] = peau[y0:y1] & cote[None, :]
+        lab, n = ndimage.label(zone)
+        if not n:
+            return None
+        tailles = ndimage.sum(zone, lab, range(1, n + 1))
+        if tailles.max() < 40:
+            return None
+        ys = np.where(lab == int(np.argmax(tailles)) + 1)[0]
+        bas.append(ys.max())
+    return int(max(bas))
+
+
 def measure(pid, t, h):
     a = np.array(Image.open(ROOT / f'public/art/persos/{pid}.webp').convert('RGBA'))[:, :, 3] > 128
     rows = np.where(a.any(1))[0]
@@ -56,6 +80,11 @@ def measure(pid, t, h):
     w = lambda y: widths[y][1] - widths[y][0]
     legs = next(y for y in range(neck + int((yb - neck) * 0.35), yb - 20)
                 if w(y + 6) < 0.78 * max(w(y - 6), 1))
+    # Sous une longue tunique ou une robe, le corps ne se resserre qu'à l'ourlet, bien plus bas que les mains :
+    # on se fie alors aux mains elles-mêmes (la peau, en rouge sur le masque, de chaque côté du corps).
+    mains = bas_des_mains(pid, a, neck, yb)
+    if mains is not None and legs > mains + 0.07 * H:
+        legs = mains + 2
     # Le buste : sa largeur bras compris juste au-dessus des mains (sous les cheveux longs).
     span = [widths[y] for y in range(legs - 30, legs - 12)]
     x0 = int(np.median([s[0] for s in span]))
