@@ -84,6 +84,23 @@ struct Planche: View {
 
     private var pasBranche: Entree { Entree(date: Date(), etat: nil, branche: false) }
 
+    private var sixChoix: Entree {
+        var x = Entree.exemple()
+        x.etat?.sondage = Etat.Sondage(id: "s2", q: "On part où cet été ?", de: "lea", choix: ["La mer", "La montagne", "Chez Mamie", "L’Italie", "On reste là"], voix: [2, 1, 0, 1, 0], moi: nil)
+        return x
+    }
+
+    /// Une maison toute neuve : pas d'attention, pas de date, rien à faire.
+    private var toutCalme: Entree {
+        var x = Entree.exemple()
+        x.etat?.recues = []
+        x.etat?.dates = []
+        x.etat?.liste = []
+        x.etat?.parties = []
+        x.etat?.sondage = nil
+        return x
+    }
+
     var body: some View {
         ZStack {
             if page == 7 {
@@ -145,7 +162,8 @@ struct Planche: View {
             }
             Cadre(f: .systemMedium) { VueSondage(e: pasBranche, f: .systemMedium) }
         default:
-            Cadre(f: .systemLarge) { VueSondage(e: e, f: .systemLarge) }
+            Cadre(f: .systemMedium) { VueSondage(e: sixChoix, f: .systemMedium) }
+            Cadre(f: .systemLarge) { VueMur(e: toutCalme, f: .systemLarge) }
             Cadre(f: .systemMedium) { VueMorpion(e: pasBranche, f: .systemMedium) }
         }
     }

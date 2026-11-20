@@ -236,7 +236,7 @@ struct VueFamille: View {
             pied(etat)
             Spacer(minLength: 0)
             VStack(spacing: 6) {
-                ForEach(Array(etat.recues.prefix(rangees.count > 1 ? 2 : 3))) { r in
+                ForEach(Array(etat.recues.prefix(rangees.count > 1 ? 3 : 4))) { r in
                     HStack(spacing: 8) {
                         Pastille(m: etat.membre(r.de), taille: 28, humeur: false)
                         Text("\(etat.membre(r.de)?.n ?? "Un proche") \(Mots.dit(r.k))")

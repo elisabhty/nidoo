@@ -30,7 +30,7 @@ private struct Duel<Signe: View>: View {
         HStack(spacing: 6) {
             Pastille(m: etat.moiMeme, taille: taille, humeur: false)
             signe(monCamp).frame(width: taille * 0.5, height: taille * 0.5)
-            Text("contre").font(rond(11, .semibold)).foregroundStyle(Theme.brume)
+            Text("contre").font(rond(11, .semibold)).foregroundStyle(Theme.brume).fixedSize()
             signe(monCamp == 1 ? 2 : 1).frame(width: taille * 0.5, height: taille * 0.5)
             Pastille(m: adversaire, taille: taille, humeur: false)
         }
@@ -145,7 +145,7 @@ struct VueMorpion: View {
                 Duel(etat: etat, adversaire: adversaire, partie: p, taille: 40) { signe($0) }
                 Spacer(minLength: 0)
             }
-            grille(etat, p, cote: 228)
+            grille(etat, p, cote: 254)
             HStack(spacing: 8) {
                 if let p {
                     let s = statut(etat, p, adversaire)
@@ -259,7 +259,7 @@ struct VueMemory: View {
     private var partie: Memory? {
         if let m = e.local.memory[String(paires)], m.cartes.count == paires * 2 { return m }
         guard e.apercu else { return nil }
-        var m = Memory(cartes: (0..<(paires * 2)).map { ($0 * 5 + $0 / 3) % paires })
+        var m = Memory(cartes: (0..<(paires * 2)).map { ($0 * 7) % (paires * 2) / 2 })
         var vus: [Int: Int] = [:]
         for (i, a) in m.cartes.enumerated() where a < paires / 2 {
             if let j = vus[a] { m.trouvees += [j, i] } else { vus[a] = i }
@@ -306,7 +306,7 @@ struct VueMemory: View {
         if let m, visibles.contains(i), let animal = Memory.animaux[sur: m.cartes[sur: i] ?? -1] {
             forme.fill(Color.white)
                 .overlay(Art("animal-\(animal)").padding(f == .systemLarge ? 5 : 3))
-                .opacity(m.trouvees.contains(i) ? 0.62 : 1)
+                .opacity(m.trouvees.contains(i) ? 0.74 : 1)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .transition(.opacity)
         } else {

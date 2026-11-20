@@ -116,7 +116,7 @@ struct SondageWidget: Widget {
         }
         .configurationDisplayName("Sondage")
         .description("Le sondage du moment : vote d’un toucher.")
-        .supportedFamilies([.systemMedium, .systemLarge])
+        .supportedFamilies([.systemMedium])
     }
 }
 

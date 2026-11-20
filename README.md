@@ -59,6 +59,38 @@ npm run ios        # build + synchro Capacitor + ouverture de Xcode
 
 Sans clés Supabase, l'app démarre en **mode démo** : la maison vit sur l'appareil avec trois proches fictifs (code d'invitation de test : `DEMO42`).
 
+## Widgets de l'écran d'accueil (iPhone)
+
+L'extension `NidooWidgets` (WidgetKit, iOS 17 et plus) est dans le projet Xcode, à côté de l'appli. Douze widgets, dont les boutons agissent **sans ouvrir l'appli** :
+
+| Widget | Tailles | Ce qu'on y fait |
+| --- | --- | --- |
+| Bisou express | petit, écran verrouillé | un bisou à un proche d'un toucher |
+| Attentions | moyen | la dernière attention reçue, quatre gestes pour répondre |
+| Ma famille | moyen, grand | tout le monde et son humeur ; toucher quelqu'un : « je pense à toi » |
+| Mon humeur | moyen | dire son humeur du jour |
+| Prochaines dates | petit, moyen, écran verrouillé | le compte à rebours |
+| À faire | moyen, grand | cocher les tâches ou les courses |
+| Sondage | moyen | voter |
+| Le mur de la famille | grand | toute la maison d'un coup d'œil |
+| Morpion | moyen, grand | jouer contre un proche, chacun son tour |
+| Puissance 4 | grand | idem, on touche une colonne |
+| Memory des animaux | moyen, grand | un jeu pour soi, sans réseau |
+| Notre compagnon | petit | une friandise |
+
+Plus un bouton « Bisou » pour le Centre de contrôle (iOS 18).
+
+Comment ça marche :
+
+- **La clé widget.** Au premier lancement, l'appli demande au serveur une clé pour ce téléphone (`public.widget_cle`, migration `20261120200000_widgets.sql`) et la dépose dans le groupe d'apps `group.com.getupworkspace.nidoo` par le pont natif (`ios/App/App/NidooPlugin.swift`, côté web `src/lib/widgets.tsx`). Les widgets appellent `widget_etat` et `widget_agir` avec cette clé : ils ne touchent jamais à la session du compte (un compte invisible dont la session se perd, c'est une famille perdue). La clé ne donne accès qu'à une maison, pour lire ce que montrent les widgets et faire leurs actions (attention, tâche, humeur, coup de jeu, friandise, vote).
+- **Les personnages.** Un widget ne sait pas composer une figurine : l'appli photographie le buste de chaque proche (`src/lib/bustes.ts` redessine sur une toile ce que `Character` affiche) et le range dans le groupe d'apps. Un proche qui change de tenue est rephotographié à l'ouverture suivante de l'appli.
+- **La mise à jour.** Un widget se redessine quand on touche un de ses boutons, quand l'appli passe derrière, et sinon environ tous les quarts d'heure (c'est iOS qui décide). Pas encore de mise à jour à la seconde où un proche envoie quelque chose : il faudra les notifications push (clé APNs).
+- **Ouvrir l'appli au bon endroit** : `nidoo://ouvrir/organiser`, `…/recus`, `…/fil`, `…/maison`.
+
+Dans Xcode, une seule fois : choisir son équipe (« Team ») dans *Signing & Capabilities* pour les **deux** cibles, `App` et `NidooWidgets`. Le groupe d'apps est déjà déclaré dans les deux. Si on change le numéro de version de l'appli, mettre le même sur `NidooWidgets`.
+
+Outils : `scripts/widgets_xcode.py` (ajoute la cible au projet Xcode ; à relancer si on ajoute un fichier Swift), `scripts/widgets_images.py` (les illustrations de l'appli en PNG pour l'extension), et `.github/workflows/ios.yml` qui, sur un Mac de GitHub (branche `widgets`), compile l'appli avec ses widgets et dessine chaque widget avec la famille d'exemple (`ci/galerie`).
+
 ## Brancher Supabase
 
 1. Créer un projet Supabase et y exécuter, dans l'ordre, `supabase/migrations/0001_nidoo.sql`, `0002_dossiers.sql`, `0003_dessins.sql`, `0004_invitations.sql`, `0005_defis.sql`, `0006_personnages.sql`, `0007_sans_guirlande.sql`, `0008_enfants.sql`, `0009_instants.sql`, `0010_soins.sql`, `0011_animaux.sql`, `0012_compagnon.sql`, `0013_stickers.sql`, `0014_dessin_a_deux.sql`, `0015_plant_info_search_path.sql`, `0016_boutique_vetements.sql`, `0017_jeux.sql`, `0018_avent.sql`, `0019_jeux_famille.sql`, `0020_fil.sql`, `0021_lieu_stickers.sql`, `0022_supprimer_compte.sql`, `0023_agenda_plusieurs_jours.sql`, `0024_boutique_mode.sql`, `0025_boutique_hauts.sql` puis `0026_boutique_jean_montre.sql` (et, dans Realtime > Settings, n'accepter que les canaux privés).
@@ -107,7 +139,7 @@ Cinq profils ont parcouru la démo (une maman qui découvre, une grand-mère de 
 
 ## Reste à faire
 
-- Widgets iOS natifs (WidgetKit) alimentés par un App Group : l'app affiche pour l'instant leur aperçu en direct. Avec eux, ajouter le guide « Ajoute NIDOO à ton écran d'accueil » (appui long, +, NIDOO).
+- Widgets : mise à jour à la seconde (notifications push, clé APNs), activités en direct sur l'écran verrouillé et la Dynamic Island (« Maman dessine pour toi… »), et le très grand format d'iOS 27.
 - Rappels et notifications dans NIDOO (il faut `@capacitor/local-notifications` ou les notifications push). En attendant, « Ajouter à mon calendrier » met un rappel 1 h avant dans le calendrier de l'iPhone.
 - Taille du texte d'iOS (Dynamic Type) : brancher `@capacitor/text-zoom` au démarrage.
 - App Store, avec l'achat intégré : infos d'abonnement, « Restaurer », conditions et confidentialité (règle 3.1.2).

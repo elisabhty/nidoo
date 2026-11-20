@@ -175,7 +175,8 @@ struct VueAFaire: View {
         if let etat = e.etat {
             let choses = etat.choses(e.liste)
             let place = f == .systemLarge ? 10 : 4
-            VStack(alignment: .leading, spacing: f == .systemLarge ? 7 : 4.5) {
+            let trop = f == .systemLarge && choses.count > place
+            VStack(alignment: .leading, spacing: f == .systemLarge ? 7 : 4) {
                 HStack(spacing: 6) {
                     Art(e.liste == "courses" ? "picto-courses" : "picto-missions").frame(width: 20, height: 20)
                     Text(titre).font(rond(14.5)).foregroundStyle(Theme.encre).lineLimit(1)
@@ -197,8 +198,8 @@ struct VueAFaire: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    ForEach(Array(choses.prefix(choses.count > place ? place - 1 : place))) { c in ligne(etat, c) }
-                    if choses.count > place {
+                    ForEach(Array(choses.prefix(trop ? place - 1 : place))) { c in ligne(etat, c) }
+                    if trop {
                         Text("+ \(choses.count - place + 1) autres dans NIDOO").font(rond(11, .semibold)).foregroundStyle(Theme.brume)
                     }
                     Spacer(minLength: 0)
@@ -254,12 +255,14 @@ struct VueSondage: View {
     }
 
     private func sondage(_ etat: Etat, _ s: Etat.Sondage) -> some View {
-        let place = f == .systemLarge ? 6 : 3
+        // jusqu'à 4 choix tiennent ; au-delà, les 3 premiers et un renvoi vers l'appli
+        let place = s.choix.count <= 4 ? s.choix.count : 3
+        let serre = s.choix.count >= 4
         let total = max(1, s.voix.reduce(0, +))
-        return VStack(alignment: .leading, spacing: f == .systemLarge ? 8 : 5) {
+        return VStack(alignment: .leading, spacing: serre ? 3.5 : 5) {
             HStack(spacing: 7) {
-                Pastille(m: etat.membre(s.de), taille: 24, humeur: false)
-                Text(s.q?.isEmpty == false ? s.q! : "Sondage").font(rond(14)).foregroundStyle(Theme.encre).lineLimit(f == .systemLarge ? 2 : 1).minimumScaleFactor(0.8)
+                Pastille(m: etat.membre(s.de), taille: serre ? 20 : 24, humeur: false)
+                Text(s.q?.isEmpty == false ? s.q! : "Sondage").font(rond(14)).foregroundStyle(Theme.encre).lineLimit(1).minimumScaleFactor(0.8)
             }
             ForEach(Array(s.choix.prefix(place).enumerated()), id: \.offset) { i, choix in
                 let voix = s.voix[sur: i] ?? 0
@@ -280,7 +283,7 @@ struct VueSondage: View {
                         }
                         .padding(.horizontal, 9)
                     }
-                    .frame(height: f == .systemLarge ? 36 : 26)
+                    .frame(height: serre ? 22 : 26)
                 }
                 .buttonStyle(.plain)
             }
@@ -299,9 +302,9 @@ struct VueMur: View {
 
     var body: some View {
         if let etat = e.etat {
-            VStack(spacing: 9) {
+            VStack(spacing: 8) {
                 HStack(spacing: 10) {
-                    Art("maison-\(etat.famille.m)").frame(width: 62, height: 62)
+                    Art("maison-\(etat.famille.m)").frame(width: 58, height: 58)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(etat.famille.n).font(rond(19)).foregroundStyle(Theme.encre).lineLimit(1).minimumScaleFactor(0.7)
                         HStack(spacing: 4) {
@@ -321,27 +324,9 @@ struct VueMur: View {
                     }
                 }
                 Spacer(minLength: 0)
-                if let r = etat.recues.first, let de = etat.membre(r.de) {
-                    Link(destination: Partage.lien("recus")) {
-                        carte(titre: "\(de.n) \(Mots.dit(r.k))", sous: Temps.ilYA(r.q, depuis: e.date)) {
-                            Art("geste-\(r.k)")
-                        }
-                    }
-                }
-                if let d = etat.dates.first {
-                    Link(destination: Partage.lien("organiser")) {
-                        carte(titre: d.t, sous: Temps.dansTexte(max(0, Temps.dans(d.j, depuis: e.date))) + " · " + Temps.jourCourt(d.j)) {
-                            Art(Mots.art(date: d.k))
-                        }
-                    }
-                }
-                Link(destination: Partage.lien("organiser")) {
-                    let taches = etat.choses("taches")
-                    carte(
-                        titre: taches.isEmpty ? "Tout est fait !" : (taches.count == 1 ? "1 chose à faire" : "\(taches.count) choses à faire"),
-                        sous: taches.first?.t ?? "Rien à faire pour l’instant"
-                    ) {
-                        Art("picto-missions")
+                ForEach(Array(cartes(etat).prefix(4))) { c in
+                    Link(destination: Partage.lien(c.ou)) {
+                        carte(titre: c.titre, sous: c.sous) { Art(c.art) }
                     }
                 }
             }
@@ -350,6 +335,44 @@ struct VueMur: View {
         } else {
             VueVide(e: e, f: f, titre: "Le mur de la famille")
         }
+    }
+
+    private struct Carte: Identifiable {
+        let id: String
+        let art: String
+        let titre: String
+        let sous: String
+        let ou: String
+    }
+
+    /// Ce qui compte en ce moment, le plus pressant d'abord.
+    private func cartes(_ etat: Etat) -> [Carte] {
+        var c: [Carte] = []
+        if let r = etat.recues.first, let de = etat.membre(r.de) {
+            c.append(Carte(id: "attention", art: "geste-\(r.k)", titre: "\(de.n) \(Mots.dit(r.k))", sous: Temps.ilYA(r.q, depuis: e.date), ou: "recus"))
+        }
+        if let p = etat.parties.first(where: { !$0.fini && $0.tour == etat.moi }) {
+            let nom = etat.membre(p.adversaire(de: etat.moi))?.n ?? "un proche"
+            c.append(Carte(id: "jeu", art: p.k == "morpion" ? "jeu-morpion" : "jeu-puissance4", titre: "À toi de jouer", sous: (p.k == "morpion" ? "Morpion" : "Puissance 4") + " contre \(nom)", ou: "maison"))
+        }
+        if let d = etat.dates.first {
+            c.append(Carte(id: "date", art: Mots.art(date: d.k), titre: d.t, sous: Temps.dansTexte(max(0, Temps.dans(d.j, depuis: e.date))) + " · " + Temps.jourCourt(d.j), ou: "organiser"))
+        }
+        let taches = etat.choses("taches")
+        if let premiere = taches.first {
+            c.append(Carte(id: "taches", art: "picto-missions", titre: taches.count == 1 ? "1 chose à faire" : "\(taches.count) choses à faire", sous: premiere.t, ou: "organiser"))
+        }
+        if let s = etat.sondage, s.moi == nil {
+            c.append(Carte(id: "sondage", art: "picto-bulle", titre: s.q?.isEmpty == false ? s.q! : "Un sondage t’attend", sous: "Donne ton avis", ou: "fil"))
+        }
+        let courses = etat.choses("courses")
+        if let premiere = courses.first {
+            c.append(Carte(id: "courses", art: "picto-courses", titre: courses.count == 1 ? "1 course à faire" : "\(courses.count) courses à faire", sous: premiere.t, ou: "organiser"))
+        }
+        if c.isEmpty {
+            c.append(Carte(id: "calme", art: "picto-etoile", titre: "Tout est calme à la maison", sous: "Envoie une attention à un proche", ou: "maison"))
+        }
+        return c
     }
 
     private func carte<Icone: View>(titre: String, sous: String, @ViewBuilder icone: () -> Icone) -> some View {
@@ -363,7 +386,7 @@ struct VueMur: View {
             Image(systemName: "chevron.right").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.brume.opacity(0.6))
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 7)
+        .padding(.vertical, 6)
         .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white.opacity(0.88)))
     }
 }
