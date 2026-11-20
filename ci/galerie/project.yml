@@ -1,0 +1,28 @@
+# Une petite appli qui dessine chaque widget avec la famille d'exemple, pour en faire des captures d'écran
+# (GitHub Actions, sur un Mac). Elle n'est pas dans le projet Xcode de NIDOO : xcodegen la fabrique à la volée.
+name: Galerie
+options:
+  bundleIdPrefix: com.getupworkspace.nidoo
+  deploymentTarget:
+    iOS: "17.0"
+targets:
+  Galerie:
+    type: application
+    platform: iOS
+    sources:
+      - path: Galerie.swift
+      - path: ../../ios/App/Partage
+      - path: ../../ios/App/NidooWidgets
+        excludes:
+          - NidooWidgetsBundle.swift
+          - Info.plist
+          - "*.entitlements"
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.getupworkspace.nidoo.galerie
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""

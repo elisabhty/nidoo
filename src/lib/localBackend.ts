@@ -1274,6 +1274,9 @@ export function createLocalBackend(): Backend {
     async porteRecords(fid, memberId) {
       return { ...(fam(fid).porte?.[memberId] ?? {}) }
     },
+    async widgetCle() {
+      return ''
+    },
     async porteFini(fid, niveau, etoiles, temps) {
       const f = fam(fid)
       const me = myId(f)

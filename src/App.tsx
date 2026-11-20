@@ -8,6 +8,7 @@ import { ActionSheetHost, Btn, Toasts } from './components/ui'
 import { useKeyboardViewport } from './lib/useKeyboardViewport'
 import { select } from './lib/haptic'
 import { useStore } from './lib/store'
+import { ecouterWidgets, oublierWidgets, synchroniserWidgets } from './lib/widgets'
 import Family from './screens/Family'
 import Home from './screens/Home'
 import Dossiers from './screens/Folders'
@@ -42,7 +43,7 @@ function Splash({ children }: { children?: React.ReactNode }) {
 
 export default function App() {
   const { keyboard, decale } = useKeyboardViewport()
-  const { status, error, state, retry, requests } = useStore()
+  const { status, error, state, retry, requests, api } = useStore()
   const [tab, setTab] = useState<Tab>('maison')
   const [visited, setVisited] = useState<Tab[]>(['maison'])
   const panes = useRef<HTMLDivElement>(null)
@@ -59,6 +60,21 @@ export default function App() {
     if (g === 'recus') {setShowIncoming(true); return}
     navigate(g)
   }
+  // Les widgets de l'écran d'accueil (iPhone) : ils suivent la maison, et ouvrent l'appli au bon endroit.
+  useEffect(() => {
+    if (state) synchroniserWidgets(api, state)
+    else if (status === 'ready') oublierWidgets()
+  }, [api, state, status])
+  useEffect(
+    () =>
+      ecouterWidgets((chemin) => {
+        if (chemin === 'recus') {
+          navigate('maison')
+          setShowIncoming(true)
+        } else if (TABS.some((t) => t.key === chemin)) navigate(chemin as Tab)
+      }),
+    [], // eslint-disable-line react-hooks/exhaustive-deps
+  )
   const [guide, setGuide] = useState(() => {
     try {
       return !localStorage.getItem(GUIDE)
