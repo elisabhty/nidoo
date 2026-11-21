@@ -17,6 +17,7 @@ import { PERSOS } from '../lib/persos'
 import { persoImg } from '../lib/personnalise'
 import { AGES, cheveuxPossibles, figurinePour, GENRES, noterFigurine, TEINTS, type Age, type Genre, type Presentation } from '../lib/presentation'
 import { errorText, familyLabel } from '../lib/util'
+import { retenirNaissance } from '../lib/naissance'
 import { ONBOARDING as T } from '../lib/textes'
 
 /* L'accueil, dans l'esprit de celui de Requête (un panda qui parle dans une bulle, une question par écran,
@@ -24,7 +25,7 @@ import { ONBOARDING as T } from '../lib/textes'
    Premier passage : bonjour → Panda se présente → prénom → qui es-tu → allure → ce qui t'amène → tes proches → créer ou rejoindre
    → (personnage, maison) ou (code, personnage) → notifications → widgets → connexion → invitation.
    Depuis Famille (« ajouter une maison ») : on va droit au choix, sans les questions ni la connexion. */
-type Step = 'bonjour' | 'panda' | 'prenom' | 'qui' | 'allure' | 'raison' | 'proches' | 'choix' | 'code' | 'perso' | 'maison' | 'notifs' | 'widgets' | 'connexion' | 'invite'
+type Step = 'bonjour' | 'panda' | 'prenom' | 'qui' | 'allure' | 'naissance' | 'raison' | 'proches' | 'choix' | 'code' | 'perso' | 'maison' | 'notifs' | 'widgets' | 'connexion' | 'invite'
 
 const RAISONS = [
   { key: 'lien', label: 'Garder le lien avec mes proches éloignés', Icon: Heart, fond: '#FFE6EE', encre: '#D23F72' },
@@ -109,6 +110,8 @@ function Panda({ humeur = 'heureux', children, visuel }: { humeur?: string; chil
 }
 
 /** Un titre avec un mot mis en avant : « Faisons [connaissance]. » */
+const MOIS_LONGS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
+
 function Titre({ avant = '', mot, apres = '' }: { avant?: string; mot: string; apres?: string }) {
   return (
     <h1 className="ob-titre text-center outline-none">
@@ -137,6 +140,8 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
   const [avatar, setAvatar] = useState(() => encodeLook(randomLook()))
   const [color, setColor] = useState('lavande')
   const [raison, setRaison] = useState<string | null>(null)
+  // l'anniversaire (jour et mois) : il ira tout seul dans l'agenda de la maison
+  const [ne, setNe] = useState<{ j: number | null; m: number | null }>({ j: null, m: null })
   const [proches, setProches] = useState<string[]>([])
   // se présenter, pour qu'on propose la figurine qui ressemble
   const [pres, setPres] = useState<Presentation>({})
@@ -218,7 +223,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
 
   // Le parcours, selon qu'on crée ou qu'on rejoint
   const flow = useMemo<Step[]>(() => {
-    const debut: Step[] = onCancel ? ['choix'] : invite ? ['bonjour', 'panda', 'prenom', 'qui', 'allure'] : ['bonjour', 'panda', 'prenom', 'qui', 'allure', 'raison', 'proches', 'choix']
+    const debut: Step[] = onCancel ? ['choix'] : invite ? ['bonjour', 'panda', 'prenom', 'qui', 'allure', 'naissance'] : ['bonjour', 'panda', 'prenom', 'qui', 'allure', 'naissance', 'raison', 'proches', 'choix']
     const suite: Step[] = path === 'rejoindre' ? ['code', 'perso'] : ['perso', 'maison']
     return [...debut, ...suite, ...(onCancel ? [] : (['notifs', 'widgets', 'connexion'] as Step[]))]
   }, [onCancel, invite, path])
@@ -350,6 +355,14 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
         return { label: 'Continuer', ok: !!pres.genre && !!pres.age, go: suivant, passer: true }
       case 'allure':
         return { label: 'Continuer', ok: !!pres.cheveux && pres.teint !== undefined, go: suivant, passer: true }
+      case 'naissance':
+        return {
+          label: 'Continuer',
+          ok: !!ne.j && !!ne.m,
+          go: () => (retenirNaissance(`${String(ne.m).padStart(2, '0')}-${String(ne.j).padStart(2, '0')}`), suivant()),
+          passer: true,
+          surPasser: () => retenirNaissance(null),
+        }
       case 'raison':
         return { label: 'Continuer', ok: !!raison, go: suivant, passer: true }
       case 'proches':
@@ -583,6 +596,55 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
               </div>
             </div>
           )}
+
+          {step === 'naissance' && (() => {
+            const max = ne.m ? new Date(2024, ne.m, 0).getDate() : 31
+            const prochain = ne.j && ne.m ? (() => {
+              const auj = new Date()
+              const d = new Date(auj.getFullYear(), ne.m - 1, ne.j)
+              if (d < new Date(auj.getFullYear(), auj.getMonth(), auj.getDate())) d.setFullYear(d.getFullYear() + 1)
+              return d
+            })() : null
+            const choisir = (v: { j?: number | null; m?: number | null }) => {
+              const n = { ...ne, ...v }
+              const lim = n.m ? new Date(2024, n.m, 0).getDate() : 31
+              if (n.j && n.j > lim) n.j = lim
+              if (n.j && n.m && !(ne.j && ne.m)) success()
+              else select()
+              setNe(n)
+            }
+            return (
+              <div className="flex flex-1 flex-col">
+                <div className="mt-4"><Titre avant="Ton " mot="anniversaire" apres=" ?" /></div>
+                <p className="ob-sous mt-2 text-center">Il s’ajoute tout seul à l’agenda de la maison : plus personne ne l’oublie.</p>
+                <Panda humeur={prochain ? 'fete' : 'heureux'}>
+                  {prochain ? `Le ${ne.j === 1 ? '1er' : ne.j} ${MOIS_LONGS[ne.m! - 1]} ! Je préparerai les bougies 🎂` : `${prenom ? `${prenom}, tu` : 'Tu'} souffles tes bougies quel jour ?`}
+                </Panda>
+                <div key={`${ne.j}-${ne.m}`} className="ob-calendrier apercu-pop mx-auto mt-6" aria-hidden="true">
+                  <p className="ob-calendrier-mois">{ne.m ? MOIS_LONGS[ne.m - 1] : 'mois'}</p>
+                  <p className="ob-calendrier-jour">{ne.j ?? '?'}</p>
+                  <p className="ob-calendrier-pied">{prochain ? `cette fois, un ${prochain.toLocaleDateString('fr-FR', { weekday: 'long' })}` : 'jour et mois'}</p>
+                </div>
+                <div className="mt-6 grid grid-cols-[1fr_1.7fr] gap-2.5">
+                  <label className="block">
+                    <span className="mb-1.5 block px-1 text-sous font-bold">Jour</span>
+                    <select className="ob-champ ob-choix-liste" value={ne.j ?? ''} onChange={(e) => choisir({ j: Number(e.target.value) || null })} aria-label="Jour de ton anniversaire">
+                      <option value="" disabled>Jour</option>
+                      {Array.from({ length: max }, (_, i) => i + 1).map((j) => <option key={j} value={j}>{j}</option>)}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="mb-1.5 block px-1 text-sous font-bold">Mois</span>
+                    <select className="ob-champ ob-choix-liste" value={ne.m ?? ''} onChange={(e) => choisir({ m: Number(e.target.value) || null })} aria-label="Mois de ton anniversaire">
+                      <option value="" disabled>Mois</option>
+                      {MOIS_LONGS.map((m, i) => <option key={m} value={i + 1}>{m.charAt(0).toUpperCase() + m.slice(1)}</option>)}
+                    </select>
+                  </label>
+                </div>
+                <p className="mt-2 px-1 text-note text-white/75">Pas besoin de l’année : seulement le jour qu’on fête.</p>
+              </div>
+            )
+          })()}
 
           {step === 'raison' && (
             <div className="flex flex-1 flex-col">

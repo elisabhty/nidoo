@@ -576,9 +576,10 @@ export default function House({
             <path d="M-2 3 Q 50 17 102 3" fill="none" stroke="#1D1A2B" strokeWidth={2} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
           </svg>
           {(() => {
-            // les places libres (photos décrochées) ne se montrent que si on peut les remplir ; corde vide : un cadre « + »
+            // cinq places sur la corde (Elisa, 21 novembre) : les photos, puis des cadres « + » à remplir
+            // (seulement là où l'on peut en accrocher ; ailleurs, juste les photos)
             const shown = photos.slice(0, 5).filter((p) => p || onAddPhoto)
-            const slots: (string | null)[] = shown.length ? shown : onAddPhoto ? [null] : []
+            const slots: (string | null)[] = onAddPhoto ? [...shown, ...Array<null>(Math.max(0, 5 - shown.length)).fill(null)] : shown
             return slots.map((src, i, all) => {
               const x = ((i + 1) / (all.length + 1)) * 100
               const t = (x + 2) / 104
@@ -597,8 +598,8 @@ export default function House({
                   )}
                 </span>
               ) : (
-                <span className="block rounded-[3px] border-[1.5px] border-dashed border-white bg-teinte/35 p-[7%] pb-[22%] shadow-[0_3px_10px_rgba(29,26,43,0.18)] backdrop-blur-[2px]" style={{ transform: `translateY(14%) rotate(${r}deg)`, transformOrigin: '50% 0' }}>
-                  <span className="flex aspect-square w-full items-center justify-center text-white">
+                <span className="block rounded-[3px] border-[1.5px] border-dashed border-teinte/45 bg-white/70 p-[7%] pb-[22%] shadow-[0_3px_10px_rgba(29,26,43,0.14)] backdrop-blur-[3px]" style={{ transform: `translateY(14%) rotate(${r}deg)`, transformOrigin: '50% 0' }}>
+                  <span className="flex aspect-square w-full items-center justify-center text-teinte">
                     <svg viewBox="0 0 24 24" className="h-[55%] w-[55%]" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" aria-hidden>
                       <path d="M12 5v14M5 12h14" />
                     </svg>

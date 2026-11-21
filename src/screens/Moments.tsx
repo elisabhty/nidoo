@@ -923,7 +923,7 @@ export default function Fil(_: { onCompose?: () => void }) {
             {chercher ? <X size={18} strokeWidth={2.2} /> : <Search size={18} strokeWidth={2.2} />}
           </button>
         </div>
-        {chercher && <input autoFocus type="search" aria-label="Rechercher dans le fil" placeholder="Rechercher un message ou un sondage" value={recherche} onChange={(e) => { colle.current = false; setRecherche(e.target.value) }} className="mt-2 h-11 w-full rounded-[14px] border border-encre/5 bg-carte px-4 text-sous outline-none focus:ring-2 focus:ring-teinte" />}
+        {chercher && <input autoFocus type="search" aria-label="Rechercher dans le fil" placeholder="Rechercher un message ou un sondage" value={recherche} onChange={(e) => { colle.current = false; setRecherche(e.target.value) }} className="mt-2 h-11 w-full rounded-[14px] border border-encre/5 bg-carte px-4 text-[16px] outline-none focus:ring-2 focus:ring-teinte" />}
       </div>
       <div className="flex-1" />
       {liste.length === 0 && (

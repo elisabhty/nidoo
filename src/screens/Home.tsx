@@ -236,8 +236,10 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
                   <X size={14} aria-hidden="true" className="opacity-75" />
                 </button>
               )}
+              {/* le cadre 16/10 passé à la maison : elle s'y place au centre, à la bonne taille, et les fenêtres
+                  où se tient la famille tombent juste (Elisa, 21 novembre : « la maison un peu plus au centre ») */}
               <House
-                className="!aspect-[16/10]"
+                ratio={16 / 10}
                 type={family.house_type}
                 items={houseItems}
                 photos={photos}

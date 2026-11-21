@@ -1,3 +1,4 @@
+import { timeLabel } from './util'
 import type { FamEvent, FamilyState, Member, Moment } from './types'
 
 /** Ce que la maison raconte à partir des événements réellement enregistrés par la famille. */
@@ -56,7 +57,7 @@ export function homeStories(state: Sources, meId: string, next: NextEvent, now =
     const delta = dayDifference(next.at, now)
     if (delta <= 14) {
       const quand = delta < 0 ? 'En ce moment' : delta === 0 ? 'Aujourd’hui' : delta === 1 ? 'Demain' : next.at.toLocaleDateString('fr-FR', { weekday: 'long' }).replace(/^./, (c) => c.toUpperCase())
-      const heure = next.e.all_day ? '' : next.at.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+      const heure = next.e.all_day ? '' : timeLabel(next.at)
       const avec = (next.e.members ?? []).map((id) => byId.get(id)?.display_name).filter(Boolean) as string[]
       result.push({
         id: 'event:' + next.e.id,

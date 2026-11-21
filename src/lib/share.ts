@@ -27,6 +27,23 @@ export async function shareInvite(familyName: string, code: string): Promise<'pa
   return (await copy(`${text}\n${url}`)) ? 'copie' : 'annule'
 }
 
+/** Partage un petit texte (un événement…) ; à défaut, le copie. */
+export async function partagerTexte(text: string): Promise<'partage' | 'copie' | 'annule'> {
+  try {
+    if (Capacitor.isNativePlatform()) {
+      await Share.share({ text })
+      return 'partage'
+    }
+    if (navigator.share) {
+      await navigator.share({ text })
+      return 'partage'
+    }
+  } catch {
+    return 'annule'
+  }
+  return (await copy(text)) ? 'copie' : 'annule'
+}
+
 export async function copy(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text)

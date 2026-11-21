@@ -1,7 +1,7 @@
 import { ListPages, useListPage } from '../components/listNavigation'
-import { Check, ChevronLeft, ChevronRight, MapPin, Plus, Users } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, MapPin, Minus, Plus, Trash2, Users } from 'lucide-react'
 import { useRef, useState, type ReactNode } from 'react'
-import { AUTRES, cle, comprendre, ecrireArticle, lireArticle, nombre, pourAllerAvec, RAYONS, rayonDe, retenir, souvent } from '../lib/courses'
+import { additionner, articlesDuTheme, AUTRES, cle, completer, comprendre, ecrireArticle, lireArticle, memeArticle, lireQte, moinsUn, plusUn, pourAllerAvec, qteCourte, RAYONS, rayonDe, retenir, souvent, themeDe, themeParCle, themesDuMoment } from '../lib/courses'
 import { MemberStack } from '../components/folder'
 import { EventDetailSheet, EventSheet, EventIcon, TYPES_AGENDA } from '../components/sheets'
 import { Art, Avatar, Rond, Screen, Segments, Vide } from '../components/ui'
@@ -255,16 +255,28 @@ function TitrePartie({ emoji, children, n }: { emoji: string; children: ReactNod
   )
 }
 
-/** − 2 + : la quantité d'un article, d'un toucher. */
-function Quantite({ qte, onChange, nom }: { qte: string; onChange: (q: string) => void; nom: string }) {
-  const n = nombre(qte)
-  if (n === null)
-    return <span className="mr-3 shrink-0 rounded-full bg-teinte-doux px-2.5 py-1 text-note font-bold text-teinte-fonce">{qte}</span>
+/** − 2 + : la quantité d'un article, d'un toucher, au pas de l'article (œufs de 6 en 6, pommes de 0,5 kg en 0,5 kg).
+ *  Au plus bas, le − devient une poubelle : il retire l'article (Elisa, 21 novembre : « à 1, le − ne fait rien »). */
+function Quantite({ qte, nom, onChange, onRetirer }: { qte: string; nom: string; onChange: (q: string) => void; onRetirer: () => void }) {
+  const q = lireQte(qte)
+  if (!q) return <span className="ml-2.5 mr-3 shrink-0 rounded-full bg-teinte-doux px-2.5 py-1 text-note font-bold text-teinte-fonce">{qte}</span>
+  const moins = moinsUn(nom, qte)
+  const plus = plusUn(nom, qte)
   return (
-    <span className="mr-2 flex shrink-0 items-center rounded-full bg-remplissage p-0.5" role="group" aria-label={`Quantité de ${nom}`}>
-      <button type="button" onPointerDown={garderLeClavier} onClick={() => (select(), onChange(String(Math.max(1, n - 1))))} disabled={n <= 1} aria-label={`Un ${nom} de moins`} className="presse flex h-8 w-8 items-center justify-center rounded-full text-[18px] font-bold text-teinte-fonce disabled:opacity-30">−</button>
-      <span key={n} className="anim-pop min-w-[22px] text-center text-sous font-extrabold text-encre" aria-live="polite">{n}</span>
-      <button type="button" onPointerDown={garderLeClavier} onClick={() => (select(), onChange(String(Math.min(99, n + 1))))} aria-label={`Un ${nom} de plus`} className="presse flex h-8 w-8 items-center justify-center rounded-full bg-carte text-[18px] font-bold text-teinte-fonce">+</button>
+    <span className="ml-2.5 mr-2.5 flex shrink-0 items-center rounded-full bg-remplissage p-0.5" role="group" aria-label={`Quantité de ${nom}`}>
+      <button
+        type="button"
+        onPointerDown={garderLeClavier}
+        onClick={() => (select(), moins === null ? onRetirer() : onChange(moins))}
+        aria-label={moins === null ? `Retirer ${nom} de la liste` : `Moins de ${nom}`}
+        className={`presse flex h-8 w-8 items-center justify-center rounded-full ${moins === null ? 'text-rouge' : 'text-teinte-fonce'}`}
+      >
+        {moins === null ? <Trash2 key="poubelle" size={15} strokeWidth={2.4} className="anim-pop" /> : <Minus size={16} strokeWidth={3} />}
+      </button>
+      <span key={qte} className="anim-pop min-w-[24px] whitespace-nowrap px-0.5 text-center text-sous font-extrabold text-encre" aria-live="polite">{qteCourte(q)}</span>
+      <button type="button" onPointerDown={garderLeClavier} onClick={() => plus && (select(), onChange(plus))} aria-label={`Plus de ${nom}`} className="presse flex h-8 w-8 items-center justify-center rounded-full bg-carte text-teinte-fonce shadow-[0_1px_2px_rgba(29,26,43,0.08)]">
+        <Plus size={16} strokeWidth={3} />
+      </button>
     </span>
   )
 }
@@ -303,7 +315,7 @@ function Liste({ kind }: { kind: ListKind }) {
   const todo = items.filter((i) => !i.done)
   if (tache) todo.sort((a, b) => b.created_at.localeCompare(a.created_at))
   const done = items.filter((i) => i.done)
-  const choisies = filtre === 'terminees' ? done : todo.filter((i) => filtre === 'toutes' || (filtre === 'moi' ? i.assigned_to === me.id : filtre === 'libres' ? !i.assigned_to : !!i.assigned_to && i.assigned_to !== me.id))
+  const choisies = filtre === 'terminees' ? done : todo.filter((i) => filtre === 'toutes' || i.assigned_to === me.id)
   const navigation = useListPage(choisies, 5, kind + filtre)
   const todoVisible = tache ? (filtre === 'terminees' ? [] : navigation.visible) : todo
   const doneVisible = tache ? (filtre === 'terminees' ? navigation.visible : []) : done
@@ -317,7 +329,25 @@ function Liste({ kind }: { kind: ListKind }) {
     : [...RAYONS, AUTRES]
         .map((r) => ({ r, items: todo.filter((i) => rayonDe(lireArticle(i.title).nom).key === r.key) }))
         .filter((x) => x.items.length)
-  const saisie = !tache && title.trim() ? comprendre(title) : null
+  const saisie = !tache && title.trim() ? completer(comprendre(title)) : null
+  // un repas entier : tapé (« raclette ») ou touché dans les idées de saison
+  const [themeOuvert, setThemeOuvert] = useState<string | null>(null)
+  const theme = tache ? null : (title.trim() ? themeDe(title) : null) ?? (themeOuvert ? themeParCle(themeOuvert) : null)
+  const [personnes, setPersonnes] = useState(() => Math.min(12, Math.max(2, members.length)))
+  const [decoches, setDecoches] = useState<string[]>([])
+  const articlesRepas = theme ? articlesDuTheme(theme, personnes).map((a) => ({ ...a, deja: todo.some((i) => memeArticle(lireArticle(i.title).nom, a.nom)) })) : []
+  const aAjouter = articlesRepas.filter((a) => !a.deja && !decoches.includes(a.nom))
+  const ajouterRepas = (el: Element | null) => {
+    if (!theme || !aAjouter.length) return
+    for (const a of aAjouter) ajouter(ecrireArticle(a))
+    success()
+    petille(el)
+    toast(`${aAjouter.length} article${aAjouter.length > 1 ? 's' : ''} pour ${theme.pour} 🛒`)
+    setTitle('')
+    setThemeOuvert(null)
+    setDecoches([])
+  }
+  const saisons = tache ? [] : themesDuMoment()
 
   /** Enregistre en arrière-plan ; en cas d'échec on remet comme avant. */
   const fond = async (op: () => Promise<unknown>, annuler: () => void, apres: () => void) => {
@@ -342,22 +372,24 @@ function Liste({ kind }: { kind: ListKind }) {
   const ajouter = (texte?: string) => {
     const brut = (texte ?? title).trim()
     if (!brut) return
-    // une course : sa quantité (« 2 lait » → « Lait · 2 »), et si elle est déjà dans la liste, on en reprend
-    const t = tache ? brut.slice(0, 80) : ecrireArticle(comprendre(brut))
-    if (!tache) {
-      const a = comprendre(brut)
-      const deja = todo.find((i) => cle(lireArticle(i.title).nom) === cle(a.nom) && !i.id.startsWith('attente-'))
+    // une course : sa quantité (« 2 lait » → « Lait · 2 » ; rien de tapé : la quantité habituelle, « Œufs » → 12) ;
+    // déjà dans la liste : on en reprend (la quantité tapée, sinon un pas de plus)
+    const tape = tache ? null : comprendre(brut)
+    const t = tache ? brut.slice(0, 80) : ecrireArticle(completer(tape!))
+    if (tape) {
+      const deja = todo.find((i) => !i.id.startsWith('attente-') && memeArticle(lireArticle(i.title).nom, tape.nom))
       if (deja) {
         const avant = lireArticle(deja.title)
-        const n1 = nombre(avant.qte), n2 = nombre(a.qte)
-        if (n1 !== null && n2 !== null) {
+        const somme = tape.qte ? additionner(avant.qte, tape.qte) : plusUn(avant.nom, avant.qte)
+        if (somme) {
           if (!texte) setTitle('')
-          changerQuantite(deja, String(Math.min(99, n1 + n2)))
-          retenir(family.id, a.nom)
+          changerQuantite(deja, somme)
+          retenir(family.id, tape.nom)
+          toast(`${avant.nom} : ${somme}`)
           return
         }
       }
-      retenir(family.id, a.nom)
+      retenir(family.id, tape.nom)
     }
     tap()
     if (!texte) setTitle('')
@@ -429,12 +461,14 @@ function Liste({ kind }: { kind: ListKind }) {
     return (
       <Glisse key={i.id} onRetirer={() => retirer([i.id])} label={`Glisse vers la gauche pour retirer ${i.title}`}>
         <div className={`flex items-center ${attente ? 'anim-pop opacity-60' : ''} ${dernier ? '' : 'border-b border-trait'}`}>
-          <button onClick={(e) => basculer(i, e.currentTarget.firstElementChild)} className="presse-ligne flex min-h-[54px] min-w-0 flex-1 items-center gap-3 py-2 pl-4 pr-2 text-left" aria-label={`Cocher ${i.title}`}>
+          {/* le gris du toucher s'arrête avant la quantité, avec un peu d'air (Elisa, 21 novembre) */}
+          <button onClick={(e) => basculer(i, e.currentTarget.firstElementChild)} className={`presse-ligne flex min-h-[54px] min-w-0 flex-1 items-center gap-3 py-2 pl-4 pr-3 text-left ${!tache && !editing ? 'rounded-r-[16px]' : ''}`} aria-label={`Cocher ${i.title}`}>
             <Coche fait={false} />
             <span className="min-w-0 flex-1 text-corps">{tache ? i.title : art.nom}</span>
             {who && <Avatar m={who} size={28} />}
           </button>
-          {!tache && !editing && !attente && <Quantite qte={art.qte} nom={art.nom} onChange={(q) => changerQuantite(i, q)} />}
+          {!tache && !editing && !attente && <Quantite qte={art.qte} nom={art.nom} onChange={(q) => changerQuantite(i, q)} onRetirer={() => retirer([i.id])} />}
+          {!tache && attente && art.qte && <span className="ml-2.5 mr-3 shrink-0 text-note font-bold text-brume">{art.qte}</span>}
           {editing && (
             <button onClick={() => retirer([i.id])} className="presse mr-2 flex min-h-11 items-center rounded-full bg-rouge/10 px-3 text-note font-semibold text-rouge" aria-label={`Retirer ${i.title}`}>
               Retirer
@@ -463,15 +497,32 @@ function Liste({ kind }: { kind: ListKind }) {
             ref={champ}
             aria-label={tache ? 'Ajouter une chose à faire' : 'Ajouter un article'}
             className="h-11 min-w-0 flex-1 bg-transparent text-corps font-semibold outline-none placeholder:font-normal placeholder:text-brume"
-            placeholder={tache ? 'Ajouter une chose à faire' : 'Ajouter un article (ex. 2 baguettes)'}
+            placeholder={tache ? 'Ajouter une chose à faire' : 'Un article ou un repas (ex. raclette)'}
             maxLength={80}
-            enterKeyHint="done"
+            // Entrée ajoute et garde le clavier pour la suite ; champ vide : le clavier se ferme
+            enterKeyHint="next"
+            // les courses : pas de suggestions d'iOS (parfois en anglais) au-dessus du clavier, ce sont celles de Nidoo
+            {...(tache ? {} : { autoCorrect: 'off', spellCheck: false, autoComplete: 'off', name: 'nidoo-article' })}
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => {
+              setTitle(e.target.value)
+              setDecoches([])
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !title.trim()) {
+                e.preventDefault()
+                e.currentTarget.blur()
+              }
+            }}
           />
           {title.trim() && (
             <button type="submit" onPointerDown={garderLeClavier} className="presse anim-pop min-h-11 shrink-0 rounded-full bg-teinte px-4 text-sous font-semibold text-white">
               Ajouter
+            </button>
+          )}
+          {!title.trim() && themeOuvert && (
+            <button type="button" onPointerDown={garderLeClavier} onClick={() => setThemeOuvert(null)} className="presse min-h-11 shrink-0 px-2 text-sous font-semibold text-teinte-fonce">
+              Fermer
             </button>
           )}
         </form>
@@ -479,11 +530,52 @@ function Liste({ kind }: { kind: ListKind }) {
           <p className="anim-entre mt-1.5 flex items-center gap-1.5 px-1 text-note font-semibold text-teinte-fonce">
             <span aria-hidden="true">{rayonDe(saisie.nom).emoji}</span>
             {saisie.nom}
-            {saisie.qte && <span className="rounded-full bg-teinte-doux px-2 py-0.5">{nombre(saisie.qte) !== null ? `× ${saisie.qte}` : saisie.qte}</span>}
+            {saisie.qte && <span className="rounded-full bg-teinte-doux px-2 py-0.5">{saisie.qte}</span>}
             <span className="font-medium text-brume">· {rayonDe(saisie.nom).label}</span>
           </p>
         )}
-        {!tache && idees.length > 0 && (
+        {theme && (
+          <div className="anim-entre mt-3 rounded-[18px] bg-fond p-3" role="group" aria-label={`Tout pour ${theme.pour}`}>
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-carte text-[22px] shadow-carte" aria-hidden="true">{theme.emoji}</span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sous font-bold">Tout pour {theme.pour}</p>
+                <p className="text-note text-brume">Quantités pour {personnes} personne{personnes > 1 ? 's' : ''}</p>
+              </div>
+              <span className="flex shrink-0 items-center rounded-full bg-carte p-0.5 shadow-carte" role="group" aria-label="Nombre de personnes">
+                <button type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setPersonnes((n) => Math.max(1, n - 1)))} disabled={personnes <= 1} aria-label="Une personne de moins" className="presse flex h-8 w-8 items-center justify-center rounded-full text-teinte-fonce disabled:opacity-30"><Minus size={15} strokeWidth={3} /></button>
+                <span key={personnes} className="anim-pop flex min-w-[34px] items-center justify-center gap-0.5 text-sous font-extrabold"><Users size={13} strokeWidth={2.6} className="text-brume" />{personnes}</span>
+                <button type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setPersonnes((n) => Math.min(20, n + 1)))} aria-label="Une personne de plus" className="presse flex h-8 w-8 items-center justify-center rounded-full text-teinte-fonce"><Plus size={15} strokeWidth={3} /></button>
+              </span>
+            </div>
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              {articlesRepas.map((a) => {
+                const on = !a.deja && !decoches.includes(a.nom)
+                return (
+                  <button
+                    key={a.nom}
+                    type="button"
+                    onPointerDown={garderLeClavier}
+                    disabled={a.deja}
+                    aria-pressed={on}
+                    aria-label={a.deja ? `${a.nom} : déjà dans la liste` : undefined}
+                    onClick={() => (select(), setDecoches((d) => (d.includes(a.nom) ? d.filter((x) => x !== a.nom) : [...d, a.nom])))}
+                    className={`presse choix-pop flex min-h-[34px] items-center gap-1 rounded-full px-2.5 text-note font-semibold ${a.deja ? 'bg-carte text-pale line-through' : on ? 'bg-teinte text-white' : 'bg-carte text-encre ring-1 ring-inset ring-trait'}`}
+                  >
+                    {on ? <Check size={13} strokeWidth={3} /> : !a.deja && <Plus size={13} strokeWidth={3} className="text-teinte" />}
+                    {a.nom}
+                    {a.qte && <span className={on ? 'text-white/80' : 'text-brume'}>· {a.qte}</span>}
+                  </button>
+                )
+              })}
+            </div>
+            {articlesRepas.some((a) => a.deja) && <p className="mt-1.5 px-1 text-mini text-brume">Barrés : déjà dans la liste.</p>}
+            <button type="button" onPointerDown={garderLeClavier} onClick={(e) => ajouterRepas(e.currentTarget)} disabled={!aAjouter.length} className="presse mt-3 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full bg-teinte text-sous font-bold text-white shadow-[0_8px_18px_-10px_rgba(112,80,213,0.9)] disabled:opacity-40">
+              <Plus size={16} strokeWidth={3} /> {aAjouter.length ? `Ajouter ${aAjouter.length} article${aAjouter.length > 1 ? 's' : ''}` : 'Tout est déjà dans la liste'}
+            </button>
+          </div>
+        )}
+        {!tache && !theme && idees.length > 0 && (
           <>
             <p className="mb-1.5 mt-3 px-1 text-note font-bold text-brume">Souvent dans la liste</p>
             <div className="no-bar -mx-3 flex gap-1.5 overflow-x-auto px-3 pb-0.5" aria-label="Idées à ajouter">
@@ -491,12 +583,24 @@ function Liste({ kind }: { kind: ListKind }) {
             </div>
           </>
         )}
-        {avec.map((g) => (
+        {!theme && avec.map((g) => (
           <div key={g.avec}>
             <p className="mb-1.5 mt-3 px-1 text-note font-bold text-brume">Pour aller avec {g.avec.toLowerCase()}</p>
             <div className="no-bar -mx-3 flex gap-1.5 overflow-x-auto px-3 pb-0.5">{g.idees.map((x) => idee(x, `${g.avec}-${x}`))}</div>
           </div>
         ))}
+        {!tache && !theme && !title.trim() && saisons.length > 0 && (
+          <>
+            <p className="mb-1.5 mt-3 px-1 text-note font-bold text-brume">Idées repas · tout ce qu’il faut d’un toucher</p>
+            <div className="no-bar -mx-3 flex gap-1.5 overflow-x-auto px-3 pb-0.5">
+              {saisons.map((t) => (
+                <button key={t.key} type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setDecoches([]), setThemeOuvert(t.key))} className="presse flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full bg-peche-doux px-3 text-sous font-semibold text-peche-fonce">
+                  <span aria-hidden="true">{t.emoji}</span> {t.nom}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
         {tache && (
           <>
             <p className="mb-1.5 mt-3 px-1 text-note font-bold text-brume">Pour qui ?</p>
@@ -517,7 +621,8 @@ function Liste({ kind }: { kind: ListKind }) {
       {/* à faire : les filtres, sur une ligne, au-dessus de la liste */}
       {tache && items.length > 0 && (
         <div role="group" aria-label="Filtrer les tâches" className="no-bar mt-4 flex gap-1.5 overflow-x-auto px-4 pb-1">
-          {[['toutes', 'À faire', todo.length], ['moi', 'Pour moi'], ['autres', 'Pour les autres'], ['libres', 'Pour tout le monde'], ['terminees', 'Terminées', done.length]].map(([id, label, n]) => (
+          {/* trois filtres, pas plus (Elisa, 21 novembre) */}
+          {[['toutes', 'À faire', todo.length], ['terminees', 'Terminées', done.length], ['moi', 'Pour moi', todo.filter((i) => i.assigned_to === me.id).length]].map(([id, label, n]) => (
             <button key={id} type="button" aria-pressed={filtre === id} onClick={() => (select(), setFiltre(id as string))} className={`presse flex min-h-[38px] shrink-0 items-center gap-1.5 rounded-full px-3.5 text-note font-bold ${filtre === id ? 'bg-teinte text-white' : 'bg-carte text-encre ring-1 ring-inset ring-trait'}`}>
               {label}
               {n !== undefined && Number(n) > 0 && <span className={`rounded-full px-1.5 text-[11px] ${filtre === id ? 'bg-white/25' : 'bg-teinte-doux text-teinte-fonce'}`}>{n}</span>}

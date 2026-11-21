@@ -1,12 +1,17 @@
-import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { transformWithEsbuild } from 'vite'
+import { build } from 'esbuild'
 
-/** Compile un module TypeScript pur avec le compilateur déjà fourni par Vite. */
+/** Compile un module TypeScript pur (et les modules du projet qu'il importe) avec esbuild, déjà fourni par Vite. */
 export async function loadTs(path) {
-  const filename = resolve(process.cwd(), path)
-  const source = readFileSync(filename, 'utf8')
-  const { code } = await transformWithEsbuild(source, filename, { loader: 'ts', target: 'es2022' })
-  // Les modules testés ne comportent que des imports de types, effacés à la compilation.
-  return import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'))
+  const r = await build({
+    entryPoints: [resolve(process.cwd(), path)],
+    bundle: true,
+    write: false,
+    format: 'esm',
+    target: 'es2022',
+    platform: 'neutral',
+    packages: 'external',
+    logLevel: 'silent',
+  })
+  return import('data:text/javascript;base64,' + Buffer.from(r.outputFiles[0].text).toString('base64'))
 }

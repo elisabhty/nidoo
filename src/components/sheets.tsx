@@ -1,17 +1,20 @@
-import { AlignLeft, CalendarDays, CalendarPlus, Camera, ChevronRight, Images, MapPin, Navigation, PenLine, Repeat, Sticker as StickerIcon, Trash2, Undo2, Users } from 'lucide-react'
+import { AlignLeft, Cake, CalendarDays, CalendarPlus, Camera, ChevronRight, Images, MapPin, Navigation, PenLine, Repeat, Share, Sticker as StickerIcon, Trash2, Undo2, Users } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { moodOf, MOODS, THOUGHTS, thoughtOf } from '../lib/data'
 import { Smiley } from './Smiley'
-import { coeurs, confettis, petille } from '../lib/fete'
+import { coeurs, confettis } from '../lib/fete'
 import { feel, select, success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
+import { partagerTexte } from '../lib/share'
 import type { EventKind, FamEvent, Member, Sticker, ThoughtKind } from '../lib/types'
 import { chargerImage, photoFinale, vignettesFiltres, type FiltreKey } from '../lib/filtres'
 import { MAX_STICKERS } from '../lib/stickers'
 import { CadreCanvas, CadreRow, FilterRow, nouveauSticker, StickerStage, StickerImg, StickerTray } from './stickers'
 import { vignettesCadres } from '../lib/cadres'
 import { compressImage, errorText, finDe, isToday, joursEnPlus, nextOccurrence, rythme, timeLabel } from '../lib/util'
-import { ajouterAuCalendrier } from '../lib/calendrier'
+import { ajouterAuCalendrier, titreCalendrier } from '../lib/calendrier'
+import { estFerie, prochainsJoursSpeciaux } from '../lib/joursSpeciaux'
+import { anniversaireDe } from '../lib/naissance'
 import { IncomingDrawing, markDrawingsSeen, useUnseenDrawings } from './drawing'
 import { DrawSheet } from './planche'
 import { Art, Avatar, Btn, confirmer, Envol, Segments, Sheet, Switch, ChampRequis, CHAMP_REQUIS } from './ui'
@@ -620,7 +623,10 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
     }
   }
 
-  // les raccourcis de date : aujourd'hui, demain, et le prochain week-end
+  // les raccourcis de date (Elisa, 21 novembre) : toujours aujourd'hui et demain, puis
+  // - un événement : les jours qu'on fête dans les deux mois (Noël, l'Épiphanie, la fête de la musique…), sinon le week-end ;
+  // - un rendez-vous : les prochains jours de semaine (ni week-end ni jour férié) ;
+  // - un anniversaire : les membres de la famille (plus haut, près du prénom).
   const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
   const auj = new Date()
   const dans = (n: number) => {
@@ -628,16 +634,40 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
     d.setDate(d.getDate() + n)
     return d
   }
-  const samedi = dans(((6 - auj.getDay() + 7) % 7) || 7)
-  const dimanche = dans(((7 - auj.getDay()) % 7) || 7)
-  const jours = [
-    { label: 'Aujourd’hui', v: iso(auj) },
-    { label: 'Demain', v: iso(dans(1)) },
-    { label: `Sam. ${samedi.getDate()}`, v: iso(samedi) },
-    { label: `Dim. ${dimanche.getDate()}`, v: iso(dimanche) },
-  ].filter((x, k, t) => t.findIndex((y) => y.v === x.v) === k)
+  const court = (d: Date, o: Intl.DateTimeFormatOptions) => d.toLocaleDateString('fr-FR', o).replace(/^./, (c) => c.toUpperCase())
+  type Raccourci = { label: string; detail?: string; v: string; titre?: string }
+  const suite: Raccourci[] = []
+  if (kind === 'rdv') {
+    for (let n = 2; suite.length < 3 && n < 16; n++) {
+      const d = dans(n)
+      if (d.getDay() !== 0 && d.getDay() !== 6 && !estFerie(d)) suite.push({ label: court(d, { weekday: 'short', day: 'numeric' }), v: iso(d) })
+    }
+  } else if (kind === 'evenement') {
+    const fetes = prochainsJoursSpeciaux(auj)
+    if (fetes.length) for (const j of fetes) suite.push({ label: j.nom, detail: court(j.date, { day: 'numeric', month: 'short' }), v: iso(j.date), titre: j.titre ?? j.nom })
+    else {
+      const samedi = dans(((6 - auj.getDay() + 7) % 7) || 7)
+      const dimanche = dans(((7 - auj.getDay()) % 7) || 7)
+      suite.push({ label: `Sam. ${samedi.getDate()}`, v: iso(samedi) }, { label: `Dim. ${dimanche.getDate()}`, v: iso(dimanche) })
+    }
+  }
+  const jours: Raccourci[] = [{ label: 'Aujourd’hui', v: iso(auj) }, { label: 'Demain', v: iso(dans(1)) }, ...suite].filter((x, k, t) => t.findIndex((y) => y.v === x.v) === k)
+  // un jour de fête choisi alors que le nom est vide : on le propose comme nom (on le remplace si on change de jour)
+  const nomPropose = useRef('')
+  const choisirJour = (j: Raccourci) => {
+    select()
+    setDate(j.v)
+    if (j.titre && (!title.trim() || title === nomPropose.current)) {
+      setTitle(j.titre)
+      nomPropose.current = j.titre
+    }
+  }
+  // les anniversaires de la famille : ceux qu'on n'a pas encore, et ceux déjà dans l'agenda
+  const autres = state.events.filter((e) => e.id !== event?.id)
+  const sansAnniv = birthday ? state.members.filter((m) => !anniversaireDe(m, autres)) : []
+  const avecAnniv = birthday ? state.members.map((m) => ({ m, e: anniversaireDe(m, autres) })).filter((x) => x.e) : []
   const HEURES = ['09:00', '12:00', '14:00', '19:30']
-  const heure = (h: string) => { const [a, b] = h.split(':'); return `${Number(a)} h ${b}` }
+  const heure = (h: string) => { const [a, b] = h.split(':'); return `${Number(a)}h${b}` }
   const jourLong = (v: string) => {
     const d = new Date(`${v}T12:00`)
     if (Number.isNaN(d.getTime())) return 'Choisir'
@@ -690,12 +720,12 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
       </Btn>
     }>
       {/* le genre : trois cartes illustrées */}
-      <div className="grid grid-cols-3 gap-2" role="group" aria-label="Le genre d’événement">
+      <div className="grid grid-cols-3 gap-2 pt-1" role="group" aria-label="Le genre d’événement">
         {KINDS.map((k) => {
           const on = kind === k.key
           return (
-            <button key={k.key} type="button" aria-pressed={on} onClick={(e) => (select(), !on && petille(e.currentTarget), changeKind(k.key))}
-              className={`presse flex flex-col items-center gap-1 rounded-[18px] px-1 pb-2 pt-2.5 text-note font-bold transition-[box-shadow,background-color] ${on ? 'bg-teinte-doux text-teinte-fonce ring-2 ring-teinte' : 'bg-carte text-encre ring-1 ring-inset ring-trait'}`}>
+            <button key={k.key} type="button" aria-pressed={on} onClick={() => (select(), changeKind(k.key))}
+              className={`presse choix-pop flex flex-col items-center gap-1 rounded-[18px] px-1 pb-2 pt-2.5 text-note font-bold transition-[box-shadow,background-color] ${on ? 'bg-teinte-doux text-teinte-fonce ring-2 ring-teinte' : 'bg-carte text-encre ring-1 ring-inset ring-trait'}`}>
               <span key={on ? 'on' : 'off'} className={on ? 'saut' : ''}><Art name={k.art} size={34} /></span>
               {k.label}
             </button>
@@ -713,19 +743,49 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
           </button>
           <div className="min-w-0 flex-1">
             <label htmlFor="event-name" className="block px-0.5 text-note font-semibold text-brume">{birthday ? 'Anniversaire de…' : 'Nom de l’événement'}</label>
-            <input id="event-name" required aria-describedby="event-name-aide" className="h-10 w-full bg-transparent px-0.5 font-rond text-[20px] font-extrabold text-encre outline-none placeholder:font-sans placeholder:text-[17px] placeholder:font-semibold placeholder:text-brume/80" placeholder={birthday ? 'Ex. : Mamie' : kind === 'rdv' ? 'Ex. : Dentiste de Léa' : 'Ex. : Repas chez Mamie'} maxLength={60} value={title} onChange={e => setTitle(e.target.value)} />
+            <input id="event-name" required aria-describedby="event-name-aide" className="h-10 w-full bg-transparent px-0.5 font-rond text-[20px] font-extrabold text-encre outline-none placeholder:font-sans placeholder:text-[17px] placeholder:font-semibold placeholder:text-brume/80" placeholder={birthday ? 'Ex. : Mamie' : kind === 'rdv' ? 'Ex. : Dentiste de Léa' : 'Ex. : Repas chez Mamie'} maxLength={60} value={title} onChange={e => setTitle(e.target.value)} enterKeyHint="done" onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur() } }} />
           </div>
         </div>
         <p id="event-name-aide" className={`mt-2 flex items-center gap-1.5 rounded-[12px] bg-fond px-3 py-2 text-note font-semibold ${title.trim() ? 'text-teinte-fonce' : 'text-brume'}`}>
           <CalendarDays size={14} className="shrink-0" /> <span key={resume} className={`min-w-0 truncate ${title.trim() ? 'anim-entre' : ''}`}>{title.trim() ? resume : birthday ? 'Écris son prénom pour l’ajouter.' : 'Donne-lui un nom pour l’ajouter.'}</span>
         </p>
       </div>
+      {birthday && (sansAnniv.length > 0 || avecAnniv.length > 0) && (
+        <div className="mt-3">
+          {sansAnniv.length > 0 && (
+            <>
+              <p className="mb-1.5 px-1 text-note font-semibold text-brume">C’est l’anniversaire de…</p>
+              <div className="no-bar -mx-5 flex gap-2 overflow-x-auto px-5 pb-1" role="group" aria-label="Les membres de la famille">
+                {sansAnniv.map((m) => {
+                  const on = title.trim() === m.display_name
+                  return (
+                    <button key={m.id} type="button" aria-pressed={on} onClick={() => (select(), setTitle(m.display_name), setWho([m.id]))} className={`${puce(on)} choix-pop flex items-center gap-1.5 !py-1 !pl-1`}>
+                      <Avatar m={m} size={30} /> {m.id === state.me.id ? 'Moi' : m.display_name}
+                    </button>
+                  )
+                })}
+              </div>
+            </>
+          )}
+          {avecAnniv.length > 0 && (
+            <p className="mt-1.5 flex items-start gap-1.5 px-1 text-note text-brume">
+              <Cake size={14} className="mt-0.5 shrink-0 text-teinte" />
+              <span>Déjà dans l’agenda : {avecAnniv.map(({ m, e }) => `${m.id === state.me.id ? 'toi' : m.display_name} (${new Date(e!.starts_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })})`).join(', ')}</span>
+            </p>
+          )}
+        </div>
+      )}
       {stickersOpen && <div className="mt-3"><StickerTray start="fete" onClose={() => setStickersOpen(false)} onPick={key => {setSticker(key);setStickersOpen(false)}} /><button onClick={() => {setSticker(null);setStickersOpen(false)}} className="mt-1 min-h-11 px-1 text-sous font-semibold text-teinte-fonce">Revenir à l’icône par défaut</button></div>}
 
       {/* Quand */}
       {titreSection(CalendarDays, 'Quand ?', '#FFEDE2', '#E26F3C')}
       <div className="no-bar -mx-5 mb-2.5 flex gap-2 overflow-x-auto px-5 pb-1" role="group" aria-label="Raccourcis de date">
-        {jours.map((j) => <button key={j.v} type="button" aria-pressed={date === j.v} onClick={(e) => (select(), date !== j.v && petille(e.currentTarget), setDate(j.v))} className={puce(date === j.v)}>{j.label}</button>)}
+        {jours.map((j) => (
+          <button key={j.v} type="button" aria-pressed={date === j.v} onClick={() => choisirJour(j)} className={`${puce(date === j.v)} choix-pop`}>
+            {j.label}
+            {j.detail && <span className={`ml-1.5 font-medium ${date === j.v ? 'text-white/80' : 'text-brume'}`}>{j.detail}</span>}
+          </button>
+        ))}
       </div>
       <div className="groupe shadow-carte">
         {ligneChoix(birthday ? 'Le jour' : 'Date', jourLong(date), <input aria-label="Date de l’événement" type="date" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={date} onChange={e => e.target.value && setDate(e.target.value)} />, false)}
@@ -734,7 +794,7 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
           {!journee && <>
             {ligneChoix('Heure', heure(time), <input aria-label="Heure de l’événement" type="time" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={time} onChange={e => e.target.value && setTime(e.target.value)} />)}
             <div className="flex gap-1.5 px-4 pb-3" role="group" aria-label="Raccourcis d’heure">
-              {HEURES.map((h) => <button key={h} type="button" aria-pressed={time === h} onClick={(e) => (select(), time !== h && petille(e.currentTarget), setTime(h))} className={`presse flex-1 rounded-full py-1.5 text-note font-bold ${time === h ? 'bg-teinte text-white' : 'bg-remplissage text-encre'}`}>{heure(h)}</button>)}
+              {HEURES.map((h) => <button key={h} type="button" aria-pressed={time === h} onClick={() => (select(), setTime(h))} className={`presse choix-pop flex-1 rounded-full py-1.5 text-note font-bold ${time === h ? 'bg-teinte text-white' : 'bg-remplissage text-encre'}`}>{heure(h)}</button>)}
             </div>
           </>}
           {journee && <div className="flex min-h-[54px] items-center justify-between border-t border-trait px-4 text-corps">Sur plusieurs jours<Switch on={plusieurs} onChange={v => {setPlusieurs(v);if(v && !(fin > date)){const d=new Date(`${date}T12:00`);d.setDate(d.getDate()+1);setFin(iso(d))}}} label="Sur plusieurs jours" /></div>}
@@ -759,10 +819,33 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
   )
 }
 
-/** Un événement ouvert, à lire tranquillement : le jour, l'heure, le lieu, qui est concerné, les détails.
- *  « Modifier » ouvre le formulaire complet ; supprimer demande une confirmation. */
+/** Un bouton rond de la fiche d'un événement, comme sur une fiche de contact. */
+function ActionEvt({ icone: I, label, onClick, href }: { icone: typeof CalendarPlus; label: string; onClick?: () => void; href?: string }) {
+  const cls = 'presse flex min-w-0 flex-col items-center gap-1.5 rounded-[18px] bg-carte px-1 pb-2.5 pt-3 text-note font-semibold text-teinte-fonce shadow-carte'
+  const dedans = (
+    <>
+      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-teinte-doux">
+        <I size={19} strokeWidth={2.4} />
+      </span>
+      <span className="w-full truncate text-center">{label}</span>
+    </>
+  )
+  return href ? (
+    <a href={href} target="_blank" rel="noopener noreferrer" className={cls} onClick={() => tap()}>
+      {dedans}
+    </a>
+  ) : (
+    <button type="button" className={cls} onClick={() => (tap(), onClick?.())}>
+      {dedans}
+    </button>
+  )
+}
+
+/** Un événement ouvert, à lire tranquillement (Elisa, 21 novembre : « améliore lui l'UX »).
+ *  En haut : son image, son nom, quand, et dans combien de jours. Puis les actions d'un coup d'œil
+ *  (Calendrier, Itinéraire, Partager, Modifier), et une seule carte d'infos (où, avec qui, les détails). */
 export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Date; onClose: () => void }) {
-  const { state, run } = useHome()
+  const { state, run, toast } = useHome()
   const ev = state.events.find((x) => x.id === event.id) ?? event // la version à jour, après une modification
   const [modif, setModif] = useState(false)
   const [toutLire, setToutLire] = useState(false)
@@ -777,58 +860,77 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
     ? `Du ${at.toLocaleDateString('fr-FR', fin.getMonth() === at.getMonth() ? { weekday: 'long', day: 'numeric' } : { weekday: 'long', day: 'numeric', month: 'long' })} au ${fin.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}`
     : at.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
   ).replace(/^./, (c) => c.toUpperCase())
+  const quand = `${full}${ev.all_day ? '' : ` à ${timeLabel(at)}`}`
   const d0 = new Date()
   d0.setHours(0, 0, 0, 0)
   const diff = Math.round((new Date(at.getFullYear(), at.getMonth(), at.getDate()).getTime() - d0.getTime()) / 86400000)
-  const soon = diff < 0 ? 'En ce moment' : diff === 0 ? 'Aujourd’hui' : diff === 1 ? 'Demain' : diff <= 30 ? `Dans ${diff} jours` : null
+  const birthday = ev.kind === 'anniversaire'
+  const soon = diff < 0 ? 'En ce moment' : diff === 0 ? (birthday ? 'C’est aujourd’hui !' : 'Aujourd’hui') : diff === 1 ? 'Demain' : diff <= 60 ? `Dans ${diff} jours` : null
   if (modif && peutModifier) return <EventSheet event={ev} onClose={() => setModif(false)} />
   const concernes = (ev.members ?? []).length ? state.members.filter((m) => ev.members!.includes(m.id)) : []
   const noms = concernes.map((m) => (m.id === state.me.id ? 'toi' : m.display_name))
   const qui = !concernes.length ? 'Toute la famille' : noms.length === 1 ? noms[0].replace(/^toi$/, 'Toi') : `${noms.slice(0, -1).join(', ')} et ${noms[noms.length - 1]}`.replace(/^toi/, 'Toi')
+  // l'anniversaire d'un membre : sa tête à la place de l'image
+  const fete = birthday ? state.members.find((m) => anniversaireDe(m, [ev])) : undefined
   const supprimer = async () => {
     if (!(await confirmer({ title: `Supprimer « ${ev.title} » ?`, message: 'Il disparaîtra de l’agenda de toute la famille.', confirm: 'Supprimer l’événement', destructive: true }))) return
     if (await run((api) => api.deleteEvent(ev.id), 'Événement supprimé')) onClose()
   }
+  const calendrier = () => {
+    if (ajouterAuCalendrier(ev) === 'safari') toast('Safari s’ouvre : touche « Ajouter » pour le mettre dans ton calendrier')
+  }
+  const partager = async () => {
+    const r = await partagerTexte(`${titreCalendrier(ev)} : ${quand.charAt(0).toLowerCase()}${quand.slice(1)}${ev.lieu ? `, ${ev.lieu}` : ''}${ev.description ? `\n${ev.description}` : ''}`)
+    if (r === 'copie') toast('Copié : tu peux le coller dans un message')
+  }
+  const actions = [
+    <ActionEvt key="cal" icone={CalendarPlus} label="Calendrier" onClick={calendrier} />,
+    ev.lieu ? <ActionEvt key="plans" icone={Navigation} label="Itinéraire" href={lienPlans(ev.lieu)} /> : null,
+    <ActionEvt key="partage" icone={Share} label="Partager" onClick={() => void partager()} />,
+    peutModifier ? <ActionEvt key="modif" icone={PenLine} label="Modifier" onClick={() => setModif(true)} /> : null,
+  ].filter(Boolean)
 
-  // Tout tient sur un écran : l'en-tête (image, titre, quand), une seule carte d'infos, deux boutons côte à côte.
   return (
     <Sheet title={KINDS.find((k) => k.key === ev.kind)?.label ?? 'Événement'} onClose={onClose}>
-      <div className="flex items-center gap-3.5">
-        <span className="flex h-[68px] w-[68px] shrink-0 items-center justify-center rounded-[22px] bg-teinte-doux">
-          <EventIcon event={ev} size={48} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="break-words font-rond text-titre2 leading-tight">{ev.title}</p>
-          {(soon || ev.yearly || ev.weekly) && (
-            <span className="mt-1.5 flex flex-wrap gap-1.5">
-              {soon && <span className="rounded-full bg-peche-doux px-2.5 py-0.5 text-legende font-semibold text-peche-fonce">{soon}</span>}
-              {ev.yearly && (
-                <span className="flex items-center gap-1 rounded-full bg-remplissage px-2.5 py-0.5 text-legende font-semibold text-brume">
-                  <Repeat size={12} strokeWidth={2.6} /> Chaque année
-                </span>
-              )}
-              {ev.weekly && (
-                <span className="flex items-center gap-1 rounded-full bg-remplissage px-2.5 py-0.5 text-legende font-semibold text-brume">
-                  <Repeat size={12} strokeWidth={2.6} /> {rythme(ev, at)}
-                </span>
-              )}
+      <div className="flex flex-col items-center pt-1 text-center">
+        <span className="anim-pop relative">
+          {fete ? (
+            <>
+              <Avatar m={fete} size={88} mood />
+              <span className="absolute -bottom-1 -right-2 flex h-10 w-10 items-center justify-center rounded-full bg-carte shadow-carte">
+                <EventIcon event={ev} size={28} />
+              </span>
+            </>
+          ) : (
+            <span className="flex h-[88px] w-[88px] items-center justify-center rounded-[28px] bg-teinte-doux">
+              <EventIcon event={ev} size={60} />
             </span>
           )}
-        </div>
+        </span>
+        <p className="mt-3 break-words px-2 font-rond text-titre2 leading-tight">{titreCalendrier(ev)}</p>
+        <p className="mt-1 px-2 text-sous text-brume">{quand}</p>
+        {(soon || ev.yearly || ev.weekly) && (
+          <span className="mt-2 flex flex-wrap justify-center gap-1.5">
+            {soon && <span className="rounded-full bg-peche-doux px-2.5 py-1 text-legende font-bold text-peche-fonce">{soon}</span>}
+            {(ev.yearly || ev.weekly) && (
+              <span className="flex items-center gap-1 rounded-full bg-remplissage px-2.5 py-1 text-legende font-semibold text-brume">
+                <Repeat size={12} strokeWidth={2.6} /> {ev.yearly ? 'Chaque année' : rythme(ev, at)}
+              </span>
+            )}
+          </span>
+        )}
+      </div>
+
+      <div className="mt-5 grid gap-2" style={{ gridTemplateColumns: `repeat(${actions.length}, minmax(0, 1fr))` }}>
+        {actions}
       </div>
 
       <div className="groupe mt-4">
-        <Info icone={<CalendarDays size={18} strokeWidth={2.3} />}>
-          {full}
-          <span className="text-brume">{ev.all_day ? ' · toute la journée' : ` · ${timeLabel(at)}`}</span>
-        </Info>
         {ev.lieu && (
           <a href={lienPlans(ev.lieu)} target="_blank" rel="noopener noreferrer" className="presse-ligne block">
             <Info icone={<MapPin size={18} strokeWidth={2.3} />} fleche>
               <span className="block break-words">{ev.lieu}</span>
-              <span className="flex items-center gap-1 text-note font-semibold text-teinte-fonce">
-                <Navigation size={11} strokeWidth={2.6} /> Ouvrir dans Plans
-              </span>
+              <span className="text-note text-brume">Ouvrir dans Plans</span>
             </Info>
           </a>
         )}
@@ -838,7 +940,7 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
               <span className="flex shrink-0 -space-x-2">
                 {concernes.slice(0, 4).map((m) => (
                   <span key={m.id} className="rounded-full ring-2 ring-carte">
-                    <Avatar m={m} size={24} />
+                    <Avatar m={m} size={26} />
                   </span>
                 ))}
               </span>
@@ -848,42 +950,21 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
         </Info>
         {ev.description && (
           <Info icone={<AlignLeft size={18} strokeWidth={2.3} />} dernier>
-            <button onClick={() => setToutLire((x) => !x)} className="block w-full whitespace-pre-wrap break-words text-left" style={toutLire ? undefined : { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+            <button onClick={() => setToutLire((x) => !x)} className="block w-full whitespace-pre-wrap break-words text-left" style={toutLire ? undefined : { display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
               {ev.description}
             </button>
           </Info>
         )}
       </div>
       {author && (
-        <p className="mt-2 px-1 text-note text-brume">
-          {author.id === state.me.id ? 'Ajouté par toi · tu es la seule personne à pouvoir le modifier ou le supprimer' : `Ajouté par ${author.display_name} · seule la personne qui l’a ajouté peut le modifier`}
+        <p className="mt-2.5 flex items-center justify-center gap-1.5 px-1 text-note text-brume">
+          <Avatar m={author} size={20} />
+          {author.id === state.me.id ? 'Ajouté par toi · tu es la seule personne à pouvoir le modifier' : `Ajouté par ${author.display_name} · seule cette personne peut le modifier`}
         </p>
       )}
-
-      <div className={`mt-4 grid gap-2.5 ${peutModifier ? 'grid-cols-2' : 'grid-cols-1'}`}>
-        {peutModifier && (
-          <Btn
-            onClick={() => {
-              tap()
-              setModif(true)
-            }}
-          >
-            <PenLine size={17} strokeWidth={2.4} /> Modifier
-          </Btn>
-        )}
-        <Btn
-          kind="gris"
-          onClick={() => {
-            tap()
-            ajouterAuCalendrier(ev)
-          }}
-        >
-          <CalendarPlus size={17} strokeWidth={2.4} /> {peutModifier ? 'Calendrier' : 'Ajouter à mon calendrier'}
-        </Btn>
-      </div>
       {peutModifier && (
-        <button onClick={() => void supprimer()} className="presse mt-1 flex min-h-11 w-full items-center justify-center gap-1.5 text-sous font-semibold text-rouge">
-          <Trash2 size={15} strokeWidth={2.4} /> Supprimer l’événement
+        <button onClick={() => void supprimer()} className="presse groupe mt-4 flex min-h-[50px] w-full items-center justify-center gap-1.5 text-corps font-semibold text-rouge">
+          <Trash2 size={17} strokeWidth={2.4} /> Supprimer l’événement
         </button>
       )}
     </Sheet>

@@ -7,6 +7,7 @@ import { Incoming } from './components/sheets'
 import { ActionSheetHost, Btn, Toasts } from './components/ui'
 import { useKeyboardViewport } from './lib/useKeyboardViewport'
 import { appliPrete } from './lib/majDistance'
+import { ajouterNaissance } from './lib/naissance'
 import { select } from './lib/haptic'
 import { useStore } from './lib/store'
 import { ecouterWidgets, oublierWidgets, synchroniserWidgets } from './lib/widgets'
@@ -46,7 +47,7 @@ export default function App() {
   const { keyboard, decale } = useKeyboardViewport()
   // l'appli s'affiche : cette version marche (mise à jour à distance), puis on regarde s'il y a plus récent
   useEffect(() => appliPrete(), [])
-  const { status, error, state, retry, requests, api } = useStore()
+  const { status, error, state, retry, requests, api, reload } = useStore()
   const [tab, setTab] = useState<Tab>('maison')
   const [visited, setVisited] = useState<Tab[]>(['maison'])
   const panes = useRef<HTMLDivElement>(null)
@@ -68,6 +69,10 @@ export default function App() {
     if (state) synchroniserWidgets(api, state)
     else if (status === 'ready') oublierWidgets()
   }, [api, state, status])
+  // l'anniversaire donné à l'accueil rejoint l'agenda dès qu'on est dans la maison
+  useEffect(() => {
+    if (state) void ajouterNaissance(api, state.family.id, state.me, state.events).then((ok) => { if (ok) void reload().catch(() => undefined) })
+  }, [api, state?.family.id, state?.me.id]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(
     () =>
       ecouterWidgets((chemin) => {

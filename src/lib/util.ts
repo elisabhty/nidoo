@@ -85,7 +85,8 @@ export function dayLabel(d: Date): string {
   if (diff > 1 && diff < 7) return d.toLocaleDateString('fr-FR', { weekday: 'long' }).replace(/^./, (c) => c.toUpperCase())
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
 }
-export const timeLabel = (d: Date) => d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+/** L'heure à la française, sans espace : « 9h30 », « 12h00 » (Elisa, 21 novembre). */
+export const timeLabel = (d: Date) => `${d.getHours()}h${String(d.getMinutes()).padStart(2, '0')}`
 
 export function greeting(d = new Date()): string {
   const h = d.getHours()

@@ -14,6 +14,36 @@ export function preparerClavier() {
   document.documentElement.classList.add('natif')
   Keyboard.setResizeMode({ mode: KeyboardResize.None }).catch(() => undefined)
   Keyboard.setScroll({ isDisabled: true }).catch(() => undefined)
+  // plus de barre « ˄ ˅ OK » grise au-dessus du clavier (Elisa, 21 novembre : « améliorer le clavier ») :
+  // Entrée passe à la suite, et faire défiler ferme le clavier (plus bas)
+  Keyboard.setAccessoryBarVisible({ isVisible: false }).catch(() => undefined)
+}
+
+/** Faire défiler (de haut en bas) ferme le clavier, comme dans Messages : plus besoin de bouton « OK ».
+ *  Pas quand on glisse dans le champ lui-même (sélectionner du texte), ni pour un glissé de côté (les idées). */
+export function fermerClavierEnDefilant(): () => void {
+  let depart: EventTarget | null = null
+  let x0 = 0
+  let y0 = 0
+  const debut = (e: TouchEvent) => {
+    depart = e.target
+    x0 = e.touches[0]?.clientX ?? 0
+    y0 = e.touches[0]?.clientY ?? 0
+  }
+  const bouge = (e: TouchEvent) => {
+    const champ = document.activeElement
+    if (!(champ instanceof HTMLElement) || !champ.matches('input:not([type="date"]):not([type="time"]), textarea')) return
+    if (depart instanceof Node && champ.contains(depart)) return
+    const dx = Math.abs((e.touches[0]?.clientX ?? 0) - x0)
+    const dy = Math.abs((e.touches[0]?.clientY ?? 0) - y0)
+    if (dy > 14 && dy > dx * 1.5) champ.blur()
+  }
+  document.addEventListener('touchstart', debut, { passive: true, capture: true })
+  document.addEventListener('touchmove', bouge, { passive: true, capture: true })
+  return () => {
+    document.removeEventListener('touchstart', debut, { capture: true })
+    document.removeEventListener('touchmove', bouge, { capture: true })
+  }
 }
 
 /** La couleur du bas de l'écran, à mettre sous le clavier. */
@@ -68,6 +98,7 @@ function montrer(el: Element | null) {
 export function useKeyboardViewport() {
   const [keyboard, setKeyboard] = useState(false)
   const [decale, setDecale] = useState(false)
+  useEffect(() => fermerClavierEnDefilant(), [])
   // l'appli iPhone : le clavier s'annonce (sa hauteur), l'appli se cale au-dessus de lui
   useEffect(() => {
     if (!NATIF) return

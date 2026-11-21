@@ -13,7 +13,7 @@ const base = () => ({ members: members.map((m) => ({ ...m })), moments: [] })
 test('annonce un événement réel et conserve son lien vers le détail', () => {
   const event = { id: 'fete', title: 'Dîner de famille', kind: 'evenement', all_day: false, lieu: 'Chez Mamie' }
   const stories = homeStories(base(), 'moi', { e: event, at: new Date('2026-11-19T19:30:00Z') }, now)
-  assert.match(stories[0].label, /^Demain · \d\d:\d\d$/)
+  assert.match(stories[0].label, /^Demain · \d{1,2}h\d\d$/)
   assert.equal(stories[0].event, event)
   assert.match(stories[0].detail, /Chez Mamie/)
 })
