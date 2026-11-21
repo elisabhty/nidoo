@@ -322,10 +322,10 @@ struct VueOu: View {
     var body: some View {
         if let etat = e.etat {
             let gens = lignes(etat)
-            VStack(alignment: .leading, spacing: f == .systemSmall ? 6 : 7) {
+            VStack(alignment: .leading, spacing: f == .systemSmall ? 6 : f == .systemLarge ? 13 : 7) {
                 HStack(spacing: 5) {
-                    Image(systemName: "location.fill").font(.system(size: 11, weight: .bold)).foregroundStyle(Color(hex: 0x2F7FD0))
-                    Text("Où est la famille").font(rond(14)).foregroundStyle(Theme.encre).lineLimit(1).minimumScaleFactor(0.8)
+                    Image(systemName: "location.fill").font(.system(size: grand ? 13 : 11, weight: .bold)).foregroundStyle(Color(hex: 0x2F7FD0))
+                    Text("Où est la famille").font(rond(grand ? 16 : 14)).foregroundStyle(Theme.encre).lineLimit(1).minimumScaleFactor(0.8)
                 }
                 if gens.isEmpty {
                     Spacer(minLength: 0)
@@ -346,7 +346,9 @@ struct VueOu: View {
         }
     }
 
-    private var combien: Int { f == .systemSmall ? 2 : f == .systemMedium ? 3 : 7 }
+    private var combien: Int { f == .systemSmall ? 2 : f == .systemMedium ? 3 : 6 }
+    /// le grand : des têtes plus grandes, de l'air entre chacun
+    private var grand: Bool { f == .systemLarge }
 
     private struct Quelqu: Identifiable {
         let m: Etat.Membre
@@ -362,21 +364,21 @@ struct VueOu: View {
 
     private func ligne(_ etat: Etat, _ m: Etat.Membre, _ p: Etat.Position) -> some View {
         let petit = f == .systemSmall
-        return HStack(spacing: 8) {
-            Pastille(m: m, taille: petit ? 30 : 34, humeur: false)
-            VStack(alignment: .leading, spacing: 0) {
+        return HStack(spacing: grand ? 11 : 8) {
+            Pastille(m: m, taille: petit ? 30 : grand ? 46 : 34, humeur: false)
+            VStack(alignment: .leading, spacing: grand ? 2 : 0) {
                 HStack(spacing: 4) {
-                    Text(m.id == etat.moi ? "Moi" : m.n).font(rond(12.5)).foregroundStyle(Theme.encre).lineLimit(1)
+                    Text(m.id == etat.moi ? "Moi" : m.n).font(rond(grand ? 15 : 12.5)).foregroundStyle(Theme.encre).lineLimit(1)
                     if let b = p.b, b <= 20 {
                         Image(systemName: "battery.25percent").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.rouge)
                     }
                     if !petit {
                         Spacer(minLength: 2)
-                        Text(Temps.ilYA(p.q, maintenant: e.date)).font(rond(10.5, .medium)).foregroundStyle(Theme.brume).lineLimit(1)
+                        Text(Temps.ilYA(p.q, maintenant: e.date)).font(rond(grand ? 12 : 10.5, .medium)).foregroundStyle(Theme.brume).lineLimit(1)
                     }
                 }
                 Text(petit ? (p.v ?? p.libelle) : p.libelle)
-                    .font(rond(11, .medium)).foregroundStyle(Theme.brume).lineLimit(1).minimumScaleFactor(0.85)
+                    .font(rond(grand ? 13 : 11, .medium)).foregroundStyle(Theme.brume).lineLimit(1).minimumScaleFactor(0.85)
             }
         }
     }
