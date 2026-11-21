@@ -12,6 +12,7 @@
 // Le nom est celui du référentiel des courses (rayon, format, pas du − / +).
 
 export const RECETTES = `
+
 # Q01 | Pâtes bolognaise | quotidien | pers | 1-12 | 🍝 | bolognaise, bolo, spaghetti bolognaise, spaghettis bolognaise
 Spaghetti 100 g
 Viande hachée 100 g
@@ -125,7 +126,7 @@ Champignons de Paris 100 g
 Vin blanc 3 cl
 Parmesan 20 g
 Beurre 10 g B
-Bouillon cube P
+Bouillon de volaille P
 
 # Q13 | Riz cantonais | quotidien | pers | 1-12 | 🍚 | riz cantonnais
 Riz 75 g
@@ -160,14 +161,14 @@ Carottes 1 pce
 Pommes de terre 1 pce
 Oignons 0.25 pce
 Crème fraîche 2 cl
-Bouillon cube P
+Bouillon de légumes P
 
 # Q17 | Velouté de potiron | quotidien | pers | 10-12 | 🎃 | veloute, soupe de potiron, veloute potiron
 Potiron 300 g
 Pommes de terre 0.5 pce
 Oignons 0.25 pce
 Crème fraîche 3 cl
-Bouillon cube P
+Bouillon de légumes P
 Muscade P
 
 # Q18 | Salade niçoise | quotidien | pers | 5-9 | 🥗 | nicoise
@@ -259,6 +260,7 @@ Lardons 25 g
 Carottes 0.5 pce
 Oignons 0.25 pce
 Bouquet garni P
+Bouillon de légumes P
 
 # Q28 | Cake salé jambon-olives | quotidien | plat:8 | 1-12 | 🍞 | cake sale, cake jambon olives
 Dés de jambon 150 g
@@ -289,7 +291,7 @@ Pois chiches 50 g
 Oignons 0.25 pce
 Tomates concassées 50 g
 Ras el hanout P
-Bouillon cube P
+Bouillon de volaille P
 
 # W02 | Tajine poulet, citron et olives | weekend | pers | 1-12 | 🍋 | tajine, tagine
 Cuisses de poulet 1 pce H
@@ -312,6 +314,7 @@ Beurre 7 g B
 Œufs 0.2 pce B
 Farine P
 Bouquet garni P
+Fond de veau P
 
 # W04 | Bœuf bourguignon | weekend | pers | 10-3 | 🍷 | bourguignon, boeuf bourguignon
 Bœuf bourguignon 200 g
@@ -324,6 +327,7 @@ Ail 0.5 gousse
 Pommes de terre 200 g
 Farine P
 Bouquet garni P
+Bouillon de bœuf P
 
 # W05 | Pot-au-feu | weekend | pers | 10-3 | 🍲 | pot au feu
 Plat de côtes 250 g
@@ -341,7 +345,7 @@ Bœuf bourguignon 180 g
 Carottes 250 g
 Oignons 0.25 pce
 Vin blanc 5 cl
-Bouillon cube P
+Bouillon de bœuf P
 Thym P
 Laurier P
 
@@ -397,7 +401,8 @@ Petits pois surgelés 25 g
 Tomates 0.5 pce
 Oignons 0.25 pce
 Épices paella P
-Bouillon cube P
+Bouillon de volaille P
+Safran P
 Huile d’olive P
 
 # W13 | Cassoulet | weekend | pers | 10-3 | 🫘 | cassoulet
@@ -417,6 +422,9 @@ Beurre 50 g
 Farine 300 g P
 Sucre P
 Huile P
+Sucre vanillé P
+Fleur d’oranger P
+Rhum P
 
 # D02 | Gaufres | dessert | plat:5 | 1-12 | 🧇 | gaufre
 Lait 50 cl
@@ -426,6 +434,7 @@ Farine 250 g P
 Sucre 50 g P
 Levure chimique P
 Sucre vanillé P
+Extrait de vanille P
 
 # D03 | Gâteau au chocolat | dessert | plat:8 | 1-12 | 🍫 | gateau chocolat, fondant au chocolat, moelleux au chocolat
 Chocolat pâtissier 200 g
@@ -433,6 +442,7 @@ Beurre 125 g
 Œufs 4 pce
 Sucre 125 g P
 Farine 50 g P
+Sucre vanillé P
 
 # D04 | Gâteau au yaourt | dessert | plat:8 | 1-12 | 🍰 | gateau yaourt
 Yaourt nature 1 pot
@@ -442,6 +452,7 @@ Farine 255 g P
 Huile P
 Levure chimique P
 Sucre vanillé P
+Extrait de vanille P
 
 # D05 | Cookies | dessert | plat:10 | 1-12 | 🍪 | cookie
 Beurre 125 g
@@ -451,6 +462,7 @@ Farine 250 g P
 Cassonade 125 g P
 Levure chimique P
 Sel P
+Extrait de vanille P
 
 # D06 | Crumble aux pommes | dessert | plat:6 | 9-4 | 🍏 | crumble
 Pommes 6 pce
@@ -458,6 +470,7 @@ Beurre 100 g
 Farine 150 g P
 Cassonade 100 g P
 Cannelle P
+Sucre vanillé P
 
 # D07 | Tarte aux pommes | dessert | plat:8 | 9-4 | 🥧 | tarte pommes
 Pâte brisée 1 rouleau
@@ -465,6 +478,7 @@ Pommes 5 pce
 Beurre 20 g B
 Sucre 40 g P
 Sucre vanillé P
+Cannelle P
 
 # D08 | Tiramisu | dessert | plat:6 | 1-12 | 🍰 | tiramisu
 Mascarpone 250 g
@@ -473,6 +487,8 @@ Biscuits cuillère 24 pce
 Sucre 75 g P
 Café P
 Cacao P
+Sucre vanillé P
+Amaretto P
 
 # D09 | Mousse au chocolat | dessert | plat:6 | 1-12 | 🍫 | mousse chocolat
 Chocolat pâtissier 200 g
@@ -484,7 +500,8 @@ Sel P
 Riz rond 100 g
 Lait 100 cl
 Sucre 80 g P
-Sucre vanillé P
+Vanille 1 pce P
+Cannelle P
 
 # D11 | Pancakes | dessert | plat:4 | 1-12 | 🥞 | pancake
 Lait 30 cl
@@ -494,6 +511,7 @@ Sirop d’érable
 Farine 250 g P
 Sucre 30 g P
 Levure chimique P
+Extrait de vanille P
 
 # D12 | Galette des rois | dessert | plat:8 | 1 | 👑 | galette, galette frangipane, epiphanie
 Pâte feuilletée 2 rouleau
@@ -501,6 +519,8 @@ Poudre d’amande 125 g
 Beurre 75 g
 Œufs 3 pce
 Sucre 100 g P
+Extrait d’amande amère P
+Rhum P
 
 # D13 | Clafoutis aux cerises | dessert | plat:6 | 6-7 | 🍒 | clafoutis
 Cerises 500 g
@@ -509,6 +529,8 @@ Lait 40 cl
 Beurre 10 g B
 Sucre 100 g P
 Farine 80 g P
+Sucre vanillé P
+Kirsch P
 
 # F01 | Chapon aux marrons | fete | pers | 12 | 🎄 | chapon, dinde aux marrons, repas de noel, noel
 Chapon 450 g
@@ -516,7 +538,7 @@ Marrons 80 g
 Chair à saucisse 50 g
 Échalotes 0.25 pce
 Beurre 10 g B
-Bouillon cube P
+Bouillon de volaille P
 
 # F02 | Bûche au chocolat | fete | plat:8 | 12 | 🎄 | buche, buche de noel
 Chocolat pâtissier 200 g
@@ -525,6 +547,7 @@ Crème liquide 40 cl
 Sucre 120 g P
 Farine 100 g P
 Cacao P
+Extrait de vanille P
 
 # F03 | Gigot d’agneau et flageolets | fete | pers | 3-4 | 🐣 | gigot, paques, repas de paques
 Gigot d’agneau 300 g

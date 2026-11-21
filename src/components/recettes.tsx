@@ -1,6 +1,6 @@
 import { Check, CheckCheck, ChevronRight, Minus, Plus, Search, Users, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { select, success } from '../lib/haptic'
+import { choc, select, success, tap } from '../lib/haptic'
 import { lookOf } from '../lib/look'
 import { CATEGORIES, chercherRecettes, LES_RECETTES, lignesDe, portionsFamille, recettesDuMoment, type Categorie, type Ligne, type Recette } from '../lib/recettes'
 import { useHome } from '../lib/store'
@@ -31,6 +31,7 @@ export function RecetteSheet({ recette, onClose, onAjouter, dejaDansLaListe }: {
   // « Tout sélectionner » : les ronds se cochent l'un après l'autre, en vague (Elisa, 21 novembre)
   const toutCoche = lignes.every(coche)
   const [vague, setVague] = useState<{ n: number; on: boolean }>({ n: 0, on: true })
+  const [touches, setTouches] = useState<string[]>([])
   const toutBasculer = () => {
     const on = !toutCoche
     if (on) success()
@@ -47,12 +48,18 @@ export function RecetteSheet({ recette, onClose, onAjouter, dejaDansLaListe }: {
         key={l.nom}
         type="button"
         aria-pressed={on}
-        onClick={() => (select(), setBascules((b) => ({ ...b, [l.nom]: !on })))}
-        className="presse-ligne flex w-full items-center gap-3 pl-4 text-left"
+        onClick={() => {
+          // cocher : un petit toc ; décocher : un toc plus marqué
+          if (on) choc()
+          else tap()
+          setBascules((b) => ({ ...b, [l.nom]: !on }))
+          setTouches((t) => (t.includes(l.nom) ? t : [...t, l.nom]))
+        }}
+        className={`presse-ligne flex w-full items-center gap-3 pl-4 text-left transition-colors duration-300 ${on ? '' : 'bg-fond/40'}`}
       >
         <span
           key={`${vague.n}-${on}`}
-          className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full transition-colors ${on ? 'coche-saut bg-teinte text-white' : 'ring-2 ring-inset ring-[rgba(60,56,82,0.25)]'}`}
+          className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full transition-colors ${on ? 'coche-saut bg-teinte text-white' : `${touches.includes(l.nom) || vague.n ? 'coche-retire' : ''} ring-2 ring-inset ring-[rgba(60,56,82,0.25)]`}`}
           style={{ animationDelay: vague.n && vague.on === on ? `${rang * 40}ms` : undefined }}
         >
           {on && <Check size={13} strokeWidth={3.2} />}

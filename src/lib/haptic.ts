@@ -7,6 +7,8 @@ const native = Capacitor.isNativePlatform()
 export const tap = () => void (native && Haptics.impact({ style: ImpactStyle.Light }).catch(() => undefined))
 export const select = () => void (native && Haptics.selectionChanged().catch(() => undefined))
 export const success = () => void (native && Haptics.notification({ type: NotificationType.Success }).catch(() => undefined))
+/** Un petit choc plus marqué : un article qui part de la liste. */
+export const choc = () => void (native && Haptics.impact({ style: ImpactStyle.Medium }).catch(() => undefined))
 export const warn = () => void (native && Haptics.notification({ type: NotificationType.Warning }).catch(() => undefined))
 
 // Le geste se sent dans la main : chaque attention a sa vibration.

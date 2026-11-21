@@ -264,6 +264,10 @@ ras el hanout|EPS||1|1
 muscade|EPS||1|1
 épices tex-mex|EPS||1|1
 bouillon cube|EPS||1|1
+bouillon de légumes|EPS||1|1
+bouillon de volaille|EPS||1|1
+bouillon de bœuf|EPS||1|1
+safran|EPS||1|1
 fond de veau|EPS||1|1
 lait de coco|EPS||1|1
 cornichons|EPS||1|1
@@ -287,6 +291,11 @@ sucre|EPSU||1|1
 sucre glace|EPSU||1|1
 cassonade|EPSU||1|1
 sucre vanillé|EPSU||1|1
+vanille|EPSU||1|1
+extrait de vanille|EPSU||1|1
+fleur d’oranger|EPSU||1|1
+extrait d’amande amère|EPSU||1|1
+arôme rhum|EPSU||1|1
 levure chimique|EPSU||1|1
 chocolat pâtissier|EPSU||1|1
 pépites de chocolat|EPSU||1|1
@@ -358,6 +367,8 @@ rosé|BOI||1|1
 champagne|BOI||1|1
 cidre|BOI||1|1
 porto|BOI||1|1
+rhum|BOI||1|1
+amaretto|BOI||1|1
 couches|BEBE||1|1
 lingettes|BEBE||1|1
 lait infantile|BEBE||1|1
@@ -482,6 +493,14 @@ croissants=croissant
 salade verte,laitue,batavia,iceberg,feuille de chêne=salade
 whiskas,felix,sheba,gourmet=pâtée chat
 croquettes,croquette=croquettes chat
+bouillon de poule,cube de poule,bouillon poule,bouillon de poulet,cube volaille=bouillon de volaille
+bouillon de legumes,cube de legumes,cube legumes,bouillon legumes=bouillon de légumes
+bouillon de boeuf,cube de boeuf,cube boeuf,bouillon boeuf,pot au feu cube=bouillon de bœuf
+gousse de vanille,gousses de vanille,vanille en gousse,vanille bourbon=vanille
+arome vanille,vanille liquide,extrait vanille=extrait de vanille
+eau de fleur d’oranger,eau de fleur d'oranger,fleur d'oranger=fleur d’oranger
+amande amere,arome amande amere,arome amande=extrait d’amande amère
+rhum ambre,rhum brun,rhum blanc=rhum
 lait d’avoine,lait d’amande,lait de soja,lait de riz=lait végétal
 lait demi-écrémé,lait entier,lait écrémé=lait
 petit suisse,petits suisses=petits-suisses

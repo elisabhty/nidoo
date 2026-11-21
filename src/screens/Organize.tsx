@@ -8,7 +8,7 @@ import { RecetteSheet, RecettesSheet } from '../components/recettes'
 import { MemberStack } from '../components/folder'
 import { EventDetailSheet, EventSheet, EventIcon, TYPES_AGENDA } from '../components/sheets'
 import { Art, AuDessus, Avatar, Rond, Screen, Segments, Vide } from '../components/ui'
-import { select, success, tap } from '../lib/haptic'
+import { choc, select, success, tap } from '../lib/haptic'
 import { confettis, petille } from '../lib/fete'
 import { useHome } from '../lib/store'
 import type { EventKind, FamEvent, ListItem, ListKind } from '../lib/types'
@@ -187,27 +187,29 @@ function Coche({ fait }: { fait: boolean }) {
 }
 
 /** Une ligne qu'on fait glisser vers la gauche pour la retirer (et qu'on peut toujours toucher pour cocher). */
-function Glisse({ children, onRetirer, label }: { children: ReactNode; onRetirer: () => void; label: string }) {
+function Glisse({ children, onRetirer, label, partant = false }: { children: ReactNode; onRetirer: () => void; label: string; partant?: boolean }) {
   const [dx, setDx] = useState(0)
-  const [part, setPart] = useState(false)
+  const [glisse, setPart] = useState(false)
+  // qui part (glissée, poubelle ou « Retirer ») : elle file vers la gauche et la place se referme
+  const part = glisse || partant
   const depart = useRef<{ x: number; y: number; actif: boolean } | null>(null)
   const aGlisse = useRef(false) // un glissé n'est pas un toucher : on ne coche pas en lâchant
   const fini = () => {
     if (dx < -90) {
-      select()
+      choc()
       setPart(true)
       window.setTimeout(onRetirer, 180)
     } else setDx(0)
     depart.current = null
   }
   return (
-    <div className={`relative overflow-hidden transition-[max-height,opacity] duration-200 ${part ? 'max-h-0 opacity-0' : 'max-h-[120px]'}`}>
+    <div className={`relative overflow-hidden transition-[max-height,opacity] duration-300 ${part ? 'max-h-0 opacity-0' : 'max-h-[120px]'}`}>
       <div className="absolute inset-y-0 right-0 flex items-center justify-end bg-rouge pr-5 text-sous font-semibold text-white" style={{ width: Math.max(0, -dx) + 8 }} aria-hidden="true">
         {dx < -40 && 'Retirer'}
       </div>
       <div
         className="relative bg-carte"
-        style={{ transform: `translateX(${part ? -400 : dx}px)`, transition: depart.current?.actif ? 'none' : 'transform 0.2s ease', touchAction: 'pan-y' }}
+        style={{ transform: `translateX(${part ? -400 : dx}px)`, transition: depart.current?.actif ? 'none' : 'transform 0.28s cubic-bezier(0.4, 0, 0.6, 1)', touchAction: 'pan-y' }}
         onPointerDown={(e) => {
           depart.current = { x: e.clientX, y: e.clientY, actif: false }
           aGlisse.current = false
@@ -390,6 +392,8 @@ function Liste({ kind }: { kind: ListKind }) {
         const somme = tape.qte ? additionner(avant.qte, tape.qte) : o.exact ? additionner(avant.qte, '1') : plusUn(avant.nom, avant.qte)
         if (somme) {
           if (!texte) setTitle('')
+          if (!o.discret) tap()
+          marquerArrivee(avant.nom)
           changerQuantite(deja, somme)
           retenir(family.id, tape.nom)
           if (!o.discret) toast(`${avant.nom} : ${somme}`)
@@ -400,6 +404,7 @@ function Liste({ kind }: { kind: ListKind }) {
     }
     if (!o.discret) tap()
     if (!texte) setTitle('')
+    marquerArrivee(tache ? t : lireArticle(t).nom)
     const evt = tache && peutLier ? pourEvt : null
     const tmp = { id: `attente-${Date.now()}-${Math.random()}`, family_id: family.id, kind, title: t, done: false, done_by: null, assigned_to: tache ? to : null, created_by: me.id, created_at: new Date().toISOString(), event_id: evt, connus: new Set(state.items.map((i) => i.id)) }
     setAjouts((a) => [...a, tmp])
@@ -443,6 +448,23 @@ function Liste({ kind }: { kind: ListKind }) {
       () => oublier(i.id),
     )
   }
+  // ajouter et retirer se sentent et se voient (Elisa, 21 novembre) : la ligne qui arrive s'éclaire un instant,
+  // celle qui part vibre, file vers la gauche et la place se referme
+  const [partants, setPartants] = useState<string[]>([])
+  const [arrivees, setArrivees] = useState<string[]>([])
+  const marquerArrivee = (nom: string) => {
+    const k = cle(nom)
+    setArrivees((a) => [...a.filter((x) => x !== k), k])
+    window.setTimeout(() => setArrivees((a) => a.filter((x) => x !== k)), 1500)
+  }
+  const retirerAnime = (ids: string[]) => {
+    choc()
+    setPartants((p) => [...p, ...ids])
+    window.setTimeout(() => {
+      retirer(ids)
+      setPartants((p) => p.filter((x) => !ids.includes(x)))
+    }, 300)
+  }
   const retirer = (ids: string[]) => {
     const vrais = ids.filter((id) => !id.startsWith('attente-'))
     setChanges((c) => ({ ...c, ...Object.fromEntries(vrais.map((id) => [id, { ...c[id], parti: true }])) }))
@@ -467,8 +489,8 @@ function Liste({ kind }: { kind: ListKind }) {
     const attente = i.id.startsWith('attente-')
     const art = lireArticle(i.title)
     return (
-      <Glisse key={i.id} onRetirer={() => retirer([i.id])} label={`Glisse vers la gauche pour retirer ${i.title}`}>
-        <div className={`flex items-center ${attente ? 'anim-pop opacity-60' : ''} ${dernier ? '' : 'border-b border-trait'}`}>
+      <Glisse key={i.id} onRetirer={() => retirer([i.id])} partant={partants.includes(i.id)} label={`Glisse vers la gauche pour retirer ${i.title}`}>
+        <div className={`flex items-center ${attente ? 'ligne-arrive-pop opacity-70' : ''} ${arrivees.includes(cle(tache ? i.title : art.nom)) ? 'ligne-arrive' : ''} ${dernier ? '' : 'border-b border-trait'}`}>
           {/* le gris du toucher s'arrête avant la quantité, avec un peu d'air (Elisa, 21 novembre) */}
           <button onClick={(e) => basculer(i, e.currentTarget.firstElementChild)} className={`presse-ligne flex min-h-[54px] min-w-0 flex-1 items-center gap-3 py-2 pl-4 pr-3 text-left ${!tache && !editing ? 'rounded-r-[16px]' : ''}`} aria-label={`Cocher ${i.title}`}>
             <Coche fait={false} />
@@ -483,10 +505,10 @@ function Liste({ kind }: { kind: ListKind }) {
             </span>
             {who && <Avatar m={who} size={28} />}
           </button>
-          {!tache && !editing && !attente && <Quantite qte={art.qte} nom={art.nom} onChange={(q) => changerQuantite(i, q)} onRetirer={() => retirer([i.id])} />}
+          {!tache && !editing && !attente && <Quantite qte={art.qte} nom={art.nom} onChange={(q) => changerQuantite(i, q)} onRetirer={() => retirerAnime([i.id])} />}
           {!tache && attente && art.qte && <span className="ml-2.5 mr-3 shrink-0 text-note font-bold text-brume">{art.qte}</span>}
           {editing && (
-            <button onClick={() => retirer([i.id])} className="presse mr-2 flex min-h-11 items-center rounded-full bg-rouge/10 px-3 text-note font-semibold text-rouge" aria-label={`Retirer ${i.title}`}>
+            <button onClick={() => retirerAnime([i.id])} className="presse mr-2 flex min-h-11 items-center rounded-full bg-rouge/10 px-3 text-note font-semibold text-rouge" aria-label={`Retirer ${i.title}`}>
               Retirer
             </button>
           )}
@@ -675,7 +697,7 @@ function Liste({ kind }: { kind: ListKind }) {
         <>
           <div className="mt-6 flex items-baseline justify-between px-5">
             <p className="entete !px-0">{tache ? 'Terminées' : 'Dans le panier'}</p>
-            <button onClick={() => retirer(done.map((d) => d.id))} className="presse min-h-11 text-sous font-semibold text-teinte">
+            <button onClick={() => retirerAnime(done.map((d) => d.id))} className="presse min-h-11 text-sous font-semibold text-teinte">
               {tache ? 'Effacer les tâches terminées' : 'Vider le panier'}
             </button>
           </div>
@@ -683,7 +705,7 @@ function Liste({ kind }: { kind: ListKind }) {
             {doneVisible.map((i, k) => {
               const who = members.find((m) => m.id === i.assigned_to)
               return (
-                <Glisse key={i.id} onRetirer={() => retirer([i.id])} label={`Glisse vers la gauche pour retirer ${i.title}`}>
+                <Glisse key={i.id} onRetirer={() => retirer([i.id])} partant={partants.includes(i.id)} label={`Glisse vers la gauche pour retirer ${i.title}`}>
                   <button onClick={() => basculer(i)} className="presse-ligne flex w-full items-center gap-3 pl-4 text-left" aria-label={`Décocher ${i.title}`}>
                     <Coche fait />
                     <span className={`flex min-h-[50px] min-w-0 flex-1 items-center gap-2 py-2 pr-3 ${k < doneVisible.length - 1 ? 'border-b border-trait' : ''}`}>
