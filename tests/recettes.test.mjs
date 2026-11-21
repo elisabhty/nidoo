@@ -1,13 +1,15 @@
 import { test } from 'node:test'
 import { strict as assert } from 'node:assert'
 import { loadTs } from './loadTs.mjs'
-const { LES_RECETTES, lignesDe, portionsFamille, recetteDe, recettesAvec, recettesDuMoment } = await loadTs('src/lib/recettes.ts')
-const { fiche } = await loadTs('src/lib/courses.ts')
+const { LES_RECETTES, lignesDe, occasionsAVenir, occasionProche, portionsFamille, recetteDe, recettesAvec, recettesDe, recettesDuMoment } = await loadTs('src/lib/recettes.ts')
+const { estVague, fiche, iconeDe, precisions, souvent } = await loadTs('src/lib/courses.ts')
 const r = (id) => LES_RECETTES.find((x) => x.id === id)
 const ligne = (res, nom) => res.lignes.find((l) => l.nom === nom)
 
-test('61 recettes et 6 listes, chaque ingrédient connu du référentiel', () => {
-  assert.equal(LES_RECETTES.filter((x) => x.cat !== 'liste').length, 61)
+test('111 recettes et 6 listes, chaque ingrédient connu du référentiel, aucun nom vague', () => {
+  assert.equal(LES_RECETTES.filter((x) => x.cat !== 'liste').length, 111)
+  assert.equal(new Set(LES_RECETTES.map((x) => x.id)).size, LES_RECETTES.length)
+  for (const x of LES_RECETTES) for (const i of x.ingredients) assert.ok(!estVague(i.nom), `${x.nom} : ${i.nom} est trop vague`)
   assert.equal(LES_RECETTES.filter((x) => x.cat === 'liste').length, 6)
   for (const x of LES_RECETTES) for (const i of x.ingredients) assert.ok(fiche(i.nom), `${x.nom} : ${i.nom}`)
 })
@@ -45,5 +47,39 @@ test('trouver une recette', () => {
   assert.equal(recetteDe('bolo').id, 'Q01')
   assert.equal(recetteDe('pâtes'), null)
   assert.equal(recettesAvec(['Pâtes', 'Lardons'])[0].recette.id, 'Q02')
-  assert.ok(recettesDuMoment(new Date(2026, 10, 21)).some((x) => x.id === 'W08'))
+  assert.ok(recettesDuMoment(new Date(2026, 10, 21), 10).some((x) => x.id === 'W08'))
+})
+
+test('par occasion : Noël, Nouvel An, Épiphanie, rangés entrées, plats, desserts', () => {
+  const noel = recettesDe('noel')
+  assert.ok(noel.length >= 10)
+  assert.ok(noel.some((x) => x.id === 'F01') && noel.some((x) => x.id === 'D14') && noel.some((x) => x.id === 'E01'))
+  const rang = (x) => (x.cat === 'entree' ? 0 : x.cat === 'dessert' ? 2 : 1)
+  assert.deepEqual(noel.map(rang), [...noel.map(rang)].sort())
+  assert.ok(recettesDe('epiphanie').some((x) => x.id === 'D12'))
+  assert.ok(recettesDe('nouvelan').length >= 8)
+  for (const o of ['chandeleur', 'saintvalentin', 'mardigras', 'paques', 'parents', 'halloween', 'anniversaire']) assert.ok(recettesDe(o).length >= 3, o)
+  // le 21 novembre 2026 : Noël d'abord (dans 33 jours, le réveillon), puis le Nouvel An, l'Épiphanie (3 janvier 2027)
+  const a = occasionsAVenir(new Date(2026, 10, 21, 10))
+  assert.deepEqual(a.slice(0, 3).map((o) => o.key), ['noel', 'nouvelan', 'epiphanie'])
+  assert.equal(a[0].dans, 33)
+  assert.equal(a[a.length - 1].key, 'anniversaire')
+  assert.equal(occasionProche(new Date(2026, 10, 21, 10)).key, 'noel')
+  assert.equal(occasionProche(new Date(2026, 8, 1, 10)), null)
+})
+
+test('jamais « Légumes » : on précise (de saison), et chaque suggestion a sa vraie icône', () => {
+  assert.ok(estVague('Légumes') && estVague('fruits') && estVague('Viande') && !estVague('Carottes'))
+  assert.deepEqual(precisions('légumes', 1).slice(0, 3), ['Carottes', 'Poireaux', 'Endives'])
+  assert.ok(precisions('fruits', 7).includes('Pêches'))
+  for (const n of [1, 4, 7, 10]) for (const k of ['légumes', 'fruits']) for (const x of precisions(k, n)) assert.ok(fiche(x), x)
+  assert.equal(iconeDe('Pommes de terre'), 'pomme-de-terre')
+  assert.equal(iconeDe('Pommes'), 'pomme')
+  assert.equal(iconeDe('Choux de Bruxelles'), 'choux-bruxelles')
+  assert.equal(iconeDe('Pain d’épices'), null)
+  assert.equal(iconeDe('Jus d’orange'), 'jus-orange')
+  assert.equal(iconeDe('Essuie-tout'), 'essuie-tout')
+  assert.equal(iconeDe('Mouchoirs'), 'mouchoirs')
+  assert.equal(iconeDe('Papier toilette'), 'papier-toilette')
+  assert.ok(!souvent('famille-test', [], []).some((x) => estVague(x)))
 })

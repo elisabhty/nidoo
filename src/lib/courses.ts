@@ -401,7 +401,45 @@ export function pourAllerAvec(noms: string[], max = 2): { avec: string; idees: s
 
 // ───────── Ce que la famille ajoute souvent ─────────
 
-export const IDEES_COURSES = ['Pain', 'Lait', 'Œufs', 'Fruits', 'Légumes', 'Beurre', 'Fromage', 'Yaourts', 'Café', 'Pâtes', 'Riz', 'Papier toilette', 'Lessive']
+// ───────── Préciser (Elisa, 21 novembre : « toujours préciser les légumes ») ─────────
+
+const saisonDe = (m: number) => (m === 12 || m <= 2 ? 0 : m <= 5 ? 1 : m <= 8 ? 2 : 3) // hiver, printemps, été, automne
+const LEGUMES_SAISON = [
+  ['Carottes', 'Poireaux', 'Endives', 'Potiron', 'Choux de Bruxelles', 'Pommes de terre'],
+  ['Asperges', 'Radis', 'Petits pois', 'Épinards', 'Carottes', 'Salade'],
+  ['Tomates', 'Courgettes', 'Aubergines', 'Poivrons', 'Haricots verts', 'Concombre'],
+  ['Potiron', 'Champignons', 'Poireaux', 'Brocolis', 'Carottes', 'Courge butternut'],
+]
+const FRUITS_SAISON = [
+  ['Clémentines', 'Oranges', 'Pommes', 'Poires', 'Kiwis', 'Bananes'],
+  ['Fraises', 'Pommes', 'Bananes', 'Kiwis', 'Rhubarbe', 'Citrons'],
+  ['Pêches', 'Abricots', 'Melon', 'Pastèque', 'Cerises', 'Fraises'],
+  ['Pommes', 'Poires', 'Raisin', 'Clémentines', 'Figues', 'Bananes'],
+]
+/** Les mots trop vagues pour une liste de courses, et ce qu'on propose à la place (de saison pour les fruits et légumes). */
+const PRECISIONS: Record<string, (m: number) => string[]> = {
+  legume: (m) => LEGUMES_SAISON[saisonDe(m)],
+  fruit: (m) => FRUITS_SAISON[saisonDe(m)],
+  'legume surgele': () => ['Haricots verts surgelés', 'Épinards surgelés', 'Petits pois surgelés', 'Poêlée de légumes', 'Brocolis surgelés'],
+  viande: () => ['Poulet', 'Viande hachée', 'Saucisses', 'Lardons', 'Jambon'],
+  poisson: () => ['Saumon', 'Cabillaud', 'Thon', 'Crevettes'],
+  fromage: () => ['Emmental', 'Mozzarella', 'Camembert'],
+  charcuterie: () => ['Jambon', 'Saucisson', 'Lardons', 'Saucisses'],
+  boisson: () => ['Eau', 'Jus d’orange', 'Lait', 'Sirop', 'Thé'],
+}
+/** Un nom trop vague (« Légumes ») : ce qu'on propose à la place ; sinon null. */
+export function precisions(nom: string, mois = new Date().getMonth() + 1): string[] | null {
+  const f = PRECISIONS[cle(nom)]
+  return f ? f(mois) : null
+}
+export const estVague = (nom: string) => !!PRECISIONS[cle(nom)]
+
+/** Les idées de départ : du concret, de saison (plus de « Fruits » ni de « Légumes »). */
+export function ideesCourses(mois = new Date().getMonth() + 1): string[] {
+  const s = saisonDe(mois)
+  return ['Pain', 'Lait', 'Œufs', FRUITS_SAISON[s][0], LEGUMES_SAISON[s][0], 'Beurre', 'Fromage râpé', 'Yaourts', 'Café', 'Pâtes', 'Riz', FRUITS_SAISON[s][1], LEGUMES_SAISON[s][1], 'Papier toilette', 'Lessive']
+}
+export const IDEES_COURSES = ideesCourses()
 
 type Histo = Record<string, { nom: string; n: number; le: number }>
 const HISTO = (famille: string) => `nidoo.courses.${famille}`
@@ -435,8 +473,9 @@ export function souvent(famille: string, dansLaListe: string[], achetes: string[
     .sort((a, b) => b.n - a.n || b.le - a.le)
     .map((x) => x.nom)
   const out: string[] = []
-  for (const nom of [...frequents, ...achetes, ...IDEES_COURSES]) {
+  for (const nom of [...frequents, ...achetes, ...ideesCourses()]) {
     const k = cle(nom)
+    if (PRECISIONS[k]) continue // « Légumes », « Fruits » : on propose du concret
     if (!k || presents.has(k) || presents.has(cle(fiche(nom)?.nom ?? nom)) || out.some((x) => cle(x) === k)) continue
     out.push(nom)
     if (out.length >= max) break
@@ -473,4 +512,48 @@ export function emojiDe(nom: string): string {
   const debut = (x: string, m: string) => x === m || x.startsWith(m + ' ')
   for (const [m, e] of EMOJIS) if (debut(k, m) || debut(kk, m)) return e
   return rayonDe(nom).emoji
+}
+
+// Les vraies icônes (des articles en feutrine, public/art/courses) : Elisa, 21 novembre, « faire des vrais icônes,
+// là c'est le bordel, on a des répétitions ». null : pas d'icône (on garde l'emoji, et pas de tuile).
+const ICONES: [string, string | null][] = ([
+  ['pain de mie', 'pain-de-mie'], ['pain d epice', null], ['pain', 'baguette'], ['baguette', 'baguette'], ['croissant', 'croissant'], ['brioche', 'brioche'],
+  ['lait de coco', null], ['lait', 'lait'], ['oeuf en chocolat', null], ['oeuf', 'oeufs'], ['beurre', 'beurre'], ['fromage blanc', 'yaourt'], ['fromage frai', null], ['fromage', 'fromage'],
+  ['emmental', 'fromage'], ['comte', 'fromage'], ['gruyere', 'fromage'], ['raclette', 'fromage'], ['mozzarella', 'mozzarella'], ['chevre', 'mozzarella'], ['yaourt', 'yaourt'],
+  ['creme de marron', null], ['creme', 'creme'], ['camembert', 'camembert'], ['brie', 'camembert'],
+  ['poulet', 'poulet'], ['blanc de poulet', 'poulet'], ['cuisse de poulet', 'poulet'], ['dinde', 'poulet'], ['escalope', 'poulet'], ['chapon', 'poulet'],
+  ['steak', 'steak'], ['viande hachee', 'steak'], ['boeuf', 'steak'], ['roti', 'steak'], ['veau', 'steak'], ['agneau', 'steak'], ['gigot', 'steak'], ['epaule d agneau', 'steak'],
+  ['jambon', 'jambon'], ['lardon', 'lardons'], ['bacon', 'lardons'], ['saucisse', 'saucisses'], ['merguez', 'saucisses'], ['chipolata', 'saucisses'], ['saucisson', 'saucisson'], ['chorizo', 'saucisson'],
+  ['saumon', 'saumon'], ['poisson', 'poisson'], ['cabillaud', 'poisson'], ['colin', 'poisson'], ['crevette', 'crevettes'], ['thon', 'thon'],
+  ['pate', 'pates'], ['spaghetti', 'pates'], ['coquillette', 'pates'], ['penne', 'pates'], ['tagliatelle', 'pates'], ['riz', 'riz'], ['farine', 'farine'], ['sucre', 'sucre'], ['sel', 'sel'],
+  ['huile', 'huile'], ['cafe', 'cafe'], ['capsule', 'cafe'], ['the', 'the'], ['cereale', 'cereales'], ['chocolat', 'chocolat'], ['biscuit', 'biscuits'], ['cookie', 'biscuits'],
+  ['confiture', 'confiture'], ['miel', 'miel'], ['pate a tartiner', 'pate-a-tartiner'], ['nutella', 'pate-a-tartiner'],
+  ['carotte', 'carotte'], ['poireau', 'poireau'], ['pomme de terre', 'pomme-de-terre'], ['oignon', 'oignon'], ['echalote', 'oignon'], ['ail', 'ail'], ['tomate', 'tomate'],
+  ['salade', 'salade'], ['laitue', 'salade'], ['mache', 'salade'], ['courgette', 'courgette'], ['aubergine', 'aubergine'], ['poivron', 'poivron'], ['brocoli', 'brocoli'],
+  ['champignon', 'champignon'], ['concombre', 'concombre'], ['haricot vert', 'haricots-verts'], ['epinard', 'epinards'], ['potiron', 'potiron'], ['courge', 'potiron'],
+  ['butternut', 'potiron'], ['citrouille', 'potiron'], ['endive', 'endive'], ['asperge', 'asperges'], ['pomme', 'pomme'], ['poire', 'poire'], ['banane', 'banane'],
+  ['orange', 'orange'], ['citron', 'citron'], ['fraise', 'fraise'], ['raisin', 'raisin'], ['kiwi', 'kiwi'], ['avocat', 'avocat'], ['cerise', 'cerise'], ['peche', 'peche'],
+  ['nectarine', 'peche'], ['melon', 'melon'], ['eau de javel', null], ['eau', 'eau'], ['jus', 'jus-orange'], ['papier toilette', 'papier-toilette'], ['lessive', 'lessive'],
+  ['liquide vaisselle', 'liquide-vaisselle'], ['eponge', 'eponge'], ['mouchoir', 'mouchoirs'], ['essuie tout', 'essuie-tout'], ['gel douche', 'gel-douche'],
+  ['shampoing', 'shampoing'], ['dentifrice', 'dentifrice'], ['brosse a dent', 'dentifrice'], ['savon', 'savon'], ['couche', 'couches'], ['sac poubelle', 'sac-poubelle'],
+  ['croquette', 'croquettes'], ['patee', 'croquettes'], ['biere', 'biere'], ['vin', 'vin'], ['chip', 'chips'], ['compote', 'compote'], ['glace', 'glace'],
+  ['pizza', 'pizza'], ['pate a pizza', 'pizza'], ['sauce tomate', 'sauce-tomate'], ['tomate concassee', 'sauce-tomate'], ['coulis', 'sauce-tomate'], ['conserve', 'sauce-tomate'],
+  ['moutarde', 'moutarde'], ['ketchup', 'ketchup'], ['petit poi', 'petits-pois'], ['radi', 'radis'], ['chou de bruxelle', 'choux-bruxelles'], ['figue', 'figue'],
+  ['abricot', 'abricot'], ['pasteque', 'pasteque'], ['olive', 'olives'], ['basilic', 'basilic'], ['herbe', 'basilic'], ['persil', 'basilic'], ['coriandre', 'basilic'],
+  ['epice', 'epices'], ['paprika', 'epices'], ['curry', 'epices'], ['piment', 'epices'], ['cornichon', 'cornichons'], ['soda', 'soda'], ['coca', 'soda'], ['sirop', 'sirop'],
+  ['fruit rouge', 'fruits-rouges'], ['framboise', 'fruits-rouges'], ['myrtille', 'fruits-rouges'], ['mai', 'mais'], ['noix', 'noix'], ['amande', 'noix'], ['noisette', 'noix'],
+  ['madeleine', 'madeleines'], ['clementine', 'clementine'], ['mandarine', 'clementine'], ['rhubarbe', 'rhubarbe'],
+] as [string, string | null][])
+  .map(([m, f]) => [cle(m), f] as [string, string | null])
+  .sort((a, b) => b[0].length - a[0].length)
+
+/** L'icône en feutrine d'un article (le nom du fichier dans public/art/courses), ou null. */
+export function iconeDe(nom: string): string | null {
+  const kk = cle(nom)
+  const k = cle(fiche(nom)?.nom ?? nom)
+  const debut = (x: string, m: string) => x === m || x.startsWith(m + ' ')
+  // le nom écrit d'abord (« choux de Bruxelles »), puis celui du référentiel
+  for (const [m, f] of ICONES) if (debut(kk, m)) return f
+  for (const [m, f] of ICONES) if (debut(k, m)) return f
+  return null
 }

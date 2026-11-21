@@ -2,7 +2,7 @@ import { Check, CheckCheck, ChevronRight, Minus, Plus, Search, Users, X } from '
 import { useMemo, useState } from 'react'
 import { choc, select, success, tap } from '../lib/haptic'
 import { lookOf } from '../lib/look'
-import { CATEGORIES, chercherRecettes, LES_RECETTES, lignesDe, portionsFamille, recettesDuMoment, type Categorie, type Ligne, type Recette } from '../lib/recettes'
+import { CATEGORIES, chercherRecettes, OCCASIONS, LES_RECETTES, lignesDe, occasionsAVenir, portionsFamille, recettesDe, recettesDuMoment, service, type Categorie, type Ligne, type Occasion, type Recette } from '../lib/recettes'
 import { useHome } from '../lib/store'
 import { Btn, Sheet } from './ui'
 
@@ -97,7 +97,7 @@ export function RecetteSheet({ recette, onClose, onAjouter, dejaDansLaListe }: {
           <p className="font-rond text-titre2 leading-tight">{recette.nom}</p>
           <p className="mt-0.5 text-note text-brume">
             {CATEGORIES.find((c) => c.key === recette.cat)?.label}
-            {saisonDe(recette) && ` · ${saisonDe(recette)}`}
+            {recette.occasions.length > 0 ? ` · ${recette.occasions.map((o) => { const x = OCCASIONS.find((y) => y.key === o)!; return `${x.emoji} ${x.label}` }).join(', ')}` : saisonDe(recette) && ` · ${saisonDe(recette)}`}
           </p>
         </div>
       </div>
@@ -144,12 +144,43 @@ export function RecetteSheet({ recette, onClose, onAjouter, dejaDansLaListe }: {
   )
 }
 
-/** Toutes les recettes : de saison, par genre, ou en cherchant (un nom ou un ingrédient). */
-export function RecettesSheet({ onClose, onChoisir }: { onClose: () => void; onChoisir: (r: Recette) => void }) {
+const dansTexte = (n: number | null) => (n === null ? '' : n === 0 ? 'aujourd’hui' : n === 1 ? 'demain' : `dans ${n} jours`)
+
+/** Toutes les recettes : de saison, par occasion (Noël, Nouvel An, Épiphanie…), par genre, ou en cherchant. */
+export function RecettesSheet({ onClose, onChoisir, occasion: occasionDepart }: { onClose: () => void; onChoisir: (r: Recette) => void; occasion?: Occasion }) {
   const [q, setQ] = useState('')
-  const [cat, setCat] = useState<Categorie | 'saison'>('saison')
-  const liste = q.trim() ? chercherRecettes(q) : cat === 'saison' ? recettesDuMoment(new Date(), 10) : LES_RECETTES.filter((r) => r.cat === cat)
-  const onglets: { key: Categorie | 'saison'; label: string }[] = [{ key: 'saison', label: 'De saison' }, ...CATEGORIES]
+  const [cat, setCat] = useState<Categorie | 'saison' | 'occasion'>(occasionDepart ? 'occasion' : 'saison')
+  const occasions = useMemo(() => occasionsAVenir(), [])
+  const [occasion, setOccasion] = useState<Occasion>(occasionDepart ?? occasions[0].key)
+  const proche = occasions.find((o) => o.dans !== null && o.dans <= 45)
+  const choisie = occasions.find((o) => o.key === occasion)!
+  const menu = useMemo(() => recettesDe(occasion), [occasion])
+  const liste = q.trim() ? chercherRecettes(q) : cat === 'saison' ? recettesDuMoment(new Date(), 10) : cat === 'occasion' ? menu : LES_RECETTES.filter((r) => r.cat === cat)
+  const onglets: { key: Categorie | 'saison' | 'occasion'; label: string }[] = [{ key: 'saison', label: 'De saison' }, { key: 'occasion', label: 'Par occasion' }, ...CATEGORIES]
+  const voirOccasion = (o: Occasion) => {
+    select()
+    setOccasion(o)
+    setCat('occasion')
+  }
+
+  const ligne = (r: Recette, dernier: boolean) => (
+    <button key={r.id} type="button" onClick={() => (select(), onChoisir(r))} className="presse-ligne flex w-full items-center gap-3 pl-3 text-left">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-peche-doux text-[24px]" aria-hidden="true">{r.emoji}</span>
+      <span className={`flex min-h-[60px] min-w-0 flex-1 items-center gap-2 py-2 pr-3 ${dernier ? '' : 'border-b border-trait'}`}>
+        <span className="min-w-0 flex-1">
+          <span className="block text-corps font-semibold">{r.nom}</span>
+          <span className="block text-note text-brume">
+            {r.ingredients.filter((x) => !x.placard).length} articles{r.parts ? ` · un plat de ${r.parts} parts` : ''}
+            {cat !== 'occasion' && saisonDe(r) && ` · ${saisonDe(r)}`}
+          </span>
+        </span>
+        <ChevronRight size={17} className="shrink-0 text-pale" />
+      </span>
+    </button>
+  )
+  // le menu d'une occasion, rangé comme un repas : entrées et apéros, plats, desserts
+  const services = cat === 'occasion' && !q.trim() ? [...new Set(menu.map(service))].map((titre) => ({ titre, recettes: menu.filter((r) => service(r) === titre) })) : null
+
   return (
     <Sheet title="Recettes" tall onClose={onClose}>
       <label className="flex h-11 items-center gap-2 rounded-[14px] bg-carte px-3.5 shadow-carte">
@@ -165,24 +196,50 @@ export function RecettesSheet({ onClose, onChoisir }: { onClose: () => void; onC
           ))}
         </div>
       )}
-      <div className="groupe mt-3 overflow-hidden shadow-carte">
-        {liste.map((r, i) => (
-          <button key={r.id} type="button" onClick={() => (select(), onChoisir(r))} className="presse-ligne flex w-full items-center gap-3 pl-3 text-left">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-peche-doux text-[24px]" aria-hidden="true">{r.emoji}</span>
-            <span className={`flex min-h-[60px] min-w-0 flex-1 items-center gap-2 py-2 pr-3 ${i < liste.length - 1 ? 'border-b border-trait' : ''}`}>
-              <span className="min-w-0 flex-1">
-                <span className="block text-corps font-semibold">{r.nom}</span>
-                <span className="block text-note text-brume">
-                  {r.ingredients.filter((x) => !x.placard).length} articles{r.parts ? ` · un plat de ${r.parts} parts` : ''}
-                  {saisonDe(r) && ` · ${saisonDe(r)}`}
-                </span>
-              </span>
-              <ChevronRight size={17} className="shrink-0 text-pale" />
-            </span>
-          </button>
-        ))}
-        {!liste.length && <p className="px-4 py-6 text-center text-sous text-brume">Aucune recette pour « {q} ».</p>}
-      </div>
+
+      {/* la fête qui approche : son menu, en un geste */}
+      {!q.trim() && cat === 'saison' && proche && (
+        <button type="button" onClick={() => voirOccasion(proche.key)} className="presse anim-entre mt-3 flex w-full items-center gap-3 rounded-[20px] bg-[#FFF5EF] p-3 pr-3.5 text-left">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] bg-carte text-[28px]" aria-hidden="true">{proche.emoji}</span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-corps font-bold text-encre">{proche.label} {dansTexte(proche.dans)}</span>
+            <span className="block text-note text-peche-fonce">{recettesDe(proche.key).length} recettes pour le menu · entrées, plats, desserts</span>
+          </span>
+          <ChevronRight size={18} className="shrink-0 text-peche-fonce" />
+        </button>
+      )}
+
+      {/* les occasions, de la plus proche à la plus lointaine */}
+      {!q.trim() && cat === 'occasion' && (
+        <>
+          <div className="no-bar -mx-5 mt-2 flex gap-2 overflow-x-auto px-5 pb-1" role="group" aria-label="Occasions">
+            {occasions.map((o) => (
+              <button key={o.key} type="button" aria-pressed={occasion === o.key} onClick={() => (select(), setOccasion(o.key))} className={`presse choix-pop flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-[14px] pl-2 pr-3 text-note font-bold ${occasion === o.key ? 'bg-peche-doux text-encre ring-2 ring-inset ring-[#F3B79A]' : 'bg-carte text-encre ring-1 ring-inset ring-trait'}`}>
+                <span className="text-[20px] leading-none" aria-hidden="true">{o.emoji}</span>
+                {o.label}
+              </button>
+            ))}
+          </div>
+          <p key={occasion} className="anim-entre mt-3 px-1 text-note text-brume">
+            <span className="font-bold text-encre">{choisie.label}</span>
+            {choisie.dans !== null && ` · ${dansTexte(choisie.dans)}`} · {menu.length} recettes
+          </p>
+        </>
+      )}
+
+      {services ? (
+        services.map((g) => (
+          <div key={`${occasion}-${g.titre}`} className="anim-entre">
+            <p className="mb-1.5 mt-4 px-1 text-sous font-bold">{g.titre}</p>
+            <div className="groupe overflow-hidden shadow-carte">{g.recettes.map((r, i) => ligne(r, i === g.recettes.length - 1))}</div>
+          </div>
+        ))
+      ) : (
+        <div className="groupe mt-3 overflow-hidden shadow-carte">
+          {liste.map((r, i) => ligne(r, i === liste.length - 1))}
+          {!liste.length && <p className="px-4 py-6 text-center text-sous text-brume">Aucune recette pour « {q} ».</p>}
+        </div>
+      )}
     </Sheet>
   )
 }

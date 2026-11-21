@@ -6,7 +6,9 @@
 // Fromages de Savoie, Elle & Vire, Hachette, Ôdélices, Marmiton ; le reste : proportions classiques à affiner) ;
 // les formats d'achat vérifiés sur des drives (novembre 2026) ; les portions des enfants (GEM-RCN, ANSES).
 //
-// # id | nom | catégorie | base (pers, ou plat:parts) | mois | emoji | autres noms
+// # id | nom | catégorie | base (pers, ou plat:parts) | mois | emoji | autres noms | occasions
+// (occasions : noel, nouvelan, epiphanie, chandeleur, saintvalentin, mardigras, paques, parents, halloween,
+// anniversaire — Elisa, 21 novembre : « classer aussi par événement : Noël, Épiphanie, Nouvel An »)
 // Puis un ingrédient par ligne : nom [quantité unité] [P = placard, décoché] [B = frais de base, décoché en petite
 // quantité] [H = une pièce par convive : steak, pavé, cuisse, pain burger].
 // Le nom est celui du référentiel des courses (rayon, format, pas du − / +).
@@ -163,7 +165,7 @@ Oignons 0.25 pce
 Crème fraîche 2 cl
 Bouillon de légumes P
 
-# Q17 | Velouté de potiron | quotidien | pers | 10-12 | 🎃 | veloute, soupe de potiron, veloute potiron
+# Q17 | Velouté de potiron | quotidien | pers | 10-12 | 🎃 | veloute, soupe de potiron, veloute potiron | halloween
 Potiron 300 g
 Pommes de terre 0.5 pce
 Oignons 0.25 pce
@@ -217,7 +219,7 @@ Fromage râpé 30 g
 Crème fraîche 2 cl
 Épices tex-mex P
 
-# Q23 | Burgers maison et frites | quotidien | pers | 1-12 | 🍔 | burger, burgers, hamburger, burger maison
+# Q23 | Burgers maison et frites | quotidien | pers | 1-12 | 🍔 | burger, burgers, hamburger, burger maison | anniversaire
 Pains burger 1 pce H
 Steak haché 1 pce H
 Cheddar 1 tranche
@@ -227,7 +229,7 @@ Oignons 0.25 pce
 Frites 200 g
 Ketchup P
 
-# Q24 | Pizza maison jambon-champignons | quotidien | pers | 1-12 | 🍕 | pizza maison, pizzas maison, soiree pizza, pizza reine
+# Q24 | Pizza maison jambon-champignons | quotidien | pers | 1-12 | 🍕 | pizza maison, pizzas maison, soiree pizza, pizza reine | anniversaire
 Pâte à pizza 0.5 rouleau
 Sauce tomate 50 g
 Mozzarella 0.5 boule
@@ -272,7 +274,7 @@ Farine 150 g P
 Levure chimique P
 Huile P
 
-# Q29 | Galettes complètes | quotidien | pers | 1-12 | 🥞 | galette complete, galettes, galettes bretonnes, galette de sarrasin
+# Q29 | Galettes complètes | quotidien | pers | 1-12 | 🥞 | galette complete, galettes, galettes bretonnes, galette de sarrasin | chandeleur
 Farine de sarrasin 50 g
 Jambon 2 tranche
 Fromage râpé 40 g
@@ -357,14 +359,16 @@ Oignons 0.5 pce
 Vin blanc 2.5 cl
 Poivre P
 
-# W08 | Raclette | weekend | pers | 11-3 | 🧀 | raclette, soiree raclette
+# W08 | Raclette | weekend | pers | 11-3 | 🧀 | raclette, soiree raclette | nouvelan
 Fromage à raclette 200 g
 Pommes de terre 250 g
-Charcuterie 150 g
+Jambon cru 2 tranche
+Jambon 2 tranche
+Rosette 50 g
 Cornichons 30 g
 Salade 40 g
 
-# W09 | Fondue savoyarde | weekend | pers | 11-3 | 🫕 | fondue, fondue savoyarde
+# W09 | Fondue savoyarde | weekend | pers | 11-3 | 🫕 | fondue, fondue savoyarde | nouvelan
 Fromage à fondue 220 g
 Baguette 0.5 pce
 Vin blanc 10 cl
@@ -415,7 +419,7 @@ Oignons 0.25 pce
 Ail 1 gousse
 Bouquet garni P
 
-# D01 | Crêpes | dessert | plat:5 | 1-12 | 🥞 | crepe, crepes, chandeleur, soiree crepes, pate a crepes
+# D01 | Crêpes | dessert | plat:5 | 1-12 | 🥞 | crepe, crepes, chandeleur, soiree crepes, pate a crepes | chandeleur,mardigras
 Lait 60 cl
 Beurre 50 g
 Œufs 3 pce B
@@ -426,7 +430,7 @@ Sucre vanillé P
 Fleur d’oranger P
 Rhum P
 
-# D02 | Gaufres | dessert | plat:5 | 1-12 | 🧇 | gaufre
+# D02 | Gaufres | dessert | plat:5 | 1-12 | 🧇 | gaufre | mardigras,chandeleur
 Lait 50 cl
 Beurre 100 g
 Œufs 3 pce B
@@ -436,7 +440,7 @@ Levure chimique P
 Sucre vanillé P
 Extrait de vanille P
 
-# D03 | Gâteau au chocolat | dessert | plat:8 | 1-12 | 🍫 | gateau chocolat, fondant au chocolat, moelleux au chocolat
+# D03 | Gâteau au chocolat | dessert | plat:8 | 1-12 | 🍫 | gateau chocolat, fondant au chocolat, moelleux au chocolat | anniversaire
 Chocolat pâtissier 200 g
 Beurre 125 g
 Œufs 4 pce
@@ -444,7 +448,7 @@ Sucre 125 g P
 Farine 50 g P
 Sucre vanillé P
 
-# D04 | Gâteau au yaourt | dessert | plat:8 | 1-12 | 🍰 | gateau yaourt
+# D04 | Gâteau au yaourt | dessert | plat:8 | 1-12 | 🍰 | gateau yaourt | anniversaire
 Yaourt nature 1 pot
 Œufs 3 pce B
 Sucre 200 g P
@@ -454,7 +458,7 @@ Levure chimique P
 Sucre vanillé P
 Extrait de vanille P
 
-# D05 | Cookies | dessert | plat:10 | 1-12 | 🍪 | cookie
+# D05 | Cookies | dessert | plat:10 | 1-12 | 🍪 | cookie | halloween
 Beurre 125 g
 Pépites de chocolat 150 g
 Œufs 1 pce B
@@ -480,7 +484,7 @@ Sucre 40 g P
 Sucre vanillé P
 Cannelle P
 
-# D08 | Tiramisu | dessert | plat:6 | 1-12 | 🍰 | tiramisu
+# D08 | Tiramisu | dessert | plat:6 | 1-12 | 🍰 | tiramisu | saintvalentin,parents
 Mascarpone 250 g
 Biscuits cuillère 24 pce
 Œufs 3 pce B
@@ -490,7 +494,7 @@ Cacao P
 Sucre vanillé P
 Amaretto P
 
-# D09 | Mousse au chocolat | dessert | plat:6 | 1-12 | 🍫 | mousse chocolat
+# D09 | Mousse au chocolat | dessert | plat:6 | 1-12 | 🍫 | mousse chocolat | saintvalentin
 Chocolat pâtissier 200 g
 Œufs 6 pce
 Sucre P
@@ -503,7 +507,7 @@ Sucre 80 g P
 Vanille 1 pce P
 Cannelle P
 
-# D11 | Pancakes | dessert | plat:4 | 1-12 | 🥞 | pancake
+# D11 | Pancakes | dessert | plat:4 | 1-12 | 🥞 | pancake | chandeleur,parents
 Lait 30 cl
 Beurre 40 g
 Sirop d’érable
@@ -513,7 +517,7 @@ Sucre 30 g P
 Levure chimique P
 Extrait de vanille P
 
-# D12 | Galette des rois | dessert | plat:8 | 1 | 👑 | galette, galette frangipane, epiphanie
+# D12 | Galette des rois | dessert | plat:8 | 1 | 👑 | galette, galette frangipane, epiphanie | epiphanie
 Pâte feuilletée 2 rouleau
 Poudre d’amande 125 g
 Beurre 75 g
@@ -521,6 +525,7 @@ Beurre 75 g
 Sucre 100 g P
 Extrait d’amande amère P
 Rhum P
+Fève P
 
 # D13 | Clafoutis aux cerises | dessert | plat:6 | 6-7 | 🍒 | clafoutis
 Cerises 500 g
@@ -532,7 +537,7 @@ Farine 80 g P
 Sucre vanillé P
 Kirsch P
 
-# F01 | Chapon aux marrons | fete | pers | 12 | 🎄 | chapon, dinde aux marrons, repas de noel, noel
+# F01 | Chapon aux marrons | fete | pers | 12 | 🎄 | chapon, dinde aux marrons, repas de noel, noel | noel
 Chapon 450 g
 Marrons 80 g
 Chair à saucisse 50 g
@@ -540,7 +545,7 @@ Chair à saucisse 50 g
 Beurre 10 g B
 Bouillon de volaille P
 
-# F02 | Bûche au chocolat | fete | plat:8 | 12 | 🎄 | buche, buche de noel
+# F02 | Bûche au chocolat | fete | plat:8 | 12 | 🎄 | buche, buche de noel | noel
 Chocolat pâtissier 200 g
 Crème liquide 40 cl
 Œufs 4 pce
@@ -549,7 +554,7 @@ Farine 100 g P
 Cacao P
 Extrait de vanille P
 
-# F03 | Gigot d’agneau et flageolets | fete | pers | 3-4 | 🐣 | gigot, paques, repas de paques
+# F03 | Gigot d’agneau et flageolets | fete | pers | 3-4 | 🐣 | gigot, paques, repas de paques | paques
 Gigot d’agneau 300 g
 Flageolets 100 g
 Ail 1 gousse
@@ -557,28 +562,28 @@ Beurre 10 g B
 Romarin P
 Thym P
 
-# F04 | Brunch | fete | pers | 1-12 | 🥐 | brunch
+# F04 | Brunch | fete | pers | 1-12 | 🥐 | brunch | paques,parents
 Œufs 2 pce B
 Bacon 2 tranche
 Pain 2 tranche
 Croissant 1 pce
 Avocat 0.5 pce
 Jus d’orange 20 cl
-Fruits 150 g
+Fruits rouges 80 g
 Beurre 10 g B
 
-# F05 | Apéro dînatoire | fete | pers | 1-12 | 🥂 | apero, apero dinatoire, aperitif
+# F05 | Apéro dînatoire | fete | pers | 1-12 | 🥂 | apero, apero dinatoire, aperitif | nouvelan,anniversaire
 Chips 30 g
 Tomates cerises 60 g
 Carottes 40 g
 Concombre 0.2 pce
 Houmous 40 g
-Charcuterie 60 g
-Fromage 50 g
+Saucisson 30 g
+Comté 50 g
 Pâte feuilletée 0.25 rouleau
 Baguette 0.25 pce
 
-# F06 | Goûter d’anniversaire | fete | pers | 1-12 | 🎂 | anniversaire, gouter d anniversaire, anniv
+# F06 | Goûter d’anniversaire | fete | pers | 1-12 | 🎂 | anniversaire, gouter d anniversaire, anniv | anniversaire,halloween
 Chocolat pâtissier 25 g
 Beurre 16 g
 Œufs 0.5 pce
@@ -588,7 +593,413 @@ Jus de fruits 20 cl
 Raisin 60 g
 Bougies d’anniversaire
 
-# L01 | Barbecue | liste | pers | 5-9 | 🔥 | barbecue, bbq, barbec, plancha
+# E01 | Foie gras et pain d’épices | entree | pers | 12-1 | 🍞 | foie gras | noel,nouvelan
+Foie gras 50 g
+Pain d’épices 30 g
+Confit d’oignons 15 g
+Fleur de sel P
+
+# E02 | Huîtres | entree | pers | 9-4 | 🦪 | huitres, plateau d huitres | noel,nouvelan
+Huîtres 6 pce
+Citrons 0.25 pce
+Échalotes 0.25 pce
+Pain de seigle 1 tranche
+Beurre 10 g B
+Vinaigre P
+
+# E03 | Saumon fumé et blinis | entree | pers | 1-12 | 🐟 | blinis saumon, saumon blinis | noel,nouvelan,paques
+Saumon fumé 50 g
+Blinis 3 pce
+Crème fraîche 3 cl
+Citrons 0.25 pce
+Aneth P
+
+# E04 | Verrines avocat-crevettes | entree | pers | 1-12 | 🥑 | verrines, verrine, avocat crevettes | nouvelan,anniversaire
+Avocat 0.5 pce
+Crevettes 60 g
+Citron vert 0.25 pce
+Tomates cerises 40 g
+Crème fraîche 2 cl
+Ciboulette P
+
+# E05 | Toasts de fête | entree | pers | 12-1 | 🥂 | toasts, canapes, petits fours sales | noel,nouvelan
+Pain de mie 2 tranche
+Saumon fumé 20 g
+Fromage frais 25 g
+Tarama 20 g
+Concombre 0.1 pce
+Ciboulette P
+
+# E06 | Gougères au comté | entree | plat:6 | 1-12 | 🧀 | gougere, gougeres | noel,nouvelan
+Comté 75 g
+Beurre 60 g
+Œufs 2 pce B
+Lait 12 cl B
+Farine 75 g P
+Muscade P
+
+# E07 | Feuilletés aux saucisses | entree | plat:6 | 1-12 | 🌭 | feuilletes saucisse, mini friands, friands | anniversaire,nouvelan
+Pâte feuilletée 1 rouleau
+Saucisses de Strasbourg 4 pce
+Œufs 1 pce B
+Moutarde P
+
+# E08 | Œufs mimosa | entree | pers | 3-9 | 🥚 | oeufs mimosa | paques,parents
+Œufs 1.5 pce
+Salade 20 g
+Mayonnaise P
+Persil P
+
+# E09 | Velouté de châtaignes | entree | pers | 11-1 | 🌰 | veloute chataigne, soupe de chataignes, veloute de marrons | noel
+Marrons 80 g
+Crème liquide 3 cl
+Oignons 0.25 pce
+Beurre 10 g B
+Bouillon de volaille P
+
+# E10 | Salade de chèvre chaud | entree | pers | 1-12 | 🥗 | chevre chaud, salade chevre | parents
+Chèvre 40 g
+Baguette 0.25 pce
+Salade 50 g
+Noix 15 g
+Miel P
+Huile d’olive P
+Vinaigre P
+
+# Q30 | Gratin de courgettes | quotidien | pers | 6-9 | 🥒 | gratin courgette, gratin de courgette
+Courgettes 1 pce
+Crème fraîche 5 cl
+Fromage râpé 30 g
+Œufs 0.5 pce B
+Ail 0.5 gousse
+
+# Q31 | Gnocchis crème et lardons | quotidien | pers | 1-12 | 🥟 | gnocchis, gnocchi
+Gnocchis 125 g
+Lardons 50 g
+Crème fraîche 5 cl
+Fromage râpé 20 g
+Oignons 0.25 pce
+
+# Q32 | Dahl de lentilles corail | quotidien | pers | 1-12 | 🍛 | dahl, dal, lentilles corail
+Lentilles corail 75 g
+Lait de coco 10 cl
+Tomates concassées 100 g
+Oignons 0.25 pce
+Ail 0.5 gousse
+Riz 60 g
+Curry P
+Gingembre P
+
+# Q33 | Nuggets de poulet maison | quotidien | pers | 1-12 | 🍗 | nuggets, croquettes de poulet
+Blanc de poulet 125 g
+Pommes de terre 200 g
+Chapelure 30 g
+Œufs 0.5 pce B
+Farine P
+Huile de tournesol P
+
+# Q34 | Pâtes au saumon | quotidien | pers | 1-12 | 🍝 | pates saumon, tagliatelles saumon, pates au saumon
+Pâtes 100 g
+Saumon 0.5 pce
+Crème fraîche 5 cl
+Citrons 0.25 pce
+Aneth P
+
+# Q35 | Ratatouille | quotidien | pers | 6-9 | 🍆 | ratatouille
+Courgettes 0.5 pce
+Aubergines 0.5 pce
+Poivrons 0.5 pce
+Tomates 1 pce
+Oignons 0.5 pce
+Ail 1 gousse
+Herbes de Provence P
+Huile d’olive P
+
+# Q36 | Salade de pâtes | quotidien | pers | 5-9 | 🥗 | salade pates, pates froides, salade de pates
+Pâtes 80 g
+Tomates cerises 60 g
+Mozzarella 30 g
+Jambon 1 tranche
+Maïs 40 g
+Basilic P
+Huile d’olive P
+Vinaigre P
+
+# Q37 | Pâtes au pesto | quotidien | pers | 1-12 | 🌿 | pesto, pates pesto, pates au pesto
+Pâtes 100 g
+Pesto 30 g
+Tomates cerises 40 g
+Parmesan 10 g
+
+# Q38 | Escalopes de dinde à la crème | quotidien | pers | 1-12 | 🍗 | escalope creme, dinde a la creme, escalopes a la creme
+Escalope de dinde 1 pce H
+Champignons 60 g
+Crème fraîche 5 cl
+Oignons 0.25 pce
+Riz 70 g
+
+# Q39 | Gratin de chou-fleur | quotidien | pers | 10-3 | 🥦 | gratin chou fleur, chou fleur gratine
+Chou-fleur 0.25 pce
+Lait 15 cl
+Fromage râpé 30 g
+Beurre 10 g B
+Farine P
+Muscade P
+
+# Q40 | Quiche aux poireaux | quotidien | plat:6 | 10-4 | 🥧 | quiche poireaux, flamiche
+Pâte brisée 1 rouleau
+Poireaux 3 pce
+Œufs 3 pce B
+Crème fraîche 20 cl
+Fromage râpé 80 g
+Beurre 10 g B
+
+# Q41 | Hot-dogs momies | quotidien | pers | 10 | 🌭 | hot dogs momies, momies, saucisses momies | halloween
+Saucisses de Strasbourg 2 pce
+Pâte feuilletée 0.25 rouleau
+Ketchup P
+Moutarde P
+
+# W14 | Poulet basquaise | weekend | pers | 6-9 | 🫑 | basquaise, poulet basquais
+Cuisses de poulet 1 pce H
+Poivrons 0.75 pce
+Tomates 1 pce
+Oignons 0.5 pce
+Chorizo 20 g
+Ail 1 gousse
+Riz 70 g
+Piment P
+
+# W15 | Rougail saucisses | weekend | pers | 1-12 | 🌶️ | rougail, rougail saucisse
+Saucisses fumées 1 pce H
+Tomates 1.5 pce
+Oignons 0.5 pce
+Ail 1 gousse
+Riz 70 g
+Gingembre P
+Piment P
+
+# W16 | Poulet à la crème et aux champignons | weekend | pers | 1-12 | 🍄 | poulet creme, poulet a la creme, poulet aux champignons
+Cuisses de poulet 1 pce H
+Champignons 100 g
+Crème fraîche 8 cl
+Échalotes 0.5 pce
+Vin blanc 5 cl
+Pâtes 90 g
+
+# W17 | Parmentier de canard | weekend | pers | 10-3 | 🦆 | parmentier canard, hachis de canard
+Confit de canard 0.75 pce
+Pommes de terre 250 g
+Échalotes 0.25 pce
+Lait 5 cl B
+Beurre 10 g B
+Chapelure P
+
+# W18 | Soupe à l’oignon gratinée | weekend | pers | 11-2 | 🧅 | soupe a l oignon, gratinee | nouvelan
+Oignons 1.5 pce
+Pain 2 tranche
+Fromage râpé 30 g
+Vin blanc 3 cl
+Beurre 15 g B
+Bouillon de bœuf P
+Farine P
+
+# W19 | Rôti de bœuf et pommes grenaille | weekend | pers | 1-12 | 🥩 | roti de boeuf, roti | parents,paques
+Rôti de bœuf 150 g
+Pommes de terre 250 g
+Ail 1 gousse
+Beurre 10 g B
+Thym P
+
+# F07 | Dinde aux marrons | fete | pers | 12 | 🦃 | dinde, dinde de noel, dinde farcie | noel
+Dinde 400 g
+Marrons 80 g
+Chair à saucisse 50 g
+Pommes de terre 150 g
+Échalotes 0.25 pce
+Beurre 10 g B
+Thym P
+Bouillon de volaille P
+
+# F08 | Saumon en croûte | fete | pers | 12-1 | 🐟 | saumon croute, saumon en croute, koulibiac | noel,nouvelan
+Saumon 1 pce H
+Pâte feuilletée 0.3 rouleau
+Épinards frais 60 g
+Crème fraîche 3 cl
+Citrons 0.25 pce
+Œufs 0.25 pce B
+Aneth P
+
+# F09 | Filet mignon en croûte | fete | pers | 1-12 | 🥩 | filet mignon, filet mignon en croute | nouvelan,parents
+Filet mignon de porc 150 g
+Pâte feuilletée 0.25 rouleau
+Champignons 60 g
+Jambon cru 1 tranche
+Œufs 0.25 pce B
+Moutarde P
+
+# F10 | Magrets de canard au miel | fete | pers | 1-12 | 🦆 | magret, magrets, magret de canard | nouvelan,saintvalentin,parents
+Magret de canard 0.5 pce
+Pommes de terre 200 g
+Ail 1 gousse
+Miel P
+Persil P
+
+# F11 | Coquilles Saint-Jacques | fete | pers | 11-4 | 🐚 | saint jacques, coquilles saint jacques | noel,nouvelan
+Noix de Saint-Jacques 100 g
+Poireaux 0.5 pce
+Crème fraîche 5 cl
+Échalotes 0.25 pce
+Vin blanc 3 cl
+Beurre 10 g B
+
+# F12 | Épaule d’agneau confite | fete | pers | 3-5 | 🐑 | epaule d agneau, agneau de sept heures, agneau de paques | paques
+Épaule d’agneau 300 g
+Carottes 1 pce
+Oignons 0.5 pce
+Ail 2 gousse
+Vin blanc 5 cl
+Romarin P
+Thym P
+
+# F13 | Fondue bourguignonne | fete | pers | 11-3 | 🫕 | fondue bourguignonne, fondue de viande | nouvelan
+Bœuf à fondue 200 g
+Pommes de terre 200 g
+Salade 40 g
+Mayonnaise 20 g
+Huile de tournesol 25 cl
+Cornichons P
+
+# D14 | Bûche aux marrons | dessert | plat:8 | 12 | 🌰 | buche marrons, buche sans cuisson, buche aux marrons | noel
+Crème de marrons 400 g
+Mascarpone 250 g
+Biscuits cuillère 24 pce
+Chocolat pâtissier 50 g
+Lait 10 cl B
+
+# D15 | Truffes au chocolat | dessert | plat:10 | 12 | 🍫 | truffes, truffes chocolat | noel
+Chocolat pâtissier 200 g
+Crème liquide 10 cl
+Beurre 30 g B
+Cacao P
+
+# D16 | Pain d’épices maison | dessert | plat:8 | 11-1 | 🍯 | pain d epices maison | noel
+Miel 250 g
+Cassonade 50 g
+Lait 15 cl B
+Œufs 1 pce B
+Farine 250 g P
+Quatre-épices P
+Cannelle P
+Levure chimique P
+
+# D17 | Sablés de Noël | dessert | plat:10 | 12 | ⭐ | sables, sables de noel, biscuits de noel, bredele | noel
+Beurre 125 g
+Œufs 1 pce B
+Farine 250 g P
+Sucre 100 g P
+Cannelle P
+Sucre vanillé P
+
+# D18 | Chocolat chaud | dessert | pers | 11-2 | ☕ | chocolat chaud, chocolat viennois | noel,epiphanie
+Lait 25 cl
+Chocolat pâtissier 25 g
+Crème chantilly 2 cl
+Cannelle P
+
+# D19 | Brioche des rois | dessert | plat:8 | 1 | 👑 | couronne des rois, gateau des rois, brioche des rois | epiphanie
+Beurre 100 g
+Œufs 3 pce
+Fruits confits 100 g
+Levure boulangère 1 pce
+Lait 10 cl B
+Farine 500 g P
+Sucre 80 g P
+Sucre perlé P
+Fleur d’oranger P
+Fève P
+
+# D20 | Galette poires-chocolat | dessert | plat:8 | 1 | 🍐 | galette poire chocolat, galette chocolat | epiphanie
+Pâte feuilletée 2 rouleau
+Poudre d’amande 100 g
+Poires 2 pce
+Chocolat pâtissier 80 g
+Beurre 75 g
+Œufs 2 pce B
+Sucre 80 g P
+Fève P
+
+# D28 | Galette pomme-frangipane | dessert | plat:8 | 1 | 🍏 | galette pomme, galette aux pommes | epiphanie
+Pâte feuilletée 2 rouleau
+Pommes 2 pce
+Poudre d’amande 100 g
+Beurre 75 g
+Œufs 2 pce B
+Sucre 80 g P
+Cannelle P
+Fève P
+
+# D21 | Salade de fruits exotiques | dessert | pers | 11-3 | 🥭 | salade de fruits, salade exotique | nouvelan
+Ananas 0.15 pce
+Mangue 0.2 pce
+Kiwis 1 pce
+Clémentines 1 pce
+Fruit de la passion 0.25 pce
+Sucre vanillé P
+
+# D22 | Profiteroles | dessert | plat:6 | 1-12 | 🍨 | profiterole, choux | nouvelan,anniversaire
+Glace à la vanille 50 cl
+Chocolat pâtissier 100 g
+Crème liquide 10 cl
+Beurre 60 g
+Œufs 3 pce B
+Farine 75 g P
+Sucre P
+
+# D23 | Beignets de carnaval | dessert | plat:6 | 1-3 | 🎭 | bugnes, merveilles, oreillettes, beignets | mardigras
+Huile de tournesol 1 l
+Œufs 2 pce B
+Beurre 50 g B
+Farine 250 g P
+Sucre 30 g P
+Levure chimique P
+Sucre glace P
+Fleur d’oranger P
+
+# D24 | Cœurs coulants au chocolat | dessert | plat:4 | 1-12 | ❤️ | coeur coulant, coeurs coulants, fondant coulant | saintvalentin
+Chocolat pâtissier 100 g
+Beurre 80 g
+Œufs 2 pce B
+Sucre 50 g P
+Farine 30 g P
+
+# D25 | Charlotte aux fraises | dessert | plat:8 | 5-6 | 🍓 | charlotte, charlotte fraises | parents
+Fraises 500 g
+Biscuits cuillère 24 pce
+Mascarpone 250 g
+Crème liquide 30 cl
+Sucre 80 g P
+Sucre vanillé P
+
+# D26 | Nid de Pâques au chocolat | dessert | plat:8 | 3-4 | 🐣 | nid de paques, gateau de paques | paques
+Chocolat pâtissier 200 g
+Beurre 120 g
+Œufs 4 pce
+Œufs en chocolat 150 g
+Sucre 150 g P
+Farine 60 g P
+
+# D27 | Muffins au chocolat | dessert | plat:12 | 1-12 | 🧁 | muffin, muffins | anniversaire,halloween
+Beurre 100 g
+Pépites de chocolat 100 g
+Œufs 2 pce B
+Lait 20 cl B
+Farine 250 g P
+Sucre 120 g P
+Cacao P
+Levure chimique P
+
+# L01 | Barbecue | liste | pers | 5-9 | 🔥 | barbecue, bbq, barbec, plancha | parents
 Merguez 1 pce
 Chipolatas 1 pce
 Brochettes 1 pce
@@ -607,7 +1018,7 @@ Jambon 1 tranche
 Tomates cerises 60 g
 Concombre 0.25 pce
 Chips 30 g
-Fromage 40 g
+Comté 40 g
 Pommes 1 pce
 Eau 50 cl
 Œufs 1 pce B
@@ -627,7 +1038,8 @@ Thé P
 # L04 | Goûter | liste | pers | 1-12 | 🍪 | gouter
 Biscuits 30 g
 Compote 1 pot
-Fruits 150 g
+Bananes 1 pce
+Clémentines 1 pce
 Jus de pomme 20 cl
 
 # L05 | Smoothies | liste | pers | 1-12 | 🥤 | smoothie
@@ -729,6 +1141,12 @@ brochettes|4 pce|barquette de 4|sec
 saucisses de Strasbourg|6 pce|paquet de 6|sec
 fruits|150 g|fruit|sec
 colin|130 g|filet|sec
+huîtres|12 pce|bourriche de 12|sec
+saumon fumé|120 g|paquet de 4 tranches|frais
+blinis|16 pce|paquet de 16|sec
+gnocchis|500 g|paquet de 500 g|sec
+crème de marrons|500 g|boîte de 500 g|sec
+fraises|250 g|barquette de 250 g|frais
 `
 
 /** Le poids d'une pièce, pour ce qui s'achète au poids (« 1 oignon » → 100 g). */
@@ -745,6 +1163,8 @@ poire|150
 banane|120
 potiron|1500
 cuisses de poulet|200
+filet mignon|500
+clémentine|80
 `
 
 /** Ce que mange un enfant par rapport à un adulte (GEM-RCN, ANSES) : 3–10 ans ≈ 0,6 ; ado ≈ 0,9. Un bébé ne compte pas. */

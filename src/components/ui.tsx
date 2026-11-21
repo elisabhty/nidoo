@@ -210,7 +210,7 @@ export function Sheet({ title, onClose, children, tall = false, footer, cacherBa
         ref={panel}
         tabIndex={-1}
         className={`ios-sheet anim-monte relative outline-none flex flex-col rounded-t-feuille bg-fond text-encre ${tall ? 'h-[92%]' : 'max-h-[92%]'}`}
-        style={{ paddingBottom: 'calc(var(--sab) + 14px)', transform: dy ? `translateY(${dy}px)` : undefined, transition: start.current === null ? 'transform 0.35s var(--ressort), padding-bottom 0.26s cubic-bezier(0.38, 0.7, 0.125, 1)' : 'none' }}
+        style={{ paddingBottom: 'calc(var(--sab) + 14px)', transform: dy ? `translateY(${dy}px)` : undefined, transition: start.current === null ? 'transform 0.35s var(--ressort), padding-bottom 0.26s cubic-bezier(0.38, 0.7, 0.125, 1), height 0.26s cubic-bezier(0.38, 0.7, 0.125, 1), max-height 0.26s cubic-bezier(0.38, 0.7, 0.125, 1)' : 'none' }}
       >
         <div
           className={`sheet-header touch-none shrink-0 rounded-t-feuille ${contentScrolled ? 'sheet-header-scrolled' : ''}`}

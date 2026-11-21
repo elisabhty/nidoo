@@ -4,18 +4,36 @@
 
 import { cle, ecrireQte, fiche, memeArticle, type Fiche } from './courses'
 import { FORMATS, PIECES, PORTIONS, RECETTES } from './recettesDonnees'
+import { joursSpeciaux } from './joursSpeciaux'
 
 export type Unite = 'g' | 'kg' | 'cl' | 'ml' | 'l' | 'pce' | 'tranche' | 'gousse' | 'botte' | 'rouleau' | 'boule' | 'pot' | 'cas' | 'cac'
 export type Ingredient = { nom: string; qty?: number; unit?: Unite; placard?: boolean; base?: boolean; parTete?: boolean }
-export type Categorie = 'quotidien' | 'weekend' | 'dessert' | 'fete' | 'liste'
-export type Recette = { id: string; nom: string; cat: Categorie; parts: number | null; mois: number[]; emoji: string; mots: string[]; ingredients: Ingredient[] }
+export type Categorie = 'quotidien' | 'weekend' | 'entree' | 'dessert' | 'fete' | 'liste'
+export type Occasion = 'noel' | 'nouvelan' | 'epiphanie' | 'chandeleur' | 'saintvalentin' | 'mardigras' | 'paques' | 'parents' | 'halloween' | 'anniversaire'
+export type Recette = { id: string; nom: string; cat: Categorie; parts: number | null; mois: number[]; emoji: string; mots: string[]; occasions: Occasion[]; ingredients: Ingredient[] }
 
 export const CATEGORIES: { key: Categorie; label: string }[] = [
   { key: 'quotidien', label: 'Du quotidien' },
   { key: 'weekend', label: 'Du week-end' },
+  { key: 'entree', label: 'Entrées et apéros' },
   { key: 'dessert', label: 'Desserts et goûters' },
-  { key: 'fete', label: 'Fêtes' },
+  { key: 'fete', label: 'Plats de fête' },
   { key: 'liste', label: 'Listes' },
+]
+
+/** Les occasions (Elisa, 21 novembre : « classer aussi par événement : Noël, Épiphanie, Nouvel An ») et les jours
+ *  du calendrier qui les annoncent (joursSpeciaux). */
+export const OCCASIONS: { key: Occasion; label: string; emoji: string; jours: string[] }[] = [
+  { key: 'noel', label: 'Noël', emoji: '🎄', jours: ['Réveillon de Noël', 'Noël'] },
+  { key: 'nouvelan', label: 'Nouvel An', emoji: '🥂', jours: ['Saint-Sylvestre', 'Jour de l’an'] },
+  { key: 'epiphanie', label: 'Épiphanie', emoji: '👑', jours: ['Épiphanie'] },
+  { key: 'chandeleur', label: 'Chandeleur', emoji: '🥞', jours: ['Chandeleur'] },
+  { key: 'saintvalentin', label: 'Saint-Valentin', emoji: '❤️', jours: ['Saint-Valentin'] },
+  { key: 'mardigras', label: 'Mardi gras', emoji: '🎭', jours: ['Mardi gras'] },
+  { key: 'paques', label: 'Pâques', emoji: '🐣', jours: ['Pâques'] },
+  { key: 'parents', label: 'Fête des mères', emoji: '💐', jours: ['Fête des mères', 'Fête des pères'] },
+  { key: 'halloween', label: 'Halloween', emoji: '🎃', jours: ['Halloween'] },
+  { key: 'anniversaire', label: 'Anniversaire', emoji: '🎂', jours: [] },
 ]
 
 const RE_INGR = /^(.+?)(?:\s+(\d+(?:\.\d+)?)\s*(g|kg|cl|ml|l|pce|tranche|gousse|botte|rouleau|boule|pot|cas|cac))?((?:\s+[PBH])*)$/
@@ -34,7 +52,7 @@ function mois(t: string): number[] {
 
 // le sel et le poivre (Elisa, 21 novembre : « parfois le sel n'est pas cité ») : dans le placard de tous les plats
 // salés, et le sel dans les desserts à pâte (une pincée). Pas pour raclette, fondue, brunch, apéro, ni les listes.
-const SANS_ASSAISONNEMENT = new Set(['W08', 'W09', 'F02', 'F04', 'F05', 'F06'])
+const SANS_ASSAISONNEMENT = new Set(['W08', 'W09', 'F02', 'F04', 'F05', 'F06', 'E02'])
 function assaisonner(r: Recette): Recette {
   if (r.cat === 'liste' || SANS_ASSAISONNEMENT.has(r.id)) return r
   const a = (nom: string) => r.ingredients.some((i) => cle(i.nom) === cle(nom))
@@ -49,7 +67,7 @@ export const LES_RECETTES: Recette[] = RECETTES.trim()
   .split(/\n(?=# )/)
   .map((bloc) => {
     const [tete, ...lignes] = bloc.trim().split('\n')
-    const [id, nom, cat, base, m, emoji, mots] = tete.replace(/^#\s*/, '').split('|').map((x) => x.trim())
+    const [id, nom, cat, base, m, emoji, mots, occ] = tete.replace(/^#\s*/, '').split('|').map((x) => x.trim())
     return {
       id,
       nom,
@@ -58,6 +76,7 @@ export const LES_RECETTES: Recette[] = RECETTES.trim()
       mois: mois(m),
       emoji,
       mots: (mots ?? '').split(',').map((x) => x.trim()).filter(Boolean),
+      occasions: (occ ?? '').split(',').map((x) => x.trim()).filter(Boolean) as Occasion[],
       ingredients: lignes
         .map((l) => l.trim())
         .filter(Boolean)
@@ -246,7 +265,9 @@ export function chercherRecettes(saisie: string): Recette[] {
 /** Les recettes de saison (raclette en hiver, salade niçoise en été…), puis quelques classiques du quotidien. */
 export function recettesDuMoment(d = new Date(), max = 6): Recette[] {
   const m = d.getMonth() + 1
-  const saison = LES_RECETTES.filter((r) => r.mois.length < 12 && r.mois.includes(m) && r.cat !== 'liste').sort((a, b) => a.mois.length - b.mois.length)
+  // les plats d'abord (les entrées et desserts de saison viennent après), du plus court de saison au plus long
+  const plat = (r: Recette) => (r.cat === 'quotidien' || r.cat === 'weekend' ? 0 : 1)
+  const saison = LES_RECETTES.filter((r) => r.mois.length < 12 && r.mois.includes(m) && r.cat !== 'liste').sort((a, b) => plat(a) - plat(b) || a.mois.length - b.mois.length)
   const classiques = ['Q01', 'Q05', 'Q02', 'D01', 'Q04', 'Q23', 'Q24', 'D04', 'Q11', 'Q10'].map((id) => LES_RECETTES.find((r) => r.id === id)!)
   const jour = Math.floor(d.getTime() / 86400000)
   const out: Recette[] = []
@@ -267,4 +288,34 @@ export function recettesAvec(noms: string[], max = 2): { recette: Recette; ont: 
     .sort((a, b) => b.score - a.score || b.ont - a.ont)
     .slice(0, max)
     .map(({ recette, ont, manque }) => ({ recette, ont, manque }))
+}
+
+// ───────── Par occasion ─────────
+
+export type OccasionDatee = { key: Occasion; label: string; emoji: string; date: Date | null; dans: number | null }
+const jourNet = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+/** Les occasions, de la plus proche à la plus lointaine (aujourd'hui compris) ; l'anniversaire, sans date, à la fin. */
+export function occasionsAVenir(d = new Date()): OccasionDatee[] {
+  const auj = jourNet(d)
+  const jours = [...joursSpeciaux(d.getFullYear()), ...joursSpeciaux(d.getFullYear() + 1)].filter((j) => jourNet(j.date) >= auj)
+  return OCCASIONS.map((o) => {
+    const j = jours.filter((x) => o.jours.includes(x.nom)).sort((a, b) => a.date.getTime() - b.date.getTime())[0]
+    const dans = j ? Math.round((jourNet(j.date) - auj) / 86400000) : null
+    // la fête des mères ou celle des pères : la prochaine des deux
+    const label = o.key === 'parents' && j ? j.nom : o.label
+    return { key: o.key, label, emoji: o.emoji, date: j?.date ?? null, dans }
+  }).sort((a, b) => (a.dans ?? 1e9) - (b.dans ?? 1e9))
+}
+
+const ORDRE_SERVICE: Record<Categorie, number> = { entree: 0, fete: 1, weekend: 1, quotidien: 1, dessert: 2, liste: 3 }
+/** Le menu d'une occasion : les entrées et apéros, puis les plats, puis les desserts. */
+export function recettesDe(o: Occasion): Recette[] {
+  return LES_RECETTES.filter((r) => r.occasions.includes(o)).sort((a, b) => ORDRE_SERVICE[a.cat] - ORDRE_SERVICE[b.cat])
+}
+/** Ce que c'est dans le menu. */
+export const service = (r: Recette) => (r.cat === 'entree' ? 'Entrées et apéros' : r.cat === 'dessert' ? 'Desserts' : r.cat === 'liste' ? 'Listes' : 'Plats')
+
+/** La prochaine occasion qui approche (dans moins de `jours`), s'il y en a une. */
+export function occasionProche(d = new Date(), jours = 40): OccasionDatee | null {
+  return occasionsAVenir(d).find((o) => o.dans !== null && o.dans <= jours) ?? null
 }

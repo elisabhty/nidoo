@@ -1,11 +1,12 @@
 import { ListPages, useListPage } from '../components/listNavigation'
 import { BookOpen, Check, ChevronLeft, ChevronRight, MapPin, Minus, Plus, Trash2, Users } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { additionner, AUTRES, cle, completer, comprendre, ecrireArticle, emojiDe, lireArticle, memeArticle, lireQte, moinsUn, plusUn, pourAllerAvec, qteCourte, RAYONS, rayonDe, retenir, souvent } from '../lib/courses'
-import { recetteDe, recettesAvec, recettesDuMoment, type Recette } from '../lib/recettes'
+import { additionner, AUTRES, cle, completer, comprendre, ecrireArticle, estVague, iconeDe, precisions, lireArticle, memeArticle, lireQte, moinsUn, plusUn, pourAllerAvec, qteCourte, RAYONS, rayonDe, retenir, souvent } from '../lib/courses'
+import { occasionProche, recetteDe, recettesAvec, recettesDe, recettesDuMoment, type Recette } from '../lib/recettes'
 import { evenementsAVenir, jourCourt, useLienTaches } from '../lib/lienTaches'
 import { RecetteSheet, RecettesSheet } from '../components/recettes'
 import { MemberStack } from '../components/folder'
+import { IconeArticle } from '../components/iconeArticle'
 import { EventDetailSheet, EventSheet, EventIcon, TYPES_AGENDA } from '../components/sheets'
 import { Art, AuDessus, Avatar, Rond, Screen, Segments, Vide } from '../components/ui'
 import { choc, select, success, tap, warn } from '../lib/haptic'
@@ -219,44 +220,48 @@ function Glisse({ children, onRetirer, label, partant = false, range = false, ad
   return (
     // retirée par la poubelle ou « Retirer » (Elisa, 21 novembre : « ça va trop vite ») : elle rosit et frémit,
     // puis file vers la gauche, et la place se referme après
-    <div className={`relative overflow-hidden transition-[max-height,opacity] ${partant && !glisse ? 'duration-[350ms] delay-[320ms]' : 'duration-300'} ${part || range ? 'max-h-0 opacity-0' : 'max-h-[120px]'}`}>
-      <div className="absolute inset-y-0 right-0 flex items-center justify-end bg-rouge pr-5 text-sous font-semibold text-white" style={{ width: Math.max(0, -dx) + 8 }} aria-hidden="true">
-        {dx < -40 && 'Retirer'}
-      </div>
-      <div
-        className={`relative transition-colors duration-200 ${adieu || partant ? 'bg-[#FFF1F1]' : 'bg-carte'} ${adieu && !partant ? 'adieu' : ''}`}
-        style={{ transform: part ? 'translateX(-105%)' : `translateX(${dx}px)`, transition: depart.current?.actif ? 'none' : partant && !glisse ? 'transform 0.45s cubic-bezier(0.55, 0, 0.75, 0.2), background-color 0.2s' : 'transform 0.28s cubic-bezier(0.4, 0, 0.6, 1), background-color 0.2s', touchAction: 'pan-y' }}
-        onPointerDown={(e) => {
-          depart.current = { x: e.clientX, y: e.clientY, actif: false }
-          aGlisse.current = false
-        }}
-        onPointerMove={(e) => {
-          const d = depart.current
-          if (!d) return
-          const mx = e.clientX - d.x
-          if (!d.actif && Math.abs(mx) > 12 && Math.abs(mx) > Math.abs(e.clientY - d.y)) {
-            d.actif = true
-            aGlisse.current = true
-            e.currentTarget.setPointerCapture(e.pointerId)
-          }
-          if (d.actif) setDx(Math.min(0, Math.max(-220, mx)))
-        }}
-        onPointerUp={() => (depart.current?.actif ? fini() : (depart.current = null))}
-        onPointerCancel={() => {
-          depart.current = null
-          setDx(0)
-        }}
-        onClickCapture={(e) => {
-          if (aGlisse.current) {
+    // la place se referme d'un seul mouvement (hauteur réelle, plus de max-height qui attend puis claque :
+    // Elisa, 21 novembre, « ça saute avec le validé »)
+    <div className={`grid transition-[grid-template-rows,opacity] ease-[cubic-bezier(0.32,0.72,0,1)] ${partant && !glisse ? 'duration-[380ms] delay-[320ms]' : 'duration-[380ms]'} ${part || range ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr]'}`}>
+      <div className="relative min-h-0 overflow-hidden">
+        <div className="absolute inset-y-0 right-0 flex items-center justify-end bg-rouge pr-5 text-sous font-semibold text-white" style={{ width: Math.max(0, -dx) + 8 }} aria-hidden="true">
+          {dx < -40 && 'Retirer'}
+        </div>
+        <div
+          className={`relative transition-colors duration-200 ${adieu || partant ? 'bg-[#FFF1F1]' : 'bg-carte'} ${adieu && !partant ? 'adieu' : ''}`}
+          style={{ transform: part ? 'translateX(-105%)' : `translateX(${dx}px)`, transition: depart.current?.actif ? 'none' : partant && !glisse ? 'transform 0.45s cubic-bezier(0.55, 0, 0.75, 0.2), background-color 0.2s' : 'transform 0.28s cubic-bezier(0.4, 0, 0.6, 1), background-color 0.2s', touchAction: 'pan-y' }}
+          onPointerDown={(e) => {
+            depart.current = { x: e.clientX, y: e.clientY, actif: false }
             aGlisse.current = false
-            e.stopPropagation()
-            e.preventDefault()
-          }
-        }}
-      >
-        {children}
+          }}
+          onPointerMove={(e) => {
+            const d = depart.current
+            if (!d) return
+            const mx = e.clientX - d.x
+            if (!d.actif && Math.abs(mx) > 12 && Math.abs(mx) > Math.abs(e.clientY - d.y)) {
+              d.actif = true
+              aGlisse.current = true
+              e.currentTarget.setPointerCapture(e.pointerId)
+            }
+            if (d.actif) setDx(Math.min(0, Math.max(-220, mx)))
+          }}
+          onPointerUp={() => (depart.current?.actif ? fini() : (depart.current = null))}
+          onPointerCancel={() => {
+            depart.current = null
+            setDx(0)
+          }}
+          onClickCapture={(e) => {
+            if (aGlisse.current) {
+              aGlisse.current = false
+              e.stopPropagation()
+              e.preventDefault()
+            }
+          }}
+        >
+          {children}
+        </div>
+        <span className="sr-only">{label}</span>
       </div>
-      <span className="sr-only">{label}</span>
     </div>
   )
 }
@@ -320,6 +325,8 @@ function Liste({ kind }: { kind: ListKind }) {
   const [filtre, setFiltre] = useState('toutes')
   // ce qu'on vient de faire, affiché sans attendre le serveur
   const [ajouts, setAjouts] = useState<(ListItem & { connus: Set<string> })[]>([])
+  const [secoue, setSecoue] = useState(0)
+  const tuilesAvant = useRef<string[]>([])
   const [changes, setChanges] = useState<Record<string, { done?: boolean; parti?: boolean; titre?: string }>>({})
   const champ = useRef<HTMLInputElement>(null)
 
@@ -367,16 +374,58 @@ function Liste({ kind }: { kind: ListKind }) {
   useEffect(() => {
     if (editing && rienAModifier) setEditing(false)
   }, [editing, rienAModifier])
-  // les tuiles : ce qui va avec la liste (avec quoi), puis ce qu'on prend souvent ; liste longue : une seule rangée
+  // les tuiles : ce qui va avec la liste, puis ce qu'on prend souvent ; jamais un nom vague (« Légumes »), jamais
+  // deux fois la même image (Elisa, 21 novembre : « on a des répétitions ») ; liste longue : une seule rangée
   const tuiles = (() => {
-    const out: { nom: string; avec?: string }[] = []
+    if (tache) return []
+    const out: string[] = []
     const vus = new Set<string>()
-    for (const g of avec) for (const x of g.idees) if (!vus.has(cle(x)) && out.filter((t) => t.avec).length < 4) { vus.add(cle(x)); out.push({ nom: x, avec: g.avec }) }
-    for (const x of idees) if (!vus.has(cle(x))) { vus.add(cle(x)); out.push({ nom: x }) }
-    return out.slice(0, todo.length >= 6 ? 4 : 8)
+    const images = new Set<string>()
+    const prendreSi = (x: string) => {
+      const k = cle(x)
+      const im = iconeDe(x)
+      // une vraie icône chacune, jamais deux fois la même
+      if (!im || vus.has(k) || images.has(im) || estVague(x)) return
+      vus.add(k)
+      images.add(im)
+      out.push(x)
+    }
+    for (const g of avec) for (const x of g.idees.slice(0, 2)) prendreSi(x)
+    for (const x of idees) prendreSi(x)
+    // les tuiles restent à leur place : celle qu'on prend est remplacée sur place, les autres ne bougent pas
+    // (Elisa, 21 novembre : « ça saute avec le validé »)
+    const n = todo.length >= 6 ? 4 : 8
+    const places: (string | null)[] = tuilesAvant.current.slice(0, n).map((t) => (out.includes(t) ? t : null))
+    const nouvelles = out.filter((t) => !places.includes(t))
+    for (let i = 0; i < n; i++) if (!places[i]) places[i] = nouvelles.shift() ?? null
+    const res = places.filter((t): t is string => !!t)
+    tuilesAvant.current = res
+    return res
+  })()
+  // un nom vague tapé (« légumes ») : lesquels ?
+  const lesquels = (() => {
+    const p = !tache && title.trim() ? precisions(comprendre(title).nom) : null
+    if (!p) return null
+    const vues = new Set<string>()
+    return p.filter((x) => {
+      const im = iconeDe(x)
+      if (!im || vues.has(im) || todo.some((i) => memeArticle(lireArticle(i.title).nom, x))) return false
+      vues.add(im)
+      return true
+    })
   })()
   // une seule idée de repas : celle que la liste permet presque, sinon une recette de saison
-  const ideeRepas = presque[0] ? { r: presque[0].recette, manque: presque[0].manque } : saisons[0] ? { r: saisons[0], manque: 0 } : null
+  // (sinon, quand une fête approche — Noël, Nouvel An, Épiphanie… — une recette de son menu, une différente chaque jour)
+  const fete = tache ? null : occasionProche(new Date(), 40)
+  const menuFete = fete ? recettesDe(fete.key).filter((r) => r.cat !== 'liste') : []
+  const recetteFete = menuFete.length ? menuFete[Math.floor(Date.now() / 86400000) % menuFete.length] : null
+  const ideeRepas = presque[0]
+    ? { r: presque[0].recette, texte: `Avec ta liste, il ne manque que ${presque[0].manque} article${presque[0].manque > 1 ? 's' : ''}` }
+    : recetteFete && fete
+      ? { r: recetteFete, texte: `${fete.emoji} Pour ${fete.label} · ${fete.dans === 0 ? 'aujourd’hui' : fete.dans === 1 ? 'demain' : `dans ${fete.dans} jours`}` }
+      : saisons[0]
+        ? { r: saisons[0], texte: 'Idée de saison · tout pour le repas' }
+        : null
   const dansLaListe = (nom: string) => todo.some((i) => memeArticle(lireArticle(i.title).nom, nom))
   const ajouterRecette = (r: Recette, articles: { nom: string; qte: string }[]) => {
     for (const a of articles) ajouter(ecrireArticle(a), { exact: true, discret: true })
@@ -415,6 +464,13 @@ function Liste({ kind }: { kind: ListKind }) {
     // déjà dans la liste : on en reprend (la quantité tapée, sinon un pas de plus).
     // exact : la quantité vient d'une recette (rien = un seul paquet), on ne met pas la quantité habituelle.
     const tape = tache ? null : comprendre(brut)
+    if (tape && !texte && estVague(tape.nom)) {
+      // on en a déjà choisi (ou tout est déjà dans la liste) : c'est fait
+      if (!lesquels?.length || (precisions(tape.nom) ?? []).some((x) => todo.some((i) => memeArticle(lireArticle(i.title).nom, x)))) return setTitle('')
+      warn()
+      setSecoue((n) => n + 1)
+      return
+    }
     const t = tache ? brut.slice(0, 80) : ecrireArticle(o.exact ? tape! : completer(tape!))
     if (tape) {
       const deja = todo.find((i) => !i.id.startsWith('attente-') && memeArticle(lireArticle(i.title).nom, tape.nom))
@@ -453,6 +509,20 @@ function Liste({ kind }: { kind: ListKind }) {
   const changerQuantite = (i: ListItem, q: string) => {
     if (i.id.startsWith('attente-')) return
     const titre = ecrireArticle({ nom: lireArticle(i.title).nom, qte: q })
+    setChanges((c) => ({ ...c, [i.id]: { ...c[i.id], titre } }))
+    void fond(
+      () => api.renameItem(i.id, titre),
+      () => oublier(i.id),
+      () => oublier(i.id),
+    )
+  }
+  // « Légumes » dans la liste : on le remplace par ce qu'on veut vraiment (Elisa, 21 novembre : « toujours préciser
+  // les légumes ») : la ligne devient « Carottes », avec sa quantité habituelle.
+  const preciser = (i: ListItem, x: string) => {
+    select()
+    if (i.id.startsWith('attente-')) return
+    const titre = ecrireArticle(completer(comprendre(x)))
+    marquerArrivee(x)
     setChanges((c) => ({ ...c, [i.id]: { ...c[i.id], titre } }))
     void fond(
       () => api.renameItem(i.id, titre),
@@ -571,12 +641,13 @@ function Liste({ kind }: { kind: ListKind }) {
     const art = lireArticle(i.title)
     return (
       <Glisse key={i.id} onRetirer={() => retirer([i.id])} partant={partants.includes(i.id)} adieu={adieux.includes(i.id)} range={ranges.includes(i.id)} label={`Glisse vers la gauche pour retirer ${i.title}`}>
-        <div className={`flex items-center ${attente ? 'ligne-arrive-pop opacity-70' : ''} ${arrivees.includes(cle(tache ? i.title : art.nom)) ? 'ligne-arrive' : ''} ${dernier ? '' : 'border-b border-trait'}`}>
+        <div className={`flex items-center ${attente ? 'ligne-arrive-pop opacity-70' : ''} ${arrivees.includes(cle(tache ? i.title : art.nom)) ? 'ligne-arrive' : ''} ${dernier || (!tache && !editing && !attente && estVague(art.nom)) ? '' : 'border-b border-trait'}`}>
           {/* le gris du toucher s'arrête avant la quantité, avec un peu d'air (Elisa, 21 novembre) */}
           <button onClick={(e) => basculer(i, e.currentTarget)} className={`presse-ligne flex min-h-[54px] min-w-0 flex-1 items-center gap-3 py-2 pl-4 pr-3 text-left ${!tache && !editing ? 'rounded-r-[16px]' : ''}`} aria-label={`Cocher ${i.title}`}>
             {barres.includes(i.id) ? <span className="coche-saut flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-teinte text-white"><Check size={16} strokeWidth={3.2} /></span> : <Coche fait={false} />}
             <span className="min-w-0 flex-1">
               <span className="block text-corps"><span className={barres.includes(i.id) ? 'barre-lente' : ''}>{tache ? i.title : art.nom}</span></span>
+              {!tache && !editing && estVague(art.nom) && <span className="mt-0.5 block text-note font-semibold text-peche-fonce">Lesquels ?</span>}
               {tache && evtDe(i.event_id) && (
                 <span className="mt-0.5 flex items-center gap-1 text-note font-semibold text-teinte-fonce">
                   <EventIcon event={evtDe(i.event_id)!} size={15} />
@@ -594,6 +665,15 @@ function Liste({ kind }: { kind: ListKind }) {
             </button>
           )}
         </div>
+        {!tache && !editing && !attente && estVague(art.nom) && (
+          <div className={`no-bar flex gap-1.5 overflow-x-auto pb-2.5 pl-[54px] pr-4 ${dernier ? '' : 'border-b border-trait'}`} role="group" aria-label={`Préciser ${art.nom}`}>
+            {(precisions(art.nom) ?? []).filter((x, n, t) => iconeDe(x) && t.findIndex((y) => iconeDe(y) === iconeDe(x)) === n && !todo.some((j) => memeArticle(lireArticle(j.title).nom, x))).map((x, n) => (
+              <button key={x} type="button" onClick={() => preciser(i, x)} className="presse ligne-arrive-pop flex min-h-9 shrink-0 items-center gap-1.5 rounded-full bg-doux pl-1.5 pr-3 text-note font-semibold text-encre" style={{ animationDelay: `${n * 30}ms` }}>
+                <IconeArticle nom={x} taille={26} className="-my-1" /> {x}
+              </button>
+            ))}
+          </div>
+        )}
       </Glisse>
     )
   }
@@ -623,7 +703,10 @@ function Liste({ kind }: { kind: ListKind }) {
             // les courses : pas de suggestions d'iOS (parfois en anglais) au-dessus du clavier, ce sont celles de Nidoo
             {...(tache ? {} : { autoCorrect: 'off', spellCheck: false, autoComplete: 'off', name: 'nidoo-article' })}
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => {
+              setTitle(e.target.value)
+              setSecoue(0)
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !title.trim()) {
                 e.preventDefault()
@@ -638,13 +721,25 @@ function Liste({ kind }: { kind: ListKind }) {
           )}
 
         </form>
-        {saisie && (
+        {saisie && !lesquels?.length && (
           <p className="anim-entre mt-1.5 flex items-center gap-1.5 px-1 text-note font-semibold text-teinte-fonce">
             <span aria-hidden="true">{rayonDe(saisie.nom).emoji}</span>
             {saisie.nom}
             {saisie.qte && <span className="rounded-full bg-teinte-doux px-2 py-0.5">{saisie.qte}</span>}
             <span className="font-medium text-brume">· {rayonDe(saisie.nom).label}</span>
           </p>
+        )}
+        {lesquels && (
+          <div className="anim-entre mt-2">
+            <p key={secoue} className={`mb-1.5 px-1 text-note font-semibold ${secoue ? 'adieu text-peche-fonce' : 'text-brume'}`}>{secoue ? 'Lesquels ? Touche ceux qu’il te faut' : 'Lesquels ?'}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {lesquels.map((x, n) => (
+                <button key={x} type="button" onPointerDown={garderLeClavier} onClick={() => prendre(x)} className={`presse ligne-arrive-pop flex min-h-9 items-center gap-1.5 rounded-full bg-doux pl-1.5 pr-3 text-sous font-semibold text-encre ${sortants.includes(x) ? 'idee-part' : ''}`} style={{ animationDelay: `${n * 30}ms` }}>
+                  <IconeArticle nom={x} taille={28} className="-my-1" /> {x}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
         {recetteTapee && (
           <button type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setRecette(recetteTapee))} className="presse anim-entre mt-3 flex w-full items-center gap-3 rounded-[18px] bg-peche-doux p-2.5 pr-3 text-left">
@@ -670,12 +765,10 @@ function Liste({ kind }: { kind: ListKind }) {
             {tuiles.length > 0 && (
               <div className="grid grid-cols-4 gap-1.5" aria-label="Suggestions à ajouter">
                 {tuiles.map((t, n) => (
-                  <button key={t.nom} type="button" onPointerDown={garderLeClavier} onClick={() => prendre(t.nom)} aria-label={`Ajouter ${t.nom}${t.avec ? `, pour aller avec ${t.avec}` : ''}`}
-                    className={`presse ligne-arrive-pop relative flex min-h-[72px] min-w-0 flex-col items-center justify-center rounded-[16px] bg-doux px-1 pb-1.5 pt-2 text-center ${sortants.includes(t.nom) ? 'idee-part' : ''}`} style={{ animationDelay: `${n * 30}ms` }}>
-                    <span className="text-[23px] leading-none" aria-hidden="true">{emojiDe(t.nom)}</span>
-                    <span className="mt-1 line-clamp-2 w-full break-words text-[12px] font-semibold leading-[1.15] text-encre">{t.nom}</span>
-                    {/* pourquoi elle est là : « avec 🥩 » (ce qui est déjà dans la liste) */}
-                    {t.avec && <span className="mt-0.5 text-[10px] font-semibold leading-none text-teinte-fonce">avec {emojiDe(t.avec)}</span>}
+                  <button key={t} type="button" onPointerDown={garderLeClavier} onClick={() => prendre(t)} aria-label={`Ajouter ${t}`}
+                    className={`presse ligne-arrive-pop relative flex min-h-[78px] min-w-0 flex-col items-center justify-center rounded-[16px] bg-doux px-1 pb-1.5 pt-1.5 text-center ${sortants.includes(t) ? 'idee-part' : ''}`} style={{ animationDelay: `${n * 30}ms` }}>
+                    <IconeArticle nom={t} taille={42} className="-my-0.5" />
+                    <span className="mt-1 line-clamp-2 w-full break-words text-[12px] font-semibold leading-[1.15] text-encre">{t}</span>
                     <span className="absolute right-1 top-1 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-carte text-teinte" aria-hidden="true"><Plus size={11} strokeWidth={3.2} /></span>
                   </button>
                 ))}
@@ -686,7 +779,7 @@ function Liste({ kind }: { kind: ListKind }) {
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-carte text-[20px]" aria-hidden="true">{ideeRepas.r.emoji}</span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sous font-bold text-encre">{ideeRepas.r.nom}</span>
-                  <span className="block truncate text-note text-peche-fonce">{ideeRepas.manque ? `Avec ta liste, il ne manque que ${ideeRepas.manque} article${ideeRepas.manque > 1 ? 's' : ''}` : 'Idée de saison · tout pour le repas'}</span>
+                  <span className="block truncate text-note text-peche-fonce">{ideeRepas.texte}</span>
                 </span>
                 <ChevronRight size={17} className="shrink-0 text-peche-fonce" />
               </button>

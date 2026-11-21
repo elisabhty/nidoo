@@ -64,6 +64,8 @@ champignons de Paris|FL|g|250|250
 endive|FL|kg|1|0.5
 navet|FL|kg|0.5|0.5
 radis|FL||1|1
+petits pois|FL|kg|0.5|0.5
+rhubarbe|FL|kg|0.5|0.5
 betterave cuite|FL||1|1
 céleri|FL||1|1
 fenouil|FL||1|1
@@ -177,6 +179,7 @@ viande hachée|VIA|g|500|250
 steak|VIA||2|1
 entrecôte|VIA||2|1
 rôti de bœuf|VIA|kg|1|0.5
+bœuf à fondue|VIA|kg|1|0.5
 bœuf bourguignon|VIA|kg|1|0.5
 plat de côtes|VIA|kg|1.5|0.5
 os à moelle|VIA||2|1
@@ -191,6 +194,7 @@ chipolatas|VIA||1|1
 saucisses de Toulouse|VIA||1|1
 brochettes|VIA||1|1
 gigot d’agneau|VIA|kg|2|0.5
+épaule d’agneau|VIA|kg|1.5|0.5
 magret de canard|VIA||2|1
 lapin|VIA||1|1
 chapon|VIA||1|1
@@ -300,6 +304,8 @@ levure chimique|EPSU||1|1
 chocolat pâtissier|EPSU||1|1
 pépites de chocolat|EPSU||1|1
 cannelle|EPSU||1|1
+quatre-épices|EPS||1|1
+fève|EPSU||1|1
 chocolat|EPSU||2|1
 cacao|EPSU||1|1
 chocolat en poudre|EPSU||1|1
@@ -326,6 +332,7 @@ thé|EPSU||1|1
 tisane|EPSU||1|1
 bonbons|EPSU||1|1
 fruits secs|EPSU||1|1
+fruits confits|EPSU||1|1
 amandes|EPSU||1|1
 noix|EPSU||1|1
 pop-corn|EPSU||1|1
@@ -337,6 +344,7 @@ légumes surgelés|SURG||1|1
 haricots verts surgelés|SURG||1|1
 petits pois surgelés|SURG||1|1
 épinards surgelés|SURG||1|1
+brocolis surgelés|SURG||1|1
 poêlée|SURG||1|1
 frites|SURG||1|1
 pizza surgelée|SURG||1|1
@@ -346,6 +354,7 @@ nuggets|SURG||1|1
 steaks hachés surgelés|SURG||1|1
 fruits rouges|SURG||1|1
 glace|SURG||1|1
+glace à la vanille|SURG||1|1
 bâtonnets glacés|SURG||1|1
 bûche glacée|SURG||1|1
 glaçons|SURG||1|1
@@ -459,6 +468,9 @@ oeuf,oeufs bio,douzaine d’oeufs=œufs
 yaourts,yaourt,yogourt,yoghourt,yaourts nature,danone=yaourt nature
 kleenex,mouchoir=mouchoirs
 nutella=pâte à tartiner
+épinards,épinard=épinards frais
+fève des rois,fèves=fève
+glace vanille=glace à la vanille
 coca,coca-cola,coca cola,pepsi,orangina,fanta,sprite,ice tea=soda
 knacki,saucisses knacki,knack=saucisses de Strasbourg
 kiri,vache qui rit,st moret,saint moret,boursin,philadelphia=fromage frais
@@ -613,7 +625,7 @@ viande hachée=Pâtes,Sauce tomate,Oignons,Fromage râpé
 fromage râpé=Pâtes,Jambon,Crème fraîche,Pâte à pizza
 raviolis=Parmesan,Sauce tomate
 gnocchis=Sauce tomate,Parmesan,Pesto
-riz=Poulet,Légumes surgelés,Sauce soja,Œufs
+riz=Poulet,Haricots verts,Sauce soja,Œufs
 sauce soja=Riz,Nouilles,Saumon
 curry=Lait de coco,Poulet,Riz,Oignons
 lait de coco=Curry,Poulet,Riz,Crevettes
