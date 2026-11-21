@@ -489,7 +489,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
       </Screen>
 
       {sheet === 'profil' && (
-        <Sheet title="Mon personnage" onClose={() => setSheet(null)} tall footer={<Btn disabled={!name.trim()} onClick={async () => (await run((a) => a.updateMember(me.id, { display_name: name.trim(), avatar, color }), 'Profil mis à jour')) && setSheet(null)}>Enregistrer</Btn>}>
+        <Sheet title="Mon personnage" onClose={() => setSheet(null)} tall footer={<Btn manque={!name.trim() ? 'ton prénom' : null} onManque={() => document.querySelector<HTMLInputElement>('[role=dialog] input')?.focus()} onClick={async () => (await run((a) => a.updateMember(me.id, { display_name: name.trim(), avatar, color }), 'Profil mis à jour')) && setSheet(null)}>Enregistrer</Btn>}>
           <ProfilePicker name={name} setName={setName} avatar={avatar} setAvatar={setAvatar} color={color} setColor={setColor} owned={state.owned} />
         </Sheet>
       )}
@@ -500,7 +500,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
             <input id="nom-maison-modif" required aria-describedby="nom-maison-modif-aide" className={`${CHAMP_REQUIS} font-semibold`} maxLength={40} placeholder="Notre maison" value={famName} onChange={(e) => setFamName(e.target.value)} />
           </ChampRequis>
           <HousePicker value={houseType} onChange={setHouseType} />
-          <Btn className="mt-5" disabled={!famName.trim()} onClick={async () => (await run((a) => a.updateFamily(family.id, { name: famName.trim(), house_type: houseType }), 'Maison mise à jour')) && setSheet(null)}>
+          <Btn className="mt-5" manque={!famName.trim() ? 'le nom de la maison' : null} onManque={() => document.getElementById('nom-maison-modif')?.focus()} onClick={async () => (await run((a) => a.updateFamily(family.id, { name: famName.trim(), house_type: houseType }), 'Maison mise à jour')) && setSheet(null)}>
             Enregistrer
           </Btn>
         </Sheet>

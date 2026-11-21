@@ -2,6 +2,7 @@ import { AlignLeft, CalendarDays, CalendarPlus, Camera, ChevronRight, Images, Ma
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { moodOf, MOODS, THOUGHTS, thoughtOf } from '../lib/data'
 import { Smiley } from './Smiley'
+import { coeurs, confettis, petille } from '../lib/fete'
 import { feel, select, success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
 import type { EventKind, FamEvent, Member, Sticker, ThoughtKind } from '../lib/types'
@@ -32,6 +33,7 @@ export function MoodSheet({ onClose, member }: { onClose: () => void; member?: M
     setBusy(false)
     if (ok) {
       success()
+      if (mood) coeurs(null, 14)
       onClose()
     }
   }
@@ -45,15 +47,16 @@ export function MoodSheet({ onClose, member }: { onClose: () => void; member?: M
           return (
             <button
               key={m.key}
-              onClick={() => {
+              onClick={(e) => {
                 select()
+                if (!on) coeurs(e.currentTarget, 6)
                 setMood(on ? null : m.key)
               }}
               aria-pressed={on}
               className={`presse flex flex-col items-center gap-1 rounded-[20px] pb-2.5 pt-2 ${on ? 'bg-teinte-doux ring-2 ring-teinte' : 'bg-carte'}`}
             >
               <span className="flex h-14 w-14 items-center justify-center">
-                <Smiley mood={m.key} size={44} />
+                <span key={on ? 'on' : 'off'} className={on ? 'saut' : ''}><Smiley mood={m.key} size={44} /></span>
               </span>
               <span className={`text-legende ${on ? 'font-semibold text-teinte-fonce' : 'font-medium text-encre'}`}>{m.label}</span>
             </button>
@@ -395,7 +398,7 @@ export function ThoughtSheet({ onClose, to }: { onClose: () => void; to?: Member
             })}
           </div>
           <textarea aria-label="Ton petit mot" rows={3} className="champ mt-3 !bg-carte resize-none" placeholder="Ou glisse-lui un petit mot" maxLength={140} value={message} onChange={(e) => setMessage(e.target.value)} />
-          <Btn className="mt-4" onClick={send} disabled={!target || busy}>
+          <Btn className="mt-4" onClick={send} disabled={busy} manque={!target ? 'le proche à qui l’envoyer' : null}>
             {busy ? 'Envoi…' : target ? `Envoyer à ${target.display_name}` : 'Choisis un proche'}
           </Btn>
         </>
@@ -612,6 +615,7 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
     setBusy(false)
     if (ok) {
       success()
+      confettis()
       onClose()
     }
   }
@@ -647,6 +651,18 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
     lieu.trim(),
   ].filter(Boolean).join(' · ')
   const ko = !birthday && journee && plusieurs && (!fin || fin < date)
+  /** Ce qui manque : on y va, et le champ s'allume un instant. */
+  const montrerManque = () => {
+    const el = document.getElementById(!title.trim() ? 'event-name' : 'event-fin')
+    const cadre = el?.closest('.rounded-\\[22px\\], .groupe') ?? el
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    if (cadre instanceof HTMLElement) {
+      cadre.classList.remove('a-remplir')
+      void cadre.offsetWidth
+      cadre.classList.add('a-remplir')
+    }
+    if (!title.trim()) window.setTimeout(() => (el as HTMLInputElement | null)?.focus({ preventScroll: true }), 350)
+  }
   /** Une ligne du cadre « Quand » : un libellé, et à droite la valeur (le sélecteur d'iOS s'ouvre en touchant toute la valeur). */
   const ligneChoix = (label: string, valeur: string, input: React.ReactNode, haut = true) => (
     <label className={`relative flex min-h-[54px] items-center justify-between gap-3 px-4 text-corps ${haut ? 'border-t border-trait' : ''}`}>
@@ -668,15 +684,19 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
   const puce = (on: boolean) => `presse shrink-0 rounded-full px-3.5 py-2 text-sous font-semibold transition-colors ${on ? 'bg-teinte text-white' : 'bg-carte text-encre ring-1 ring-inset ring-trait'}`
 
   return (
-    <Sheet title={event ? 'Modifier l’événement' : 'Nouvel événement'} tall onClose={() => {if(!busy) onClose()}} footer={<Btn onClick={save} disabled={busy || !title.trim() || !date || ko}>{busy ? 'Enregistrement…' : event ? 'Enregistrer' : 'Ajouter à l’agenda'}</Btn>}>
+    <Sheet title={event ? 'Modifier l’événement' : 'Nouvel événement'} tall onClose={() => {if(!busy) onClose()}} footer={
+      <Btn onClick={save} disabled={busy} manque={!title.trim() ? (birthday ? 'son prénom' : 'le nom de l’événement') : !date ? 'la date' : ko ? 'la date de fin' : null} onManque={montrerManque}>
+        {busy ? 'Enregistrement…' : event ? 'Enregistrer' : 'Ajouter à l’agenda'}
+      </Btn>
+    }>
       {/* le genre : trois cartes illustrées */}
       <div className="grid grid-cols-3 gap-2" role="group" aria-label="Le genre d’événement">
         {KINDS.map((k) => {
           const on = kind === k.key
           return (
-            <button key={k.key} type="button" aria-pressed={on} onClick={() => (select(), changeKind(k.key))}
+            <button key={k.key} type="button" aria-pressed={on} onClick={(e) => (select(), !on && petille(e.currentTarget), changeKind(k.key))}
               className={`presse flex flex-col items-center gap-1 rounded-[18px] px-1 pb-2 pt-2.5 text-note font-bold transition-[box-shadow,background-color] ${on ? 'bg-teinte-doux text-teinte-fonce ring-2 ring-teinte' : 'bg-carte text-encre ring-1 ring-inset ring-trait'}`}>
-              <Art name={k.art} size={34} />
+              <span key={on ? 'on' : 'off'} className={on ? 'saut' : ''}><Art name={k.art} size={34} /></span>
               {k.label}
             </button>
           )
@@ -697,7 +717,7 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
           </div>
         </div>
         <p id="event-name-aide" className={`mt-2 flex items-center gap-1.5 rounded-[12px] bg-fond px-3 py-2 text-note font-semibold ${title.trim() ? 'text-teinte-fonce' : 'text-brume'}`}>
-          <CalendarDays size={14} className="shrink-0" /> <span className="min-w-0 truncate">{title.trim() ? resume : birthday ? 'Écris son prénom pour l’ajouter.' : 'Donne-lui un nom pour l’ajouter.'}</span>
+          <CalendarDays size={14} className="shrink-0" /> <span key={resume} className={`min-w-0 truncate ${title.trim() ? 'anim-entre' : ''}`}>{title.trim() ? resume : birthday ? 'Écris son prénom pour l’ajouter.' : 'Donne-lui un nom pour l’ajouter.'}</span>
         </p>
       </div>
       {stickersOpen && <div className="mt-3"><StickerTray start="fete" onClose={() => setStickersOpen(false)} onPick={key => {setSticker(key);setStickersOpen(false)}} /><button onClick={() => {setSticker(null);setStickersOpen(false)}} className="mt-1 min-h-11 px-1 text-sous font-semibold text-teinte-fonce">Revenir à l’icône par défaut</button></div>}
@@ -705,7 +725,7 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
       {/* Quand */}
       {titreSection(CalendarDays, 'Quand ?', '#FFEDE2', '#E26F3C')}
       <div className="no-bar -mx-5 mb-2.5 flex gap-2 overflow-x-auto px-5 pb-1" role="group" aria-label="Raccourcis de date">
-        {jours.map((j) => <button key={j.v} type="button" aria-pressed={date === j.v} onClick={() => (select(), setDate(j.v))} className={puce(date === j.v)}>{j.label}</button>)}
+        {jours.map((j) => <button key={j.v} type="button" aria-pressed={date === j.v} onClick={(e) => (select(), date !== j.v && petille(e.currentTarget), setDate(j.v))} className={puce(date === j.v)}>{j.label}</button>)}
       </div>
       <div className="groupe shadow-carte">
         {ligneChoix(birthday ? 'Le jour' : 'Date', jourLong(date), <input aria-label="Date de l’événement" type="date" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={date} onChange={e => e.target.value && setDate(e.target.value)} />, false)}
@@ -714,11 +734,11 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
           {!journee && <>
             {ligneChoix('Heure', heure(time), <input aria-label="Heure de l’événement" type="time" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={time} onChange={e => e.target.value && setTime(e.target.value)} />)}
             <div className="flex gap-1.5 px-4 pb-3" role="group" aria-label="Raccourcis d’heure">
-              {HEURES.map((h) => <button key={h} type="button" aria-pressed={time === h} onClick={() => (select(), setTime(h))} className={`presse flex-1 rounded-full py-1.5 text-note font-bold ${time === h ? 'bg-teinte text-white' : 'bg-remplissage text-encre'}`}>{heure(h)}</button>)}
+              {HEURES.map((h) => <button key={h} type="button" aria-pressed={time === h} onClick={(e) => (select(), time !== h && petille(e.currentTarget), setTime(h))} className={`presse flex-1 rounded-full py-1.5 text-note font-bold ${time === h ? 'bg-teinte text-white' : 'bg-remplissage text-encre'}`}>{heure(h)}</button>)}
             </div>
           </>}
           {journee && <div className="flex min-h-[54px] items-center justify-between border-t border-trait px-4 text-corps">Sur plusieurs jours<Switch on={plusieurs} onChange={v => {setPlusieurs(v);if(v && !(fin > date)){const d=new Date(`${date}T12:00`);d.setDate(d.getDate()+1);setFin(iso(d))}}} label="Sur plusieurs jours" /></div>}
-          {journee && plusieurs && ligneChoix('Jusqu’au', fin ? jourLong(fin) : 'Choisir', <input aria-label="Date de fin" type="date" min={date} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={fin} onChange={e => setFin(e.target.value)} />)}
+          {journee && plusieurs && ligneChoix('Jusqu’au', fin ? jourLong(fin) : 'Choisir', <input id="event-fin" aria-label="Date de fin" type="date" min={date} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={fin} onChange={e => setFin(e.target.value)} />)}
           <div className="flex min-h-[54px] items-center justify-between border-t border-trait px-4 text-corps"><span className="flex items-center gap-2">Chaque semaine</span><Switch on={hebdo} onChange={setHebdo} label="Chaque semaine" /></div>
         </>}
       </div>

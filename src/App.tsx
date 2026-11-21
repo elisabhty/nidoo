@@ -153,7 +153,9 @@ export default function App() {
                     aria-controls={`nidoo-tab-${t.key}`}
                     className={`relative z-10 flex h-full flex-1 flex-col items-center justify-center gap-[3px] rounded-full transition-colors duration-200 ${on ? 'text-teinte-fonce' : 'text-encre/60'}`}
                   >
-                    <t.icon size={23} strokeWidth={on ? 2.4 : 2} fill={on ? 'currentColor' : 'none'} fillOpacity={on ? 0.18 : 0} />
+                    <span key={on ? `${t.key}-on` : t.key} className={on ? 'onglet-saut' : 'inline-flex'}>
+                      <t.icon size={23} strokeWidth={on ? 2.4 : 2} fill={on ? 'currentColor' : 'none'} fillOpacity={on ? 0.18 : 0} />
+                    </span>
                     <span className={`text-[11.5px] leading-none tracking-normal ${on ? 'font-semibold' : 'font-medium'}`}>{t.label}</span>
                     {(() => {
                       // le nombre de nouveautés, comme sur les icônes de l'iPhone

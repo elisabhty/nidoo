@@ -6,6 +6,7 @@ import { MemberStack } from '../components/folder'
 import { EventDetailSheet, EventSheet, EventIcon, TYPES_AGENDA } from '../components/sheets'
 import { Art, Avatar, Rond, Screen, Segments, Vide } from '../components/ui'
 import { select, success, tap } from '../lib/haptic'
+import { confettis, petille } from '../lib/fete'
 import { useHome } from '../lib/store'
 import type { EventKind, FamEvent, ListItem, ListKind } from '../lib/types'
 import { dayLabel, errorText, finDe, nextOccurrence, occursOn, rythme, timeLabel, todayKey } from '../lib/util'
@@ -383,13 +384,19 @@ function Liste({ kind }: { kind: ListKind }) {
       () => oublier(i.id),
     )
   }
-  const basculer = (i: ListItem) => {
+  const basculer = (i: ListItem, el?: Element | null) => {
     if (i.id.startsWith('attente-')) return
     const fait = !i.done
     if (fait) success()
     else tap()
     setChanges((c) => ({ ...c, [i.id]: { ...c[i.id], done: fait } }))
-    if (tache && fait) toast('C’est fait ✓')
+    // cocher fait pétiller ; la dernière de la liste, c'est la fête
+    if (fait) petille(el)
+    const derniere = fait && todo.filter((x) => !x.id.startsWith('attente-')).length === 1
+    if (derniere) {
+      window.setTimeout(confettis, 180)
+      toast(tache ? 'Tout est fait, bravo ! 🎉' : 'Tout est dans le panier ! 🛒')
+    } else if (tache && fait) toast('C’est fait ✓')
     void fond(
       () => api.toggleItem(i, me.id),
       () => oublier(i.id),
@@ -422,7 +429,7 @@ function Liste({ kind }: { kind: ListKind }) {
     return (
       <Glisse key={i.id} onRetirer={() => retirer([i.id])} label={`Glisse vers la gauche pour retirer ${i.title}`}>
         <div className={`flex items-center ${attente ? 'anim-pop opacity-60' : ''} ${dernier ? '' : 'border-b border-trait'}`}>
-          <button onClick={() => basculer(i)} className="presse-ligne flex min-h-[54px] min-w-0 flex-1 items-center gap-3 py-2 pl-4 pr-2 text-left" aria-label={`Cocher ${i.title}`}>
+          <button onClick={(e) => basculer(i, e.currentTarget.firstElementChild)} className="presse-ligne flex min-h-[54px] min-w-0 flex-1 items-center gap-3 py-2 pl-4 pr-2 text-left" aria-label={`Cocher ${i.title}`}>
             <Coche fait={false} />
             <span className="min-w-0 flex-1 text-corps">{tache ? i.title : art.nom}</span>
             {who && <Avatar m={who} size={28} />}

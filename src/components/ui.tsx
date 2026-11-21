@@ -209,26 +209,56 @@ export function Sheet({ title, onClose, children, tall = false, footer }: { titl
 }
 
 export function Btn({
-  children, onClick, kind = 'plein', disabled, className = '', type = 'button',
-}: { children: ReactNode; onClick?: () => void; kind?: 'plein' | 'teinte' | 'gris' | 'blanc'; disabled?: boolean; className?: string; type?: 'button' | 'submit' }) {
+  children, onClick, kind = 'plein', disabled, className = '', type = 'button', manque, onManque,
+}: {
+  children: ReactNode; onClick?: () => void; kind?: 'plein' | 'teinte' | 'gris' | 'blanc'; disabled?: boolean; className?: string; type?: 'button' | 'submit'
+  /** Ce qui manque pour pouvoir valider (« le nom de l'événement ») : le bouton a l'air grisé mais se touche, et le dit
+   *  (Elisa, 21 novembre : « ne dit pas ce qu'il manque »). onManque : par exemple aller au champ à remplir. */
+  manque?: string | null
+  onManque?: () => void
+}) {
   const styles = {
     plein: 'ios-primary text-white',
     teinte: 'bg-teinte-doux text-teinte-fonce',
     gris: 'bg-remplissage text-encre',
     blanc: 'bg-white text-teinte-fonce',
   }[kind]
+  const [dit, setDit] = useState(0)
+  useEffect(() => {
+    if (!dit) return
+    const t = window.setTimeout(() => setDit(0), 2600)
+    return () => window.clearTimeout(t)
+  }, [dit])
+  const incomplet = !disabled && !!manque
   return (
-    <button
-      type={type}
-      onClick={() => {
-        tap()
-        onClick?.()
-      }}
-      disabled={disabled}
-      className={`presse flex min-h-[52px] py-3 leading-snug shrink-0 w-full items-center justify-center gap-2 rounded-full px-5 text-corps font-bold btn-desactive ${styles} ${className}`}
-    >
-      {children}
-    </button>
+    <div className={`relative w-full ${className}`}>
+      {incomplet && dit > 0 && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-full z-10 mb-2 flex justify-center">
+          <p key={dit} role="alert" className="anim-pop rounded-full bg-encre px-3.5 py-1.5 text-center text-note font-bold text-white shadow-[0_6px_16px_-6px_rgba(29,26,43,0.5)]">
+            Il manque {manque}
+          </p>
+        </div>
+      )}
+      <button
+        key={incomplet ? `m${dit}` : 'ok'}
+        type={type}
+        onClick={() => {
+          if (incomplet) {
+            warn()
+            setDit((d) => d + 1)
+            onManque?.()
+            return
+          }
+          tap()
+          onClick?.()
+        }}
+        disabled={disabled}
+        aria-disabled={incomplet || undefined}
+        className={`presse flex min-h-[52px] py-3 leading-snug shrink-0 w-full items-center justify-center gap-2 rounded-full px-5 text-corps font-bold btn-desactive ${incomplet ? 'btn-incomplet' : ''} ${incomplet && dit ? 'secoue' : ''} ${styles}`}
+      >
+        {children}
+      </button>
+    </div>
   )
 }
 
@@ -390,7 +420,7 @@ export function Switch({ on, onChange, label }: { on: boolean; onChange: (v: boo
       }}
       className={`relative h-[31px] w-[51px] shrink-0 rounded-full transition-colors duration-200 ${on ? 'bg-vert' : 'bg-[rgba(120,120,128,0.24)]'}`}
     >
-      <span className={`absolute left-[2px] top-[2px] h-[27px] w-[27px] rounded-full bg-white shadow-[0_3px_8px_rgba(0,0,0,0.15),0_1px_1px_rgba(0,0,0,0.06)] transition-transform duration-200 ${on ? 'translate-x-[20px]' : ''}`} />
+      <span className={`absolute left-[2px] top-[2px] h-[27px] w-[27px] rounded-full bg-white shadow-[0_3px_8px_rgba(0,0,0,0.15),0_1px_1px_rgba(0,0,0,0.06)] transition-transform duration-300 [transition-timing-function:cubic-bezier(0.3,1.5,0.5,1)] ${on ? 'translate-x-[20px]' : ''}`} />
     </button>
   )
 }

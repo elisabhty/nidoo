@@ -339,6 +339,19 @@ html.natif.kb-ouvert, html.natif.kb-ouvert body { background: var(--fond-clavier
 
 /* Un bouton pas encore utilisable reste lisible : il dit ce qu'il manque (« Écris d'abord ce que c'est »). */
 .btn-desactive:disabled { background: #ECEAF3 !important; color: rgba(60, 56, 82, 0.82) !important; box-shadow: none !important; opacity: 1; }
+/* un bouton auquel il manque quelque chose : grisé comme un bouton désactivé, mais il se touche et dit ce qui manque */
+.btn-incomplet { background: #ECEAF3 !important; color: rgba(60, 56, 82, 0.82) !important; box-shadow: none !important; }
+.ios-sheet .sheet-footer { overflow: visible; }
+.secoue { animation: secoue 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97); }
+@keyframes secoue { 10%, 90% { transform: translateX(-2px); } 20%, 80% { transform: translateX(4px); } 30%, 50%, 70% { transform: translateX(-7px); } 40%, 60% { transform: translateX(7px); } }
+/* le champ qu'il faut remplir clignote doucement */
+.a-remplir { animation: aRemplir 1.2s ease-out; border-radius: 14px; }
+@keyframes aRemplir { 0%, 60% { box-shadow: 0 0 0 3px rgba(229, 72, 77, 0.55); } 100% { box-shadow: 0 0 0 3px rgba(229, 72, 77, 0); } }
+/* l'onglet choisi fait un petit bond ; l'interrupteur arrive avec un ressort */
+.onglet-saut { display: inline-flex; animation: ongletSaut 0.5s cubic-bezier(0.3, 1.6, 0.5, 1); }
+@keyframes ongletSaut { 0% { transform: scale(0.82) translateY(2px); } 60% { transform: scale(1.12) translateY(-2px); } 100% { transform: none; } }
+.saut { display: inline-flex; animation: ongletSaut 0.5s cubic-bezier(0.3, 1.6, 0.5, 1); }
+@media (prefers-reduced-motion: reduce) { .secoue, .a-remplir, .onglet-saut, .saut { animation: none; } }
 
 /* Les confettis d'une victoire */
 @keyframes confetti {

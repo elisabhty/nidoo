@@ -571,7 +571,7 @@ function NewFolderSheet({ onClose, onCreated }: { onClose: () => void; onCreated
   }
 
   return (
-    <Sheet title={'Nouveau dossier'} onClose={onClose} tall footer={<Btn onClick={create} disabled={busy || !name.trim()}>{busy ? 'Création…' : 'Créer le dossier'}</Btn>}>
+    <Sheet title={'Nouveau dossier'} onClose={onClose} tall footer={<Btn onClick={create} disabled={busy} manque={!name.trim() ? 'le nom du dossier' : null} onManque={() => document.querySelector<HTMLInputElement>('[role=dialog] input')?.focus()}>{busy ? 'Création…' : 'Créer le dossier'}</Btn>}>
       <input
         ref={input}
         type="file"
