@@ -1,5 +1,6 @@
 import { Check, ChevronLeft, ChevronRight, CircleAlert, Search, X } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { COLORS } from '../lib/data'
 import { select, tap, warn } from '../lib/haptic'
 import { useStore } from '../lib/store'
@@ -54,6 +55,20 @@ export function Rond({ children, onClick, label, tint = false }: { children: Rea
 }
 
 /** Écran à grand titre : le titre se replie dans une barre floutée au défilement. */
+/** Rend une fenêtre au niveau de l'onglet, comme les autres : sinon, posée dans une zone qui défile,
+ *  elle passe sous la barre du haut et sous les onglets sur iPhone (Elisa, 21 novembre : « regarde en haut »). */
+export function AuDessus({ children }: { children: ReactNode }) {
+  const ancre = useRef<HTMLSpanElement>(null)
+  const [cible, setCible] = useState<Element | null>(null)
+  useLayoutEffect(() => setCible(ancre.current?.closest('[data-tab]') ?? ancre.current?.closest('.app-frame') ?? null), [])
+  return (
+    <>
+      <span ref={ancre} hidden />
+      {cible && createPortal(children, cible)}
+    </>
+  )
+}
+
 export function Screen({ title, trailing, leading, children, compact = false }: { title: string; trailing?: ReactNode; leading?: ReactNode; children: ReactNode; compact?: boolean }) {
   const [scrolled, setScrolled] = useState(false)
   return (

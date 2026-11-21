@@ -7,7 +7,7 @@ import { evenementsAVenir, jourCourt, useLienTaches } from '../lib/lienTaches'
 import { RecetteSheet, RecettesSheet } from '../components/recettes'
 import { MemberStack } from '../components/folder'
 import { EventDetailSheet, EventSheet, EventIcon, TYPES_AGENDA } from '../components/sheets'
-import { Art, Avatar, Rond, Screen, Segments, Vide } from '../components/ui'
+import { Art, AuDessus, Avatar, Rond, Screen, Segments, Vide } from '../components/ui'
 import { select, success, tap } from '../lib/haptic'
 import { confettis, petille } from '../lib/fete'
 import { useHome } from '../lib/store'
@@ -703,8 +703,10 @@ function Liste({ kind }: { kind: ListKind }) {
         </>
       )}
       {tache && <ListPages {...navigation} label="Pages des tâches" />}
-      {recette && <RecetteSheet key={recette.id} recette={recette} onClose={() => setRecette(null)} onAjouter={(a) => ajouterRecette(recette, a)} dejaDansLaListe={dansLaListe} />}
-      {toutesRecettes && !recette && <RecettesSheet onClose={() => setToutesRecettes(false)} onChoisir={setRecette} />}
+      <AuDessus>
+        {recette && <RecetteSheet key={recette.id} recette={recette} onClose={() => setRecette(null)} onAjouter={(a) => ajouterRecette(recette, a)} dejaDansLaListe={dansLaListe} />}
+        {toutesRecettes && !recette && <RecettesSheet onClose={() => setToutesRecettes(false)} onChoisir={setRecette} />}
+      </AuDessus>
     </>
   )
 }

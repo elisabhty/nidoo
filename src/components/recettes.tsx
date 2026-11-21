@@ -1,6 +1,6 @@
-import { Check, ChevronRight, Minus, Plus, Search, Users } from 'lucide-react'
+import { Check, CheckCheck, ChevronRight, Minus, Plus, Search, Users, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { select } from '../lib/haptic'
+import { select, success } from '../lib/haptic'
 import { lookOf } from '../lib/look'
 import { CATEGORIES, chercherRecettes, LES_RECETTES, lignesDe, portionsFamille, recettesDuMoment, type Categorie, type Ligne, type Recette } from '../lib/recettes'
 import { useHome } from '../lib/store'
@@ -28,8 +28,18 @@ export function RecetteSheet({ recette, onClose, onAjouter, dejaDansLaListe }: {
   const placard = lignes.filter((l) => l.placard)
   const choisies = lignes.filter(coche)
   const enfants = ratio < 0.99
+  // « Tout sélectionner » : les ronds se cochent l'un après l'autre, en vague (Elisa, 21 novembre)
+  const toutCoche = lignes.every(coche)
+  const [vague, setVague] = useState<{ n: number; on: boolean }>({ n: 0, on: true })
+  const toutBasculer = () => {
+    const on = !toutCoche
+    if (on) success()
+    else select()
+    setBascules(Object.fromEntries(lignes.map((l) => [l.nom, on])))
+    setVague((v) => ({ n: v.n + 1, on }))
+  }
 
-  const ligne = (l: Ligne, dernier: boolean) => {
+  const ligne = (l: Ligne, dernier: boolean, rang: number) => {
     const on = coche(l)
     const deja = dejaDansLaListe(l.nom)
     return (
@@ -38,10 +48,14 @@ export function RecetteSheet({ recette, onClose, onAjouter, dejaDansLaListe }: {
         type="button"
         aria-pressed={on}
         onClick={() => (select(), setBascules((b) => ({ ...b, [l.nom]: !on })))}
-        className={`presse-ligne flex w-full items-center gap-3 pl-4 text-left ${dernier ? '' : ''}`}
+        className="presse-ligne flex w-full items-center gap-3 pl-4 text-left"
       >
-        <span className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full transition-colors ${on ? 'bg-teinte text-white' : 'ring-2 ring-inset ring-[rgba(60,56,82,0.25)]'}`}>
-          {on && <Check size={13} strokeWidth={3.2} className="anim-pop" />}
+        <span
+          key={`${vague.n}-${on}`}
+          className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full transition-colors ${on ? 'coche-saut bg-teinte text-white' : 'ring-2 ring-inset ring-[rgba(60,56,82,0.25)]'}`}
+          style={{ animationDelay: vague.n && vague.on === on ? `${rang * 40}ms` : undefined }}
+        >
+          {on && <Check size={13} strokeWidth={3.2} />}
         </span>
         <span className={`flex min-h-[54px] min-w-0 flex-1 items-center gap-2 py-2 pr-4 ${dernier ? '' : 'border-b border-trait'}`}>
           <span className="min-w-0 flex-1">
@@ -53,7 +67,7 @@ export function RecetteSheet({ recette, onClose, onAjouter, dejaDansLaListe }: {
               </span>
             )}
           </span>
-          {l.achat && <span className={`shrink-0 rounded-full px-2.5 py-1 text-note font-bold ${on ? 'bg-teinte-doux text-teinte-fonce' : 'bg-remplissage text-brume'}`}>{l.achat}</span>}
+          {l.achat && <span key={l.achat} className={`anim-pop shrink-0 rounded-full px-2.5 py-1 text-note font-bold transition-colors ${on ? 'bg-teinte-doux text-teinte-fonce' : 'bg-remplissage text-brume'}`}>{l.achat}</span>}
         </span>
       </button>
     )
@@ -66,7 +80,7 @@ export function RecetteSheet({ recette, onClose, onAjouter, dejaDansLaListe }: {
       onClose={onClose}
       footer={
         <Btn onClick={() => onAjouter(choisies.map((l) => ({ nom: l.nom, qte: l.qte })))} disabled={!choisies.length}>
-          <Plus size={18} strokeWidth={2.8} /> {choisies.length ? `Ajouter ${choisies.length} article${choisies.length > 1 ? 's' : ''} à la liste` : 'Rien à ajouter'}
+          <Plus size={18} strokeWidth={2.8} /> {choisies.length ? <span>Ajouter <span key={choisies.length} className="anim-pop inline-block">{choisies.length}</span> article{choisies.length > 1 ? 's' : ''} à la liste</span> : 'Rien à ajouter'}
         </Btn>
       }
     >
@@ -103,13 +117,19 @@ export function RecetteSheet({ recette, onClose, onAjouter, dejaDansLaListe }: {
         </span>
       </div>
 
-      <p className="mb-2 mt-5 px-1 text-sous font-bold">À acheter</p>
-      <div className="groupe overflow-hidden shadow-carte">{achats.map((l, i) => ligne(l, i === achats.length - 1))}</div>
+      <div className="mb-2 mt-5 flex items-center justify-between px-1">
+        <p className="text-sous font-bold">À acheter</p>
+        <button type="button" onClick={toutBasculer} className="presse flex min-h-9 items-center gap-1.5 rounded-full bg-teinte-doux px-3 text-note font-bold text-teinte-fonce">
+          <span key={String(toutCoche)} className="anim-pop flex">{toutCoche ? <X size={14} strokeWidth={3} /> : <CheckCheck size={15} strokeWidth={2.8} />}</span>
+          {toutCoche ? 'Tout désélectionner' : 'Tout sélectionner'}
+        </button>
+      </div>
+      <div className="groupe overflow-hidden shadow-carte">{achats.map((l, i) => ligne(l, i === achats.length - 1, i))}</div>
       {placard.length > 0 && (
         <>
           <p className="mb-1 mt-5 px-1 text-sous font-bold">Sûrement dans le placard</p>
           <p className="mb-2 px-1 text-note text-brume">Touche ce qui manque pour l’ajouter aussi.</p>
-          <div className="groupe overflow-hidden shadow-carte">{placard.map((l, i) => ligne(l, i === placard.length - 1))}</div>
+          <div className="groupe overflow-hidden shadow-carte">{placard.map((l, i) => ligne(l, i === placard.length - 1, achats.length + i))}</div>
         </>
       )}
       <p className="mt-3 px-1 text-mini text-pale">Quantités arrondies aux formats du magasin (paquets, pots, barquettes).</p>

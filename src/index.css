@@ -608,6 +608,10 @@ html.natif.kb-ouvert, html.natif.kb-ouvert body { background: var(--fond-clavier
 /* ailleurs, une puce ou une carte choisie fait un petit rebond (les confettis sont gardés pour l'ajout lui-même) */
 .choix-pop[aria-pressed='true'] { animation: choixPop 0.4s cubic-bezier(0.3, 1.6, 0.5, 1); }
 @media (prefers-reduced-motion: reduce) { .choix-pop[aria-pressed='true'] { animation: none; } }
+/* un rond qui se coche : il gonfle puis se pose (en vague avec « Tout sélectionner ») */
+.coche-saut { animation: cocheSaut 0.42s cubic-bezier(0.3, 1.6, 0.5, 1) both; }
+@keyframes cocheSaut { 0% { transform: scale(0.4); } 60% { transform: scale(1.22); } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .coche-saut { animation: none; } }
 .ob-choix[aria-pressed='true'] > span:first-child svg { animation: iconeDanse 0.6s ease-in-out; }
 @keyframes iconeDanse { 0%, 100% { transform: none; } 25% { transform: rotate(-14deg) scale(1.15); } 60% { transform: rotate(10deg) scale(1.1); } }
 .tete-saute { display: inline-block; animation: teteSaute 0.5s cubic-bezier(0.3, 1.6, 0.5, 1) both; }
