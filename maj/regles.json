@@ -1,0 +1,6 @@
+{
+  "_lisezmoi": "Mise à jour à distance de l'appli iPhone (voir README, « Mise à jour à distance »). Chaque mise en ligne du site publie aussi la nouvelle version pour les iPhone. publier : false pour arrêter d'en envoyer de nouvelles. retirer : true pour que les iPhone reviennent au contenu de leur appli au lancement suivant. natifMin : une version (20261121104430) en dessous de laquelle une appli installée ne reçoit plus rien, en plus de la règle automatique (le dernier changement natif).",
+  "publier": true,
+  "retirer": false,
+  "natifMin": 0
+}

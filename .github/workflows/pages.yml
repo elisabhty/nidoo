@@ -2,6 +2,7 @@ name: Mise en ligne (GitHub Pages)
 
 # Construit l'app et publie le résultat sur la branche gh-pages,
 # que GitHub Pages sert sur https://elisabhty.github.io/nidoo/
+# Publie en même temps la nouvelle version pour les iPhone (maj/version.json, voir « Mise à jour à distance » du README).
 
 on:
   push:
@@ -20,12 +21,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # l'historique : la version (heure du commit) et le dernier changement natif (maj-paquet)
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci
       - run: npm run build
+      # la mise à jour à distance des iPhone : l'annonce et la liste des fichiers (src/lib/majDistance.ts)
+      - run: node scripts/maj-paquet.mjs
       - run: touch dist/.nojekyll
       - uses: peaceiris/actions-gh-pages@v4
         with:

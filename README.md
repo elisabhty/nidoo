@@ -101,6 +101,20 @@ Outils : `scripts/widgets_xcode.py` (ajoute la cible au projet Xcode ; à relanc
 
 Toutes les tables sont protégées par RLS : on ne lit que les données des familles dont on est membre. Les étoiles sont attribuées par des triggers côté base, et les décorations achetées par la fonction `unlock_item`, pour que rien ne se triche depuis l'app. Les photos du fil vont dans un bucket privé `moments`, celles des dossiers dans un bucket privé `dossiers` dont chaque fichier est rangé sous l'identifiant du dossier racine : la base et le stockage vérifient tous deux l'appartenance au dossier.
 
+## Mise à jour à distance (iPhone)
+
+Corriger l'appli iPhone sans repasser par TestFlight ni par la vérification d'Apple, comme dans Requête. L'appli envoyée à Apple contient une coque native (Swift, widgets, plugins) et toute l'appli web (`dist/`) ; c'est cette appli web qui se met à jour à distance. Plugin : `@capgo/capacitor-updater`, en mode manuel, **sans aucun service tiers** (`capacitor.config.ts` : `autoUpdate` à `false`, adresses de vérification et de statistiques vides) ; l'appli ne lit que `https://elisabhty.github.io/nidoo/`.
+
+**Publier : rien à faire de plus.** Chaque mise en ligne du site (pousser sur `main`) publie la nouvelle version pour les iPhone : `.github/workflows/pages.yml` lance `scripts/maj-paquet.mjs`, qui écrit `maj/version.json` (la version, ce qu'il faut à l'appli installée pour la recevoir) et `maj/manifeste.json` (chaque fichier, son empreinte SHA-256, son adresse).
+
+**Sur l'iPhone** (`src/lib/majDistance.ts`) : quelques secondes après le démarrage, puis à chaque retour dans l'appli (au plus toutes les 30 minutes), l'appli lit l'annonce. Une version plus récente : seuls les fichiers modifiés sont téléchargés (les autres sont repris dans l'appli) et vérifiés un par un. Elle s'installe **au lancement suivant**, sous l'écran d'attente, jamais en pleine utilisation. Il faut donc deux lancements pour voir une correction (un pour la télécharger, un pour l'installer). Dans Famille, en bas : la version en cours, celle qui attend le prochain lancement, et « Chercher une mise à jour ».
+
+**Ce qui passe toujours par TestFlight** : tout le natif (`ios/`, les widgets, un plugin ajouté, `capacitor.config.ts`, l'icône). Une appli installée ne reçoit une version que si elle a tous ses plugins et si elle a été construite depuis le dernier changement natif (règle automatique, calculée par `maj-paquet.mjs`) : sinon elle garde son contenu et « Chercher une mise à jour » le dit. Après un changement natif : `npm run testflight`.
+
+**Les garde-fous** : une version qui ne démarre pas (pas de confirmation dans les 20 secondes) est abandonnée par le plugin, essayée deux fois au plus puis écartée sept jours ; une mise à jour par TestFlight efface les versions téléchargées. `maj/regles.json` : `"publier": false` n'envoie plus rien de nouveau ; `"retirer": true` ramène chaque iPhone au contenu de son appli au lancement suivant ; `natifMin` réserve les versions aux applis construites depuis une date (`20261121104430`). Apple autorise ce téléchargement de code interprété tant qu'il ne change pas l'objet de l'appli : corriger, améliorer, ajouter des écrans du même esprit, oui ; une appli d'une tout autre nature, non.
+
+Les mises à jour à distance commencent avec la première appli construite après leur ajout (21 novembre) : l'appli déjà sur TestFlight n'a pas le plugin.
+
 ## Interrupteurs à distance
 
 Certaines nouveautés s'allument ou se cachent sans nouvelle version de l'appli, depuis la table `app_flags` de Supabase (Table Editor › `app_flags`), lisible par l'appli mais modifiable seulement depuis le tableau de bord :

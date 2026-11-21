@@ -465,6 +465,12 @@ html.natif.kb-ouvert, html.natif.kb-ouvert body { background: var(--fond-clavier
 }
 .ob-puce:active { transform: scale(0.97); }
 .ob-puce[aria-pressed='true'] { background: #fff; color: #5132B4; box-shadow: 0 0 0 3px #FFC94D, 0 3px 0 3px #E0A100; }
+/* le décor de la maison : la carte choisie s'illumine, sa maison fait un petit bond */
+.maison-carte { transition: box-shadow 0.25s, transform 0.25s var(--ressort); box-shadow: 0 3px 0 rgba(36, 16, 110, 0.18); }
+.maison-choisie { transform: translateY(-2px); box-shadow: 0 0 0 3px #9B7BFF, 0 0 0 7px rgba(169, 139, 255, 0.35), 0 12px 26px -8px rgba(102, 70, 204, 0.7); }
+.maison-hop { transform-origin: 50% 85%; animation: maisonHop 0.6s cubic-bezier(0.3, 1.5, 0.5, 1) both; }
+@keyframes maisonHop { 0% { transform: scale(1); } 30% { transform: scale(1.09, 0.93); } 58% { transform: translateY(-5px) scale(0.97, 1.05); } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .maison-hop { animation: none; } }
 /* les cartes de « Qui es-tu ? » : une tête pour le genre, une figurine à sa taille pour chaque âge */
 .ob-carte {
   position: relative; display: flex; align-items: center; justify-content: center; min-height: 44px; border-radius: 18px;
@@ -564,4 +570,44 @@ html.natif.kb-ouvert, html.natif.kb-ouvert body { background: var(--fond-clavier
   .game-table { margin-inline: 10px; padding: 12px 8px; }
   .game-status { gap: 10px; padding: 12px; }
   .game-player { padding: 8px; gap: 6px; }
+}
+
+/* ——— L'accueil qui bouge (21 novembre : « beaucoup plus d'animation, d'interaction, de micro-interactions ») ——— */
+/* Panda caressé : un saut ; la bulle rebondit à chaque nouvelle phrase */
+.panda-saute { animation: pandaSaute 0.6s cubic-bezier(0.3, 1.6, 0.5, 1) both; transform-origin: 50% 90%; }
+@keyframes pandaSaute { 0% { transform: none; } 30% { transform: translateY(2px) scale(1.08, 0.9); } 60% { transform: translateY(-12px) scale(0.95, 1.06) rotate(-4deg); } 100% { transform: none; } }
+.bulle-rebond { animation: bulleRebond 0.42s cubic-bezier(0.3, 1.5, 0.5, 1) both; transform-origin: 0% 50%; }
+.ob-bulle.queue-haut.bulle-rebond { transform-origin: 50% 0%; }
+@keyframes bulleRebond { 0% { transform: scale(0.9); opacity: 0.4; } 100% { transform: none; opacity: 1; } }
+/* les étincelles autour du panda de Bienvenue */
+.etincelle { position: absolute; color: #FFD27A; font-size: 18px; text-shadow: 0 0 10px rgba(255, 210, 122, 0.9); animation: etincelle 2.2s ease-in-out infinite; pointer-events: none; }
+@keyframes etincelle { 0%, 100% { opacity: 0.15; transform: scale(0.6) rotate(0deg); } 50% { opacity: 1; transform: scale(1.15) rotate(25deg); } }
+/* un choix fait : la carte, la puce ou la pastille font « pop » */
+.ob-puce[aria-pressed='true'], .ob-carte[aria-pressed='true'], .ob-choix[aria-pressed='true'], .ob-teint[aria-pressed='true'] { animation: choixPop 0.38s cubic-bezier(0.3, 1.6, 0.5, 1); }
+@keyframes choixPop { 0% { transform: scale(0.94); } 55% { transform: scale(1.04); } 100% { transform: none; } }
+.ob-choix[aria-pressed='true'] > span:first-child svg { animation: iconeDanse 0.6s ease-in-out; }
+@keyframes iconeDanse { 0%, 100% { transform: none; } 25% { transform: rotate(-14deg) scale(1.15); } 60% { transform: rotate(10deg) scale(1.1); } }
+.tete-saute { display: inline-block; animation: teteSaute 0.5s cubic-bezier(0.3, 1.6, 0.5, 1) both; }
+@keyframes teteSaute { 0% { transform: none; } 45% { transform: translateY(-7px); } 100% { transform: none; } }
+/* l'aperçu du personnage qui se dessine pendant « Ton allure » */
+.apercu-pop { display: inline-block; animation: apercuPop 0.5s cubic-bezier(0.3, 1.6, 0.5, 1) both; }
+@keyframes apercuPop { 0% { transform: scale(0.7) rotate(-8deg); opacity: 0.3; } 100% { transform: none; opacity: 1; } }
+/* le grand bouton devient possible : un petit saut, puis un reflet qui passe */
+.ob-cta-pret { position: relative; overflow: hidden; animation: ctaPret 0.5s cubic-bezier(0.3, 1.6, 0.5, 1); }
+.ob-cta-pret::after { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.75) 50%, transparent 65%); transform: translateX(-120%); animation: ctaReflet 1.1s ease-out 0.35s; pointer-events: none; }
+@keyframes ctaPret { 0% { transform: scale(0.96); } 60% { transform: scale(1.02); } 100% { transform: none; } }
+@keyframes ctaReflet { to { transform: translateX(120%); } }
+/* l'étape en cours, dans la barre du haut, brille doucement */
+.ob-traits i.ici { background: linear-gradient(90deg, #FFC94D, #FFE9A8, #FFC94D); background-size: 200% 100%; animation: traitIci 1.8s linear infinite; }
+@keyframes traitIci { to { background-position: -200% 0; } }
+/* l'écran verrouillé des notifications */
+.notif-ecran { background: radial-gradient(120% 80% at 50% 0%, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.06)); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.28); }
+.notif-arrive { animation: notifArrive 0.55s cubic-bezier(0.2, 1.3, 0.4, 1) both; }
+@keyframes notifArrive { 0% { opacity: 0; transform: translateY(-26px) scale(0.92); } 100% { opacity: 1; transform: none; } }
+/* l'écran d'accueil des widgets */
+.ecran-accueil { background: linear-gradient(160deg, #FFD6EC 0%, #C9B6FF 48%, #9CC9FF 100%); box-shadow: 0 10px 30px -12px rgba(20, 8, 70, 0.6), inset 0 0 0 1.5px rgba(255, 255, 255, 0.45); }
+.widget-boing { display: inline-block; animation: pandaSaute 0.6s cubic-bezier(0.3, 1.6, 0.5, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .panda-saute, .bulle-rebond, .etincelle, .tete-saute, .apercu-pop, .ob-cta-pret, .ob-cta-pret::after, .notif-arrive, .widget-boing,
+  .ob-puce[aria-pressed='true'], .ob-carte[aria-pressed='true'], .ob-choix[aria-pressed='true'], .ob-teint[aria-pressed='true'], .ob-traits i.ici { animation: none; }
 }

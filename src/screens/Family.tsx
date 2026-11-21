@@ -18,6 +18,7 @@ import { AGES, encodeLook, lookOf, randomLook } from '../lib/look'
 import { dayLabel, errorText, familyLabel, isToday, timeLabel } from '../lib/util'
 import { upcoming } from './Home'
 import { HousePicker, ProfilePicker } from '../components/pickers'
+import { dateVersion, etatMaj, verifier } from '../lib/majDistance'
 import Onboarding from './Onboarding'
 
 type Open = null | 'profil' | 'maison' | 'plus' | 'compte' | 'ajouter' | 'widgets'
@@ -483,7 +484,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
             }}
           />
         </div>
-        <p className="mt-6 text-center text-legende text-pale">NIDOO · sans publicité, sans revente de données</p>
+        <VersionNidoo />
         </>}
       </Screen>
 
@@ -649,5 +650,44 @@ function SonsRow() {
         />
       }
     />
+  )
+}
+
+/** La version de l'appli (et, dans l'appli iPhone, la mise à jour à distance : chercher, ce qui attend le prochain lancement). */
+function VersionNidoo() {
+  const [e, setE] = useState(etatMaj)
+  const [cherche, setCherche] = useState(false)
+  const [dit, setDit] = useState('')
+  const DIRE: Record<string, string> = {
+    'à jour': 'C’est la dernière version.',
+    prête: 'Nouvelle version téléchargée : ferme l’appli et rouvre-la.',
+    'appli à mettre à jour': 'La nouvelle version demande une appli plus récente (TestFlight).',
+    'vérification ratée': 'Impossible de joindre le site pour l’instant.',
+    'hors ligne': 'Pas de réseau pour l’instant.',
+  }
+  return (
+    <div className="mt-6 pb-2 text-center text-legende text-pale">
+      <p>NIDOO · sans publicité, sans revente de données</p>
+      <p className="mt-1">
+        Version du {dateVersion(e.version)} · {e.commit}
+        {e.prete ? ` · celle du ${dateVersion(e.prete)} s’installera au prochain lancement` : ''}
+      </p>
+      {e.branchee && (
+        <button
+          className="presse mt-1 min-h-11 px-3 font-semibold text-teinte"
+          disabled={cherche}
+          onClick={async () => {
+            setCherche(true)
+            const r = await verifier(true)
+            setE(etatMaj())
+            setDit(DIRE[r] ?? '')
+            setCherche(false)
+          }}
+        >
+          {cherche ? 'Recherche…' : 'Chercher une mise à jour'}
+        </button>
+      )}
+      {dit && <p role="status" className="text-brume">{dit}</p>}
+    </div>
   )
 }

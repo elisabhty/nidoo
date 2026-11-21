@@ -6,6 +6,7 @@ import Guide from './components/Guide'
 import { Incoming } from './components/sheets'
 import { ActionSheetHost, Btn, Toasts } from './components/ui'
 import { useKeyboardViewport } from './lib/useKeyboardViewport'
+import { appliPrete } from './lib/majDistance'
 import { select } from './lib/haptic'
 import { useStore } from './lib/store'
 import { ecouterWidgets, oublierWidgets, synchroniserWidgets } from './lib/widgets'
@@ -43,6 +44,8 @@ function Splash({ children }: { children?: React.ReactNode }) {
 
 export default function App() {
   const { keyboard, decale } = useKeyboardViewport()
+  // l'appli s'affiche : cette version marche (mise à jour à distance), puis on regarde s'il y a plus récent
+  useEffect(() => appliPrete(), [])
   const { status, error, state, retry, requests, api } = useStore()
   const [tab, setTab] = useState<Tab>('maison')
   const [visited, setVisited] = useState<Tab[]>(['maison'])

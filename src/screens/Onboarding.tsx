@@ -1,8 +1,13 @@
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Copy, Heart, House as HouseIcon, Images, Mail, MessageCircleHeart, Share, Smile } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import House from '../components/House'
+import { CommentAjouter, EcranNotifications, EcranWidgets } from '../components/accueilApercus'
+import { Avatar } from '../components/ui'
+import { coeurs, confettis, feuxDArtifice, petille } from '../lib/fete'
+import { demanderNotifications, noterNotifications, premiereNotification } from '../lib/notifications'
+import { WIDGETS } from '../lib/widgets'
 import { HousePicker, ProfileStep } from '../components/pickers'
-import { select, success, tap } from '../lib/haptic'
+import { select, success, tap, warn } from '../lib/haptic'
 import { copy, shareInvite } from '../lib/share'
 import { useStore } from '../lib/store'
 import type { HouseType } from '../lib/types'
@@ -17,9 +22,9 @@ import { ONBOARDING as T } from '../lib/textes'
 /* L'accueil, dans l'esprit de celui de Requête (un panda qui parle dans une bulle, une question par écran,
    des cartes à choisir, l'étape en cours en haut), aux couleurs de Nidoo.
    Premier passage : bonjour → Panda se présente → prénom → qui es-tu → allure → ce qui t'amène → tes proches → créer ou rejoindre
-   → (personnage, maison) ou (code, personnage) → connexion → invitation.
+   → (personnage, maison) ou (code, personnage) → notifications → widgets → connexion → invitation.
    Depuis Famille (« ajouter une maison ») : on va droit au choix, sans les questions ni la connexion. */
-type Step = 'bonjour' | 'panda' | 'prenom' | 'qui' | 'allure' | 'raison' | 'proches' | 'choix' | 'code' | 'perso' | 'maison' | 'connexion' | 'invite'
+type Step = 'bonjour' | 'panda' | 'prenom' | 'qui' | 'allure' | 'raison' | 'proches' | 'choix' | 'code' | 'perso' | 'maison' | 'notifs' | 'widgets' | 'connexion' | 'invite'
 
 const RAISONS = [
   { key: 'lien', label: 'Garder le lien avec mes proches éloignés', Icon: Heart, fond: '#FFE6EE', encre: '#D23F72' },
@@ -41,6 +46,9 @@ const PROCHES = [
 
 const PANDA = (humeur: string) => `./art/stickers/panda-${humeur}.webp`
 
+/** Des idées de nom pour la maison (un toucher remplit le champ). */
+const IDEES_NOMS = (prenom: string) => ['Notre petit cocon', 'Le nid douillet', prenom ? `La tribu de ${prenom}` : 'La tribu', 'La maison du bonheur']
+
 // « Qui es-tu ? » : une tête par réponse, et pour chaque âge une figurine du bon genre (elles changent avec lui)
 const TETES: Record<Genre, string[]> = { femme: ['f03'], homme: ['h02'], neutre: ['f06', 'h03'] }
 const PAR_AGE: Record<Genre, Record<Age, string>> = {
@@ -60,12 +68,42 @@ function Tete({ id, size = 34 }: { id: string; size?: number }) {
   )
 }
 
-/** Le panda et sa bulle, comme la mascotte de Requête. */
-function Panda({ humeur = 'heureux', children }: { humeur?: string; children: ReactNode }) {
+/** Un petit saut (Panda caressé), puis il reprend ce qu'il faisait (flotter, saluer). */
+function sauter(el: Element | null | undefined) {
+  if (!(el instanceof HTMLElement)) return
+  el.classList.remove('panda-saute')
+  void el.offsetWidth
+  el.classList.add('panda-saute')
+  el.addEventListener('animationend', () => el.classList.remove('panda-saute'), { once: true })
+}
+
+/** Ce que dit Panda quand on le caresse. */
+const CHATOUILLES = ['Hihi, ça chatouille !', 'Encore une caresse ? 🥰', 'Je suis tout doux, hein ?', 'On fait une super équipe !']
+
+/** Le panda et sa bulle, comme la mascotte de Requête. On peut le caresser : il saute, des cœurs s'envolent.
+ *  La bulle rebondit à chaque nouvelle phrase. */
+function Panda({ humeur = 'heureux', children, visuel }: { humeur?: string; children: ReactNode; visuel?: ReactNode }) {
+  const [caresse, setCaresse] = useState(-1)
+  const texte = caresse >= 0 ? CHATOUILLES[caresse % CHATOUILLES.length] : children
+  const cle = typeof texte === 'string' ? texte : String(caresse)
   return (
     <div className="mt-5 flex items-center gap-3.5">
-      <img src={PANDA(humeur)} alt="" width={74} height={74} className="ob-salut h-[74px] w-[74px] shrink-0 drop-shadow-[0_6px_10px_rgba(30,10,90,0.35)]" />
-      <p className="ob-bulle queue-gauche min-w-0 flex-1">{children}</p>
+      {visuel ?? (
+        <button
+          type="button"
+          aria-label="Caresser Panda"
+          className="shrink-0"
+          onClick={(e) => {
+            tap()
+            coeurs(e.currentTarget, 7)
+            setCaresse((c) => c + 1)
+            sauter(e.currentTarget.firstElementChild)
+          }}
+        >
+          <img key={humeur} src={PANDA(humeur)} alt="" width={74} height={74} className="ob-salut h-[74px] w-[74px] drop-shadow-[0_6px_10px_rgba(30,10,90,0.35)]" />
+        </button>
+      )}
+      <p key={cle} className="ob-bulle queue-gauche bulle-rebond min-w-0 flex-1" aria-live="polite">{texte}</p>
     </div>
   )
 }
@@ -88,7 +126,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
   const invite = !!urlCode && !onCancel
   const [step, setStep] = useState<Step>(onCancel ? 'choix' : 'bonjour')
   const [path, setPath] = useState<'creer' | 'rejoindre' | null>(invite ? 'rejoindre' : null)
-  const [family, setFamily] = useState<string>(T.create.default_name)
+  const [family, setFamily] = useState<string>('')
   const [houseType, setHouseType] = useState<HouseType>('maison')
   const [code, setCode] = useState(urlCode)
   const [preview, setPreview] = useState<{ name: string; house_type: HouseType; member_count: number } | null>(null)
@@ -103,6 +141,18 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
   // se présenter, pour qu'on propose la figurine qui ressemble
   const [pres, setPres] = useState<Presentation>({})
   const propose = useRef('')
+  const graine = useRef(Math.floor(Math.random() * 2147483646) + 1)
+  const hasard = () => {
+    let g = graine.current
+    return () => ((g = (g * 48271) % 2147483647), g / 2147483647)
+  }
+  const proposition = (p: Presentation) => figurinePour(p, PERSOS, PEAUX, hasard())
+  const apercu = useMemo(() => {
+    const f = pres.genre || pres.age ? proposition(pres) : null
+    return f ? encodeLook({ ...lookOf(avatar), k: f.k, a: f.a, q: f.q, x: f.x, p: 0 }) : null
+  }, [pres]) // eslint-disable-line react-hooks/exhaustive-deps
+  const [notifs, setNotifs] = useState<'oui' | 'non' | null>(null)
+  const [bulle, setBulle] = useState(0)
   const [busy, setBusy] = useState(false)
   const [created, setCreated] = useState<{ id: string; code: string } | null>(null)
   const container = useRef<HTMLDivElement>(null)
@@ -131,6 +181,34 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
     }, 250)
     return () => window.clearTimeout(t)
   }, [pres])
+  useEffect(() => {
+    if (step === 'perso' && propose.current) {
+      const t = window.setTimeout(() => (success(), confettis()), 380)
+      return () => window.clearTimeout(t)
+    }
+    if (step === 'invite') {
+      const t = window.setTimeout(() => (success(), feuxDArtifice(3200), window.setTimeout(confettis, 900)), 300)
+      return () => window.clearTimeout(t)
+    }
+  }, [step])
+
+  // Les notifications : la vraie demande d'iOS ; un « oui » fait la fête et envoie un premier petit mot de Panda
+  const activerNotifications = async () => {
+    const r = await demanderNotifications()
+    if (r === 'oui') {
+      setNotifs('oui')
+      success()
+      confettis()
+      void premiereNotification(name.trim())
+      window.setTimeout(suivant, 1400)
+    } else {
+      setNotifs('non')
+      if (r === 'non') warn()
+      toast(r === 'non' ? 'Pas de souci : tu pourras les activer dans les Réglages de ton iPhone.' : 'Les notifications arrivent avec l’appli iPhone.')
+      window.setTimeout(suivant, 700)
+    }
+  }
+
   // Invité par un lien : on montre tout de suite la maison qui l'attend.
   useEffect(() => {
     if (!invite || urlCode.length !== 6) return
@@ -141,7 +219,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
   const flow = useMemo<Step[]>(() => {
     const debut: Step[] = onCancel ? ['choix'] : invite ? ['bonjour', 'panda', 'prenom', 'qui', 'allure'] : ['bonjour', 'panda', 'prenom', 'qui', 'allure', 'raison', 'proches', 'choix']
     const suite: Step[] = path === 'rejoindre' ? ['code', 'perso'] : ['perso', 'maison']
-    return [...debut, ...suite, ...(onCancel ? [] : ['connexion' as Step])]
+    return [...debut, ...suite, ...(onCancel ? [] : (['notifs', 'widgets', 'connexion'] as Step[]))]
   }, [onCancel, invite, path])
   const etapes: Step[] = flow.filter((s) => s !== 'bonjour' && s !== 'panda')
   const rang = etapes.indexOf(step) + 1
@@ -153,7 +231,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
     const cle = JSON.stringify(pres)
     if (s === 'perso' && cle !== '{}' && propose.current !== cle) {
       propose.current = cle
-      const f = figurinePour(pres, PERSOS, PEAUX)
+      const f = proposition(pres)
       if (f) setAvatar((v) => encodeLook({ ...lookOf(v), k: f.k, a: f.a, q: f.q, x: f.x, p: 0 }))
     }
     setStep(s)
@@ -286,7 +364,13 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
           go: () => (onCancel && path === 'rejoindre' ? void join() : suivant()),
         }
       case 'maison':
-        return { label: busy ? T.create.loading : onCancel ? T.create.submit : 'Continuer', ok: !busy, go: validerMaison }
+        return { label: busy ? T.create.loading : onCancel ? T.create.submit : 'Continuer', ok: !busy && !!family.trim(), go: validerMaison }
+      case 'notifs':
+        return notifs === 'oui'
+          ? { label: 'C’est activé', ok: false, go: () => undefined }
+          : { label: 'Activer les notifications', ok: true, go: () => void activerNotifications(), passer: 'Plus tard', surPasser: () => noterNotifications('plus-tard') }
+      case 'widgets':
+        return { label: 'J’ai compris', ok: true, go: suivant }
       default:
         return null
     }
@@ -327,7 +411,12 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
                 <p className="font-rond text-[22px] font-extrabold tracking-[0.12em] text-[#FFD27A]">NIDOO</p>
                 <div className="relative my-5 flex h-[170px] w-[220px] items-center justify-center">
                   <span className="absolute inset-2 rounded-full bg-white/10" />
-                  <img src={PANDA('heureux')} alt="" width={160} height={160} className="relative h-40 w-40 object-contain drop-shadow-xl" />
+                  <button type="button" aria-label="Caresser Panda" className="relative" onClick={(e) => (tap(), coeurs(e.currentTarget, 9), sauter(e.currentTarget.firstElementChild))}>
+                    <img src={PANDA('heureux')} alt="" width={160} height={160} className="ob-flotte h-40 w-40 object-contain drop-shadow-xl" />
+                  </button>
+                  <span className="etincelle" style={{ left: 18, top: 26 }} aria-hidden="true">✦</span>
+                  <span className="etincelle" style={{ right: 26, top: 8, animationDelay: '0.7s' }} aria-hidden="true">✦</span>
+                  <span className="etincelle" style={{ left: 40, bottom: 6, animationDelay: '1.3s' }} aria-hidden="true">✦</span>
                   <span className="absolute bottom-0 right-0 rounded-[18px] bg-white p-3 shadow-lg"><HouseIcon size={26} className="text-teinte" /></span>
                 </div>
                 <Titre avant="Bienvenue " mot="chez vous" apres="." />
@@ -360,10 +449,12 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
               <div className="relative mt-4 flex h-[176px] w-[176px] items-center justify-center">
                 <span className="absolute inset-0 rounded-full bg-white/[0.12]" aria-hidden="true" />
                 <span className="absolute inset-5 rounded-full bg-white/[0.10]" aria-hidden="true" />
-                <img src={PANDA('heureux')} alt="" width={140} height={140} className="ob-salut relative h-[140px] w-[140px] drop-shadow-[0_10px_16px_rgba(30,10,90,0.4)]" />
+                <button type="button" aria-label="Caresser Panda" className="relative" onClick={(e) => (tap(), coeurs(e.currentTarget, 10), setBulle((b) => b + 1))}>
+                  <img key={bulle} src={PANDA(bulle ? 'amour' : 'heureux')} alt="" width={140} height={140} className={`${bulle ? 'panda-saute' : 'ob-salut'} h-[140px] w-[140px] drop-shadow-[0_10px_16px_rgba(30,10,90,0.4)]`} />
+                </button>
               </div>
-              <p className="ob-bulle queue-haut mt-4 max-w-[340px] !text-center text-[17px] leading-[23px]">
-                Je vais t’accompagner pour préparer ta maison de famille. Quelques questions, et on s’y met&nbsp;!
+              <p key={bulle} className="ob-bulle queue-haut bulle-rebond mt-4 max-w-[340px] !text-center text-[17px] leading-[23px]">
+                {bulle ? CHATOUILLES[(bulle - 1) % CHATOUILLES.length] : <>Je vais t’accompagner pour préparer ta maison de famille. Quelques questions, et on s’y met&nbsp;!</>}
               </p>
               <ul className="mt-6 grid w-full max-w-[360px] gap-2.5 text-left" aria-label="Ce qu’on va faire ensemble">
                 {([
@@ -387,7 +478,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
             <form className="flex flex-1 flex-col" noValidate onSubmit={(e) => (e.preventDefault(), prenom && suivant())}>
               <div className="mt-4"><Titre avant="Faisons " mot="connaissance" apres="." /></div>
               <p className="ob-sous mt-2 text-center">Quelques questions rapides pour préparer votre petit chez-vous.</p>
-              <Panda>Pour commencer : comment tes proches t’appellent&#8209;ils ?</Panda>
+              <Panda humeur={prenom ? 'amour' : 'heureux'}>{prenom ? `Enchanté, ${prenom} ! Joli prénom 💛` : <>Pour commencer : comment tes proches t’appellent&#8209;ils ?</>}</Panda>
               <label htmlFor="ob-prenom" className="mb-1.5 mt-6 px-1 text-sous font-bold text-white">Ton prénom ou ton surnom</label>
               <input
                 id="ob-prenom"
@@ -419,7 +510,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
                     className="ob-carte flex-col !gap-2 !px-1.5 !pb-2.5 !pt-3"
                     aria-pressed={pres.genre === g.key}
                     aria-label={g.label}
-                    onClick={() => (select(), setPres((p) => ({ ...p, genre: g.key })))}
+                    onClick={(e) => (select(), pres.genre !== g.key && petille(e.currentTarget), setPres((p) => ({ ...p, genre: g.key })))}
                   >
                     <span className="flex h-[52px] items-center justify-center">
                       {TETES[g.key].map((id, k) => (
@@ -441,7 +532,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
                       className="ob-carte flex-col !justify-end !gap-1.5 !px-0.5 !pb-2 !pt-2"
                       aria-pressed={pres.age === g.key}
                       aria-label={g.label}
-                      onClick={() => (select(), setPres((p) => ({ ...p, age: g.key, cheveux: p.cheveux && cheveuxPossibles({ ...p, age: g.key }).some((c) => c.key === p.cheveux) ? p.cheveux : undefined })))}
+                      onClick={(e) => (select(), pres.age !== g.key && petille(e.currentTarget), setPres((p) => ({ ...p, age: g.key, cheveux: p.cheveux && cheveuxPossibles({ ...p, age: g.key }).some((c) => c.key === p.cheveux) ? p.cheveux : undefined })))}
                     >
                       <span className="flex h-[92px] w-full items-end justify-center">
                         <img key={id} src={`./art/persos/${id}.webp`} alt="" draggable={false} className="ob-age-perso block w-auto select-none" style={{ height: `${TAILLE_AGE[g.key] * 92}px` }} />
@@ -458,11 +549,18 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
             <div className="flex flex-1 flex-col">
               <div className="mt-4"><Titre avant="Ton " mot="allure" apres="." /></div>
               <p className="ob-sous mt-2 text-center">Encore quelques détails, et ton personnage est prêt.</p>
-              <Panda humeur="motive">Et tes cheveux, ils sont comment ?</Panda>
+              <Panda
+                visuel={apercu ? (
+                  <span key={apercu} className="apercu-pop shrink-0"><Avatar m={{ avatar: apercu, color: 'lavande' }} size={74} ring /></span>
+                ) : undefined}
+                humeur="motive"
+              >
+                {pres.cheveux && pres.teint !== undefined ? 'Ça te ressemble ? Je peaufine ton personnage !' : apercu ? 'Le voilà qui se dessine… et tes cheveux ?' : 'Et tes cheveux, ils sont comment ?'}
+              </Panda>
               <p id="ob-cheveux" className="mb-2 mt-6 px-1 text-sous font-bold">Tes cheveux</p>
               <div className="flex flex-wrap gap-2" role="group" aria-labelledby="ob-cheveux">
                 {cheveuxPossibles(pres).map((c) => (
-                  <button key={c.key} type="button" className="ob-puce !pl-2.5" aria-pressed={pres.cheveux === c.key} onClick={() => (select(), setPres((p) => ({ ...p, cheveux: c.key })))}>
+                  <button key={c.key} type="button" className="ob-puce !pl-2.5" aria-pressed={pres.cheveux === c.key} onClick={(e) => (select(), pres.cheveux !== c.key && petille(e.currentTarget), setPres((p) => ({ ...p, cheveux: c.key })))}>
                     <span className="h-6 w-6 shrink-0 rounded-full ring-2 ring-white/70" style={{ background: c.couleur }} aria-hidden="true" />
                     {c.label}
                   </button>
@@ -471,13 +569,13 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
               <p id="ob-peau" className="mb-2 mt-6 px-1 text-sous font-bold">Ta peau</p>
               <div className="flex justify-between gap-2 px-1" role="group" aria-labelledby="ob-peau">
                 {TEINTS.map((t, i) => (
-                  <button key={t.couleur} type="button" className="ob-teint" style={{ background: t.couleur }} aria-label={t.label} aria-pressed={pres.teint === i} onClick={() => (select(), setPres((p) => ({ ...p, teint: i })))} />
+                  <button key={t.couleur} type="button" className="ob-teint" style={{ background: t.couleur }} aria-label={t.label} aria-pressed={pres.teint === i} onClick={(e) => (select(), pres.teint !== i && petille(e.currentTarget), setPres((p) => ({ ...p, teint: i })))} />
                 ))}
               </div>
               <p id="ob-lunettes" className="mb-2 mt-6 px-1 text-sous font-bold">Des lunettes ?</p>
               <div className="flex gap-2" role="group" aria-labelledby="ob-lunettes">
                 {([[true, 'Oui'], [false, 'Non']] as const).map(([v, l]) => (
-                  <button key={l} type="button" className="ob-puce min-w-[96px]" aria-pressed={pres.lunettes === v} onClick={() => (select(), setPres((p) => ({ ...p, lunettes: v })))}>
+                  <button key={l} type="button" className="ob-puce min-w-[96px]" aria-pressed={pres.lunettes === v} onClick={(e) => (select(), pres.lunettes !== v && petille(e.currentTarget), setPres((p) => ({ ...p, lunettes: v })))}>
                     {l}
                   </button>
                 ))}
@@ -489,10 +587,10 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
             <div className="flex flex-1 flex-col">
               <div className="mt-4"><Titre avant="Ce qui " mot="compte" apres=" pour toi." /></div>
               <p className="ob-sous mt-2 text-center">Nidoo s’adapte à ce que vous aimez partager.</p>
-              <Panda humeur="motive">{prenom ? `${prenom}, qu’est-ce` : 'Qu’est-ce'} qui t’amène sur Nidoo ?</Panda>
+              <Panda humeur={raison ? 'amour' : 'motive'}>{raison ? 'Oh, j’adore ! On va en faire quelque chose de beau.' : `${prenom ? `${prenom}, qu’est-ce` : 'Qu’est-ce'} qui t’amène sur Nidoo ?`}</Panda>
               <div className="mt-5 grid gap-3" role="group" aria-label="Ce qui t’amène">
                 {RAISONS.map(({ key, label, Icon, fond, encre }) => (
-                  <button key={key} type="button" aria-pressed={raison === key} className="ob-choix" onClick={() => (select(), setRaison(key))}>
+                  <button key={key} type="button" aria-pressed={raison === key} className="ob-choix" onClick={(e) => (select(), raison !== key && petille(e.currentTarget), setRaison(key))}>
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px]" style={{ background: fond, color: encre }}>
                       <Icon size={19} strokeWidth={2.4} />
                     </span>
@@ -508,7 +606,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
             <div className="flex flex-1 flex-col">
               <div className="mt-4"><Titre avant="Ta " mot="tribu" apres=", en un clin d’œil." /></div>
               <p className="ob-sous mt-2 text-center">Choisis tous ceux qui comptent : on préparera la maison pour eux.</p>
-              <Panda humeur="amour">Avec qui veux-tu partager ta maison ?</Panda>
+              <Panda humeur={proches.length ? 'fete' : 'amour'}>{proches.length > 2 ? 'Quelle belle tribu ! La maison va être animée 🎉' : proches.length ? 'Super, on leur gardera une place !' : 'Avec qui veux-tu partager ta maison ?'}</Panda>
               <div className="mt-5 grid grid-cols-2 gap-3" role="group" aria-label="Tes proches (plusieurs choix possibles)">
                 {PROCHES.map(({ key, label, persos }) => {
                   const on = proches.includes(key)
@@ -518,11 +616,11 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
                       type="button"
                       aria-pressed={on}
                       className="ob-choix !flex-col !items-start !gap-2 !py-3"
-                      onClick={() => (select(), setProches((p) => (on ? p.filter((x) => x !== key) : [...p, key])))}
+                      onClick={(e) => (select(), !on && coeurs(e.currentTarget, 6), setProches((p) => (on ? p.filter((x) => x !== key) : [...p, key])))}
                     >
                       <span className="flex">
                         {persos.map((id, k) => (
-                          <span key={id} style={{ marginLeft: k ? -9 : 0 }}><Tete id={id} size={38} /></span>
+                          <span key={id} className={on ? 'tete-saute' : ''} style={{ marginLeft: k ? -9 : 0, animationDelay: `${k * 0.08}s` }}><Tete id={id} size={38} /></span>
                         ))}
                       </span>
                       <span className="text-[15px] leading-[19px]">{label}</span>
@@ -544,7 +642,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
                   { key: 'creer', titre: T.home.create_cta, sous: 'Tu inviteras tes proches juste après.', Icon: HouseIcon, fond: '#EEE8FC', encre: '#6646CC' },
                   { key: 'rejoindre', titre: T.home.join_cta, sous: 'Avec le code reçu d’un proche.', Icon: Mail, fond: '#FFEDE2', encre: '#E26F3C' },
                 ] as const).map(({ key, titre, sous, Icon, fond, encre }) => (
-                  <button key={key} type="button" aria-pressed={path === key} className="ob-choix !min-h-[76px]" onClick={() => (select(), setPath(key))}>
+                  <button key={key} type="button" aria-pressed={path === key} className="ob-choix !min-h-[76px]" onClick={(e) => (select(), path !== key && petille(e.currentTarget), setPath(key))}>
                     <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px]" style={{ background: fond, color: encre }}>
                       <Icon size={24} strokeWidth={2.3} />
                     </span>
@@ -624,6 +722,15 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
             <form className="flex flex-1 flex-col" noValidate onSubmit={(e) => (e.preventDefault(), validerMaison())}>
               <div className="mt-4"><Titre avant="Votre petit " mot="chez-vous" apres="." /></div>
               <p className="ob-sous mt-2 text-center">{T.create.description}</p>
+              {/* la maison telle qu'elle sera : le décor choisi, et son nom sur l'écriteau, à mesure qu'on l'écrit */}
+              <div className="relative mt-4 overflow-hidden rounded-[24px] bg-white p-1 shadow-[0_5px_0_rgba(36,16,110,0.3)]">
+                <div key={houseType} className="maison-hop overflow-hidden rounded-[20px]">
+                  <House type={houseType} items={[]} phase="jour" ratio={16 / 7.5} />
+                </div>
+                <span key={family.trim() ? 'nom' : 'vide'} className="anim-pop pointer-events-none absolute bottom-3 left-1/2 max-w-[86%] -translate-x-1/2 truncate rounded-full bg-white/95 px-4 py-1.5 font-rond text-[17px] font-extrabold text-teinte-fonce shadow-[0_4px_14px_rgba(36,16,110,0.28)]">
+                  {family.trim() || 'Votre maison'}
+                </span>
+              </div>
               <label htmlFor="nom-maison" className="mb-1.5 mt-5 px-1 text-sous font-bold text-white">{T.create.field_label}</label>
               <input
                 id="nom-maison"
@@ -640,13 +747,46 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
                   setNameError('')
                 }}
               />
-              <p id="nom-maison-aide" role={nameError || nameTooLong ? 'alert' : undefined} className={`mt-1.5 min-h-[20px] px-1 text-note font-semibold ${nameError || nameTooLong ? 'text-[#FFD0CC]' : 'text-white/75'}`}>
-                {nameError || (nameTooLong ? T.create.name_too_long : family.length > NAME_MAX - 10 ? `${family.trim().length}/${NAME_MAX}` : '')}
-              </p>
-              <p className="mb-0 mt-2 px-1 text-sous font-bold text-white">{T.create.decor}</p>
+              {nameError || nameTooLong || family.length > NAME_MAX - 10 ? (
+                <p id="nom-maison-aide" role={nameError || nameTooLong ? 'alert' : undefined} className={`mt-1.5 min-h-[20px] px-1 text-note font-semibold ${nameError || nameTooLong ? 'text-[#FFD0CC]' : 'text-white/75'}`}>
+                  {nameError || (nameTooLong ? T.create.name_too_long : `${family.trim().length}/${NAME_MAX}`)}
+                </p>
+              ) : (
+                <div id="nom-maison-aide" className="no-bar -mx-5 mt-2.5 flex gap-2 overflow-x-auto px-5" role="group" aria-label="Des idées de nom">
+                  {IDEES_NOMS(prenom).map((idee) => (
+                    <button key={idee} type="button" className="ob-puce !min-h-[38px] shrink-0 !px-3.5 !text-[14px]" aria-pressed={family === idee} onClick={(e) => (select(), family !== idee && petille(e.currentTarget), setFamily(idee))}>
+                      {idee}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <p className="mb-0 mt-5 px-1 text-sous font-bold text-white">{T.create.decor}</p>
               <HousePicker value={houseType} onChange={setHouseType} />
               <p className="mt-3 text-center text-note font-semibold text-white/75">{T.create.decor_later}</p>
             </form>
+          )}
+
+          {step === 'notifs' && (
+            <div className="flex flex-1 flex-col">
+              <div className="mt-4"><Titre avant="Ne rate aucun " mot="bisou" apres="." /></div>
+              <p className="ob-sous mt-2 text-center">Un proche pense à toi, une date approche, c’est ton tour de jouer : on te prévient.</p>
+              <EcranNotifications active={notifs === 'oui'} />
+              <Panda humeur={notifs === 'oui' ? 'fete' : 'amour'}>
+                {notifs === 'oui' ? 'Youpi ! Regarde, je t’envoie un premier petit mot…' : 'Promis, je ne t’embête pas : seulement ce qui compte.'}
+              </Panda>
+            </div>
+          )}
+
+          {step === 'widgets' && (
+            <div className="flex flex-1 flex-col">
+              <div className="mt-4"><Titre avant="Les " mot="widgets" apres=" Nidoo." /></div>
+              <p className="ob-sous mt-2 text-center">
+                {WIDGETS ? 'Des widgets pour envoyer un bisou, cocher une course ou jouer, sans ouvrir l’appli.' : 'Avec l’appli iPhone : des widgets pour envoyer un bisou, cocher une course ou jouer, sans ouvrir l’appli.'}
+              </p>
+              <Panda humeur="motive">Touche-les, ils marchent pour de vrai !</Panda>
+              <EcranWidgets />
+              <CommentAjouter />
+            </div>
           )}
 
           {step === 'connexion' && (
@@ -665,8 +805,13 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
                   </h2>
                   <p className="mt-2 text-center text-sous text-[#625A75] [text-wrap:pretty]">Voici ce que tu as préparé. Tu pourras le modifier ensuite dans Famille.</p>
                   <div className="mt-5 rounded-[20px] bg-[#F5F1FD] p-4">
-                    <p className="font-semibold text-encre">{path === 'rejoindre' ? preview?.name ?? 'La maison de tes proches' : family.trim()}</p>
-                    <p className="mt-1 text-note text-brume">Ton personnage · {name.trim()}</p>
+                    <div className="flex items-center gap-3">
+                      <span className="tete-saute"><Avatar m={{ avatar, color }} size={52} ring /></span>
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-encre">{path === 'rejoindre' ? preview?.name ?? 'La maison de tes proches' : family.trim()}</p>
+                        <p className="mt-0.5 text-note text-brume">Ton personnage · {name.trim()}</p>
+                      </div>
+                    </div>
                     <p className="mt-2 text-note text-brume">{path === 'rejoindre' ? 'Un responsable recevra ta demande et pourra t’accueillir.' : 'Tu pourras inviter tes proches avec un code, puis partager votre premier moment.'}</p>
                   </div>
                   <button className="ob-cta violet mt-5" onClick={() => (tap(), entrer())} disabled={busy}>
@@ -716,12 +861,12 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
 
       {pied && (
         <div className="shrink-0 px-5 pt-2" style={{ paddingBottom: 'calc(var(--sab) + 16px)' }}>
-          <button className="ob-cta" disabled={!pied.ok} onClick={() => (tap(), pied.go())}>
+          <button key={`${step}-${pied.ok}`} className={`ob-cta ${pied.ok ? 'ob-cta-pret' : ''}`} disabled={!pied.ok} onClick={() => (tap(), pied.go())}>
             {pied.label} {pied.ok && !busy && !checking && <ChevronRight size={20} strokeWidth={2.8} />}
           </button>
           {pied.passer && (
-            <button className="presse mx-auto mt-1.5 flex min-h-11 items-center px-4 text-sous font-bold text-white/80" onClick={() => (tap(), suivant())}>
-              Passer
+            <button className="presse mx-auto mt-1.5 flex min-h-11 items-center px-4 text-sous font-bold text-white/80" onClick={() => (tap(), 'surPasser' in pied && pied.surPasser?.(), suivant())}>
+              {typeof pied.passer === 'string' ? pied.passer : 'Passer'}
             </button>
           )}
         </div>

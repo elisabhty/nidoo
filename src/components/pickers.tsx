@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { COLOR_KEYS, COLORS, HOUSES, shopItem } from '../lib/data'
 import { select, tap } from '../lib/haptic'
+import { petille } from '../lib/fete'
 import { ACCESSORIES, AGE_SCALE, echelleTaille, encodeLook, enlever, lookOf, mettre, porteA, portes, toutEnlever, type Look } from '../lib/look'
 import { BLUSH, BOUCHES, CHEVEUX, labHex, LUNETTES, MONTURES, NEZ, nomPeau, peauOf, peauProche, peauxDe, persoImg, skinLab, VOILES, YEUX } from '../lib/personnalise'
 import { COULEURS_MONTURE, FORMES_LUNETTES } from '../lib/lunettes'
@@ -529,30 +530,40 @@ export function ProfileStep({ name, setName, avatar, setAvatar, color, setColor,
   )
 }
 
+/** Le choix du décor : trois cartes compactes ; celle choisie s'illumine et sa maison fait un petit bond. */
 export function HousePicker({ value, onChange }: { value: HouseType; onChange: (v: HouseType) => void }) {
   return (
-    <div className="mt-2 grid grid-cols-3 gap-2.5">
-      {HOUSES.map((h) => (
-        <button
-          type="button"
-          key={h.key}
-          onClick={() => {
-            select()
-            onChange(h.key)
-          }}
-          aria-pressed={value === h.key}
-          className={`presse relative flex min-w-0 flex-col overflow-hidden rounded-[20px] border-[2.5px] p-0 text-center transition-colors ${value === h.key ? 'border-teinte bg-[#F2ECFF]' : 'border-transparent bg-carte'}`}
-        >
-          <div className="w-full shrink-0 overflow-hidden"><House type={h.key} items={[]} phase="jour" className="!aspect-[1/1] !w-full" bare /></div>
-          {value === h.key && (
-            <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-teinte text-white shadow-carte" aria-hidden="true">
-              <Check size={14} strokeWidth={3.2} />
-            </span>
-          )}
-          <span className={`mt-2 block w-full px-1 text-sous ${value === h.key ? 'font-semibold text-teinte-fonce' : 'font-medium'}`}>{h.label}</span>
-          <span className="block w-full flex-1 px-1 pb-3 text-note text-[#625A75]">{h.hint}</span>
-        </button>
-      ))}
+    <div className="mt-2 grid grid-cols-3 gap-2.5" role="group" aria-label="L'ambiance de la maison">
+      {HOUSES.map((h) => {
+        const on = value === h.key
+        return (
+          <button
+            type="button"
+            key={h.key}
+            onClick={(e) => {
+              select()
+              if (!on) petille(e.currentTarget)
+              onChange(h.key)
+            }}
+            aria-pressed={on}
+            aria-label={`${h.label} : ${h.hint}`}
+            className={`maison-carte presse relative flex min-w-0 flex-col overflow-hidden rounded-[18px] bg-carte p-0 text-center text-encre ${on ? 'maison-choisie' : ''}`}
+          >
+            <div className="w-full shrink-0 overflow-hidden">
+              <div key={on ? 'on' : 'off'} className={on ? 'maison-hop' : ''}>
+                <House type={h.key} items={[]} phase="jour" className="!aspect-[1/0.8] !w-full" bare />
+              </div>
+            </div>
+            {on && (
+              <span className="anim-pop absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-teinte text-white shadow-carte" aria-hidden="true">
+                <Check size={14} strokeWidth={3.2} />
+              </span>
+            )}
+            <span className={`mt-1.5 block w-full whitespace-nowrap px-1 text-[13px] font-extrabold leading-[17px] tracking-[-0.1px] ${on ? 'text-teinte-fonce' : 'text-encre'}`}>{h.label}</span>
+            <span className="block w-full flex-1 px-1.5 pb-2.5 pt-0.5 text-[11.5px] font-semibold leading-[14px] text-[#625A75]">{h.hint}</span>
+          </button>
+        )
+      })}
     </div>
   )
 }

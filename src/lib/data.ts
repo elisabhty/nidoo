@@ -31,9 +31,9 @@ export const COLORS: Record<string, { bg: string; deep: string; ring: string }> 
 export const COLOR_KEYS = Object.keys(COLORS)
 
 export const HOUSES: { key: HouseType; label: string; hint: string }[] = [
-  { key: 'maison', label: 'Maison', hint: 'Un cocon à partager' },
-  { key: 'appartement', label: 'Appartement', hint: 'Votre bulle en ville' },
-  { key: 'chalet', label: 'Chalet', hint: 'Au chaud, ensemble' },
+  { key: 'maison', label: 'Le Cocon', hint: 'Doux et plein de tendresse' },
+  { key: 'appartement', label: 'La Vie Citadine', hint: 'Un petit monde à partager' },
+  { key: 'chalet', label: 'Le Refuge', hint: 'Plein de chaleur et de moments ensemble' },
 ]
 
 export const THOUGHTS: { key: ThoughtKind; label: string; said: string }[] = [

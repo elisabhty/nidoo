@@ -10,6 +10,9 @@ const config: CapacitorConfig = {
   ios: { contentInset: 'never', backgroundColor: '#F8F7FC', scrollEnabled: false },
   plugins: {
     Keyboard: { resize: KeyboardResize.None, style: KeyboardStyle.Light, resizeOnFullScreen: true },
+    // la mise à jour à distance, en mode manuel et sans service tiers : rien n'est envoyé à Capgo
+    // (ni vérification, ni statistiques) ; l'appli ne lit que le site de Nidoo (src/lib/majDistance.ts)
+    CapacitorUpdater: { autoUpdate: false, updateUrl: '', statsUrl: '', channelUrl: '', appReadyTimeout: 20000, responseTimeout: 60, resetWhenUpdate: true },
   },
 }
 
