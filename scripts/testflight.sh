@@ -115,9 +115,9 @@ PLIST
 echo "→ 4/4  L'envoi vers TestFlight"
 if ! xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportOptionsPlist "$SORTIE/ExportOptions.plist" \
   -exportPath "$SORTIE/export" -allowProvisioningUpdates ${AUTH[@]+"${AUTH[@]}"} > "$SORTIE/envoi.log" 2>&1; then
-  grep -iE "error|fail|refus|no suitable|record" "$SORTIE/envoi.log" | sort -u | tail -15
+  grep -iE "error|fail|refus|no suitable|record" "$SORTIE/envoi.log" | grep -v "IDEDistributionLogging" | sort -u | tail -15
   echo
-  if grep -qiE "no suitable application records|application record|Cannot determine the Apple ID|app record" "$SORTIE/envoi.log"; then
+  if grep -qiE "no suitable application records|application record|Cannot determine the Apple ID|app record|Error Downloading App Information" "$SORTIE/envoi.log"; then
     echo "NIDOO n'existe pas encore dans App Store Connect : crée-la (Apps > + > Nouvelle app, identifiant com.getupworkspace.nidoo)," >&2
     echo "puis relance  npm run testflight" >&2
   fi
