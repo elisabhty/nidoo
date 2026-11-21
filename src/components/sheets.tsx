@@ -576,7 +576,6 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
   const [kind, setKind] = useState<EventKind>(event?.kind ?? kind0)
   const [sticker,setSticker] = useState<string|null>(event?.sticker ?? null)
   const [stickersOpen,setStickersOpen] = useState(false)
-  const [optionsOpen,setOptionsOpen] = useState(!!(event?.ends_on || event?.weekly || event?.members?.length || event?.description))
   const [busy,setBusy] = useState(false)
   const first = event ? new Date(event.starts_at) : (day ?? new Date(Date.now() + 86400000))
   const pad = (n: number) => String(n).padStart(2, '0')
@@ -617,41 +616,124 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
     }
   }
 
+  // les raccourcis de date : aujourd'hui, demain, et le prochain week-end
+  const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  const auj = new Date()
+  const dans = (n: number) => {
+    const d = new Date(auj)
+    d.setDate(d.getDate() + n)
+    return d
+  }
+  const samedi = dans(((6 - auj.getDay() + 7) % 7) || 7)
+  const dimanche = dans(((7 - auj.getDay()) % 7) || 7)
+  const jours = [
+    { label: 'Aujourd’hui', v: iso(auj) },
+    { label: 'Demain', v: iso(dans(1)) },
+    { label: `Sam. ${samedi.getDate()}`, v: iso(samedi) },
+    { label: `Dim. ${dimanche.getDate()}`, v: iso(dimanche) },
+  ].filter((x, k, t) => t.findIndex((y) => y.v === x.v) === k)
+  const HEURES = ['09:00', '12:00', '14:00', '19:30']
+  const jourLong = (v: string) => {
+    const d = new Date(`${v}T12:00`)
+    if (Number.isNaN(d.getTime())) return 'Choisir'
+    const t = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', ...(d.getFullYear() !== auj.getFullYear() ? { year: 'numeric' } : {}) })
+    return t.charAt(0).toUpperCase() + t.slice(1)
+  }
+  const resume = [
+    date ? jourLong(date) : '',
+    birthday ? 'chaque année' : journee ? (plusieurs && fin > date ? `→ ${jourLong(fin).toLowerCase()}` : 'toute la journée') : time.replace(':', ' h '),
+    !birthday && hebdo ? 'chaque semaine' : '',
+    lieu.trim(),
+  ].filter(Boolean).join(' · ')
+  const ko = !birthday && journee && plusieurs && (!fin || fin < date)
+  /** Une ligne du cadre « Quand » : un libellé, et à droite la valeur (le sélecteur d'iOS s'ouvre en touchant toute la valeur). */
+  const ligneChoix = (label: string, valeur: string, input: React.ReactNode, haut = true) => (
+    <label className={`relative flex min-h-[54px] items-center justify-between gap-3 px-4 text-corps ${haut ? 'border-t border-trait' : ''}`}>
+      <span>{label}</span>
+      <span className="relative flex items-center gap-1 rounded-full bg-teinte-doux px-3 py-1.5 text-sous font-semibold text-teinte-fonce">
+        {valeur}
+        <ChevronRight size={15} className="rotate-90 opacity-70" />
+        {input}
+      </span>
+    </label>
+  )
+  const titreSection = (Icon: typeof CalendarDays, t: string, fond: string, encre: string, extra?: React.ReactNode) => (
+    <div className="mb-2 mt-6 flex items-center gap-2 px-1">
+      <span className="flex h-7 w-7 items-center justify-center rounded-[9px]" style={{ background: fond, color: encre }}><Icon size={16} strokeWidth={2.4} /></span>
+      <p className="flex-1 text-sous font-bold">{t}</p>
+      {extra}
+    </div>
+  )
+  const puce = (on: boolean) => `presse shrink-0 rounded-full px-3.5 py-2 text-sous font-semibold transition-colors ${on ? 'bg-teinte text-white shadow-[0_3px_10px_-3px_rgba(102,70,204,0.6)]' : 'bg-carte text-encre shadow-carte'}`
+
   return (
-    <Sheet title={event ? 'Modifier l’événement' : 'Nouvel événement'} tall onClose={() => {if(!busy) onClose()}} footer={<Btn onClick={save} disabled={busy || !title.trim() || !date || (!birthday && journee && plusieurs && (!fin || fin < date))}>{busy ? 'Enregistrement…' : event ? 'Enregistrer' : 'Ajouter à l’agenda'}</Btn>}>
-      <Segments value={kind} onChange={changeKind} options={KINDS.map(k => ({key:k.key,label:k.label}))} />
-      <div className="mt-4 flex items-center gap-3">
-        <button onClick={() => setStickersOpen(v => !v)} aria-label="Changer le sticker de l’événement" aria-expanded={stickersOpen} className="presse relative flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-[22px] bg-teinte-doux">
-          <EventIcon event={{kind,sticker}} size={46} />
-          <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-white text-teinte-fonce shadow-carte"><PenLine size={14} /></span>
-        </button>
-        <ChampRequis id="event-name" compact className="min-w-0 flex-1" label={birthday ? 'Prénom' : 'Nom de l’événement'} aide={birthday ? 'Écris son prénom pour pouvoir l’ajouter.' : 'Donne-lui un nom pour pouvoir l’ajouter.'}>
-          <input id="event-name" required aria-describedby="event-name-aide" className={`${CHAMP_REQUIS} font-semibold`} placeholder={birthday ? 'Ex. : Mamie' : 'Ex. : Repas chez Mamie'} maxLength={60} value={title} onChange={e => setTitle(e.target.value)} />
-        </ChampRequis>
+    <Sheet title={event ? 'Modifier l’événement' : 'Nouvel événement'} tall onClose={() => {if(!busy) onClose()}} footer={<Btn onClick={save} disabled={busy || !title.trim() || !date || ko}>{busy ? 'Enregistrement…' : event ? 'Enregistrer' : 'Ajouter à l’agenda'}</Btn>}>
+      {/* le genre : trois cartes illustrées */}
+      <div className="grid grid-cols-3 gap-2" role="group" aria-label="Le genre d’événement">
+        {KINDS.map((k) => {
+          const on = kind === k.key
+          return (
+            <button key={k.key} type="button" aria-pressed={on} onClick={() => (select(), changeKind(k.key))}
+              className={`presse flex flex-col items-center gap-1 rounded-[18px] px-1 pb-2 pt-2.5 text-note font-bold transition-[box-shadow,background-color] ${on ? 'bg-teinte-doux text-teinte-fonce ring-2 ring-teinte' : 'bg-carte text-encre shadow-carte'}`}>
+              <Art name={k.art} size={34} />
+              {k.label}
+            </button>
+          )
+        })}
       </div>
-      <button onClick={() => setStickersOpen(v => !v)} aria-expanded={stickersOpen} className="presse mt-1 flex min-h-11 items-center gap-1.5 px-1 text-sous font-semibold text-teinte-fonce"><StickerIcon size={17} />Choisir un sticker<ChevronRight size={16} className={stickersOpen ? 'rotate-90' : ''} /></button>
-      {stickersOpen && <><StickerTray start="fete" onClose={() => setStickersOpen(false)} onPick={key => {setSticker(key);setStickersOpen(false)}} /><button onClick={() => {setSticker(null);setStickersOpen(false)}} className="mt-1 min-h-11 px-1 text-sous font-semibold text-teinte-fonce">Revenir à l’icône par défaut</button></>}
-      <p className="mb-2 mt-4 px-1 text-sous font-semibold">Quand ?</p>
-      <div className="groupe">
-        <label className="flex min-h-[54px] items-center justify-between gap-2 border-b border-trait px-4 text-corps">Date<input aria-label="Date de l’événement" type="date" className="min-w-0 max-w-[65%] rounded-[8px] bg-remplissage px-2.5 py-1 text-corps text-encre outline-none" value={date} onChange={e => setDate(e.target.value)} /></label>
-        {birthday ? <p className="px-4 py-3 text-sous text-brume">Revient chaque année à cette date.</p> : <>
-          <div className="flex min-h-[54px] items-center justify-between gap-2 px-4 text-corps">Toute la journée<Switch on={journee} onChange={setJournee} label="Toute la journée" /></div>
-          {!journee && <label className="flex min-h-[54px] items-center justify-between border-t border-trait px-4 text-corps">Heure<input aria-label="Heure de l’événement" type="time" className="rounded-[8px] bg-remplissage px-2.5 py-1 text-corps text-encre outline-none" value={time} onChange={e => setTime(e.target.value)} /></label>}
+      <p className="mt-2 px-1 text-center text-note text-brume">{KINDS.find((k) => k.key === kind)?.aide}</p>
+
+      {/* l'événement tel qu'il apparaîtra : son sticker, son nom, et le résumé qui se remplit */}
+      <div className="mt-4 rounded-[22px] bg-carte p-3 shadow-carte">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setStickersOpen(v => !v)} aria-label="Changer le sticker de l’événement" aria-expanded={stickersOpen} className="presse relative flex h-[64px] w-[64px] shrink-0 items-center justify-center rounded-[18px] bg-teinte-doux">
+            <EventIcon event={{kind,sticker}} size={42} />
+            <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-white text-teinte-fonce shadow-carte"><PenLine size={12} /></span>
+          </button>
+          <div className="min-w-0 flex-1">
+            <label htmlFor="event-name" className="block px-0.5 text-note font-semibold text-brume">{birthday ? 'Anniversaire de…' : 'Nom de l’événement'}</label>
+            <input id="event-name" required aria-describedby="event-name-aide" className="h-10 w-full bg-transparent px-0.5 font-rond text-[20px] font-extrabold text-encre outline-none placeholder:font-sans placeholder:text-[17px] placeholder:font-semibold placeholder:text-brume/80" placeholder={birthday ? 'Ex. : Mamie' : kind === 'rdv' ? 'Ex. : Dentiste de Léa' : 'Ex. : Repas chez Mamie'} maxLength={60} value={title} onChange={e => setTitle(e.target.value)} />
+          </div>
+        </div>
+        <p id="event-name-aide" className={`mt-2 flex items-center gap-1.5 rounded-[12px] bg-fond px-3 py-2 text-note font-semibold ${title.trim() ? 'text-teinte-fonce' : 'text-brume'}`}>
+          <CalendarDays size={14} className="shrink-0" /> <span className="min-w-0 truncate">{title.trim() ? resume : birthday ? 'Écris son prénom pour l’ajouter.' : 'Donne-lui un nom pour l’ajouter.'}</span>
+        </p>
+      </div>
+      {stickersOpen && <div className="mt-3"><StickerTray start="fete" onClose={() => setStickersOpen(false)} onPick={key => {setSticker(key);setStickersOpen(false)}} /><button onClick={() => {setSticker(null);setStickersOpen(false)}} className="mt-1 min-h-11 px-1 text-sous font-semibold text-teinte-fonce">Revenir à l’icône par défaut</button></div>}
+
+      {/* Quand */}
+      {titreSection(CalendarDays, 'Quand ?', '#FFEDE2', '#E26F3C')}
+      <div className="no-bar -mx-5 mb-2.5 flex gap-2 overflow-x-auto px-5 pb-1" role="group" aria-label="Raccourcis de date">
+        {jours.map((j) => <button key={j.v} type="button" aria-pressed={date === j.v} onClick={() => (select(), setDate(j.v))} className={puce(date === j.v)}>{j.label}</button>)}
+      </div>
+      <div className="groupe shadow-carte">
+        {ligneChoix(birthday ? 'Le jour' : 'Date', jourLong(date), <input aria-label="Date de l’événement" type="date" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={date} onChange={e => e.target.value && setDate(e.target.value)} />, false)}
+        {birthday ? <p className="flex min-h-[48px] items-center gap-2 border-t border-trait px-4 text-sous text-brume"><Repeat size={15} className="text-teinte" /> Revient tout seul chaque année à cette date.</p> : <>
+          <div className="flex min-h-[54px] items-center justify-between gap-2 border-t border-trait px-4 text-corps">Toute la journée<Switch on={journee} onChange={setJournee} label="Toute la journée" /></div>
+          {!journee && <>
+            {ligneChoix('Heure', time.replace(':', ' h '), <input aria-label="Heure de l’événement" type="time" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={time} onChange={e => e.target.value && setTime(e.target.value)} />)}
+            <div className="flex gap-1.5 px-4 pb-3" role="group" aria-label="Raccourcis d’heure">
+              {HEURES.map((h) => <button key={h} type="button" aria-pressed={time === h} onClick={() => (select(), setTime(h))} className={`presse flex-1 rounded-full py-1.5 text-note font-bold ${time === h ? 'bg-teinte text-white' : 'bg-remplissage text-encre'}`}>{h.replace(':', ' h ')}</button>)}
+            </div>
+          </>}
+          {journee && <div className="flex min-h-[54px] items-center justify-between border-t border-trait px-4 text-corps">Sur plusieurs jours<Switch on={plusieurs} onChange={v => {setPlusieurs(v);if(v && !(fin > date)){const d=new Date(`${date}T12:00`);d.setDate(d.getDate()+1);setFin(iso(d))}}} label="Sur plusieurs jours" /></div>}
+          {journee && plusieurs && ligneChoix('Jusqu’au', fin ? jourLong(fin) : 'Choisir', <input aria-label="Date de fin" type="date" min={date} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={fin} onChange={e => setFin(e.target.value)} />)}
+          <div className="flex min-h-[54px] items-center justify-between border-t border-trait px-4 text-corps"><span className="flex items-center gap-2">Chaque semaine</span><Switch on={hebdo} onChange={setHebdo} label="Chaque semaine" /></div>
         </>}
       </div>
-      <div className="groupe mt-3 flex items-center gap-3 px-4"><MapPin size={19} className="shrink-0 text-teinte" /><input className="h-[54px] min-w-0 flex-1 bg-transparent text-corps outline-none placeholder:text-brume" placeholder="Lieu · facultatif" maxLength={200} value={lieu} onChange={e => setLieu(e.target.value)} aria-label="Lieu" /></div>
-      <button onClick={() => setOptionsOpen(v => !v)} aria-expanded={optionsOpen} className="presse mt-3 flex min-h-11 w-full items-center justify-between px-1 text-sous font-semibold text-teinte-fonce">Plus d’options<ChevronRight size={17} className={optionsOpen ? 'rotate-90' : ''} /></button>
-      {!birthday && journee && plusieurs && (!fin || fin < date) && <p role="alert" className="mt-2 text-note text-rouge">Choisis une date de fin égale ou postérieure au début dans « Plus d’options ».</p>}
-      {!optionsOpen && <p className="px-1 text-note text-brume">{birthday ? 'Participants et détails' : 'Plusieurs jours, répétition, participants et détails'}</p>}
-      {optionsOpen && <>
-        {!birthday && <div className="groupe mt-2">
-          {journee && <><div className="flex min-h-[54px] items-center justify-between px-4 text-corps">Sur plusieurs jours<Switch on={plusieurs} onChange={v => {setPlusieurs(v);if(v && !(fin > date)){const d=new Date(`${date}T12:00`);d.setDate(d.getDate()+1);setFin(`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`)}}} label="Sur plusieurs jours" /></div>{plusieurs && <label className="flex min-h-[54px] items-center justify-between border-t border-trait px-4 text-corps">Jusqu’au<input aria-label="Date de fin" type="date" min={date} className="min-w-0 max-w-[65%] rounded-[8px] bg-remplissage px-2.5 py-1 text-corps text-encre outline-none" value={fin} onChange={e => setFin(e.target.value)} /></label>}</>}
-          <div className="flex min-h-[54px] items-center justify-between border-t border-trait px-4 text-corps">Chaque semaine<Switch on={hebdo} onChange={setHebdo} label="Chaque semaine" /></div>
-        </div>}
-        <p className="mb-2 mt-5 px-1 text-sous font-semibold">Qui est concerné ?</p><WhoPicker value={who} onChange={setWho} />
-        <p className="mt-2 px-1 text-note text-brume">{who.length ? 'Seulement les personnes choisies.' : 'Toute la famille par défaut.'}</p>
-        <label className="mb-2 mt-5 block px-1 text-sous font-semibold" htmlFor="event-details">Détails <span className="font-normal text-brume">· facultatif</span></label><textarea id="event-details" className="groupe block min-h-[88px] w-full resize-none px-4 py-3 text-corps outline-none placeholder:text-brume" placeholder="Qui apporte quoi, l’heure du départ…" maxLength={500} value={description} onChange={e => setDescription(e.target.value)} aria-label="Détails" />
-      </>}
+      {ko && <p role="alert" className="mt-2 px-1 text-note text-rouge">La fin doit être le même jour ou après le début.</p>}
+
+      {/* Où */}
+      {titreSection(MapPin, 'Où ?', '#E3F0FF', '#2F6FD6', <span className="text-note text-brume">facultatif</span>)}
+      <div className="groupe flex items-center gap-3 px-4 shadow-carte"><MapPin size={19} className="shrink-0 text-[#2F6FD6]" /><input className="h-[54px] min-w-0 flex-1 bg-transparent text-corps outline-none placeholder:text-brume" placeholder={LIEU_EXEMPLE[kind] ?? 'Où ?'} maxLength={200} value={lieu} onChange={e => setLieu(e.target.value)} aria-label="Lieu" /></div>
+
+      {/* Avec qui */}
+      {titreSection(Users, 'Avec qui ?', '#E3F6EC', '#14955A', <span className="text-note text-brume">{who.length ? `${who.length} personne${who.length > 1 ? 's' : ''}` : 'toute la famille'}</span>)}
+      <WhoPicker value={who} onChange={setWho} />
+
+      {/* Détails */}
+      {titreSection(AlignLeft, 'Détails', '#FFF4D6', '#B07A00', <span className="text-note text-brume">facultatif</span>)}
+      <textarea id="event-details" className="groupe block min-h-[88px] w-full resize-none px-4 py-3 text-corps shadow-carte outline-none placeholder:text-brume" placeholder="Qui apporte quoi, l’heure du départ…" maxLength={500} value={description} onChange={e => setDescription(e.target.value)} aria-label="Détails" />
     </Sheet>
   )
 }
