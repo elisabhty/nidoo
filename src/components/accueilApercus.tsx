@@ -74,7 +74,7 @@ export function EcranNotifications({ active }: { active: boolean }) {
 
 type Famille = 'tendresse' | 'organisation' | 'jeux'
 export const FAMILLES_WIDGETS: { key: Famille; label: string; noms: string[] }[] = [
-  { key: 'tendresse', label: '💗 Tendresse', noms: ['Bisou express', 'Attentions', 'Ma famille', 'Mon humeur'] },
+  { key: 'tendresse', label: '💗 Tendresse', noms: ['Notre maison', 'Bisou express', 'Attentions', 'Ma famille', 'Mon humeur'] },
   { key: 'organisation', label: '📅 Organisation', noms: ['Prochaines dates', 'À faire', 'Sondage', 'Le mur de la famille'] },
   { key: 'jeux', label: '🎲 Jeux', noms: ['Morpion', 'Puissance 4', 'Memory des animaux', 'Notre compagnon'] },
 ]

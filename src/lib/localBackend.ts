@@ -997,6 +997,13 @@ export function createLocalBackend(): Backend {
       if (it.done && it.kind === 'tache') award(f, memberId, 'mission', 1, 8)
       save()
     },
+    async renameItem(id, title) {
+      for (const f of Object.values(db.families)) {
+        const it = f.items.find((x) => x.id === id)
+        if (it) it.title = title.trim().slice(0, 80)
+      }
+      save()
+    },
     async deleteItem(id) {
       for (const f of Object.values(db.families)) f.items = f.items.filter((e) => e.id !== id)
       save()

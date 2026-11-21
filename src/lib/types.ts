@@ -355,6 +355,8 @@ export interface Backend {
   deleteEvent(id: string): Promise<void>
   addItem(familyId: string, memberId: string, kind: ListKind, title: string, assignedTo?: string | null): Promise<void>
   toggleItem(item: ListItem, memberId: string): Promise<void>
+  /** Changer le nom d'un article (sa quantité vit dedans : « Lait · 2 »). */
+  renameItem(id: string, title: string): Promise<void>
   deleteItem(id: string): Promise<void>
   answer(familyId: string, memberId: string, questionKey: string, answer: string, photo?: Blob | null): Promise<void>
   /** Nourrit un animal ou arrose une plante du jardin ; renvoie les étoiles gagnées. */

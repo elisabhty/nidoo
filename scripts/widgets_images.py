@@ -47,6 +47,22 @@ def image(nom, im):
               open(os.path.join(d, 'Contents.json'), 'w'), indent=2)
 
 
+# la famille d'exemple en pied, pour « Notre maison » dans la galerie : les mêmes que les bustes ex-1 à ex-5
+# (dans l'appli, ce sont les proches, photographiés par src/lib/widgets.tsx, au même format : 180 × 264, les pieds en bas)
+PIEDS = {'ex-1': ('f17', 1), 'ex-2': ('gf2', 1), 'ex-3': ('h02', 1), 'ex-4': ('fi2', 0.82), 'ex-5': ('gi2', 0.82)}
+
+
+def pieds():
+    for nom, (perso, echelle) in PIEDS.items():
+        fig = Image.open(os.path.join(ART, 'persos', f'{perso}.webp')).convert('RGBA')
+        W, H = 180, 264
+        w = round(W * echelle)
+        fig = fig.resize((w, round(w * fig.height / fig.width)), Image.LANCZOS)
+        toile = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+        toile.alpha_composite(fig, ((W - fig.width) // 2, H - fig.height))
+        image(f'pied-{nom}', toile)
+
+
 def main():
     os.makedirs(CAT, exist_ok=True)
     json.dump({'info': {'author': 'xcode', 'version': 1}}, open(os.path.join(CAT, 'Contents.json'), 'w'), indent=2)
@@ -64,6 +80,7 @@ def main():
             im = im.convert('RGB')
         image(nom, im)
         total += os.path.getsize(os.path.join(CAT, f'{nom}.imageset', f'{nom}.png'))
+    pieds()
     print(len(IMAGES), 'images,', total // 1024, 'ko')
 
 

@@ -1,6 +1,7 @@
 import { ListPages, useListPage } from '../components/listNavigation'
-import { Check, ChevronLeft, ChevronRight, MapPin, Plus } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, MapPin, Plus, Users } from 'lucide-react'
 import { useRef, useState, type ReactNode } from 'react'
+import { AUTRES, cle, comprendre, ecrireArticle, lireArticle, nombre, pourAllerAvec, RAYONS, rayonDe, retenir, souvent } from '../lib/courses'
 import { MemberStack } from '../components/folder'
 import { EventDetailSheet, EventSheet, EventIcon, TYPES_AGENDA } from '../components/sheets'
 import { Art, Avatar, Rond, Screen, Segments, Vide } from '../components/ui'
@@ -170,9 +171,6 @@ function Semaine({ onOpen, onAdd }: { onOpen: (o: Ouvert) => void; onAdd: (day: 
   )
 }
 
-/** Idées pour les courses, en un toucher (celles déjà dans la liste ne sont pas proposées). */
-const IDEES_COURSES = ['Pain', 'Lait', 'Œufs', 'Fruits', 'Légumes', 'Beurre', 'Fromage', 'Yaourts', 'Café', 'Pâtes', 'Riz', 'Papier toilette', 'Lessive']
-
 /** Le rond à cocher (il saute un peu quand on coche). */
 function Coche({ fait }: { fait: boolean }) {
   return fait ? (
@@ -241,9 +239,40 @@ function Glisse({ children, onRetirer, label }: { children: ReactNode; onRetirer
   )
 }
 
+/** Un bouton qui ne prend pas le clavier : toucher une idée pendant qu'on écrit ne ferme pas le clavier
+ *  (avant, le clavier se fermait puis se rouvrait : tout l'écran sautait). */
+const garderLeClavier = (e: React.PointerEvent) => e.preventDefault()
+
+/** Le titre d'une partie de la liste, avec son illustration (comme dans « Nouvel événement »). */
+function TitrePartie({ emoji, children, n }: { emoji: string; children: ReactNode; n?: number }) {
+  return (
+    <div className="mb-2 mt-5 flex items-center gap-2 px-5">
+      <span className="flex h-7 w-7 items-center justify-center rounded-[9px] bg-carte text-[15px] shadow-carte" aria-hidden="true">{emoji}</span>
+      <p className="flex-1 text-sous font-bold">{children}</p>
+      {n !== undefined && <span className="text-note font-semibold text-brume">{n}</span>}
+    </div>
+  )
+}
+
+/** − 2 + : la quantité d'un article, d'un toucher. */
+function Quantite({ qte, onChange, nom }: { qte: string; onChange: (q: string) => void; nom: string }) {
+  const n = nombre(qte)
+  if (n === null)
+    return <span className="mr-3 shrink-0 rounded-full bg-teinte-doux px-2.5 py-1 text-note font-bold text-teinte-fonce">{qte}</span>
+  return (
+    <span className="mr-2 flex shrink-0 items-center rounded-full bg-remplissage p-0.5" role="group" aria-label={`Quantité de ${nom}`}>
+      <button type="button" onPointerDown={garderLeClavier} onClick={() => (select(), onChange(String(Math.max(1, n - 1))))} disabled={n <= 1} aria-label={`Un ${nom} de moins`} className="presse flex h-8 w-8 items-center justify-center rounded-full text-[18px] font-bold text-teinte-fonce disabled:opacity-30">−</button>
+      <span key={n} className="anim-pop min-w-[22px] text-center text-sous font-extrabold text-encre" aria-live="polite">{n}</span>
+      <button type="button" onPointerDown={garderLeClavier} onClick={() => (select(), onChange(String(Math.min(99, n + 1))))} aria-label={`Un ${nom} de plus`} className="presse flex h-8 w-8 items-center justify-center rounded-full bg-carte text-[18px] font-bold text-teinte-fonce shadow-carte">+</button>
+    </span>
+  )
+}
+
 /**
  * Les courses et les choses à faire. Tout répond tout de suite : la ligne se coche, s'ajoute ou part à l'écran
  * pendant que l'enregistrement se fait en arrière-plan (en cas d'erreur, elle revient comme avant).
+ * Courses : la quantité de chaque article, rangé dans son rayon ; des idées (souvent ajoutés, pour aller avec).
+ * À faire : pour qui, choisi dans la carte où l'on écrit ; les filtres au-dessus de la liste.
  */
 function Liste({ kind }: { kind: ListKind }) {
   const { state, api, reload, toast } = useHome()
@@ -251,12 +280,11 @@ function Liste({ kind }: { kind: ListKind }) {
   const [title, setTitle] = useState('')
   const [editing, setEditing] = useState(false)
   const [to, setTo] = useState<string | null>(null)
-  const [assigning, setAssigning] = useState(false)
   const tache = kind === 'tache'
   const [filtre, setFiltre] = useState('toutes')
   // ce qu'on vient de faire, affiché sans attendre le serveur
   const [ajouts, setAjouts] = useState<(ListItem & { connus: Set<string> })[]>([])
-  const [changes, setChanges] = useState<Record<string, { done?: boolean; parti?: boolean }>>({})
+  const [changes, setChanges] = useState<Record<string, { done?: boolean; parti?: boolean; titre?: string }>>({})
   const champ = useRef<HTMLInputElement>(null)
 
   const reels = state.items.filter((i) => i.kind === kind)
@@ -264,7 +292,11 @@ function Liste({ kind }: { kind: ListKind }) {
   const items = [
     ...reels
       .filter((i) => !changes[i.id]?.parti)
-      .map((i) => (changes[i.id]?.done !== undefined ? { ...i, done: changes[i.id].done!, done_by: changes[i.id].done ? me.id : null } : i)),
+      .map((i) => {
+        const c = changes[i.id]
+        if (!c) return i
+        return { ...i, ...(c.done !== undefined ? { done: c.done, done_by: c.done ? me.id : null } : {}), ...(c.titre ? { title: c.titre } : {}) }
+      }),
     ...enAttente,
   ]
   const todo = items.filter((i) => !i.done)
@@ -274,7 +306,17 @@ function Liste({ kind }: { kind: ListKind }) {
   const navigation = useListPage(choisies, 5, kind + filtre)
   const todoVisible = tache ? (filtre === 'terminees' ? [] : navigation.visible) : todo
   const doneVisible = tache ? (filtre === 'terminees' ? navigation.visible : []) : done
-  const idees = tache ? [] : IDEES_COURSES.filter((x) => !todo.some((i) => i.title.toLowerCase() === x.toLowerCase())).slice(0, 8)
+
+  // courses : les idées, et la liste rangée par rayon
+  const nomsListe = todo.map((i) => lireArticle(i.title).nom)
+  const idees = tache ? [] : souvent(family.id, nomsListe, done.map((i) => lireArticle(i.title).nom), 10)
+  const avec = tache ? [] : pourAllerAvec(nomsListe)
+  const rayons = tache
+    ? []
+    : [...RAYONS, AUTRES]
+        .map((r) => ({ r, items: todo.filter((i) => rayonDe(lireArticle(i.title).nom).key === r.key) }))
+        .filter((x) => x.items.length)
+  const saisie = !tache && title.trim() ? comprendre(title) : null
 
   /** Enregistre en arrière-plan ; en cas d'échec on remet comme avant. */
   const fond = async (op: () => Promise<unknown>, annuler: () => void, apres: () => void) => {
@@ -295,24 +337,50 @@ function Liste({ kind }: { kind: ListKind }) {
       return n
     })
 
+  /** depuisLeChamp : on a écrit et validé (le clavier reste ouvert pour la suite) ; sinon, une idée touchée. */
   const ajouter = (texte?: string) => {
-    const t = (texte ?? title).trim().slice(0, 80)
-    if (!t) return
+    const brut = (texte ?? title).trim()
+    if (!brut) return
+    // une course : sa quantité (« 2 lait » → « Lait · 2 »), et si elle est déjà dans la liste, on en reprend
+    const t = tache ? brut.slice(0, 80) : ecrireArticle(comprendre(brut))
+    if (!tache) {
+      const a = comprendre(brut)
+      const deja = todo.find((i) => cle(lireArticle(i.title).nom) === cle(a.nom) && !i.id.startsWith('attente-'))
+      if (deja) {
+        const avant = lireArticle(deja.title)
+        const n1 = nombre(avant.qte), n2 = nombre(a.qte)
+        if (n1 !== null && n2 !== null) {
+          if (!texte) setTitle('')
+          changerQuantite(deja, String(Math.min(99, n1 + n2)))
+          retenir(family.id, a.nom)
+          return
+        }
+      }
+      retenir(family.id, a.nom)
+    }
     tap()
     if (!texte) setTitle('')
     const tmp = { id: `attente-${Date.now()}-${Math.random()}`, family_id: family.id, kind, title: t, done: false, done_by: null, assigned_to: tache ? to : null, created_by: me.id, created_at: new Date().toISOString(), connus: new Set(state.items.map((i) => i.id)) }
     setAjouts((a) => [...a, tmp])
     if (tache) { setFiltre('toutes'); navigation.setPage(1) }
     const pour = tache ? to : null
-    if (tache) { setTo(null); setAssigning(false) } // la tâche suivante repart « pour tous » : pas de mauvaise personne par erreur
-    champ.current?.focus()
     void fond(
       () => api.addItem(family.id, me.id, kind, t, pour),
       () => {
         setAjouts((a) => a.filter((x) => x.id !== tmp.id))
-        if (!texte) setTitle(t)
+        if (!texte) setTitle(brut)
       },
       () => setAjouts((a) => a.filter((x) => x.id !== tmp.id)),
+    )
+  }
+  const changerQuantite = (i: ListItem, q: string) => {
+    if (i.id.startsWith('attente-')) return
+    const titre = ecrireArticle({ nom: lireArticle(i.title).nom, qte: q })
+    setChanges((c) => ({ ...c, [i.id]: { ...c[i.id], titre } }))
+    void fond(
+      () => api.renameItem(i.id, titre),
+      () => oublier(i.id),
+      () => oublier(i.id),
     )
   }
   const basculer = (i: ListItem) => {
@@ -340,66 +408,112 @@ function Liste({ kind }: { kind: ListKind }) {
     )
   }
 
+  const idee = (x: string, k: string) => (
+    <button key={k} type="button" onPointerDown={garderLeClavier} onClick={() => ajouter(x)} className="presse flex min-h-[36px] shrink-0 items-center gap-1 rounded-full bg-fond px-3 text-sous font-semibold text-encre">
+      <Plus size={14} strokeWidth={2.8} className="text-teinte" /> {x}
+    </button>
+  )
+
+  /** Une ligne de la liste : le rond à cocher, le nom, et (courses) la quantité. */
+  const ligne = (i: ListItem, dernier: boolean) => {
+    const who = members.find((m) => m.id === i.assigned_to)
+    const attente = i.id.startsWith('attente-')
+    const art = lireArticle(i.title)
+    return (
+      <Glisse key={i.id} onRetirer={() => retirer([i.id])} label={`Glisse vers la gauche pour retirer ${i.title}`}>
+        <div className={`flex items-center ${attente ? 'anim-pop opacity-60' : ''} ${dernier ? '' : 'border-b border-trait'}`}>
+          <button onClick={() => basculer(i)} className="presse-ligne flex min-h-[54px] min-w-0 flex-1 items-center gap-3 py-2 pl-4 pr-2 text-left" aria-label={`Cocher ${i.title}`}>
+            <Coche fait={false} />
+            <span className="min-w-0 flex-1 text-corps">{tache ? i.title : art.nom}</span>
+            {who && <Avatar m={who} size={28} />}
+          </button>
+          {!tache && !editing && !attente && <Quantite qte={art.qte} nom={art.nom} onChange={(q) => changerQuantite(i, q)} />}
+          {editing && (
+            <button onClick={() => retirer([i.id])} className="presse mr-2 flex min-h-11 items-center rounded-full bg-rouge/10 px-3 text-note font-semibold text-rouge" aria-label={`Retirer ${i.title}`}>
+              Retirer
+            </button>
+          )}
+        </div>
+      </Glisse>
+    )
+  }
+
   return (
     <>
-      <form
-        className="groupe mx-4 flex items-center gap-3 pl-4 pr-2 shadow-carte"
-        onSubmit={(e) => {
-          e.preventDefault()
-          ajouter()
-        }}
-      >
-        <Plus size={22} strokeWidth={2.4} className="shrink-0 text-teinte" />
-        <input
-          ref={champ}
-          aria-label={tache ? 'Ajouter une chose à faire' : 'Ajouter un article'}
-          className="h-[54px] min-w-0 flex-1 bg-transparent text-corps outline-none placeholder:text-brume"
-          placeholder={tache ? 'Ajouter une chose à faire' : 'Ajouter un article'}
-          maxLength={80}
-          enterKeyHint="done"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-        {title.trim() && (
-          <button type="submit" className="presse anim-pop min-h-11 rounded-full bg-teinte px-4 text-sous font-semibold text-white">
-            Ajouter
-          </button>
-        )}
-      </form>
-      {/* courses : des idées en un toucher ; à faire : attribution facultative */}
-      {idees.length > 0 && (
-        <div className="no-bar mt-2.5 flex gap-2 overflow-x-auto px-4 pb-1" aria-label="Idées à ajouter">
-          {idees.map((x) => (
-            <button key={x} onClick={() => ajouter(x)} className="presse flex min-h-[38px] shrink-0 items-center gap-1 rounded-full bg-carte px-3.5 text-sous font-medium text-encre shadow-carte">
-              <Plus size={14} strokeWidth={2.6} className="text-teinte" /> {x}
+      {/* la carte où l'on écrit : ce qu'on ajoute, et juste dessous les idées (courses) ou pour qui (à faire) */}
+      <div className="mx-4 rounded-[22px] bg-carte p-3 shadow-carte">
+        <form
+          className="flex items-center gap-2.5"
+          onSubmit={(e) => {
+            e.preventDefault()
+            ajouter()
+          }}
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-teinte-doux text-teinte-fonce" aria-hidden="true">
+            <Art name={tache ? 'picto-missions' : 'picto-courses'} size={26} />
+          </span>
+          <input
+            ref={champ}
+            aria-label={tache ? 'Ajouter une chose à faire' : 'Ajouter un article'}
+            className="h-11 min-w-0 flex-1 bg-transparent text-corps font-semibold outline-none placeholder:font-normal placeholder:text-brume"
+            placeholder={tache ? 'Ajouter une chose à faire' : 'Ajouter un article (ex. 2 baguettes)'}
+            maxLength={80}
+            enterKeyHint="done"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+          {title.trim() && (
+            <button type="submit" onPointerDown={garderLeClavier} className="presse anim-pop min-h-11 shrink-0 rounded-full bg-teinte px-4 text-sous font-semibold text-white">
+              Ajouter
             </button>
-          ))}
-        </div>
-      )}
-      {tache && <button onClick={() => setAssigning(v => !v)} aria-expanded={assigning} className="presse mx-5 mt-2 flex min-h-11 items-center gap-1 text-sous font-medium text-teinte-fonce">{to ? `Pour ${members.find(m => m.id === to)?.display_name ?? 'un proche'}` : 'Attribuer à un proche (facultatif)'}<ChevronRight size={16} className={assigning ? 'rotate-90' : ''} /></button>}
-      {tache && assigning && (
-        <div className="no-bar mt-1 flex gap-2 overflow-x-auto px-4">
-          <button
-            onClick={() => {
-              select()
-              setTo(null)
-            }}
-            aria-pressed={to === null}
-            className={`min-h-11 shrink-0 rounded-full px-3.5 text-sous font-medium ${to === null ? 'bg-teinte text-white' : 'bg-carte text-encre'}`}
-          >
-            Pour tous
-          </button>
-          {members.map((m) => (
-            <button
-              key={m.id}
-              onClick={() => {
-                select()
-                setTo(m.id)
-              }}
-              aria-pressed={to === m.id}
-              className={`flex min-h-11 shrink-0 items-center gap-1.5 rounded-full pl-1 pr-3.5 text-sous font-medium ${to === m.id ? 'bg-teinte text-white' : 'bg-carte text-encre'}`}
-            >
-              <Avatar m={m} size={28} /> {m.id === me.id ? 'Moi' : m.display_name}
+          )}
+        </form>
+        {saisie && (
+          <p className="anim-entre mt-1.5 flex items-center gap-1.5 px-1 text-note font-semibold text-teinte-fonce">
+            <span aria-hidden="true">{rayonDe(saisie.nom).emoji}</span>
+            {saisie.nom}
+            {saisie.qte && <span className="rounded-full bg-teinte-doux px-2 py-0.5">{nombre(saisie.qte) !== null ? `× ${saisie.qte}` : saisie.qte}</span>}
+            <span className="font-medium text-brume">· {rayonDe(saisie.nom).label}</span>
+          </p>
+        )}
+        {!tache && idees.length > 0 && (
+          <>
+            <p className="mb-1.5 mt-3 px-1 text-note font-bold text-brume">Souvent dans la liste</p>
+            <div className="no-bar -mx-3 flex gap-1.5 overflow-x-auto px-3 pb-0.5" aria-label="Idées à ajouter">
+              {idees.map((x) => idee(x, x))}
+            </div>
+          </>
+        )}
+        {avec.map((g) => (
+          <div key={g.avec}>
+            <p className="mb-1.5 mt-3 px-1 text-note font-bold text-brume">Pour aller avec {g.avec.toLowerCase()}</p>
+            <div className="no-bar -mx-3 flex gap-1.5 overflow-x-auto px-3 pb-0.5">{g.idees.map((x) => idee(x, `${g.avec}-${x}`))}</div>
+          </div>
+        ))}
+        {tache && (
+          <>
+            <p className="mb-1.5 mt-3 px-1 text-note font-bold text-brume">Pour qui ?</p>
+            <div className="no-bar -mx-3 flex gap-1.5 overflow-x-auto px-3 pb-0.5" role="group" aria-label="Pour qui">
+              <button type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setTo(null))} aria-pressed={to === null} className={`presse flex min-h-[38px] shrink-0 items-center gap-1.5 rounded-full px-3 text-sous font-semibold ${to === null ? 'bg-teinte text-white' : 'bg-fond text-encre'}`}>
+                <Users size={15} strokeWidth={2.4} /> Tout le monde
+              </button>
+              {members.map((m) => (
+                <button key={m.id} type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setTo(m.id))} aria-pressed={to === m.id} className={`presse flex min-h-[38px] shrink-0 items-center gap-1.5 rounded-full pl-1 pr-3 text-sous font-semibold ${to === m.id ? 'bg-teinte text-white' : 'bg-fond text-encre'}`}>
+                  <Avatar m={m} size={28} /> {m.id === me.id ? 'Moi' : m.display_name}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* à faire : les filtres, sur une ligne, au-dessus de la liste */}
+      {tache && items.length > 0 && (
+        <div role="group" aria-label="Filtrer les tâches" className="no-bar mt-4 flex gap-1.5 overflow-x-auto px-4 pb-1">
+          {[['toutes', 'À faire', todo.length], ['moi', 'Pour moi'], ['autres', 'Pour les autres'], ['libres', 'Pour tout le monde'], ['terminees', 'Terminées', done.length]].map(([id, label, n]) => (
+            <button key={id} type="button" aria-pressed={filtre === id} onClick={() => (select(), setFiltre(id as string))} className={`presse flex min-h-[38px] shrink-0 items-center gap-1.5 rounded-full px-3.5 text-note font-bold ${filtre === id ? 'bg-teinte text-white' : 'bg-carte text-encre shadow-carte'}`}>
+              {label}
+              {n !== undefined && Number(n) > 0 && <span className={`rounded-full px-1.5 text-[11px] ${filtre === id ? 'bg-white/25' : 'bg-teinte-doux text-teinte-fonce'}`}>{n}</span>}
             </button>
           ))}
         </div>
@@ -414,7 +528,7 @@ function Liste({ kind }: { kind: ListKind }) {
       )}
 
       {items.length > 0 && (
-        <div className="mx-5 mt-4 flex min-h-11 items-center justify-between gap-3">
+        <div className="mx-5 mt-3 flex min-h-11 items-center justify-between gap-3">
           <p className="text-note font-semibold text-brume" role="status">
             {todo.length} {tache ? `chose${todo.length > 1 ? 's' : ''} à faire` : `article${todo.length > 1 ? 's' : ''} à prendre`}
             {done.length > 0 ? ` · ${done.length} ${tache ? `terminée${done.length > 1 ? 's' : ''}` : 'dans le panier'}` : ''}
@@ -424,39 +538,18 @@ function Liste({ kind }: { kind: ListKind }) {
           </button>
         </div>
       )}
-      {tache && <div role="group" aria-label="Filtrer les tâches" className="mx-4 mt-3 mb-3 flex flex-wrap gap-1.5">
-        {[['toutes', 'À faire'], ['moi', 'Pour moi'], ['autres', 'Pour les autres'], ['libres', 'Pour tout le monde'], ['terminees', 'Terminées']].map(([id, label]) => (
-          <button key={id} type="button" aria-pressed={filtre === id} onClick={() => setFiltre(id)} className={`presse min-h-11 shrink-0 rounded-full px-3 text-note font-semibold ${filtre === id ? 'bg-teinte text-white' : 'bg-carte text-brume'}`}>{label}</button>
-        ))}
-      </div>}
       {tache && items.length > 0 && choisies.length === 0 && <p role="status" className="mx-5 py-6 text-center text-note text-brume">Aucune tâche dans cette catégorie.</p>}
-      {todoVisible.length > 0 && (
-        <div className="groupe mx-4 mt-1 overflow-hidden shadow-carte">
-          {todoVisible.map((i, k) => {
-            const who = members.find((m) => m.id === i.assigned_to)
-            const attente = i.id.startsWith('attente-')
-            return (
-              <Glisse key={i.id} onRetirer={() => retirer([i.id])} label={`Glisse vers la gauche pour retirer ${i.title}`}>
-                <div className={`flex items-center ${attente ? 'anim-pop opacity-60' : ''}`}>
-                  <button onClick={() => basculer(i)} className="presse-ligne flex min-w-0 flex-1 items-center gap-3 pl-4 text-left" aria-label={`Cocher ${i.title}`}>
-                    <Coche fait={false} />
-                    <span className={`flex min-h-[54px] min-w-0 flex-1 items-center gap-2 py-2 pr-3 ${k < todoVisible.length - 1 ? 'border-b border-trait' : ''}`}>
-                      <span className="min-w-0 flex-1 text-corps">{i.title}</span>
-                      {who && <Avatar m={who} size={28} />}
-                    </span>
-                  </button>
-                  {editing && (
-                    <button onClick={() => retirer([i.id])} className="presse mr-2 flex min-h-11 items-center rounded-full bg-rouge/10 px-3 text-note font-semibold text-rouge" aria-label={`Retirer ${i.title}`}>
-                      Retirer
-                    </button>
-                  )}
-                </div>
-              </Glisse>
-            )
-          })}
-        </div>
-      )}
-      {todo.length > 0 && !tache && <p className="mt-2 px-5 text-mini text-pale">Touche pour cocher · glisse vers la gauche pour retirer</p>}
+
+      {/* courses : par rayon, dans l'ordre d'un magasin */}
+      {!tache &&
+        rayons.map(({ r, items: dans }) => (
+          <div key={r.key}>
+            <TitrePartie emoji={r.emoji} n={dans.length}>{r.label}</TitrePartie>
+            <div className="groupe mx-4 overflow-hidden shadow-carte">{dans.map((i, k) => ligne(i, k === dans.length - 1))}</div>
+          </div>
+        ))}
+      {tache && todoVisible.length > 0 && <div className="groupe mx-4 mt-1 overflow-hidden shadow-carte">{todoVisible.map((i, k) => ligne(i, k === todoVisible.length - 1))}</div>}
+      {todo.length > 0 && !tache && <p className="mt-2 px-5 text-mini text-pale">Touche pour cocher · − et + pour la quantité · glisse vers la gauche pour retirer</p>}
 
       {doneVisible.length > 0 && (
         <>
@@ -474,7 +567,8 @@ function Liste({ kind }: { kind: ListKind }) {
                   <button onClick={() => basculer(i)} className="presse-ligne flex w-full items-center gap-3 pl-4 text-left" aria-label={`Décocher ${i.title}`}>
                     <Coche fait />
                     <span className={`flex min-h-[50px] min-w-0 flex-1 items-center gap-2 py-2 pr-3 ${k < doneVisible.length - 1 ? 'border-b border-trait' : ''}`}>
-                      <span className="min-w-0 flex-1 text-corps text-pale line-through">{i.title}</span>
+                      <span className="min-w-0 flex-1 text-corps text-pale line-through">{tache ? i.title : lireArticle(i.title).nom}</span>
+                      {!tache && lireArticle(i.title).qte && <span className="text-note font-semibold text-pale">{lireArticle(i.title).qte}</span>}
                       {who && (
                         <span className="opacity-70">
                           <Avatar m={who} size={26} />

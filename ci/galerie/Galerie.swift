@@ -82,6 +82,13 @@ struct Planche: View {
         return x
     }
 
+    /// À une heure donnée (le décor de la maison suit l'heure)
+    private func vers(_ heure: Int) -> Entree {
+        Entree.exemple(Calendar.current.date(bySettingHour: heure, minute: 0, second: 0, of: Date()) ?? Date())
+    }
+    private var soir: Entree { vers(19) }
+    private var nuit: Entree { vers(22) }
+
     private var pasBranche: Entree { Entree(date: Date(), etat: nil, branche: false) }
 
     private var sixChoix: Entree {
@@ -147,6 +154,13 @@ struct Planche: View {
         case 6:
             Cadre(f: .systemLarge) { VueMemory(e: e, f: .systemLarge) }
             Cadre(f: .systemLarge) { VueAFaire(e: sansTache, f: .systemLarge) }
+        case 9:
+            HStack(spacing: 24) {
+                Cadre(f: .systemSmall) { VueMaison(e: e, f: .systemSmall) }
+                Cadre(f: .systemSmall) { VueMaison(e: soir, f: .systemSmall) }
+            }
+            Cadre(f: .systemMedium) { VueMaison(e: e, f: .systemMedium) }
+            Cadre(f: .systemLarge) { VueMaison(e: nuit, f: .systemLarge) }
         case 7:
             Text("9:41").font(.system(size: 86, weight: .semibold, design: .rounded)).foregroundStyle(.white)
             Cadre(f: .accessoryInline) { VueDates(e: e, f: .accessoryInline) }

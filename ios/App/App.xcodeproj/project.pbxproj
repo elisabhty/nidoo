@@ -27,6 +27,7 @@
 		A1D09043A28BB274DDA14BE4 /* NidooWidgetsBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D03716D8C7BE6A51953B0C /* NidooWidgetsBundle.swift */; };
 		A1D0C4E4C1BFCC21DF36CB89 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D08783D48139B37B031823 /* Theme.swift */; };
 		A1D0DE60A459595C0A03363A /* VuesJeux.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D0BD6026031AB5C0F64851 /* VuesJeux.swift */; };
+		A1D0D5A33B3AA23CEE99C584 /* VuesMaison.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D0B74DEA75F912638810C0 /* VuesMaison.swift */; };
 		A1D0217D272516C614B909B9 /* VuesOrganisation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D0F882478FC3848FB49E44 /* VuesOrganisation.swift */; };
 		A1D0D6B358B7DF8B750F829C /* VuesTendresse.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D0A7AE37399237217AC37E /* VuesTendresse.swift */; };
 		A1D097ED9D0966C7C50BC71D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1D063744C4C2ED4E7AFEF17 /* Assets.xcassets */; };
@@ -79,6 +80,7 @@
 		A1D03716D8C7BE6A51953B0C /* NidooWidgetsBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NidooWidgetsBundle.swift; sourceTree = "<group>"; };
 		A1D08783D48139B37B031823 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		A1D0BD6026031AB5C0F64851 /* VuesJeux.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VuesJeux.swift; sourceTree = "<group>"; };
+		A1D0B74DEA75F912638810C0 /* VuesMaison.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VuesMaison.swift; sourceTree = "<group>"; };
 		A1D0F882478FC3848FB49E44 /* VuesOrganisation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VuesOrganisation.swift; sourceTree = "<group>"; };
 		A1D0A7AE37399237217AC37E /* VuesTendresse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VuesTendresse.swift; sourceTree = "<group>"; };
 		A1D063744C4C2ED4E7AFEF17 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -156,6 +158,7 @@
 				A1D03716D8C7BE6A51953B0C /* NidooWidgetsBundle.swift */,
 				A1D08783D48139B37B031823 /* Theme.swift */,
 				A1D0BD6026031AB5C0F64851 /* VuesJeux.swift */,
+				A1D0B74DEA75F912638810C0 /* VuesMaison.swift */,
 				A1D0F882478FC3848FB49E44 /* VuesOrganisation.swift */,
 				A1D0A7AE37399237217AC37E /* VuesTendresse.swift */,
 				A1D063744C4C2ED4E7AFEF17 /* Assets.xcassets */,
@@ -307,6 +310,7 @@
 				A1D09043A28BB274DDA14BE4 /* NidooWidgetsBundle.swift in Sources */,
 				A1D0C4E4C1BFCC21DF36CB89 /* Theme.swift in Sources */,
 				A1D0DE60A459595C0A03363A /* VuesJeux.swift in Sources */,
+				A1D0D5A33B3AA23CEE99C584 /* VuesMaison.swift in Sources */,
 				A1D0217D272516C614B909B9 /* VuesOrganisation.swift in Sources */,
 				A1D0D6B358B7DF8B750F829C /* VuesTendresse.swift in Sources */,
 			);

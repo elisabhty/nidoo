@@ -18,6 +18,7 @@ struct LotNidoo: WidgetBundle {
 
 struct Tendresse: WidgetBundle {
     var body: some Widget {
+        MaisonWidget()
         BisouWidget()
         AttentionsWidget()
         FamilleWidget()
@@ -40,6 +41,17 @@ struct Jeux: WidgetBundle {
         Puissance4Widget()
         MemoryWidget()
         CompagnonWidget()
+    }
+}
+
+struct MaisonWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "NidooMaison", provider: Fournisseur()) { e in
+            Selon { f in VueMaison(e: e, f: f) }
+        }
+        .configurationDisplayName("Notre maison")
+        .description("La maison de la famille et tout le monde devant, avec son humeur. Touche un proche : « je pense à toi ».")
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
 

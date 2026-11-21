@@ -9,7 +9,7 @@ import { createRoot } from 'react-dom/client'
 import { Character } from '../components/Character'
 import { SUPABASE_KEY, SUPABASE_URL } from '../config'
 import { photographier } from './bustes'
-import { lookOf } from './look'
+import { AGE_SCALE, echelleTaille, lookOf } from './look'
 import type { Backend, FamilyState, Member } from './types'
 
 type Pont = {
@@ -27,7 +27,7 @@ const pont = WIDGETS ? registerPlugin<Pont>('Nidoo') : null
 
 const PREFIXE = 'nidoo.widgets.'
 /** À changer si la photo des bustes change (taille, cadrage) : tous seront refaits. */
-const VERSION_BUSTE = 'b1'
+const VERSION_BUSTE = 'b2' // b2 : et le personnage en pied, pour « Notre maison »
 const COTE = 240
 
 const lire = (cle: string) => {
@@ -87,6 +87,47 @@ export async function buste(avatar: string, graine: string, cote = COTE): Promis
   }
 }
 
+/**
+ * Le personnage en entier, debout, en PNG (180 × 264, les pieds en bas) : pour le widget « Notre maison », où la famille
+ * se tient devant la maison comme dans l'appli. Un enfant est plus petit qu'un adulte (même cadre pour tous).
+ */
+export async function enPied(avatar: string, graine: string): Promise<string | null> {
+  const W = 150, H = 220
+  const look = lookOf(avatar, graine)
+  const echelle = Math.min(1, (AGE_SCALE[look.a ?? 0] ?? 1) * echelleTaille(look))
+  const boite = document.createElement('div')
+  boite.setAttribute('aria-hidden', 'true')
+  boite.style.cssText = `position:fixed;left:-10000px;top:0;width:${W}px;height:${H}px;overflow:hidden;pointer-events:none;display:flex;align-items:flex-end;justify-content:center`
+  document.body.appendChild(boite)
+  const racine = createRoot(boite)
+  try {
+    const pret = await new Promise<boolean>((ok) => {
+      const t = window.setTimeout(() => ok(false), 6000)
+      racine.render(
+        <div style={{ width: W * echelle }}>
+          <Character
+            look={look}
+            still
+            className="block h-auto w-full"
+            onPret={() => {
+              window.clearTimeout(t)
+              ok(true)
+            }}
+          />
+        </div>,
+      )
+    })
+    if (!pret) return null
+    await attendre(320)
+    return await photographier(boite, 180)
+  } catch {
+    return null
+  } finally {
+    racine.unmount()
+    boite.remove()
+  }
+}
+
 let branche = ''
 let enCours: Promise<void> | null = null
 
@@ -122,16 +163,19 @@ async function photographierProches(famille: string, membres: Member[]): Promise
   } catch {
     /* on les refera tous */
   }
-  const garder = membres.map((m) => m.id)
+  const ids = membres.map((m) => m.id)
+  // le buste (pastilles) et le personnage en pied (« Notre maison ») de chacun
+  const garder = [...ids, ...ids.map((id) => `pied-${id}`)]
   const signature = (m: Member) => `${VERSION_BUSTE}|${m.avatar}|${m.user_id ?? m.id}`
   const aFaire = membres.filter((m) => faits[m.id] !== signature(m))
-  const partis = Object.keys(faits).filter((id) => !garder.includes(id))
+  const partis = Object.keys(faits).filter((id) => !ids.includes(id))
   if (!aFaire.length && !partis.length) return
-  const suite: Record<string, string> = Object.fromEntries(Object.entries(faits).filter(([id]) => garder.includes(id)))
+  const suite: Record<string, string> = Object.fromEntries(Object.entries(faits).filter(([id]) => ids.includes(id)))
   for (const m of aFaire) {
     const png = await buste(m.avatar, m.user_id ?? m.id ?? '')
     if (!png) continue
-    await pont.personnages({ images: { [m.id]: png }, garder })
+    const pied = await enPied(m.avatar, m.user_id ?? m.id ?? '')
+    await pont.personnages({ images: pied ? { [m.id]: png, [`pied-${m.id}`]: pied } : { [m.id]: png }, garder })
     suite[m.id] = signature(m)
     ecrire(`bustes.${famille}`, JSON.stringify(suite))
     // l'appli reste fluide pendant qu'on prépare les suivants
@@ -214,8 +258,9 @@ export function ecouterWidgets(ouvrir: (chemin: string) => void): () => void {
 
 // En démo (jamais en ligne) : de quoi vérifier, depuis les outils de test, que la photo d'un buste est fidèle à l'écran.
 if (import.meta.env.MODE === 'demo') {
-  const w = window as unknown as { __buste?: typeof buste; __busteVisible?: (avatar: string, graine: string, cote?: number) => Promise<void> }
+  const w = window as unknown as { __buste?: typeof buste; __pied?: typeof enPied; __busteVisible?: (avatar: string, graine: string, cote?: number) => Promise<void> }
   w.__buste = buste
+  w.__pied = enPied
   /** Le même buste, affiché pour de bon en haut à gauche de l'écran (#buste-temoin), pour le comparer à sa photo. */
   w.__busteVisible = (avatar, graine, cote = COTE) =>
     new Promise<void>((ok) => {

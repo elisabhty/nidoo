@@ -645,6 +645,9 @@ export function createSupabaseBackend(): Backend {
     async toggleItem(item, memberId) {
       check(await sb.from('list_items').update({ done: !item.done, done_by: item.done ? null : memberId }).eq('id', item.id))
     },
+    async renameItem(id, title) {
+      check(await sb.from('list_items').update({ title: title.trim().slice(0, 80) }).eq('id', id))
+    },
     async deleteItem(id) {
       check(await sb.from('list_items').delete().eq('id', id))
     },

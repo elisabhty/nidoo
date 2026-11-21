@@ -61,10 +61,11 @@ Sans clés Supabase, l'app démarre en **mode démo** : la maison vit sur l'appa
 
 ## Widgets de l'écran d'accueil (iPhone)
 
-L'extension `NidooWidgets` (WidgetKit, iOS 17 et plus) est dans le projet Xcode, à côté de l'appli. Douze widgets, dont les boutons agissent **sans ouvrir l'appli** :
+L'extension `NidooWidgets` (WidgetKit, iOS 17 et plus) est dans le projet Xcode, à côté de l'appli. Treize widgets, dont les boutons agissent **sans ouvrir l'appli** :
 
 | Widget | Tailles | Ce qu'on y fait |
 | --- | --- | --- |
+| Notre maison | petit, moyen, grand | la maison dans son décor du moment (jour, soir, nuit), toute la famille devant en pied avec son humeur ; toucher un proche : « je pense à toi » |
 | Bisou express | petit, écran verrouillé | un bisou à un proche d'un toucher |
 | Attentions | moyen | la dernière attention reçue, quatre gestes pour répondre |
 | Ma famille | moyen, grand | tout le monde et son humeur ; toucher quelqu'un : « je pense à toi » |
@@ -83,7 +84,7 @@ Plus un bouton « Bisou » pour le Centre de contrôle (iOS 18).
 Comment ça marche :
 
 - **La clé widget.** Au premier lancement, l'appli demande au serveur une clé pour ce téléphone (`public.widget_cle`, migration `20261120200000_widgets.sql`) et la dépose dans le groupe d'apps `group.com.getupworkspace.nidoo` par le pont natif (`ios/App/App/NidooPlugin.swift`, côté web `src/lib/widgets.tsx`). Les widgets appellent `widget_etat` et `widget_agir` avec cette clé : ils ne touchent jamais à la session du compte (un compte invisible dont la session se perd, c'est une famille perdue). La clé ne donne accès qu'à une maison, pour lire ce que montrent les widgets et faire leurs actions (attention, tâche, humeur, coup de jeu, friandise, vote).
-- **Les personnages.** Un widget ne sait pas composer une figurine : l'appli photographie le buste de chaque proche (`src/lib/bustes.ts` redessine sur une toile ce que `Character` affiche) et le range dans le groupe d'apps. Un proche qui change de tenue est rephotographié à l'ouverture suivante de l'appli.
+- **Les personnages.** Un widget ne sait pas composer une figurine : l'appli photographie le buste de chaque proche, et pour « Notre maison » son personnage en entier (`pied-<id>`), (`src/lib/bustes.ts` redessine sur une toile ce que `Character` affiche) et le range dans le groupe d'apps. Un proche qui change de tenue est rephotographié à l'ouverture suivante de l'appli.
 - **La mise à jour.** Un widget se redessine quand on touche un de ses boutons, quand l'appli passe derrière, et sinon environ tous les quarts d'heure (c'est iOS qui décide). Pas encore de mise à jour à la seconde où un proche envoie quelque chose : il faudra les notifications push (clé APNs).
 - **Ouvrir l'appli au bon endroit** : `nidoo://ouvrir/organiser`, `…/recus`, `…/fil`, `…/maison`.
 
