@@ -97,6 +97,16 @@ struct Planche: View {
         return x
     }
 
+    /// Deux dans la maison, trois cartes (le widget d'Elisa, 21 novembre : un grand vide au milieu).
+    private var aDeux: Entree {
+        var x = Entree.exemple()
+        if let m = x.etat?.membres { x.etat?.membres = Array(m.prefix(2)) }
+        x.etat?.recues = []
+        x.etat?.parties = []
+        x.etat?.sondage = nil
+        return x
+    }
+
     /// Une maison toute neuve : pas d'attention, pas de date, rien à faire.
     private var toutCalme: Entree {
         var x = Entree.exemple()
@@ -142,7 +152,7 @@ struct Planche: View {
             Cadre(f: .systemMedium) { VueSondage(e: e, f: .systemMedium) }
         case 3:
             Cadre(f: .systemLarge) { VueMur(e: e, f: .systemLarge) }
-            Cadre(f: .systemLarge) { VueFamille(e: envoye(a: "lea", k: "coeur"), f: .systemLarge) }
+            Cadre(f: .systemLarge) { VueMur(e: aDeux, f: .systemLarge) }
         case 4:
             Cadre(f: .systemLarge) { VueMorpion(e: e, f: .systemLarge) }
             Cadre(f: .systemLarge) { VuePuissance4(e: e, f: .systemLarge) }

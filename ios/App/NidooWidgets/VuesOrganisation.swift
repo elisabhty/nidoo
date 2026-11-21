@@ -326,6 +326,11 @@ struct VueMur: View {
 
     var body: some View {
         if let etat = e.etat {
+            // peu de monde, peu de cartes : tout grandit un peu et l'espace qui reste se répartit, au lieu d'un grand
+            // vide au milieu (Elisa, 21 novembre : « problème d'espace »)
+            let liste = Array(cartes(etat).prefix(4))
+            let gens = Array(etat.membres.prefix(5))
+            let large = liste.count <= 3
             VStack(spacing: 8) {
                 HStack(spacing: 10) {
                     Art("maison-\(etat.famille.m)").frame(width: 58, height: 58)
@@ -338,19 +343,23 @@ struct VueMur: View {
                     }
                     Spacer(minLength: 0)
                 }
+                Spacer(minLength: 0)
                 HStack(alignment: .top, spacing: 2) {
-                    ForEach(Array(etat.membres.prefix(5))) { m in
-                        VStack(spacing: 2) {
-                            Pastille(m: m, taille: 44)
-                            Text(m.id == etat.moi ? "Moi" : m.n).font(rond(10.5, .semibold)).foregroundStyle(Theme.encre).lineLimit(1).minimumScaleFactor(0.75)
+                    ForEach(gens) { m in
+                        VStack(spacing: 3) {
+                            Pastille(m: m, taille: gens.count <= 3 ? 54 : 46)
+                            Text(m.id == etat.moi ? "Moi" : m.n).font(rond(gens.count <= 3 ? 12 : 10.5, .semibold)).foregroundStyle(Theme.encre).lineLimit(1).minimumScaleFactor(0.75)
                         }
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: gens.count <= 3 ? 96 : .infinity)
                     }
                 }
+                .frame(maxWidth: .infinity)
                 Spacer(minLength: 0)
-                ForEach(Array(cartes(etat).prefix(4))) { c in
-                    Link(destination: Partage.lien(c.ou)) {
-                        carte(titre: c.titre, sous: c.sous) { Art(c.art) }
+                VStack(spacing: 8) {
+                    ForEach(liste) { c in
+                        Link(destination: Partage.lien(c.ou)) {
+                            carte(titre: c.titre, sous: c.sous, large: large) { Art(c.art) }
+                        }
                     }
                 }
             }
@@ -399,18 +408,20 @@ struct VueMur: View {
         return c
     }
 
-    private func carte<Icone: View>(titre: String, sous: String, @ViewBuilder icone: () -> Icone) -> some View {
-        HStack(spacing: 9) {
-            icone().frame(width: 30, height: 30)
-            VStack(alignment: .leading, spacing: 0) {
-                Text(titre).font(rond(13, .bold)).foregroundStyle(Theme.encre).lineLimit(1).minimumScaleFactor(0.8)
-                Text(sous).font(rond(11, .medium)).foregroundStyle(Theme.brume).lineLimit(1)
+    /// Une carte : elle s'étire (jusqu'à une hauteur raisonnable) pour occuper la place quand il y en a peu.
+    private func carte<Icone: View>(titre: String, sous: String, large: Bool, @ViewBuilder icone: () -> Icone) -> some View {
+        HStack(spacing: large ? 11 : 9) {
+            icone().frame(width: large ? 36 : 30, height: large ? 36 : 30)
+            VStack(alignment: .leading, spacing: large ? 1 : 0) {
+                Text(titre).font(rond(large ? 14.5 : 13, .bold)).foregroundStyle(Theme.encre).lineLimit(1).minimumScaleFactor(0.8)
+                Text(sous).font(rond(large ? 12 : 11, .medium)).foregroundStyle(Theme.brume).lineLimit(1)
             }
             Spacer(minLength: 0)
-            Image(systemName: "chevron.right").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.brume.opacity(0.6))
+            Image(systemName: "chevron.right").font(.system(size: large ? 12 : 11, weight: .bold)).foregroundStyle(Theme.brume.opacity(0.6))
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, large ? 12 : 10)
         .padding(.vertical, 6)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white.opacity(0.88)))
+        .frame(maxWidth: .infinity, minHeight: 44, maxHeight: large ? 64 : 52)
+        .background(RoundedRectangle(cornerRadius: large ? 18 : 16, style: .continuous).fill(Color.white.opacity(0.88)))
     }
 }
