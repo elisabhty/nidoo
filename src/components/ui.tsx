@@ -200,8 +200,9 @@ export function Sheet({ title, onClose, children, tall = false, footer }: { titl
             </button>
           </div>
         </div>
-        <div className="no-bar min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-1" onScroll={e => setContentScrolled(e.currentTarget.scrollTop > 8)}>{children}</div>
-        {footer && <div className="sheet-footer shrink-0 px-5 pt-3">{footer}</div>}
+        {/* de l'air sous le dernier champ : il ne colle plus au bouton du bas, même clavier ouvert (Elisa, 21 novembre) */}
+        <div className={`no-bar min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 ${footer ? 'pb-8' : 'pb-4'}`} onScroll={e => setContentScrolled(e.currentTarget.scrollTop > 8)}>{children}</div>
+        {footer && <div className="sheet-footer shrink-0 px-5 pt-4">{footer}</div>}
       </div>
     </div>
   )
