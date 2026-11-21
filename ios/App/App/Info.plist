@@ -8,6 +8,8 @@
 	<string>NIDOO utilise l'appareil photo pour les photos et vidéos que tu choisis de partager avec tes proches.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>NIDOO utilise le micro pour enregistrer les vocaux du fil et tes souvenirs vocaux dans les dossiers.</string>
+	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
+	<string>Nidoo ajoute à ton calendrier les événements de la famille que tu choisis.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>NIDOO accède aux photos et vidéos que tu choisis de partager avec tes proches ou de garder dans un dossier.</string>
 	<key>CFBundleDevelopmentRegion</key>

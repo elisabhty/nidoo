@@ -153,7 +153,9 @@ export default function App() {
             </div>
 
             {/* Barre d'onglets flottante en verre */}
-            <nav hidden={keyboard} className="ios-tabbar absolute inset-x-5 z-30 flex h-[66px] items-center rounded-full p-1.5" style={{ bottom: 'calc(var(--sab) + 8px)' }} aria-label="Navigation principale">
+            {/* clavier ouvert : la barre s'efface ; elle ne revient qu'une fois l'appli revenue à sa taille, en glissant
+                d'en bas (Elisa, 21 novembre : « quand on ajoute une tâche, la barre de nav remonte, redescend ») */}
+            <nav className={`ios-tabbar absolute inset-x-5 z-30 flex h-[66px] items-center rounded-full p-1.5 ${keyboard ? 'barre-cachee' : ''}`} style={{ bottom: 'calc(var(--sab) + 8px)' }} aria-label="Navigation principale">
               <span aria-hidden="true" className="ios-tab-selection" style={{transform:`translateX(${TABS.findIndex(t => t.key === tab) * 100}%)`}} />
               {TABS.map((t) => {
                 const on = tab === t.key

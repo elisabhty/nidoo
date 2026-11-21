@@ -229,6 +229,11 @@ input, textarea { caret-color: #7050D5; }
   .ios-tab-selection { transition: none; }
 }
 .ios-tabbar[hidden] { display: none; }
+/* la barre d'onglets et le clavier : cachée d'un coup quand il s'annonce, et pendant que l'appli reprend sa taille
+   (kb-ouvert reste 0,3 s après) ; puis elle remonte doucement d'en bas, une seule fois */
+.ios-tabbar { transition: opacity 0.22s ease, transform 0.34s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s; }
+.ios-tabbar.barre-cachee, html.kb-ouvert .ios-tabbar { opacity: 0; transform: translateY(28px); visibility: hidden; pointer-events: none; transition: none; }
+@media (prefers-reduced-motion: reduce) { .ios-tabbar { transition: opacity 0.15s ease, visibility 0s; } }
 
 @media (prefers-reduced-transparency: reduce) {
   .glass-tinted { background: #6948CF; backdrop-filter: none; -webkit-backdrop-filter: none; }

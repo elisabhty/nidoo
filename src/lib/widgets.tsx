@@ -4,7 +4,8 @@
 //  • le buste de chaque proche, photographié ici (les widgets ne savent pas composer une figurine).
 // (Quand l'appli passe derrière, le pont dit de lui-même aux widgets de se remettre à jour.)
 // En retour, un widget touché dit à l'appli où s'ouvrir (« organiser », « recus »…).
-import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core'
+import type { PluginListenerHandle } from '@capacitor/core'
+import { NATIF_IOS, pont } from './pont'
 import { createRoot } from 'react-dom/client'
 import { Character } from '../components/Character'
 import { SUPABASE_KEY, SUPABASE_URL } from '../config'
@@ -12,18 +13,8 @@ import { photographier } from './bustes'
 import { AGE_SCALE, echelleTaille, lookOf } from './look'
 import type { Backend, FamilyState, Member } from './types'
 
-type Pont = {
-  configurer(o: { url: string; apikey: string; cle: string; famille: string; moi: string }): Promise<{ refusee?: boolean }>
-  personnages(o: { images: Record<string, string>; garder: string[] }): Promise<void>
-  rafraichir(): Promise<void>
-  oublier(): Promise<void>
-  depart(): Promise<{ chemin?: string }>
-  addListener(nom: 'ouvrir', f: (e: { chemin: string }) => void): Promise<PluginListenerHandle>
-}
-
 /** Vrai dans l'appli iPhone (le pont existe) ; sur le web et en démo, rien de tout ceci ne tourne. */
-export const WIDGETS = Capacitor.getPlatform() === 'ios' && Capacitor.isNativePlatform()
-const pont = WIDGETS ? registerPlugin<Pont>('Nidoo') : null
+export const WIDGETS = NATIF_IOS
 
 const PREFIXE = 'nidoo.widgets.'
 /** À changer si la photo des bustes change (taille, cadrage) : tous seront refaits. */
@@ -260,7 +251,8 @@ function oublierDemande() {
 }
 
 export function ecouterWidgets(ouvrir: (chemin: string) => void): () => void {
-  if (!pont) return () => undefined
+  const p = pont
+  if (!p) return () => undefined
   let fini = false
   let ecoute: PluginListenerHandle | null = null
   let menage = 0
@@ -275,14 +267,14 @@ export function ecouterWidgets(ouvrir: (chemin: string) => void): () => void {
   // une demande d'avant le rechargement de l'appli (mise à jour installée au lancement)
   const avant = demandeRecente()
   if (avant) aller(avant)
-  void pont
+  void p
     .depart()
     .then((d) => d?.chemin && aller(d.chemin))
     .catch(() => undefined)
-  void pont
+  void p
     .addListener('ouvrir', (e) => {
       // noté comme lu, pour ne pas le rejouer au prochain lancement
-      void pont.depart().catch(() => undefined)
+      void p.depart().catch(() => undefined)
       if (e?.chemin) aller(e.chemin)
     })
     .then((h) => {

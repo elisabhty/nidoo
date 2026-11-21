@@ -2,6 +2,8 @@ import Foundation
 import UIKit
 import Capacitor
 import WidgetKit
+import EventKit
+import EventKitUI
 
 /// Le pont entre l'appli (web) et les widgets : l'appli y dépose la clé widget et les images des personnages,
 /// et apprend à quel endroit un widget veut l'ouvrir.
@@ -15,9 +17,13 @@ public class NidooPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "rafraichir", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "oublier", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "depart", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "calendrier", returnType: CAPPluginReturnPromise),
     ]
 
     private static weak var actif: NidooPlugin?
+    /// « Ajouter au calendrier » : l'appel en cours, et le calendrier de l'iPhone.
+    private var appelCalendrier: CAPPluginCall?
+    private lazy var magasin = EKEventStore()
     /// L'endroit demandé par un widget avant que l'appli soit prête à l'entendre.
     private static var enAttente: String?
 
@@ -110,5 +116,53 @@ public class NidooPlugin: CAPPlugin, CAPBridgedPlugin {
         if let chemin = NidooPlugin.enAttente { r["chemin"] = chemin }
         NidooPlugin.enAttente = nil
         call.resolve(r)
+    }
+
+    /// « Ajouter au calendrier » (Elisa, 21 novembre : « si ce n'est pas Safari ? ») : la fiche « Nouvel événement » du
+    /// calendrier de l'iPhone, déjà remplie, par-dessus l'appli. Depuis iOS 17, elle s'affiche hors de l'appli (EventKitUI) :
+    /// aucune autorisation à demander, l'appli ne lit jamais le calendrier. Avant iOS 17 : refusé, l'appli passe par la page.
+    @objc func calendrier(_ call: CAPPluginCall) {
+        guard #available(iOS 17.0, *) else {
+            call.reject("La fiche du calendrier demande iOS 17")
+            return
+        }
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let vue = self.bridge?.viewController else {
+                call.reject("Pas de vue")
+                return
+            }
+            let ev = EKEvent(eventStore: self.magasin)
+            ev.title = call.getString("titre") ?? "Événement"
+            let maintenant = Date().timeIntervalSince1970 * 1000
+            let debut = Date(timeIntervalSince1970: (call.getDouble("debut") ?? maintenant) / 1000)
+            let fin = Date(timeIntervalSince1970: (call.getDouble("fin") ?? (maintenant + 3_600_000)) / 1000)
+            ev.startDate = debut
+            ev.endDate = max(fin, debut)
+            ev.isAllDay = call.getBool("journee") ?? false
+            if let lieu = call.getString("lieu"), !lieu.isEmpty { ev.location = lieu }
+            if let notes = call.getString("notes"), !notes.isEmpty { ev.notes = notes }
+            let regles: [String: (EKRecurrenceFrequency, Int)] = ["jour": (.daily, 1), "semaine": (.weekly, 1), "2semaines": (.weekly, 2), "mois": (.monthly, 1), "annee": (.yearly, 1)]
+            if let r = call.getString("repete"), let regle = regles[r] {
+                ev.addRecurrenceRule(EKRecurrenceRule(recurrenceWith: regle.0, interval: regle.1, end: nil))
+            }
+            if call.getBool("rappel") == true { ev.addAlarm(EKAlarm(relativeOffset: -3600)) }
+            let fiche = EKEventEditViewController()
+            fiche.eventStore = self.magasin
+            fiche.event = ev
+            fiche.editViewDelegate = self
+            self.appelCalendrier?.resolve(["action": "annule"])
+            self.appelCalendrier = call
+            var dessus = vue
+            while let p = dessus.presentedViewController { dessus = p }
+            dessus.present(fiche, animated: true)
+        }
+    }
+}
+
+extension NidooPlugin: EKEventEditViewDelegate {
+    public func eventEditViewController(_ controller: EKEventEditViewController, didCompleteWith action: EKEventEditViewAction) {
+        controller.dismiss(animated: true)
+        appelCalendrier?.resolve(["action": action == .saved ? "ajoute" : "annule"])
+        appelCalendrier = nil
     }
 }

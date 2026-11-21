@@ -1,4 +1,4 @@
-import { AlignLeft, Cake, CalendarDays, CalendarPlus, Camera, Check, Plus, ChevronDown, ChevronRight, Clock, X, Images, MapPin, Navigation, PenLine, Repeat, Share, Sticker as StickerIcon, Trash2, Undo2, Users } from 'lucide-react'
+import { AlignLeft, Cake, CalendarClock, CalendarDays, CalendarPlus, Camera, Check, Plus, ChevronDown, ChevronRight, Clock, X, Images, MapPin, Navigation, PenLine, Repeat, Share, Sticker as StickerIcon, Trash2, Undo2, Users } from 'lucide-react'
 import { forwardRef, memo, useEffect, useMemo, useRef, useState } from 'react'
 import { rebond } from '../lib/rebond'
 import { moodOf, MOODS, THOUGHTS, thoughtOf } from '../lib/data'
@@ -15,7 +15,7 @@ import { chargerImage, photoFinale, vignettesFiltres, type FiltreKey } from '../
 import { MAX_STICKERS } from '../lib/stickers'
 import { CadreCanvas, CadreRow, FilterRow, nouveauSticker, StickerStage, StickerImg, StickerTray } from './stickers'
 import { vignettesCadres } from '../lib/cadres'
-import { compressImage, errorText, finDe, isToday, joursEnPlus, nextOccurrence, repeteDe, REPETITIONS, rythme, timeLabel } from '../lib/util'
+import { compressImage, errorText, finDe, isToday, joursEnPlus, nextOccurrence, occursOn, repeteDe, REPETITIONS, rythme, timeLabel } from '../lib/util'
 import { useRepetitions } from '../lib/repeter'
 import { ajouterAuCalendrier, titreCalendrier } from '../lib/calendrier'
 import { estFerie, prochainsJoursSpeciaux } from '../lib/joursSpeciaux'
@@ -657,8 +657,45 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
     setTime(h)
   }
 
+  // un rendez-vous à la même heure pour la même personne (Elisa, 21 novembre : « signaler les conflits dans les rdv,
+  // si c'est la même personne ») : seulement entre rendez-vous, à moins d'une heure d'écart
+  const conflit = useMemo(() => {
+    if (kind !== 'rdv' || journee || !time || !date) return null
+    const debut = new Date(`${date}T${time}`)
+    if (Number.isNaN(debut.getTime())) return null
+    const tous = state.members.map((m) => m.id)
+    const miens = who.length ? who : tous
+    for (const e of state.events) {
+      if (e.kind !== 'rdv' || e.all_day || e.id === event?.id) continue
+      const quand = occursOn(e, debut)
+      if (!quand || Math.abs(quand.getTime() - debut.getTime()) >= 60 * 60000) continue
+      const siens = e.members?.length ? e.members : tous
+      const communs = miens.filter((id) => siens.includes(id))
+      if (communs.length) return { e, quand, communs }
+    }
+    return null
+  }, [kind, journee, time, date, who, state.events, state.members, event?.id])
+  const sujetConflit = (communs: string[]) => {
+    const noms = communs.map((id) => (id === state.me.id ? null : state.members.find((m) => m.id === id)?.display_name)).filter((x): x is string => !!x)
+    const moi = communs.includes(state.me.id)
+    if (communs.length === state.members.length && communs.length > 1) return { qui: 'Vous avez', pour: 'pour toute la famille' }
+    if (moi && !noms.length) return { qui: 'Tu as', pour: '' }
+    if (moi) return { qui: 'Vous avez', pour: `pour toi et ${noms.join(', ')}` }
+    return { qui: `${noms.join(' et ')} ${noms.length > 1 ? 'ont' : 'a'}`, pour: '' }
+  }
+
   const save = async () => {
     if (busy || !title.trim() || !date || (!birthday && journee && plusieurs && (!fin || fin < date))) return
+    if (conflit) {
+      const { qui } = sujetConflit(conflit.communs)
+      const jour = conflit.quand.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+      const ok = await confirmer({
+        title: `${qui} déjà un rendez-vous le ${jour} à ${timeLabel(conflit.quand)}`,
+        message: `« ${conflit.e.title} »${conflit.e.lieu ? ` · ${conflit.e.lieu}` : ''}. Es-tu sûr de vouloir ajouter « ${title.trim()} » à ${heure(time)} ?`,
+        confirm: event ? 'Enregistrer quand même' : 'Ajouter quand même',
+      })
+      if (!ok) return
+    }
     const allDay = birthday || journee || !time
     const starts = new Date(`${date}T${allDay ? '09:00' : time}`)
     if (Number.isNaN(starts.getTime())) return
@@ -883,6 +920,14 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
           </>
         )}
         {ko && <p role="alert" className="mt-2 px-0.5 text-note text-rouge">La fin doit être le même jour ou après le début.</p>}
+        {conflit && (
+          <div key={conflit.e.id + time} role="status" className="anim-entre mt-3 flex items-start gap-2.5 rounded-[14px] bg-peche-doux px-3 py-2.5">
+            <CalendarClock size={17} strokeWidth={2.4} className="mt-0.5 shrink-0 text-peche-fonce" />
+            <p className="text-note text-encre">
+              <span className="font-bold">{sujetConflit(conflit.communs).qui} déjà un rendez-vous à {timeLabel(conflit.quand)}</span> : « {conflit.e.title} ». Choisis une autre heure, ou ajoute-le quand même.
+            </p>
+          </div>
+        )}
       </CarteEvt>
 
       {/* Répéter (plus seulement « chaque semaine ») */}
@@ -1018,8 +1063,12 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
     if (!(await confirmer({ title: `Supprimer « ${ev.title} » ?`, message: 'Il disparaîtra de l’agenda de toute la famille.', confirm: 'Supprimer l’événement', destructive: true }))) return
     if (await run((api) => api.deleteEvent(ev.id), 'Événement supprimé')) onClose()
   }
-  const calendrier = () => {
-    if (ajouterAuCalendrier(ev) === 'safari') toast('Safari s’ouvre : touche « Ajouter » pour le mettre dans ton calendrier')
+  const calendrier = async () => {
+    const r = await ajouterAuCalendrier(ev)
+    if (r === 'ajoute') {
+      success()
+      toast('Ajouté à ton calendrier')
+    } else if (r === 'safari') toast('Le navigateur s’ouvre : touche « Ajouter » pour le mettre dans ton calendrier')
   }
   const partager = async () => {
     const r = await partagerTexte(`${titreCalendrier(ev)} : ${quand.charAt(0).toLowerCase()}${quand.slice(1)}${ev.lieu ? `, ${ev.lieu}` : ''}${ev.description ? `\n${ev.description}` : ''}`)

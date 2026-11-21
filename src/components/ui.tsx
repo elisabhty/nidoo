@@ -73,6 +73,9 @@ export function Screen({ title, trailing, leading, children, compact = false }: 
   const [scrolled, setScrolled] = useState(false)
   return (
     <div className="relative h-full">
+      {/* la zone de l'heure et de la batterie : rien ne défile jamais dessous (comme dans Requête : Elisa, 21 novembre,
+          « en haut on a la barre ») ; ce qui défile s'arrête net sous elle, même clavier ouvert (barre du haut cachée) */}
+      <div className="barre-etat pointer-events-none absolute inset-x-0 top-0 z-30 bg-fond" style={{ height: 'var(--sat)' }} aria-hidden="true" />
       <div
         className={`ios-topbar pointer-events-none absolute inset-x-0 top-0 z-20 transition-[background-color,backdrop-filter,border-color] duration-200 ${compact || scrolled ? 'ios-toolbar-active' : 'border-b border-transparent'}`}
         style={{ paddingTop: 'var(--sat)' }}
@@ -84,8 +87,8 @@ export function Screen({ title, trailing, leading, children, compact = false }: 
         </div>
       </div>
       <div
-        className={`no-bar overflow-y-auto overscroll-contain pb-[120px] ${compact ? 'absolute inset-x-0 bottom-0' : 'h-full'}`}
-        style={compact ? { top: 'calc(var(--sat) + 52px)' } : { paddingTop: 'calc(var(--sat) + 52px)' }}
+        className="no-bar absolute inset-x-0 bottom-0 overflow-y-auto overscroll-contain pb-[120px]"
+        style={compact ? { top: 'calc(var(--sat) + 52px)' } : { top: 'var(--sat)', paddingTop: '52px' }}
         onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 34)}
       >
         {!compact && <h1 className="px-5 pb-3 pt-2 tracking-[-0.8px] font-sans text-grand">{title}</h1>}
@@ -117,6 +120,7 @@ export function Page({ title, back = 'Retour', onClose, trailing, children, scro
   }, [onClose])
   return (
     <div ref={page} className="anim-glisse absolute inset-0 z-40 bg-fond shadow-[-8px_0_30px_rgba(29,26,43,0.12)]" role="dialog" aria-modal="true" aria-label={title}>
+      <div className="barre-etat pointer-events-none absolute inset-x-0 top-0 z-30 bg-fond" style={{ height: 'var(--sat)' }} aria-hidden="true" />
       <div
         className={`ios-topbar absolute inset-x-0 top-0 z-20 transition-[background-color,backdrop-filter,border-color] duration-200 ${scrolled ? 'ios-toolbar-active' : 'border-b border-transparent'}`}
         style={{ paddingTop: 'var(--sat)' }}
@@ -137,8 +141,8 @@ export function Page({ title, back = 'Retour', onClose, trailing, children, scro
       </div>
       <div
         ref={body}
-        className="no-bar h-full overflow-y-auto overscroll-contain"
-        style={{ paddingTop: 'calc(var(--sat) + 52px)', paddingBottom: 'calc(var(--sab) + 28px)' }}
+        className="no-bar absolute inset-x-0 bottom-0 overflow-y-auto overscroll-contain"
+        style={{ top: 'var(--sat)', paddingTop: '52px', paddingBottom: 'calc(var(--sab) + 28px)' }}
         onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 34)}
       >
         <h1 className="px-5 pb-3 pt-2 tracking-[-0.8px] font-sans text-grand">{title}</h1>

@@ -1,14 +1,15 @@
 import { Capacitor } from '@capacitor/core'
+import { pont } from './pont'
 import type { FamEvent } from './types'
 import { finDe, nextOccurrence, repeteDe } from './util'
 
 // « Ajouter à mon calendrier » : un petit fichier .ics que l'iPhone (ou Google Agenda) sait ouvrir.
 // Il garde l'heure, le lieu, les détails, et la répétition (chaque semaine, chaque année).
 //
-// Dans l'appli iPhone, un fichier « téléchargé » ne va nulle part (la vue web de l'appli n'a pas de
-// téléchargements) : c'est pour ça que le bouton ne faisait rien (Elisa, 21 novembre). On ouvre donc
-// la page calendrier.html du site dans Safari, l'événement rangé après le # (il ne part sur aucun serveur) ;
-// Safari, lui, sait proposer « Ajouter au calendrier ».
+// Dans l'appli iPhone (iOS 17 et plus) : la fiche « Nouvel événement » du calendrier de l'iPhone s'ouvre par-dessus
+// l'appli, déjà remplie (Elisa, 21 novembre : « si ce n'est pas Safari ? », et la barre de Safari en bas) : plus de
+// navigateur du tout, quel que soit celui choisi par défaut. Sinon (iPhone plus ancien, appli pas encore mise à jour) :
+// la page calendrier.html du site, l'événement rangé après le # (il ne part sur aucun serveur).
 
 const deux = (n: number) => String(n).padStart(2, '0')
 const jourIcs = (d: Date) => `${d.getFullYear()}${deux(d.getMonth() + 1)}${deux(d.getDate())}`
@@ -62,11 +63,41 @@ const surIos = () => /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.pl
 /** L'adresse de la page qui ajoute l'événement (ouverte dans Safari). */
 export const pageCalendrier = (e: FamEvent) => `${Capacitor.isNativePlatform() ? SITE : new URL('./', location.href).href}calendrier.html#${versB64(fichierIcs(e))}`
 
-/** Ajoute l'événement au calendrier du téléphone. Renvoie 'safari' quand Safari s'ouvre pour le faire. */
-export function ajouterAuCalendrier(e: FamEvent): 'safari' | 'fichier' {
+/** La fiche du calendrier de l'iPhone, déjà remplie ; null si elle n'est pas disponible (on passe alors par la page). */
+async function ficheNative(e: FamEvent): Promise<'ajoute' | 'annule' | null> {
+  if (!pont) return null
+  const r = repeteDe(e)
+  const debut = r ? nextOccurrence(e) : new Date(e.starts_at)
+  const fin = e.all_day ? finDe(e, debut) : new Date(debut.getTime() + 60 * 60000)
+  try {
+    const res = await pont.calendrier({
+      titre: titreCalendrier(e),
+      debut: debut.getTime(),
+      fin: fin.getTime(),
+      journee: e.all_day,
+      lieu: e.lieu ?? undefined,
+      notes: e.description ?? undefined,
+      repete: r ?? undefined,
+      rappel: !e.all_day,
+    })
+    return res.action
+  } catch {
+    return null
+  }
+}
+
+/** Ajoute l'événement au calendrier du téléphone : la fiche de l'iPhone (« ajoute » / « annule »), sinon la page dans
+ *  le navigateur (« safari »), sinon un fichier .ics (ordinateur). Hors appli, tout se fait tout de suite, dans le geste
+ *  (sinon le navigateur bloquerait la fenêtre). */
+export function ajouterAuCalendrier(e: FamEvent): Promise<'ajoute' | 'annule' | 'safari' | 'fichier'> {
+  if (pont) return ficheNative(e).then((r) => r ?? parLaPage(e))
+  return Promise.resolve(parLaPage(e))
+}
+
+function parLaPage(e: FamEvent): 'safari' | 'fichier' {
   if (Capacitor.isNativePlatform() || surIos()) {
     const url = pageCalendrier(e)
-    // dans l'appli, une adresse d'ailleurs s'ouvre dans Safari ; sur le site, dans un nouvel onglet
+    // dans l'appli, une adresse d'ailleurs s'ouvre dans le navigateur ; sur le site, dans un nouvel onglet
     const w = window.open(url, '_blank')
     if (!w && !Capacitor.isNativePlatform()) location.href = url
     return 'safari'

@@ -1,6 +1,6 @@
-import { Building2, Clock, MapPin, Store, X } from 'lucide-react'
+import { Building2, Check, Clock, MapPin, Store, X } from 'lucide-react'
 import { memo, useEffect, useRef, useState } from 'react'
-import { chercherAdresses, type Suggestion } from '../lib/adresses'
+import { avecCodePostal, chercherAdresses, verifierAdresse, type Suggestion } from '../lib/adresses'
 import { select, tap } from '../lib/haptic'
 
 /** Le lieu d'un événement : en tapant, une liste d'adresses et de lieux (gratuite) ; champ vide, les lieux déjà utilisés
@@ -39,6 +39,46 @@ export const ChampLieu = memo(function ChampLieu({ value, onChange, placeholder,
       window.clearTimeout(t)
     }
   }, [value, focus, choisi])
+
+  // une adresse tapée sans code postal (Elisa, 21 novembre : « détecter les codes postaux, pour ne pas se tromper
+  // avec la même adresse dans deux villes ») : en quittant le champ, on cherche sa ville. Une seule : le code postal
+  // s'ajoute tout seul (on peut annuler) ; plusieurs : « Dans quelle ville ? »
+  const [villes, setVilles] = useState<Suggestion[]>([])
+  const [ajoutCp, setAjoutCp] = useState<{ avant: string; apres: string; ville: string } | null>(null)
+  const verifie = useRef('')
+  const tape = useRef(false) // seulement une adresse qu'on vient d'écrire (pas celle déjà enregistrée)
+  useEffect(() => {
+    const q = value.trim()
+    if (focus || choisi || !tape.current || !q || verifie.current === q || ajoutCp?.apres === value) return
+    const ctrl = new AbortController()
+    const t = window.setTimeout(() => {
+      verifie.current = q
+      void verifierAdresse(q, ctrl.signal).then((r) => {
+        if (ctrl.signal.aborted || !r) return
+        if (r.sure?.cp && r.sure.ville) {
+          const apres = avecCodePostal(value, r.sure.cp, r.sure.ville)
+          setAjoutCp({ avant: value, apres, ville: `${r.sure.cp} ${r.sure.ville}` })
+          verifie.current = apres.trim()
+          onChange(apres)
+        } else if (r.choix.length > 1) setVilles(r.choix)
+      })
+    }, 350)
+    return () => {
+      ctrl.abort()
+      window.clearTimeout(t)
+    }
+  }, [focus, choisi, value]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (focus) setVilles([])
+  }, [focus])
+  const choisirVille = (v: Suggestion) => {
+    select()
+    const apres = avecCodePostal(value, v.cp!, v.ville!)
+    verifie.current = apres.trim()
+    setVilles([])
+    onChange(apres)
+    cadre.current?.animate?.([{ boxShadow: '0 0 0 3px rgba(112, 80, 213, 0.4)' }, { boxShadow: '0 0 0 3px rgba(112, 80, 213, 0)' }], { duration: 900, easing: 'ease-out' })
+  }
 
   const cadre = useRef<HTMLDivElement>(null)
   const prendre = (texte: string) => {
@@ -90,6 +130,8 @@ export const ChampLieu = memo(function ChampLieu({ value, onChange, placeholder,
           value={value}
           onChange={(e) => {
             setChoisi(false)
+            setAjoutCp(null)
+            tape.current = true
             onChange(e.target.value)
           }}
           onFocus={() => setFocus(true)}
@@ -121,6 +163,29 @@ export const ChampLieu = memo(function ChampLieu({ value, onChange, placeholder,
         </div>
       )}
 
+      {/* le code postal trouvé tout seul */}
+      {!focus && ajoutCp && ajoutCp.apres === value && (
+        <p className="anim-entre mt-1.5 flex items-center gap-1.5 px-1 text-note text-brume">
+          <Check size={14} strokeWidth={2.8} className="text-vert" />
+          <span className="min-w-0 flex-1 truncate">Code postal ajouté : <span className="font-semibold text-encre">{ajoutCp.ville}</span></span>
+          <button type="button" onClick={() => { tap(); verifie.current = ajoutCp.avant.trim(); onChange(ajoutCp.avant); setAjoutCp(null) }} className="presse min-h-8 shrink-0 px-1 font-semibold text-teinte">Annuler</button>
+        </p>
+      )}
+      {/* la même adresse dans plusieurs villes : laquelle ? */}
+      {!focus && villes.length > 1 && (
+        <div className="anim-entre mt-2 rounded-[14px] bg-peche-doux p-2.5" role="group" aria-label="Dans quelle ville ?">
+          <p className="mb-1.5 px-1 text-note font-semibold text-peche-fonce">Cette adresse existe dans plusieurs villes : laquelle ?</p>
+          <div className="flex flex-col gap-1.5">
+            {villes.map((v, i) => (
+              <button key={`${v.cp}${v.ville}`} type="button" onClick={() => choisirVille(v)} className="presse ligne-arrive-pop flex min-h-11 items-center gap-2.5 rounded-[12px] bg-carte px-3 text-left" style={{ animationDelay: `${i * 40}ms` }}>
+                <span className="shrink-0 rounded-full bg-[#E3F0FF] px-2 py-0.5 text-note font-bold tabular-nums text-[#2F6FD6]">{v.cp}</span>
+                <span className="min-w-0 flex-1 truncate text-sous font-semibold text-encre">{v.detail || v.ville}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* en tapant : adresses et lieux */}
       {focus && !choisi && value.trim().length >= 3 && (cherche || suggestions.length > 0) && (
         <div className="anim-entre mt-2 overflow-hidden rounded-[14px] bg-carte shadow-[0_0_0_1px_rgba(60,56,82,0.08),0_8px_20px_-12px_rgba(29,26,43,0.18)]" role="listbox" aria-label="Suggestions de lieux">
@@ -139,7 +204,12 @@ export const ChampLieu = memo(function ChampLieu({ value, onChange, placeholder,
               </span>
               <span className={`min-w-0 flex-1 py-2.5 pr-4 ${i < suggestions.length - 1 ? 'border-b border-trait' : ''}`}>
                 <span className="block truncate text-corps">{s.titre}</span>
-                {s.detail && <span className="block truncate text-note text-brume">{s.detail}</span>}
+                {(s.detail || s.cp) && (
+                  <span className="flex items-center gap-1.5 text-note text-brume">
+                    {s.cp && s.genre !== 'ville' && <span className="shrink-0 rounded-full bg-[#E3F0FF] px-1.5 text-mini font-bold tabular-nums leading-[18px] text-[#2F6FD6]">{s.cp}</span>}
+                    <span className="min-w-0 truncate">{s.genre === 'lieu' && s.cp ? s.detail.replace(`${s.cp} `, '') : s.detail}</span>
+                  </span>
+                )}
               </span>
             </button>
           ))}
