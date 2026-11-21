@@ -35,7 +35,9 @@ input[type='date'], input[type='time'] { -webkit-appearance: none; appearance: n
   .groupe { @apply overflow-hidden rounded-groupe bg-carte; }
   .champ { @apply w-full rounded-[14px] bg-remplissage px-4 py-[13px] text-corps text-encre outline-none placeholder:text-pale focus:ring-2 focus:ring-teinte/40; }
   .presse { @apply transition-[transform,opacity] duration-150 active:scale-[0.97] active:opacity-80; }
-  .presse-ligne { @apply transition-colors duration-100 active:bg-remplissage; }
+  /* le toucher d'une ligne : un voile violet très léger, plus de gros gris (Elisa, 21 novembre) */
+  .presse-ligne { transition: background-color 0.22s ease; }
+  .presse-ligne:active { background-color: rgba(112, 80, 213, 0.05); transition-duration: 0s; }
   .entete { @apply px-5 pb-1.5 text-note font-semibold uppercase tracking-[0.02em] text-brume; }
 }
 
@@ -209,11 +211,11 @@ button:focus-visible, a:focus-visible { outline: 3px solid #6646CC; outline-offs
   -webkit-backdrop-filter: blur(22px) saturate(150%);
 }
 .ios-sheet {
-  background: linear-gradient(165deg, rgba(255,255,255,.96), rgba(248,247,252,.94));
+  /* opaque, sans flou derrière : le flou recalculé à chaque image rendait les micro-animations saccadées
+     (Elisa, 21 novembre : « les micro animations ne sont pas fluides ») ; à 95 % d'opacité, on ne le voyait pas */
+  background: linear-gradient(165deg, #FFFFFF, #F8F7FC);
   border: 1px solid rgba(255,255,255,.82);
   box-shadow: 0 -16px 64px -20px rgba(29,26,43,.22), inset 0 1px 1px #fff;
-  backdrop-filter: blur(26px) saturate(150%);
-  -webkit-backdrop-filter: blur(26px) saturate(150%);
 }
 @supports (corner-shape: squircle) {
   .groupe, .ios-sheet, .sheet-header { corner-shape: squircle; }
@@ -604,9 +606,9 @@ html.natif.kb-ouvert, html.natif.kb-ouvert body { background: var(--fond-clavier
 @keyframes etincelle { 0%, 100% { opacity: 0.15; transform: scale(0.6) rotate(0deg); } 50% { opacity: 1; transform: scale(1.15) rotate(25deg); } }
 /* un choix fait : la carte, la puce ou la pastille font « pop » */
 .ob-puce[aria-pressed='true'], .ob-carte[aria-pressed='true'], .ob-choix[aria-pressed='true'], .ob-teint[aria-pressed='true'] { animation: choixPop 0.38s cubic-bezier(0.3, 1.6, 0.5, 1); }
-@keyframes choixPop { 0% { transform: scale(0.94); } 55% { transform: scale(1.04); } 100% { transform: none; } }
+@keyframes choixPop { 0% { transform: scale(0.95); } 50% { transform: scale(1.025); } 100% { transform: none; } }
 /* ailleurs, une puce ou une carte choisie fait un petit rebond (les confettis sont gardés pour l'ajout lui-même) */
-.choix-pop[aria-pressed='true'], .choix-pop[data-on='true'] { animation: choixPop 0.4s cubic-bezier(0.3, 1.6, 0.5, 1); }
+.choix-pop[aria-pressed='true'], .choix-pop[data-on='true'] { animation: choixPop 0.42s cubic-bezier(0.25, 0.8, 0.3, 1); }
 @media (prefers-reduced-motion: reduce) { .choix-pop[aria-pressed='true'], .choix-pop[data-on='true'] { animation: none; } }
 /* la liste : une ligne qui arrive s'éclaire un instant (et la nouvelle se pose avec un rebond) */
 .ligne-arrive { animation: ligneArrive 1.4s ease-out; }
@@ -628,8 +630,8 @@ html.natif.kb-ouvert, html.natif.kb-ouvert body { background: var(--fond-clavier
 @keyframes flotteDoux { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-4px) rotate(-2deg); } }
 @media (prefers-reduced-motion: reduce) { .lieu-choisi, .points-attente i, .flotte-doux { animation: none; } }
 /* un rond qui se coche : il gonfle puis se pose (en vague avec « Tout sélectionner ») */
-.coche-saut { animation: cocheSaut 0.42s cubic-bezier(0.3, 1.6, 0.5, 1) both; }
-@keyframes cocheSaut { 0% { transform: scale(0.4); } 60% { transform: scale(1.22); } 100% { transform: none; } }
+.coche-saut { animation: cocheSaut 0.45s cubic-bezier(0.25, 0.8, 0.3, 1) both; }
+@keyframes cocheSaut { 0% { transform: scale(0.5); } 55% { transform: scale(1.14); } 100% { transform: none; } }
 /* …et qui se décoche : il se creuse un instant */
 .coche-retire { animation: cocheRetire 0.3s ease-out both; }
 @keyframes cocheRetire { 0% { transform: scale(1.15); } 45% { transform: scale(0.8); } 100% { transform: none; } }
@@ -676,3 +678,12 @@ html.natif.kb-ouvert, html.natif.kb-ouvert body { background: var(--fond-clavier
 html.kb-visible .sheet-footer-clavier { grid-template-rows: 0fr; padding-top: 0; opacity: 0; pointer-events: none; }
 html.kb-visible .sheet-footer-clavier .sheet-footer-dedans { overflow: hidden; }
 html.kb-visible .ios-sheet { padding-bottom: 10px !important; }
+
+/* Cocher une chose à faire ou un article (Elisa, 21 novembre) : le nom se barre lentement, de gauche à droite
+   (sur toutes ses lignes), devient pâle, puis des confettis, puis la ligne se range. */
+.barre-lente { color: rgba(60, 56, 82, 0.56); transition: color 0.55s ease 0.15s; background: linear-gradient(currentColor, currentColor) no-repeat 0 58% / 0% 2px; -webkit-box-decoration-break: slice; box-decoration-break: slice; animation: barreLente 0.62s cubic-bezier(0.65, 0, 0.35, 1) 0.06s forwards; }
+@keyframes barreLente { to { background-size: 100% 2px; } }
+@media (prefers-reduced-motion: reduce) { .barre-lente { animation: none; background-size: 100% 2px; } }
+/* une idée touchée part en douceur avant d'arriver dans la liste */
+.idee-part { animation: ideePart 0.24s ease-in forwards; pointer-events: none; }
+@keyframes ideePart { to { transform: scale(0.6); opacity: 0; } }

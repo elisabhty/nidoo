@@ -9,7 +9,7 @@ import { MemberStack } from '../components/folder'
 import { EventDetailSheet, EventSheet, EventIcon, TYPES_AGENDA } from '../components/sheets'
 import { Art, AuDessus, Avatar, Rond, Screen, Segments, Vide } from '../components/ui'
 import { choc, select, success, tap } from '../lib/haptic'
-import { confettis, petille } from '../lib/fete'
+import { bravo, confettis } from '../lib/fete'
 import { useHome } from '../lib/store'
 import type { EventKind, FamEvent, ListItem, ListKind } from '../lib/types'
 import { dayLabel, errorText, finDe, nextOccurrence, occursOn, repeteDe, rythme, timeLabel, todayKey } from '../lib/util'
@@ -193,7 +193,7 @@ function Coche({ fait }: { fait: boolean }) {
 }
 
 /** Une ligne qu'on fait glisser vers la gauche pour la retirer (et qu'on peut toujours toucher pour cocher). */
-function Glisse({ children, onRetirer, label, partant = false }: { children: ReactNode; onRetirer: () => void; label: string; partant?: boolean }) {
+function Glisse({ children, onRetirer, label, partant = false, range = false }: { children: ReactNode; onRetirer: () => void; label: string; partant?: boolean; range?: boolean }) {
   const [dx, setDx] = useState(0)
   const [glisse, setPart] = useState(false)
   // qui part (glissée, poubelle ou « Retirer ») : elle file vers la gauche et la place se referme
@@ -209,7 +209,7 @@ function Glisse({ children, onRetirer, label, partant = false }: { children: Rea
     depart.current = null
   }
   return (
-    <div className={`relative overflow-hidden transition-[max-height,opacity] duration-300 ${part ? 'max-h-0 opacity-0' : 'max-h-[120px]'}`}>
+    <div className={`relative overflow-hidden transition-[max-height,opacity] duration-300 ${part || range ? 'max-h-0 opacity-0' : 'max-h-[120px]'}`}>
       <div className="absolute inset-y-0 right-0 flex items-center justify-end bg-rouge pr-5 text-sous font-semibold text-white" style={{ width: Math.max(0, -dx) + 8 }} aria-hidden="true">
         {dx < -40 && 'Retirer'}
       </div>
@@ -352,6 +352,18 @@ function Liste({ kind }: { kind: ListKind }) {
   const recetteTapee = tache || !title.trim() ? null : recetteDe(title)
   const saisons = tache ? [] : recettesDuMoment()
   const presque = tache ? [] : recettesAvec(nomsListe)
+  // « Pour compléter » : les idées de tous les articles récents, réunies (sans doublon)
+  const sources = avec.map((g) => g.avec)
+  const completer8 = [...new Set(avec.flatMap((g) => g.idees))].slice(0, 8)
+  const recettesIdees = [...presque.map((p) => ({ r: p.recette, manque: p.manque })), ...saisons.filter((r) => !presque.some((p) => p.recette.id === r.id)).map((r) => ({ r, manque: 0 }))].slice(0, 3)
+  type Onglet = 'souvent' | 'completer' | 'recettes'
+  const ongletsIdees = tache ? [] : ([
+    idees.length ? { k: 'souvent', label: 'Souvent', emoji: '⭐' } : null,
+    completer8.length ? { k: 'completer', label: 'Compléter', emoji: '🧩' } : null,
+    { k: 'recettes', label: 'Recettes', emoji: '📖' },
+  ].filter(Boolean) as { k: Onglet; label: string; emoji: string }[])
+  const [onglet, setOnglet] = useState<Onglet>('souvent')
+  const ongletVu = ongletsIdees.some((o) => o.k === onglet) ? onglet : ongletsIdees[0]?.k
   const dansLaListe = (nom: string) => todo.some((i) => memeArticle(lireArticle(i.title).nom, nom))
   const ajouterRecette = (r: Recette, articles: { nom: string; qte: string }[]) => {
     for (const a of articles) ajouter(ecrireArticle(a), { exact: true, discret: true })
@@ -435,24 +447,37 @@ function Liste({ kind }: { kind: ListKind }) {
       () => oublier(i.id),
     )
   }
+  // cocher (Elisa, 21 novembre) : le rond se coche, le nom se barre lentement, des confettis jaillissent,
+  // puis la ligne se range et part dans « terminées » / le panier. Décocher reste immédiat.
+  const [barres, setBarres] = useState<string[]>([])
+  const [ranges, setRanges] = useState<string[]>([])
   const basculer = (i: ListItem, el?: Element | null) => {
-    if (i.id.startsWith('attente-')) return
+    if (i.id.startsWith('attente-') || barres.includes(i.id)) return
     const fait = !i.done
-    if (fait) success()
-    else tap()
-    setChanges((c) => ({ ...c, [i.id]: { ...c[i.id], done: fait } }))
-    // cocher fait pétiller ; la dernière de la liste, c'est la fête
-    if (fait) petille(el)
-    const derniere = fait && todo.filter((x) => !x.id.startsWith('attente-')).length === 1
-    if (derniere) {
-      window.setTimeout(confettis, 180)
-      toast(tache ? 'Tout est fait, bravo ! 🎉' : 'Tout est dans le panier ! 🛒')
-    } else if (tache && fait) toast('C’est fait ✓')
-    void fond(
-      () => api.toggleItem(i, me.id),
-      () => oublier(i.id),
-      () => oublier(i.id),
-    )
+    if (!fait) {
+      tap()
+      setChanges((c) => ({ ...c, [i.id]: { ...c[i.id], done: false } }))
+      void fond(() => api.toggleItem(i, me.id), () => oublier(i.id), () => oublier(i.id))
+      return
+    }
+    select()
+    setBarres((b) => [...b, i.id])
+    const derniere = todo.filter((x) => !x.id.startsWith('attente-') && !barres.includes(x.id)).length === 1
+    window.setTimeout(() => {
+      success()
+      bravo(el?.firstElementChild ?? el) // le rond coché (la ligne est toujours là)
+    }, 650)
+    window.setTimeout(() => setRanges((r) => [...r, i.id]), 1050)
+    window.setTimeout(() => {
+      setChanges((c) => ({ ...c, [i.id]: { ...c[i.id], done: true } }))
+      setBarres((b) => b.filter((x) => x !== i.id))
+      setRanges((r) => r.filter((x) => x !== i.id))
+      if (derniere) {
+        confettis()
+        toast(tache ? 'Tout est fait, bravo ! 🎉' : 'Tout est dans le panier ! 🛒')
+      } else if (tache) toast('C’est fait ✓')
+      void fond(() => api.toggleItem(i, me.id), () => oublier(i.id), () => oublier(i.id))
+    }, 1350)
   }
   // ajouter et retirer se sentent et se voient (Elisa, 21 novembre) : la ligne qui arrive s'éclaire un instant,
   // celle qui part vibre, file vers la gauche et la place se referme
@@ -483,8 +508,18 @@ function Liste({ kind }: { kind: ListKind }) {
     )
   }
 
-  const idee = (x: string, k: string) => (
-    <button key={k} type="button" onPointerDown={garderLeClavier} onClick={() => ajouter(x)} className="presse flex min-h-[36px] shrink-0 items-center gap-1 rounded-full bg-fond px-3 text-sous font-semibold text-encre">
+  const [sortants, setSortants] = useState<string[]>([])
+  const prendre = (x: string) => {
+    if (sortants.includes(x)) return
+    select()
+    setSortants((o) => [...o, x])
+    window.setTimeout(() => {
+      ajouter(x, { discret: true })
+      setSortants((o) => o.filter((y) => y !== x))
+    }, 220)
+  }
+  const idee = (x: string, k: string, n = 0) => (
+    <button key={k} type="button" onPointerDown={garderLeClavier} onClick={() => prendre(x)} className={`presse ligne-arrive-pop flex min-h-[36px] items-center gap-1 rounded-full bg-doux px-3 text-sous font-semibold text-encre ${sortants.includes(x) ? 'idee-part' : ''}`} style={{ animationDelay: `${n * 30}ms` }}>
       <Plus size={14} strokeWidth={2.8} className="text-teinte" /> {x}
     </button>
   )
@@ -495,13 +530,13 @@ function Liste({ kind }: { kind: ListKind }) {
     const attente = i.id.startsWith('attente-')
     const art = lireArticle(i.title)
     return (
-      <Glisse key={i.id} onRetirer={() => retirer([i.id])} partant={partants.includes(i.id)} label={`Glisse vers la gauche pour retirer ${i.title}`}>
+      <Glisse key={i.id} onRetirer={() => retirer([i.id])} partant={partants.includes(i.id)} range={ranges.includes(i.id)} label={`Glisse vers la gauche pour retirer ${i.title}`}>
         <div className={`flex items-center ${attente ? 'ligne-arrive-pop opacity-70' : ''} ${arrivees.includes(cle(tache ? i.title : art.nom)) ? 'ligne-arrive' : ''} ${dernier ? '' : 'border-b border-trait'}`}>
           {/* le gris du toucher s'arrête avant la quantité, avec un peu d'air (Elisa, 21 novembre) */}
-          <button onClick={(e) => basculer(i, e.currentTarget.firstElementChild)} className={`presse-ligne flex min-h-[54px] min-w-0 flex-1 items-center gap-3 py-2 pl-4 pr-3 text-left ${!tache && !editing ? 'rounded-r-[16px]' : ''}`} aria-label={`Cocher ${i.title}`}>
-            <Coche fait={false} />
+          <button onClick={(e) => basculer(i, e.currentTarget)} className={`presse-ligne flex min-h-[54px] min-w-0 flex-1 items-center gap-3 py-2 pl-4 pr-3 text-left ${!tache && !editing ? 'rounded-r-[16px]' : ''}`} aria-label={`Cocher ${i.title}`}>
+            {barres.includes(i.id) ? <span className="coche-saut flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-teinte text-white"><Check size={16} strokeWidth={3.2} /></span> : <Coche fait={false} />}
             <span className="min-w-0 flex-1">
-              <span className="block text-corps">{tache ? i.title : art.nom}</span>
+              <span className="block text-corps"><span className={barres.includes(i.id) ? 'barre-lente' : ''}>{tache ? i.title : art.nom}</span></span>
               {tache && evtDe(i.event_id) && (
                 <span className="mt-0.5 flex items-center gap-1 text-note font-semibold text-teinte-fonce">
                   <EventIcon event={evtDe(i.event_id)!} size={15} />
@@ -581,47 +616,48 @@ function Liste({ kind }: { kind: ListKind }) {
             <ChevronRight size={18} className="shrink-0 text-peche-fonce" />
           </button>
         )}
-        {!tache && !recetteTapee && idees.length > 0 && (
-          <>
-            <p className="mb-1.5 mt-3 px-1 text-note font-bold text-brume">Souvent dans la liste</p>
-            <div className="no-bar -mx-3 flex gap-1.5 overflow-x-auto px-3 pb-0.5" aria-label="Idées à ajouter">
-              {idees.map((x) => idee(x, x))}
+        {/* courses : les idées rangées en trois onglets (Elisa, 21 novembre : « bien réfléchir à l'UI/UX de cette
+            partie ») — une seule rangée à la fois, tout se voit en entier, la liste reste juste en dessous */}
+        {!tache && !title.trim() && ongletsIdees.length > 0 && (
+          <div className="mt-3">
+            <div className="flex gap-1 rounded-full bg-doux p-1" role="tablist" aria-label="Idées">
+              {ongletsIdees.map((o) => {
+                const on = ongletVu === o.k
+                return (
+                  <button key={o.k} type="button" role="tab" aria-selected={on} onPointerDown={garderLeClavier} onClick={() => (select(), setOnglet(o.k))}
+                    className={`presse flex min-h-[34px] flex-1 items-center justify-center gap-1 rounded-full px-2 text-note font-bold transition-[background-color,color,box-shadow] duration-200 ${on ? 'bg-carte text-teinte-fonce shadow-[0_1px_3px_rgba(29,26,43,0.1)]' : 'text-brume'}`}>
+                    <span aria-hidden="true">{o.emoji}</span> {o.label}
+                  </button>
+                )
+              })}
             </div>
-          </>
-        )}
-        {!recetteTapee && avec.map((g) => (
-          <div key={g.avec}>
-            <p className="mb-1.5 mt-3 px-1 text-note font-bold text-brume">Pour aller avec {g.avec.toLowerCase()}</p>
-            <div className="no-bar -mx-3 flex gap-1.5 overflow-x-auto px-3 pb-0.5">{g.idees.map((x) => idee(x, `${g.avec}-${x}`))}</div>
+            <div key={ongletVu} role="tabpanel" className="pt-3">
+              {ongletVu === 'souvent' && <div className="flex flex-wrap gap-1.5">{idees.slice(0, 8).map((x, n) => idee(x, x, n))}</div>}
+              {ongletVu === 'completer' && (
+                <>
+                  <p className="mb-2 px-1 text-note text-brume">Avec {sources.map((x) => x.toLowerCase()).join(', ').replace(/, ([^,]*)$/, ' et $1')} :</p>
+                  <div className="flex flex-wrap gap-1.5">{completer8.map((x, n) => idee(x, `c-${x}`, n))}</div>
+                </>
+              )}
+              {ongletVu === 'recettes' && (
+                <div className="flex flex-col gap-1.5">
+                  {recettesIdees.map(({ r, manque }, n) => (
+                    <button key={r.id} type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setRecette(r))} className="presse ligne-arrive-pop flex items-center gap-3 rounded-[16px] bg-[#FFF5EF] p-2 pr-3 text-left" style={{ animationDelay: `${n * 45}ms` }}>
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-carte text-[22px]" aria-hidden="true">{r.emoji}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sous font-bold text-encre">{r.nom}</span>
+                        <span className="block text-note text-peche-fonce">{manque ? `Il manque ${manque} article${manque > 1 ? 's' : ''}` : 'De saison · tout pour le repas'}</span>
+                      </span>
+                      <ChevronRight size={17} className="shrink-0 text-peche-fonce" />
+                    </button>
+                  ))}
+                  <button type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setToutesRecettes(true))} className="presse mt-0.5 flex min-h-[44px] items-center justify-center gap-1.5 rounded-full text-sous font-bold text-teinte-fonce">
+                    <BookOpen size={16} strokeWidth={2.4} /> Toutes les recettes <ChevronRight size={16} strokeWidth={2.6} className="fleche-signe" />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-        ))}
-        {!tache && !title.trim() && presque.length > 0 && (
-          <>
-            <p className="mb-1.5 mt-3 px-1 text-note font-bold text-brume">Une recette avec ce qu’il y a dans la liste</p>
-            <div className="no-bar -mx-3 flex gap-1.5 overflow-x-auto px-3 pb-0.5">
-              {presque.map(({ recette: r, manque }) => (
-                <button key={r.id} type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setRecette(r))} className="presse flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full bg-peche-doux px-3 text-sous font-semibold text-peche-fonce">
-                  <span aria-hidden="true">{r.emoji}</span> {r.nom}
-                  <span className="font-medium opacity-75">· il manque {manque}</span>
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-        {!tache && !title.trim() && (
-          <>
-            <p className="mb-1.5 mt-3 px-1 text-note font-bold text-brume">Recettes · tout pour le repas, aux bonnes quantités</p>
-            <div className="no-bar -mx-3 flex gap-1.5 overflow-x-auto px-3 pb-0.5">
-              <button type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setToutesRecettes(true))} className="presse flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full bg-teinte px-3 text-sous font-semibold text-white">
-                <BookOpen size={15} strokeWidth={2.4} /> Toutes les recettes
-              </button>
-              {saisons.map((r) => (
-                <button key={r.id} type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setRecette(r))} className="presse flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full bg-peche-doux px-3 text-sous font-semibold text-peche-fonce">
-                  <span aria-hidden="true">{r.emoji}</span> {r.nom}
-                </button>
-              ))}
-            </div>
-          </>
         )}
         {tache && (
           <>

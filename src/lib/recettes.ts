@@ -32,6 +32,19 @@ function mois(t: string): number[] {
   return [...out]
 }
 
+// le sel et le poivre (Elisa, 21 novembre : « parfois le sel n'est pas cité ») : dans le placard de tous les plats
+// salés, et le sel dans les desserts à pâte (une pincée). Pas pour raclette, fondue, brunch, apéro, ni les listes.
+const SANS_ASSAISONNEMENT = new Set(['W08', 'W09', 'F02', 'F04', 'F05', 'F06'])
+function assaisonner(r: Recette): Recette {
+  if (r.cat === 'liste' || SANS_ASSAISONNEMENT.has(r.id)) return r
+  const a = (nom: string) => r.ingredients.some((i) => cle(i.nom) === cle(nom))
+  const pate = r.ingredients.some((i) => /^(farine|pate)/.test(cle(i.nom)))
+  const plus: Ingredient[] = []
+  if (!a('Sel') && (r.cat !== 'dessert' || pate)) plus.push({ nom: 'Sel', placard: true, base: false, parTete: false })
+  if (!a('Poivre') && r.cat !== 'dessert') plus.push({ nom: 'Poivre', placard: true, base: false, parTete: false })
+  return plus.length ? { ...r, ingredients: [...r.ingredients, ...plus] } : r
+}
+
 export const LES_RECETTES: Recette[] = RECETTES.trim()
   .split(/\n(?=# )/)
   .map((bloc) => {
@@ -55,6 +68,7 @@ export const LES_RECETTES: Recette[] = RECETTES.trim()
         }),
     }
   })
+  .map(assaisonner)
 
 type Format = { n: number; dim: 'g' | 'cl' | 'pce' | 'tranche' | 'gousse'; label: string; regle: 'sec' | 'frais' | 'creme' }
 const LES_FORMATS = new Map<string, Format>(

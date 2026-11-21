@@ -42,6 +42,12 @@ export function petille(el?: Element | null) {
   canon()({ particleCount: 16, spread: 75, startVelocity: 17, ticks: 70, gravity: 0.85, scalar: 0.7, decay: 0.9, origin: depuis(el), colors: COULEURS, shapes: ['circle', 'star'] })
 }
 
+/** Des confettis qui jaillissent d'un élément (une chose faite, un article dans le panier). */
+export function bravo(el?: Element | null) {
+  if (calme()) return
+  canon()({ particleCount: 34, spread: 88, startVelocity: 23, ticks: 95, gravity: 0.9, scalar: 0.82, decay: 0.9, origin: depuis(el), colors: COULEURS, shapes: ['circle', 'square'] })
+}
+
 /** Des cœurs qui s'envolent d'un élément (un proche choisi, le panda caressé, un bisou). */
 export function coeurs(el?: Element | null, n = 9) {
   if (calme()) return

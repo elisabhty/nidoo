@@ -1,11 +1,11 @@
 import { Building2, Clock, MapPin, Store, X } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { chercherAdresses, type Suggestion } from '../lib/adresses'
 import { select, tap } from '../lib/haptic'
 
 /** Le lieu d'un événement : en tapant, une liste d'adresses et de lieux (gratuite) ; champ vide, les lieux déjà utilisés
  *  par la famille. Un toucher sur une suggestion la met dans le champ. */
-export function ChampLieu({ value, onChange, placeholder, recents }: { value: string; onChange: (v: string) => void; placeholder: string; recents: string[] }) {
+export const ChampLieu = memo(function ChampLieu({ value, onChange, placeholder, recents }: { value: string; onChange: (v: string) => void; placeholder: string; recents: string[] }) {
   const [focus, setFocus] = useState(false)
   const [choisi, setChoisi] = useState(false)
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
@@ -122,4 +122,4 @@ export function ChampLieu({ value, onChange, placeholder, recents }: { value: st
       )}
     </div>
   )
-}
+})

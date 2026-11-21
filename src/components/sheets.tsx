@@ -1,5 +1,6 @@
 import { AlignLeft, Cake, CalendarDays, CalendarPlus, Camera, Check, Plus, ChevronDown, ChevronRight, Clock, X, Images, MapPin, Navigation, PenLine, Repeat, Share, Sticker as StickerIcon, Trash2, Undo2, Users } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { forwardRef, memo, useEffect, useMemo, useRef, useState } from 'react'
+import { rebond } from '../lib/rebond'
 import { moodOf, MOODS, THOUGHTS, thoughtOf } from '../lib/data'
 import { Smiley } from './Smiley'
 import { coeurs, confettis } from '../lib/fete'
@@ -513,7 +514,7 @@ const LIEU_EXEMPLE: Record<string, string> = { evenement: 'Ex. : Chez Mamie, à 
 
 /** Qui est concerné (Elisa, 21 novembre : « les personnes concernées, de manière UI UX ») : une rangée de têtes,
  *  comme pour partager à quelqu'un sur iPhone. « Toute la famille » d'abord ; toucher une tête la coche. */
-export function WhoPicker({ value, onChange }: { value: string[]; onChange: (ids: string[]) => void }) {
+export const WhoPicker = memo(function WhoPicker({ value, onChange }: { value: string[]; onChange: (ids: string[]) => void }) {
   const { state } = useHome()
   const all = value.length === 0
   return (
@@ -533,7 +534,7 @@ export function WhoPicker({ value, onChange }: { value: string[]; onChange: (ids
       })}
     </div>
   )
-}
+})
 
 /** Une tête qu'on coche : un anneau violet et une petite coche qui arrive avec un rebond. */
 function Bulle({ on, nom, onClick, children, taille = 50 }: { on: boolean; nom: string; onClick: () => void; children: React.ReactNode; taille?: number }) {
@@ -582,9 +583,9 @@ export function WhoList({ ids }: { ids: string[] }) {
 
 /** Une carte de la fiche « Nouvel événement » : blanche, sans trait, une ombre à peine là (Elisa, 21 novembre :
  *  « alléger les bordures et les ombres »). */
-function CarteEvt({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <section className={`carte-evt mt-3 rounded-[20px] bg-carte p-4 ${className}`}>{children}</section>
-}
+const CarteEvt = forwardRef<HTMLElement, { children: React.ReactNode; className?: string }>(function CarteEvt({ children, className = '' }, ref) {
+  return <section ref={ref} className={`carte-evt mt-3 rounded-[20px] bg-carte p-4 ${className}`}>{children}</section>
+})
 function TitreCarte({ icone: I, titre, extra }: { icone: typeof CalendarDays; titre: string; extra?: React.ReactNode }) {
   return (
     <div className="mb-3 flex items-center gap-2.5">
@@ -624,8 +625,23 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
   const [who, setWho] = useState<string[]>(event?.members ?? [])
   const birthday = kind === 'anniversaire'
   const nom = useRef<HTMLInputElement>(null)
+  const imageEvt = useRef<HTMLSpanElement>(null)
+  useEffect(() => rebond(imageEvt.current), [kind, sticker])
+  // une seule partie ouverte à la fois (Elisa, 21 novembre) : toucher ailleurs referme « Répéter » et les stickers
+  const carteRep = useRef<HTMLElement>(null)
+  const carteNom = useRef<HTMLElement>(null)
+  useEffect(() => {
+    if (!repOuvert && !stickersOpen) return
+    const ailleurs = (e: PointerEvent) => {
+      const t = e.target as Node
+      if (repOuvert && !carteRep.current?.contains(t)) setRepOuvert(false)
+      if (stickersOpen && !carteNom.current?.contains(t)) setStickersOpen(false)
+    }
+    document.addEventListener('pointerdown', ailleurs, true)
+    return () => document.removeEventListener('pointerdown', ailleurs, true)
+  }, [repOuvert, stickersOpen])
   // les lieux déjà utilisés par la famille (les plus récents d'abord), proposés quand le champ est vide
-  const lieuxConnus = [...new Set([...state.events].sort((a, b) => b.starts_at.localeCompare(a.starts_at)).map((e) => e.lieu?.trim()).filter((x): x is string => !!x))]
+  const lieuxConnus = useMemo(() => [...new Set([...state.events].sort((a, b) => b.starts_at.localeCompare(a.starts_at)).map((e) => e.lieu?.trim()).filter((x): x is string => !!x))], [state.events])
   // l'heure proposée suit le genre (9h00 pour un rendez-vous, 12h00 pour un repas), tant qu'on ne l'a pas choisie
   const heureTouchee = useRef(!!event)
   const changeKind = (k: EventKind) => {
@@ -747,9 +763,9 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
         {KINDS.map((k) => {
           const on = kind === k.key
           return (
-            <button key={k.key} type="button" aria-pressed={on} onClick={() => (select(), changeKind(k.key))}
+            <button key={k.key} type="button" aria-pressed={on} onClick={(e) => { select(); changeKind(k.key); rebond(e.currentTarget.querySelector('img')) }}
               className={`presse choix-pop relative flex h-[60px] flex-col items-center justify-center gap-0.5 rounded-[16px] text-[12.5px] font-bold transition-[box-shadow,background-color,color] duration-200 ${on ? 'bg-teinte-doux text-teinte-fonce shadow-[inset_0_0_0_1.5px_#7050D5]' : 'carte-evt bg-carte text-encre'}`}>
-              <span key={on ? 'on' : 'off'} className={on ? 'saut' : ''}><Art name={k.art} size={27} /></span>
+              <Art name={k.art} size={27} />
               {k.label}
               {on && <span className="anim-pop absolute right-1.5 top-1.5 flex h-[17px] w-[17px] items-center justify-center rounded-full bg-teinte text-white"><Check size={10} strokeWidth={3.6} /></span>}
             </button>
@@ -758,10 +774,10 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
       </div>
 
       {/* le nom : un vrai champ, qu'on touche pour écrire ; l'image se change à côté (« Changer », plus de crayon ambigu) */}
-      <CarteEvt>
+      <CarteEvt ref={carteNom}>
         <div className="flex items-center gap-3.5">
           <button type="button" onClick={() => (tap(), setStickersOpen((v) => !v))} aria-label="Changer l’image de l’événement" aria-expanded={stickersOpen} className="presse relative flex h-[66px] w-[66px] shrink-0 items-center justify-center rounded-[18px] bg-teinte-doux pb-1.5">
-            <span key={`${kind}${sticker}`} className="anim-pop"><EventIcon event={{ kind, sticker }} size={40} /></span>
+            <span ref={imageEvt} className="inline-flex"><EventIcon event={{ kind, sticker }} size={40} /></span>
             <span className="absolute -bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-white px-2 py-[2px] text-[10.5px] font-bold text-teinte-fonce shadow-[0_2px_6px_rgba(29,26,43,0.12)]">Changer</span>
           </button>
           <div className="min-w-0 flex-1">
@@ -870,7 +886,7 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
 
       {/* Répéter (plus seulement « chaque semaine ») */}
       {!birthday && (
-        <CarteEvt className="!p-0">
+        <CarteEvt ref={carteRep} className="!p-0">
           <button type="button" onClick={() => (tap(), setRepOuvert((v) => !v))} aria-expanded={repOuvert} className="flex w-full items-center gap-2.5 p-4 text-left transition-opacity active:opacity-60">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-teinte-doux text-teinte"><Repeat size={17} strokeWidth={2.3} /></span>
             <span className="flex-1 text-corps font-bold">Répéter</span>
