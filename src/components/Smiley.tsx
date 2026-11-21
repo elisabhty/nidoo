@@ -1,19 +1,19 @@
-// Le smiley de l'humeur : une petite boule de feutrine (public/art/humeurs/<humeur>.webp, générée avec ElevenLabs
-// dans le style des figurines), avec ce qui va autour (chapeau de fête, z, larme, cœur…). Il se lit d'un coup d'œil
-// dans la bulle au-dessus de chacun. Un smiley dessiné reste pour une humeur inconnue.
+// Le visage de l'humeur : le panda roux de Nidoo, le même que dans le widget « Mon humeur » (public/art/humeur-<humeur>.webp)
+// (Elisa, 21 novembre : « remplace les emoji par ça »). Il se lit d'un coup d'œil dans la bulle au-dessus de chacun,
+// sur les pastilles et en grand pour choisir son humeur. Un smiley dessiné reste pour une humeur inconnue.
 
-const FEUTRE = new Set(['heureux', 'serein', 'motive', 'fete', 'fatigue', 'stresse', 'nostalgique', 'triste'])
+const PANDAS = new Set(['heureux', 'serein', 'motive', 'fete', 'fatigue', 'stresse', 'nostalgique', 'triste'])
 
 const INK = '#5B3A1E'
 const MOUTH = '#7A3B1E'
 
 export function Smiley({ mood, size = 22 }: { mood: string; size?: number }) {
-  if (FEUTRE.has(mood)) {
-    // l'image fait deux fois la boule : la boule remplit le rond, le reste dépasse un peu
-    const w = size * 1.86
+  if (PANDAS.has(mood)) {
+    // la tête du panda remplit le rond ; ses oreilles (et le chapeau de fête) dépassent un peu
+    const w = size * 1.18
     return (
       <span aria-hidden className="relative inline-block shrink-0" style={{ width: size, height: size }}>
-        <img src={`./art/humeurs/${mood}.webp`} alt="" draggable={false} className="pointer-events-none absolute max-w-none select-none" style={{ width: w, height: w, left: (size - w) / 2, top: (size - w) / 2 }} />
+        <img src={`./art/humeur-${mood}.webp`} alt="" draggable={false} className="pointer-events-none absolute max-w-none select-none" style={{ width: w, height: w, left: (size - w) / 2, top: (size - w) / 2 }} />
       </span>
     )
   }
