@@ -205,10 +205,10 @@ export function Sheet({ title, onClose, children, tall = false, footer, cacherBa
         ref={panel}
         tabIndex={-1}
         className={`ios-sheet anim-monte relative outline-none flex flex-col rounded-t-feuille bg-fond text-encre ${tall ? 'h-[92%]' : 'max-h-[92%]'}`}
-        style={{ paddingBottom: 'calc(var(--sab) + 14px)', transform: dy ? `translateY(${dy}px)` : undefined, transition: start.current === null ? 'transform 0.35s var(--ressort)' : 'none' }}
+        style={{ paddingBottom: 'calc(var(--sab) + 14px)', transform: dy ? `translateY(${dy}px)` : undefined, transition: start.current === null ? 'transform 0.35s var(--ressort), padding-bottom 0.26s cubic-bezier(0.38, 0.7, 0.125, 1)' : 'none' }}
       >
         <div
-          className={`sheet-header touch-none shrink-0 ${contentScrolled ? 'sheet-header-scrolled' : ''}`}
+          className={`sheet-header touch-none shrink-0 rounded-t-feuille ${contentScrolled ? 'sheet-header-scrolled' : ''}`}
           onPointerDown={(e) => {
             dragStarted.current = performance.now()
             start.current = e.clientY
@@ -233,7 +233,7 @@ export function Sheet({ title, onClose, children, tall = false, footer, cacherBa
         </div>
         {/* de l'air sous le dernier champ : il ne colle plus au bouton du bas, même clavier ouvert (Elisa, 21 novembre) */}
         <div ref={defile} className={`no-bar min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 ${footer ? 'pb-8' : 'pb-4'}`} onScroll={e => { const b = e.currentTarget; setContentScrolled(b.scrollTop > 8); if (footer) setDessous(b.scrollHeight - b.scrollTop - b.clientHeight > 6) }}>{footer ? <div ref={contenu}>{children}</div> : children}</div>
-        {footer && <div className={`sheet-footer shrink-0 px-5 pt-4 ${dessous ? 'sheet-footer-dessous' : ''} ${cacherBasAuClavier ? 'sheet-footer-clavier' : ''}`}>{footer}</div>}
+        {footer && <div className={`sheet-footer shrink-0 px-5 pt-4 ${dessous ? 'sheet-footer-dessous' : ''} ${cacherBasAuClavier ? 'sheet-footer-clavier' : ''}`}>{cacherBasAuClavier ? <div className="sheet-footer-dedans">{footer}</div> : footer}</div>}
       </div>
     </div>
   )

@@ -683,7 +683,9 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
     }
   } else if (kind === 'evenement') {
     const fetes = prochainsJoursSpeciaux(auj)
-    if (fetes.length) for (const j of fetes) suite.push({ label: j.nom, detail: court(j.date, { day: 'numeric', month: 'short' }), v: iso(j.date), titre: j.titre ?? j.nom })
+    // les noms longs, raccourcis sur leur puce (le nom proposé pour l'événement reste entier)
+    const NOM_COURT: Record<string, string> = { 'Réveillon de Noël': 'Réveillon', 'Fête des grands-mères': 'Grands-mères', 'Fête des grands-pères': 'Grands-pères' }
+    if (fetes.length) for (const j of fetes.slice(0, 3)) suite.push({ label: NOM_COURT[j.nom] ?? j.nom, detail: court(j.date, { day: 'numeric', month: 'short' }), v: iso(j.date), titre: j.titre ?? j.nom })
     else {
       const samedi = dans(((6 - auj.getDay() + 7) % 7) || 7)
       const dimanche = dans(((7 - auj.getDay()) % 7) || 7)
@@ -692,13 +694,6 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
   }
   const jours: Raccourci[] = [{ label: 'Aujourd’hui', v: iso(auj) }, { label: 'Demain', v: iso(dans(1)) }, ...suite].filter((x, k, t) => t.findIndex((y) => y.v === x.v) === k)
   const surRaccourci = jours.some((j) => j.v === date)
-  const rangee = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const r = rangee.current
-    const b = r?.querySelector<HTMLElement>('[aria-pressed="true"]')
-    if (!r || !b) return
-    if (b.offsetLeft < r.scrollLeft || b.offsetLeft > r.scrollLeft + r.clientWidth - 44) r.scrollTo({ left: Math.max(0, b.offsetLeft - 16), behavior: 'smooth' })
-  }, [date, kind])
   // un jour de fête choisi alors que le nom est vide : on le propose comme nom (on le remplace si on change de jour)
   const nomPropose = useRef('')
   const choisirJour = (j: Raccourci) => {
@@ -735,7 +730,7 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
     }
     if (!title.trim()) window.setTimeout(() => (el as HTMLInputElement | null)?.focus({ preventScroll: true }), 350)
   }
-  const puce = (on: boolean) => `presse choix-pop shrink-0 rounded-full px-3.5 py-2 text-sous font-semibold transition-[background-color,color,box-shadow] duration-200 ${on ? 'bg-teinte text-white shadow-[0_4px_12px_-5px_rgba(112,80,213,0.7)]' : 'bg-doux text-encre'}`
+  const puce = (on: boolean) => `presse choix-pop shrink-0 rounded-full px-3 py-[7px] text-[14.5px] font-semibold transition-colors duration-200 ${on ? 'bg-teinte text-white' : 'bg-doux text-encre'}`
   const repetitions = REPETITIONS.filter((o) => repOk || o.v === null || o.v === 'semaine' || o.v === 'annee')
   const repLabel = (r: Repete | null) => (r === 'annee' ? 'Chaque année' : r ? rythme({ starts_at: dateDe(date).toISOString(), yearly: false, repete: r }, dateDe(date)) ?? '' : 'Jamais')
   const ligne = 'flex min-h-[48px] items-center justify-between gap-3 text-corps'
@@ -765,9 +760,9 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
       {/* le nom : un vrai champ, qu'on touche pour écrire ; l'image se change à côté (« Changer », plus de crayon ambigu) */}
       <CarteEvt>
         <div className="flex items-center gap-3.5">
-          <button type="button" onClick={() => (tap(), setStickersOpen((v) => !v))} aria-label="Changer l’image de l’événement" aria-expanded={stickersOpen} className="presse relative flex h-[66px] w-[66px] shrink-0 items-center justify-center rounded-[18px] bg-teinte-doux">
-            <span key={`${kind}${sticker}`} className="anim-pop"><EventIcon event={{ kind, sticker }} size={42} /></span>
-            <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-white px-2 py-[2px] text-[10.5px] font-bold text-teinte-fonce shadow-[0_2px_6px_rgba(29,26,43,0.12)]">Changer</span>
+          <button type="button" onClick={() => (tap(), setStickersOpen((v) => !v))} aria-label="Changer l’image de l’événement" aria-expanded={stickersOpen} className="presse relative flex h-[66px] w-[66px] shrink-0 items-center justify-center rounded-[18px] bg-teinte-doux pb-1.5">
+            <span key={`${kind}${sticker}`} className="anim-pop"><EventIcon event={{ kind, sticker }} size={40} /></span>
+            <span className="absolute -bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-white px-2 py-[2px] text-[10.5px] font-bold text-teinte-fonce shadow-[0_2px_6px_rgba(29,26,43,0.12)]">Changer</span>
           </button>
           <div className="min-w-0 flex-1">
             <label htmlFor="event-name" className="mb-1.5 block px-0.5 text-note font-semibold text-brume">{birthday ? 'Anniversaire de…' : 'Nom de l’événement'} <span className="text-teinte" aria-hidden="true">*</span></label>
@@ -804,7 +799,14 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
 
       {/* Date et horaire */}
       <CarteEvt>
-        <TitreCarte icone={CalendarDays} titre={birthday ? 'Date' : 'Date et horaire'} />
+        <TitreCarte icone={CalendarDays} titre={birthday ? 'Date' : 'Date et horaire'} extra={birthday ? undefined : (
+          // « Autre date » en haut, avec une petite flèche qui fait signe (Elisa, 21 novembre)
+          <label className="presse relative -my-1 flex min-h-9 items-center gap-0.5 rounded-full bg-teinte-doux py-1 pl-3 pr-2 text-note font-bold text-teinte-fonce">
+            Autre date
+            <ChevronRight size={16} strokeWidth={2.8} className="fleche-signe" />
+            <input aria-label="Choisir une autre date" type="date" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={date} onChange={e => e.target.value && (select(), setDate(e.target.value))} />
+          </label>
+        )} />
         {birthday ? (
           <label className="champ-evt presse relative flex h-12 items-center gap-2.5 rounded-[14px] bg-doux px-3.5 text-corps font-semibold">
             <CalendarDays size={18} className="shrink-0 text-teinte" />
@@ -813,20 +815,22 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
             <input aria-label="Le jour de l’anniversaire" type="date" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={date} onChange={e => e.target.value && (select(), setDate(e.target.value))} />
           </label>
         ) : (
-          <div className="flex items-center gap-2">
-            <div ref={rangee} className="no-bar fondu-droite relative -ml-4 flex min-w-0 flex-1 gap-2 overflow-x-auto py-0.5 pl-4 pr-4" role="group" aria-label="Raccourcis de date">
-              {jours.map((j) => (
-                <button key={j.v} type="button" aria-pressed={date === j.v} onClick={() => choisirJour(j)} className={puce(date === j.v)}>
-                  {j.label}
-                  {j.detail && <span className={`ml-1.5 font-medium ${date === j.v ? 'text-white/80' : 'text-brume'}`}>{j.detail}</span>}
-                </button>
-              ))}
-            </div>
-            <label className={`${puce(!surRaccourci)} relative flex items-center gap-1.5 !px-3`} data-on={!surRaccourci}>
-              <CalendarDays size={16} strokeWidth={2.3} className={surRaccourci ? 'text-teinte' : ''} />
-              <span key={surRaccourci ? 'autre' : date}>{surRaccourci ? 'Autre date' : dateCourte(date)}</span>
-              <input aria-label="Choisir une autre date" type="date" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={date} onChange={e => e.target.value && (select(), setDate(e.target.value))} />
-            </label>
+          // tous les raccourcis se voient en entier (Noël, le réveillon…), sur deux lignes s'il le faut ;
+          // une autre date choisie vient en tête, en violet
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Raccourcis de date">
+            {!surRaccourci && (
+              <label key={date} className={`${puce(true)} relative flex items-center gap-1.5`} data-on="true">
+                <CalendarDays size={15} strokeWidth={2.4} />
+                {dateCourte(date)}
+                <input aria-label="Changer la date" type="date" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={date} onChange={e => e.target.value && (select(), setDate(e.target.value))} />
+              </label>
+            )}
+            {jours.map((j) => (
+              <button key={j.v} type="button" aria-pressed={date === j.v} onClick={() => choisirJour(j)} className={puce(date === j.v)}>
+                {j.label}
+                {j.detail && <span className={`ml-1.5 font-medium ${date === j.v ? 'text-white/80' : 'text-brume'}`}>{j.detail}</span>}
+              </button>
+            ))}
           </div>
         )}
         {birthday ? (
@@ -867,7 +871,7 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
       {/* Répéter (plus seulement « chaque semaine ») */}
       {!birthday && (
         <CarteEvt className="!p-0">
-          <button type="button" onClick={() => (tap(), setRepOuvert((v) => !v))} aria-expanded={repOuvert} className="presse-ligne flex w-full items-center gap-2.5 rounded-[20px] p-4 text-left">
+          <button type="button" onClick={() => (tap(), setRepOuvert((v) => !v))} aria-expanded={repOuvert} className="flex w-full items-center gap-2.5 p-4 text-left transition-opacity active:opacity-60">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-teinte-doux text-teinte"><Repeat size={17} strokeWidth={2.3} /></span>
             <span className="flex-1 text-corps font-bold">Répéter</span>
             <span key={`${rep}${date}`} className={`anim-entre text-sous ${rep ? 'font-semibold text-teinte-fonce' : 'text-brume'}`}>{repLabel(rep)}</span>

@@ -90,7 +90,8 @@ function montrer(el: Element | null) {
   if (!box) return
   const r = el.getBoundingClientRect()
   const b = box.getBoundingClientRect()
-  if (r.top < b.top + 12 || r.bottom > b.bottom - 12) box.scrollTop += r.top - b.top - (b.height - r.height) / 2
+  // en douceur (plus de saut d'un coup quand le clavier monte)
+  if (r.top < b.top + 12 || r.bottom > b.bottom - 12) box.scrollBy({ top: r.top - b.top - (b.height - r.height) / 2, behavior: 'smooth' })
 }
 
 /** Keep the active sheet inside the visible area when the software keyboard opens.
@@ -111,7 +112,7 @@ export function useKeyboardViewport() {
       if (!ouvert) root.style.setProperty('--fond-clavier', fondDuBas())
       ouvert = true
       zone = zoneDe(document.activeElement)
-      root.classList.add('kb-ouvert')
+      root.classList.add('kb-ouvert', 'kb-visible')
       root.style.setProperty('--app-height', `${window.innerHeight - Math.max(0, Math.round(keyboardHeight))}px`)
       setKeyboard(true)
       // le champ, bien visible au-dessus du clavier, une fois l'appli calée
@@ -119,6 +120,8 @@ export function useKeyboardViewport() {
     })
     const cache = Keyboard.addListener('keyboardWillHide', () => {
       ouvert = false
+      // tout de suite (pas 0,3 s après) : le bouton du bas revient en même temps que le clavier descend
+      root.classList.remove('kb-visible')
       root.style.setProperty('--app-height', `${window.innerHeight}px`)
       setKeyboard(false)
       const box = zone
@@ -133,7 +136,7 @@ export function useKeyboardViewport() {
       window.clearTimeout(fin)
       void montre.then((h) => h.remove())
       void cache.then((h) => h.remove())
-      root.classList.remove('kb-ouvert')
+      root.classList.remove('kb-ouvert', 'kb-visible')
       root.style.removeProperty('--app-height')
     }
   }, [])

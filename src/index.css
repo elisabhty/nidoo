@@ -216,7 +216,7 @@ button:focus-visible, a:focus-visible { outline: 3px solid #6646CC; outline-offs
   -webkit-backdrop-filter: blur(26px) saturate(150%);
 }
 @supports (corner-shape: squircle) {
-  .groupe, .ios-sheet { corner-shape: squircle; }
+  .groupe, .ios-sheet, .sheet-header { corner-shape: squircle; }
 }
 input, textarea { caret-color: #7050D5; }
 ::selection { background: #DDD2FA; color: #28174C; }
@@ -664,10 +664,15 @@ html.natif.kb-ouvert, html.natif.kb-ouvert body { background: var(--fond-clavier
 /* La fiche « Nouvel événement » (Elisa, 21 novembre : « alléger les bordures et les ombres ») : des cartes blanches
    sans trait, une ombre à peine là ; les raccourcis de date s'effacent à droite plutôt que d'être coupés net. */
 .carte-evt { box-shadow: 0 1px 1px rgba(29, 26, 43, 0.025), 0 3px 12px -6px rgba(29, 26, 43, 0.08); }
-.fondu-droite { -webkit-mask-image: linear-gradient(to right, transparent, #000 14px, #000 calc(100% - 22px), transparent); mask-image: linear-gradient(to right, transparent, #000 14px, #000 calc(100% - 22px), transparent); }
+.fleche-signe { animation: faitSigne 2.2s ease-in-out 0.8s infinite; }
+@media (prefers-reduced-motion: reduce) { .fleche-signe { animation: none; } }
 /* le bouton du bas : un trait léger seulement quand il reste de quoi lire dessous ; caché quand le clavier est ouvert
    (il ne cache plus le champ qu'on remplit). Le clavier recouvre la barre d'accueil : pas de marge pour elle. */
 .sheet-footer { transition: box-shadow 200ms ease; }
 .sheet-footer-dessous { box-shadow: 0 -1px 0 rgba(103, 83, 139, 0.1), 0 -10px 18px -14px rgba(29, 26, 43, 0.18); }
-html.kb-ouvert .sheet-footer-clavier { display: none; }
-html.kb-ouvert .ios-sheet { padding-bottom: 10px !important; }
+/* il se replie en suivant le clavier (même durée, même courbe), puis revient de même : plus de saut */
+.sheet-footer-clavier { display: grid; grid-template-rows: 1fr; transition: grid-template-rows 0.26s cubic-bezier(0.38, 0.7, 0.125, 1), padding-top 0.26s cubic-bezier(0.38, 0.7, 0.125, 1), opacity 0.2s ease, box-shadow 200ms ease; }
+.sheet-footer-dedans { min-height: 0; }
+html.kb-visible .sheet-footer-clavier { grid-template-rows: 0fr; padding-top: 0; opacity: 0; pointer-events: none; }
+html.kb-visible .sheet-footer-clavier .sheet-footer-dedans { overflow: hidden; }
+html.kb-visible .ios-sheet { padding-bottom: 10px !important; }
