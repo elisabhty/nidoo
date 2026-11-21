@@ -123,7 +123,8 @@ export function RecetteSheet({ recette, onClose, onAjouter, dejaDansLaListe }: {
             <p className="text-note text-brume">{plats ? `${plats} plat${plats > 1 ? 's' : ''} de ${recette.parts} parts` : enfants ? 'Les enfants ont de plus petites parts' : 'Touche un prénom pour le retirer'}</p>
           </div>
         </div>
-        <div className="no-bar -mx-3.5 mt-3 flex gap-2 overflow-x-auto px-3.5 pb-0.5" role="group" aria-label="Qui mange">
+        {/* de la place au-dessus et au-dessous : le cercle autour de l’avatar n’est plus coupé par la bande qui défile */}
+        <div className="no-bar -mx-3.5 mt-2 flex gap-2 overflow-x-auto px-3.5 py-1.5" role="group" aria-label="Qui mange">
           {convives.map(({ m }) => {
             const la = !absents.includes(m.id)
             return (
@@ -189,8 +190,8 @@ const dansTexte = (n: number | null) => (n === null ? '' : n === 0 ? 'aujourd’
 /** Toutes les recettes : de saison, par occasion (Noël, Nouvel An, Épiphanie…), par genre, ou en cherchant. */
 type Onglet = Categorie | 'saison' | 'occasion' | 'monde'
 /** Où l'on en était (Elisa, 21 novembre : « quand on regarde une recette et qu'on la quitte, ça retourne à saison ») :
- *  l'onglet, l'occasion, la région, la recherche et l'endroit de la liste sont gardés le temps de la session. */
-const vue: { cat: Onglet; occasion: Occasion | null; region: string; q: string; defile: number } = { cat: 'saison', occasion: null, region: 'maghreb', q: '', defile: 0 }
+ *  l'onglet, l'occasion, la région et la recherche sont gardés le temps de la session. */
+const vue: { cat: Onglet; occasion: Occasion | null; region: string; q: string } = { cat: 'saison', occasion: null, region: 'maghreb', q: '' }
 
 export function RecettesSheet({ onClose, onChoisir, occasion: occasionDepart }: { onClose: () => void; onChoisir: (r: Recette) => void; occasion?: Occasion }) {
   const [q, setQ] = useState(occasionDepart ? '' : vue.q)
@@ -201,22 +202,12 @@ export function RecettesSheet({ onClose, onChoisir, occasion: occasionDepart }: 
   useEffect(() => {
     Object.assign(vue, { cat, occasion, region, q })
   }, [cat, occasion, region, q])
-  // la liste revient là où on l'avait laissée
+  // La liste reste ouverte (cachée) sous la recette qu'on regarde : en revenant, elle est exactement là où on l'avait
+  // laissée, sans rien recharger ni remettre en place (Elisa, 21 novembre : « on retourne en arrière, la liste saute »).
   const haut = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const box = haut.current?.closest<HTMLElement>('.overflow-y-auto')
-    if (!box) return
-    const garder = () => {
-      vue.defile = box.scrollTop
-    }
-    if (!occasionDepart && vue.defile) window.requestAnimationFrame(() => (box.scrollTop = vue.defile))
-    box.addEventListener('scroll', garder, { passive: true })
-    return () => box.removeEventListener('scroll', garder)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const changerOnglet = (o: Onglet) => {
     select()
     setCat(o)
-    vue.defile = 0
     const box = haut.current?.closest<HTMLElement>('.overflow-y-auto')
     if (box) box.scrollTop = 0
   }

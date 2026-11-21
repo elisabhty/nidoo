@@ -1,13 +1,13 @@
 import { test } from 'node:test'
 import { strict as assert } from 'node:assert'
 import { loadTs } from './loadTs.mjs'
-const { LES_RECETTES, PAYS, REGIONS, recettesDuMonde, lignesDe, occasionsAVenir, occasionProche, portionsFamille, recetteDe, recettesAvec, recettesDe, recettesDuMoment } = await loadTs('src/lib/recettes.ts')
+const { LES_RECETTES, PAYS, REGIONS, chercherRecettes, recettesDuMonde, lignesDe, occasionsAVenir, occasionProche, portionsFamille, recetteDe, recettesAvec, recettesDe, recettesDuMoment } = await loadTs('src/lib/recettes.ts')
 const { estVague, fiche, iconeDe, precisions, souvent } = await loadTs('src/lib/courses.ts')
 const r = (id) => LES_RECETTES.find((x) => x.id === id)
 const ligne = (res, nom) => res.lignes.find((l) => l.nom === nom)
 
-test('148 recettes et 6 listes, chaque ingrédient connu du référentiel, aucun nom vague', () => {
-  assert.equal(LES_RECETTES.filter((x) => x.cat !== 'liste').length, 148)
+test('159 recettes et 6 listes, chaque ingrédient connu du référentiel, aucun nom vague', () => {
+  assert.equal(LES_RECETTES.filter((x) => x.cat !== 'liste').length, 159)
   assert.equal(new Set(LES_RECETTES.map((x) => x.id)).size, LES_RECETTES.length)
   for (const x of LES_RECETTES) for (const i of x.ingredients) assert.ok(!estVague(i.nom), `${x.nom} : ${i.nom} est trop vague`)
   assert.equal(LES_RECETTES.filter((x) => x.cat === 'liste').length, 6)
@@ -101,4 +101,21 @@ test('du monde : chaque région, ses pays, les plats que tout le monde connaît'
 test('tout le monde compte, les tout-petits pour une petite part', () => {
   assert.deepEqual(portionsFamille([0, 3]), { personnes: 2, parts: 1.3 })
   assert.deepEqual(portionsFamille([0, 0, 0]), { personnes: 3, parts: 3 })
+})
+
+test('les farcis : tomates, poivrons, courgettes, chou, petits farcis, dinde farcie (Elisa, 21 novembre)', () => {
+  const noms = chercherRecettes('farci').map((x) => x.nom)
+  for (const n of ['Tomates farcies', 'Poivrons farcis au bœuf', 'Courgettes farcies', 'Chou farci', 'Petits farcis niçois', 'Dinde farcie aux marrons', 'Dinde farcie aux pommes']) assert.ok(noms.includes(n), n)
+  assert.equal(chercherRecettes('dinde farcie')[0].id, 'F07')
+  assert.ok(r('F07').occasions.includes('noel') && r('F14').occasions.includes('noel'))
+  // la farce porc + bœuf des tomates farcies pour 4
+  const tom = lignesDe(r('Q42'), 4)
+  assert.equal(ligne(tom, 'Chair à saucisse').besoin, '300 g')
+  assert.equal(ligne(tom, 'Viande hachée').besoin, '200 g')
+  assert.equal(ligne(tom, 'Tomates').besoin, '8 pièces')
+  // une dinde entière pour 8, la farce à la chair à saucisse et aux marrons
+  const dinde = lignesDe(r('F07'), 8)
+  assert.equal(ligne(dinde, 'Chair à saucisse').besoin, '400 g')
+  assert.equal(ligne(dinde, 'Marrons').achat, '2 × bocal de 400 g')
+  assert.equal(ligne(lignesDe(r('F14'), 8), 'Cidre').achat, '1 bouteille')
 })

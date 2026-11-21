@@ -888,8 +888,20 @@ function Liste({ kind }: { kind: ListKind }) {
       )}
       {tache && <ListPages {...navigation} label="Pages des tâches" />}
       <AuDessus>
+        {/* la liste des recettes reste montée sous la recette ouverte : au retour, rien ne bouge */}
+        {toutesRecettes && (
+          <div className="contents" style={recette ? { visibility: 'hidden' } : undefined} aria-hidden={recette ? true : undefined}>
+            <RecettesSheet
+              onClose={() => setToutesRecettes(false)}
+              onChoisir={(r) => {
+                // le clavier se ferme avant d'ouvrir la recette (sinon l'écran se recale au retour)
+                if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+                setRecette(r)
+              }}
+            />
+          </div>
+        )}
         {recette && <RecetteSheet key={recette.id} recette={recette} onClose={() => setRecette(null)} onAjouter={(a) => ajouterRecette(recette, a)} dejaDansLaListe={dansLaListe} />}
-        {toutesRecettes && !recette && <RecettesSheet onClose={() => setToutesRecettes(false)} onChoisir={setRecette} />}
       </AuDessus>
     </>
   )

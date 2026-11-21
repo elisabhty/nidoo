@@ -668,6 +668,16 @@ Miel P
 Huile d’olive P
 Vinaigre P
 
+# E11 | Champignons farcis | entree | pers | 9-3 | 🍄 | champignons farcis, champignon farci, champignons farcis apero, farcis | noel,nouvelan | france
+Champignons de Paris 100 g
+Chair à saucisse 40 g
+Échalotes 0.25 pce
+Ail 0.5 gousse
+Fromage râpé 10 g
+Persil P
+Chapelure P
+Huile d’olive P
+
 # Q30 | Gratin de courgettes | quotidien | pers | 6-9 | 🥒 | gratin courgette, gratin de courgette
 Courgettes 1 pce
 Crème fraîche 5 cl
@@ -762,6 +772,74 @@ Pâte feuilletée 0.25 rouleau
 Ketchup P
 Moutarde P
 
+# Q42 | Tomates farcies | quotidien | pers | 6-10 | 🍅 | tomates farcies, tomate farcie, farcis, farci, tomates farcies au riz, legumes farcis |  | france
+Tomates 2 pce
+Chair à saucisse 75 g
+Viande hachée 50 g
+Riz 50 g
+Oignons 0.25 pce
+Ail 0.5 gousse
+Œufs 0.25 pce B
+Chapelure P
+Persil P
+Herbes de Provence P
+Huile d’olive P
+
+# Q43 | Poivrons farcis au bœuf | quotidien | pers | 7-10 | 🫑 | poivrons farcis, poivron farci, poivrons farcis viande hachee, farcis
+Poivrons 1 pce
+Viande hachée 100 g
+Riz 30 g
+Oignons 0.25 pce
+Ail 0.5 gousse
+Coulis de tomate 80 g
+Fromage râpé 15 g
+Paprika P
+Huile d’olive P
+
+# Q44 | Courgettes farcies | quotidien | pers | 6-9 | 🥒 | courgettes farcies, courgette farcie, courgettes rondes farcies, farcis |  | france
+Courgettes 1 pce
+Chair à saucisse 100 g
+Riz 50 g
+Oignons 0.25 pce
+Ail 0.5 gousse
+Œufs 0.25 pce B
+Fromage râpé 15 g
+Chapelure P
+Thym P
+Huile d’olive P
+
+# Q45 | Pommes de terre farcies | quotidien | pers | 10-3 | 🥔 | pommes de terre farcies, patates farcies, pomme de terre farcie, farcis |  | france
+Pommes de terre 2 pce
+Viande hachée 80 g
+Oignons 0.25 pce
+Crème fraîche 2 cl
+Fromage râpé 20 g
+Beurre 5 g B
+Persil P
+
+# Q46 | Aubergines farcies | quotidien | pers | 7-9 | 🍆 | aubergines farcies, aubergine farcie, farcis
+Aubergines 0.5 pce
+Viande hachée 100 g
+Tomates 0.5 pce
+Riz 50 g
+Oignons 0.25 pce
+Ail 0.5 gousse
+Fromage râpé 15 g
+Cumin P
+Huile d’olive P
+
+# Q47 | Cannellonis au bœuf | quotidien | plat:6 | 1-12 | 🍝 | cannellonis, cannelloni, cannellonis bolognaise, cannellonis farcis |  | italie
+Cannellonis 250 g
+Viande hachée 500 g
+Tomates concassées 800 g
+Oignons 1 pce
+Ail 1 gousse
+Fromage râpé 100 g
+Lait 50 cl B
+Beurre 40 g B
+Farine 40 g P
+Muscade P
+
 # W14 | Poulet basquaise | weekend | pers | 6-9 | 🫑 | basquaise, poulet basquais
 Cuisses de poulet 1 pce H
 Poivrons 0.75 pce
@@ -813,13 +891,48 @@ Ail 1 gousse
 Beurre 10 g B
 Thym P
 
-# F07 | Dinde aux marrons | fete | pers | 12 | 🦃 | dinde, dinde de noel, dinde farcie | noel
+# W20 | Petits farcis niçois | weekend | pers | 6-9 | 🫑 | petits farcis, farcis nicois, farcis provencaux, petits farcis provencaux, legumes farcis, farcis |  | france
+Tomates 1 pce
+Courgettes 0.5 pce
+Poivrons 0.5 pce
+Oignons 0.5 pce
+Chair à saucisse 80 g
+Jambon 1 tranche
+Parmesan 10 g
+Œufs 0.5 pce B
+Ail 1 gousse
+Chapelure P
+Persil P
+Thym P
+Huile d’olive P
+
+# W21 | Chou farci | weekend | plat:6 | 10-3 | 🥬 | chou farci, chou farci auvergnat, chou farci au porc, farci |  | france
+Chou vert 1 pce
+Chair à saucisse 500 g
+Viande hachée 250 g
+Lardons 200 g
+Carottes 2 pce
+Oignons 1 pce
+Ail 2 gousse
+Œufs 1 pce B
+Pain de mie 2 tranche
+Lait 10 cl B
+Persil P
+Thym P
+Laurier P
+Bouillon de volaille P
+
+# F07 | Dinde farcie aux marrons | fete | pers | 12 | 🦃 | dinde farcie, dinde, dinde de noel, dinde aux marrons, farce aux marrons, farce de noel | noel,nouvelan | france
 Dinde 400 g
-Marrons 80 g
 Chair à saucisse 50 g
-Pommes de terre 150 g
+Marrons 80 g
+Pain de mie 0.5 tranche
+Lait 2 cl B
+Œufs 0.15 pce B
 Échalotes 0.25 pce
+Pommes de terre 150 g
 Beurre 10 g B
+Persil P
 Thym P
 Bouillon de volaille P
 
@@ -871,6 +984,19 @@ Salade 40 g
 Mayonnaise 20 g
 Huile de tournesol 25 cl
 Cornichons P
+
+# F14 | Dinde farcie aux pommes | fete | pers | 11-1 | 🦃 | dinde farcie aux pommes, dinde aux pommes, dinde au cidre, dinde farcie | noel,nouvelan | france
+Dinde 400 g
+Chair à saucisse 50 g
+Pommes 1 pce
+Échalotes 0.25 pce
+Pain de mie 0.5 tranche
+Lait 2 cl B
+Œufs 0.15 pce B
+Cidre 8 cl
+Beurre 10 g B
+Persil P
+Thym P
 
 # D14 | Bûche aux marrons | dessert | plat:8 | 12 | 🌰 | buche marrons, buche sans cuisson, buche aux marrons | noel
 Crème de marrons 400 g
@@ -1068,6 +1194,18 @@ Fromage râpé 60 g
 Œufs 2 pce B
 Persil P
 Huile de tournesol P
+
+# DZ4 | Dolma de courgettes | quotidien | pers | 5-10 | 🥒 | dolma, dolma courgettes, courgettes farcies algeriennes, farcis |  | algerie
+Courgettes 1 pce
+Viande hachée 100 g
+Riz 20 g
+Pois chiches 40 g
+Oignons 0.5 pce
+Ail 0.5 gousse
+Œufs 0.25 pce B
+Persil P
+Cannelle P
+Huile d’olive P
 
 # TN1 | Bricks à l’œuf et au thon | entree | pers | 1-12 | 🥟 | brick, bricks, brick a l oeuf, brick au thon | | tunisie
 Feuilles de brick 1 pce
@@ -1426,6 +1564,7 @@ export const FORMATS = `
 spaghetti|500 g|paquet de 500 g|sec
 pâtes|500 g|paquet de 500 g|sec
 lasagnes|500 g|paquet de 500 g|sec
+cannellonis|250 g|boîte de 250 g|sec
 riz|1000 g|paquet de 1 kg|sec
 riz basmati|1000 g|paquet de 1 kg|sec
 riz rond|500 g|paquet de 500 g|sec
@@ -1479,6 +1618,7 @@ lard|250 g|morceau|frais
 petits pois surgelés|1000 g|sachet de 1 kg|sec
 vin blanc|75 cl|bouteille|sec
 vin rouge|75 cl|bouteille|sec
+cidre|75 cl|bouteille|sec
 jus d’orange|100 cl|brique de 1 L|sec
 jus de fruits|100 cl|brique de 1 L|sec
 jus de pomme|100 cl|brique de 1 L|sec

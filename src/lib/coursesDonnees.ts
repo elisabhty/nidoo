@@ -217,6 +217,7 @@ noix de Saint-Jacques|VIA|g|300|100
 pâtes|EPS||2|1
 spaghetti|EPS||1|1
 lasagnes|EPS||1|1
+cannellonis|EPS||1|1
 riz|EPS||1|1
 riz basmati|EPS||1|1
 riz rond|EPS||1|1
@@ -502,6 +503,7 @@ champignon,champignons=champignons de Paris
 tomates cerise,tomate cerises=tomate cerise
 coquillettes,penne,tagliatelles,fusilli,macaronis=pâtes
 spaghettis=spaghetti
+cannelloni=cannellonis
 nesquik,banania,poulain=chocolat en poudre
 maïzena,maizena=fécule de maïs
 sucre en poudre,sucre semoule=sucre
