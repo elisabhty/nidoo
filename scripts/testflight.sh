@@ -15,6 +15,26 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# ── le code à jour (21 novembre : une build était partie avec le code d'avant) ──
+# On récupère soi-même la dernière version de main avant de construire. Ce que les outils réécrivent à chaque envoi
+# (package-lock.json, Package.swift) ne bloque plus la mise à jour ; une vraie modification locale est mise de côté.
+if [ -z "${NIDOO_A_JOUR:-}" ] && git rev-parse --git-dir >/dev/null 2>&1; then
+  git checkout -- package-lock.json ios/App/CapApp-SPM/Package.swift 2>/dev/null || true
+  if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+    echo "Des modifications locales sont mises de côté (git stash) pour récupérer la dernière version."
+    git stash -q
+  fi
+  AVANT=$(git rev-parse HEAD)
+  if ! git pull --ff-only -q; then
+    echo "Impossible de récupérer la dernière version du code (git pull). Rien n'est envoyé." >&2
+    exit 1
+  fi
+  # le script lui-même a peut-être changé : on relance la nouvelle version
+  if [ "$AVANT" != "$(git rev-parse HEAD)" ]; then NIDOO_A_JOUR=1 exec bash scripts/testflight.sh "$@"; fi
+fi
+CODE=$(git log -1 --format='%h' 2>/dev/null || echo '?')
+echo "Code envoyé : $(git log -1 --format='%h · %cd · %s' --date=format:'%d/%m %H:%M' 2>/dev/null | cut -c1-100)"
+
 TEAM="${TEAM:-RN77C85JG4}"
 RANGEMENT="$HOME/.appstoreconnect"
 CLES="$RANGEMENT/private_keys"
@@ -71,8 +91,8 @@ SORTIE="$PWD/ios/build"
 ARCHIVE="$SORTIE/NIDOO.xcarchive"
 
 echo "→ 1/4  L'appli web"
-# les modules à jour (un plugin ajouté depuis le dernier envoi, comme le clavier le 21 novembre)
-npm install --no-audit --no-fund --loglevel=error
+# les modules à jour, exactement ceux du dépôt (un plugin ajouté depuis le dernier envoi), sans réécrire package-lock.json
+npm ci --no-audit --no-fund --loglevel=error
 npm run build
 npx cap sync ios
 
@@ -127,4 +147,5 @@ if ! xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportOptionsPlist "$SOR
   exit 1
 fi
 
-echo "Envoyé (build $NUMERO). Il apparaît dans TestFlight après quelques minutes de traitement par Apple."
+echo "Envoyé (build $NUMERO, code $CODE). Il apparaît dans TestFlight après quelques minutes de traitement par Apple."
+echo "Sur l'iPhone : TestFlight > NIDOO > Mettre à jour. En bas de l'onglet Famille, la version doit finir par « $CODE »." 
