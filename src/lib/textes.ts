@@ -38,9 +38,10 @@ export const ONBOARDING = {
   invite: {
     title: 'Votre petit chez-vous est prêt ✨',
     description: 'Il ne manque plus que tes proches pour lui donner vie.',
-    code_hint: 'Code valable 7 jours · Tu approuves chaque demande.',
+    code_hint: 'Partage ce code avec tes proches. Chaque demande devra être acceptée par toi.',
+    code_validite: 'Code valable 7 jours.',
     share: 'Inviter mes proches',
-    enter: 'Entrer dans la maison',
+    enter: 'Découvrir ma maison',
     later: 'Tu pourras aussi les inviter plus tard depuis l’onglet Famille.',
   },
 } as const

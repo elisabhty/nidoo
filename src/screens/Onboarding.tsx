@@ -1,4 +1,4 @@
-import { CalendarDays, Check, ChevronLeft, ChevronRight, Copy, Heart, House as HouseIcon, Images, Mail, MessageCircleHeart, Share, Smile } from 'lucide-react'
+import { CalendarDays, Check, ChevronLeft, ChevronRight, Copy, Heart, House as HouseIcon, Images, KeyRound, Mail, MessageCircleHeart, Share, Smile } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import House from '../components/House'
 import { CommentAjouter, EcranNotifications, EcranWidgets } from '../components/accueilApercus'
@@ -153,6 +153,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
   }, [pres]) // eslint-disable-line react-hooks/exhaustive-deps
   const [notifs, setNotifs] = useState<'oui' | 'non' | null>(null)
   const [bulle, setBulle] = useState(0)
+  const [copie, setCopie] = useState(false)
   const [busy, setBusy] = useState(false)
   const [created, setCreated] = useState<{ id: string; code: string } | null>(null)
   const container = useRef<HTMLDivElement>(null)
@@ -824,26 +825,47 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
           )}
 
           {step === 'invite' && created && (
-            <div className="flex flex-1 flex-col pt-6 text-center">
-              <div className="mx-auto w-full overflow-hidden rounded-[26px] bg-white p-1.5 shadow-[0_5px_0_rgba(36,16,110,0.32)]">
-                <div className="overflow-hidden rounded-[21px]"><House type={houseType} items={[]} /></div>
+            <div className="flex flex-1 flex-col pt-4 text-center">
+              {/* la maison un peu plus petite : le titre et le code remontent */}
+              <div className="mx-auto w-[82%] overflow-hidden rounded-[24px] bg-white p-1.5 shadow-[0_5px_0_rgba(36,16,110,0.32)]">
+                <div className="maison-hop overflow-hidden rounded-[19px]"><House type={houseType} items={[]} /></div>
               </div>
-              <h1 className="ob-titre mx-auto mt-6 max-w-[330px] outline-none">
-                Votre petit <span className="ob-mot">chez-vous</span> est prêt ✨
+              <h1 className="ob-titre mx-auto mt-5 max-w-[340px] outline-none">
+                <span className="ob-mot">{family.trim() || 'Votre petit chez-vous'}</span>, c’est prêt ✨
               </h1>
               <p className="ob-sous mx-auto mt-2 max-w-[300px]">{T.invite.description}</p>
               <button
-                onClick={async () => (await copy(created.code)) && toast('Code copié')}
-                className="ob-choix mx-auto mt-5 !w-auto !justify-center !gap-3 !px-6 !py-3"
+                onClick={async (e) => {
+                  const el = e.currentTarget
+                  if (!(await copy(created.code))) return
+                  success()
+                  petille(el)
+                  setCopie(true)
+                  window.setTimeout(() => setCopie(false), 2200)
+                }}
+                className="ob-choix relative mx-auto mt-5 !w-auto !justify-center !gap-3 !px-5 !py-3"
                 aria-label={`Copier le code ${created.code}`}
               >
-                <span className="font-rond text-[30px] font-extrabold tracking-[0.22em] text-encre">{created.code}</span>
-                <Copy size={18} className="text-teinte" />
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-[#FFF4D6] text-[#B07A00]" aria-hidden="true">
+                  <KeyRound size={19} strokeWidth={2.4} />
+                </span>
+                <span className="font-rond text-[30px] font-extrabold tracking-[0.2em] text-encre">{created.code}</span>
+                {copie ? <Check size={20} strokeWidth={3} className="anim-pop text-[#14955A]" /> : <Copy size={18} className="text-teinte" />}
+                {copie && (
+                  <span role="status" className="anim-pop absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#14955A] px-3 py-1 text-[13px] font-extrabold text-white shadow-[0_4px_10px_rgba(20,149,90,0.4)]">
+                    Code copié !
+                  </span>
+                )}
               </button>
-              <p className="mt-3 text-note font-semibold text-white/80">{T.invite.code_hint}</p>
+              <p className="mx-auto mt-3 max-w-[310px] text-note font-semibold text-white/85 [text-wrap:pretty]">{T.invite.code_hint}</p>
+              <p className="mt-1 text-note font-semibold text-white/65">{T.invite.code_validite}</p>
               <div className="flex-1" />
+              {/* après tout l'accueil, on a envie de découvrir sa maison : c'est le bouton principal ; inviter vient juste après */}
+              <button className="ob-cta ob-cta-pret mt-6" onClick={() => (tap(), void open(created.id).then(() => onCancel?.()))}>
+                <HouseIcon size={20} strokeWidth={2.5} /> {T.invite.enter}
+              </button>
               <button
-                className="ob-cta mt-6"
+                className="ob-cta leger mt-3"
                 onClick={async () => {
                   tap()
                   const r = await shareInvite(family.trim(), created.code)
@@ -852,7 +874,6 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
               >
                 <Share size={19} strokeWidth={2.5} /> {T.invite.share}
               </button>
-              <button className="ob-cta leger mt-3" onClick={() => (tap(), void open(created.id).then(() => onCancel?.()))}>{T.invite.enter}</button>
               <p className="mt-3 text-note font-semibold text-white/75">{T.invite.later}</p>
             </div>
           )}
