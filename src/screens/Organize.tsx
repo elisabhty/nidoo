@@ -1,14 +1,14 @@
 import { ListPages, useListPage } from '../components/listNavigation'
 import { BookOpen, Check, ChevronLeft, ChevronRight, MapPin, Minus, Plus, Trash2, Users } from 'lucide-react'
-import { useRef, useState, type ReactNode } from 'react'
-import { additionner, AUTRES, cle, completer, comprendre, ecrireArticle, lireArticle, memeArticle, lireQte, moinsUn, plusUn, pourAllerAvec, qteCourte, RAYONS, rayonDe, retenir, souvent } from '../lib/courses'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { additionner, AUTRES, cle, completer, comprendre, ecrireArticle, emojiDe, lireArticle, memeArticle, lireQte, moinsUn, plusUn, pourAllerAvec, qteCourte, RAYONS, rayonDe, retenir, souvent } from '../lib/courses'
 import { recetteDe, recettesAvec, recettesDuMoment, type Recette } from '../lib/recettes'
 import { evenementsAVenir, jourCourt, useLienTaches } from '../lib/lienTaches'
 import { RecetteSheet, RecettesSheet } from '../components/recettes'
 import { MemberStack } from '../components/folder'
 import { EventDetailSheet, EventSheet, EventIcon, TYPES_AGENDA } from '../components/sheets'
 import { Art, AuDessus, Avatar, Rond, Screen, Segments, Vide } from '../components/ui'
-import { choc, select, success, tap } from '../lib/haptic'
+import { choc, select, success, tap, warn } from '../lib/haptic'
 import { bravo, confettis } from '../lib/fete'
 import { useHome } from '../lib/store'
 import { useDemandeOrganiser } from '../lib/demandes'
@@ -360,18 +360,21 @@ function Liste({ kind }: { kind: ListKind }) {
   const recetteTapee = tache || !title.trim() ? null : recetteDe(title)
   const saisons = tache ? [] : recettesDuMoment()
   const presque = tache ? [] : recettesAvec(nomsListe)
-  // « Pour compléter » : les idées de tous les articles récents, réunies (sans doublon)
-  const sources = avec.map((g) => g.avec)
-  const completer8 = [...new Set(avec.flatMap((g) => g.idees))].slice(0, 8)
-  const recettesIdees = [...presque.map((p) => ({ r: p.recette, manque: p.manque })), ...saisons.filter((r) => !presque.some((p) => p.recette.id === r.id)).map((r) => ({ r, manque: 0 }))].slice(0, 3)
-  type Onglet = 'souvent' | 'completer' | 'recettes'
-  const ongletsIdees = tache ? [] : ([
-    idees.length ? { k: 'souvent', label: 'Souvent', emoji: '⭐' } : null,
-    completer8.length ? { k: 'completer', label: 'Compléter', emoji: '🧩' } : null,
-    { k: 'recettes', label: 'Recettes', emoji: '📖' },
-  ].filter(Boolean) as { k: Onglet; label: string; emoji: string }[])
-  const [onglet, setOnglet] = useState<Onglet>('souvent')
-  const ongletVu = ongletsIdees.some((o) => o.k === onglet) ? onglet : ongletsIdees[0]?.k
+  // tout a été retiré pendant « Modifier » : on en sort
+  const rienAModifier = !(tache ? todoVisible : todo).some((i) => !i.id.startsWith('attente-'))
+  useEffect(() => {
+    if (editing && rienAModifier) setEditing(false)
+  }, [editing, rienAModifier])
+  // les tuiles : ce qui va avec la liste (avec quoi), puis ce qu'on prend souvent ; liste longue : une seule rangée
+  const tuiles = (() => {
+    const out: { nom: string; avec?: string }[] = []
+    const vus = new Set<string>()
+    for (const g of avec) for (const x of g.idees) if (!vus.has(cle(x)) && out.filter((t) => t.avec).length < 4) { vus.add(cle(x)); out.push({ nom: x, avec: g.avec }) }
+    for (const x of idees) if (!vus.has(cle(x))) { vus.add(cle(x)); out.push({ nom: x }) }
+    return out.slice(0, todo.length >= 6 ? 4 : 8)
+  })()
+  // une seule idée de repas : celle que la liste permet presque, sinon une recette de saison
+  const ideeRepas = presque[0] ? { r: presque[0].recette, manque: presque[0].manque } : saisons[0] ? { r: saisons[0], manque: 0 } : null
   const dansLaListe = (nom: string) => todo.some((i) => memeArticle(lireArticle(i.title).nom, nom))
   const ajouterRecette = (r: Recette, articles: { nom: string; qte: string }[]) => {
     for (const a of articles) ajouter(ecrireArticle(a), { exact: true, discret: true })
@@ -624,47 +627,41 @@ function Liste({ kind }: { kind: ListKind }) {
             <ChevronRight size={18} className="shrink-0 text-peche-fonce" />
           </button>
         )}
-        {/* courses : les idées rangées en trois onglets (Elisa, 21 novembre : « bien réfléchir à l'UI/UX de cette
-            partie ») — une seule rangée à la fois, tout se voit en entier, la liste reste juste en dessous */}
-        {!tache && !title.trim() && ongletsIdees.length > 0 && (
+        {/* courses (Elisa, 21 novembre : « plus réfléchi ») : plus d'onglets dans l'onglet. Des tuiles à toucher, ce qui
+            va avec la liste d'abord (« avec riz »), puis ce qu'on prend souvent ; « Recettes › » à part ; et une seule
+            idée de repas, celle que la liste permet presque. Liste longue : une rangée de tuiles, la liste reste proche. */}
+        {!tache && !title.trim() && (
           <div className="mt-3">
-            <div className="flex gap-1 rounded-full bg-doux p-1" role="tablist" aria-label="Idées">
-              {ongletsIdees.map((o) => {
-                const on = ongletVu === o.k
-                return (
-                  <button key={o.k} type="button" role="tab" aria-selected={on} onPointerDown={garderLeClavier} onClick={() => (select(), setOnglet(o.k))}
-                    className={`presse flex min-h-[34px] flex-1 items-center justify-center gap-1 rounded-full px-2 text-note font-bold transition-[background-color,color,box-shadow] duration-200 ${on ? 'bg-carte text-teinte-fonce shadow-[0_1px_3px_rgba(29,26,43,0.1)]' : 'text-brume'}`}>
-                    <span aria-hidden="true">{o.emoji}</span> {o.label}
-                  </button>
-                )
-              })}
+            <div className="mb-2 flex items-center justify-between gap-2 px-1">
+              <p className="text-note font-bold text-brume">{tuiles.length ? 'Suggestions' : 'Envie d’un bon repas ?'}</p>
+              <button type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setToutesRecettes(true))} className="presse -my-1 flex min-h-9 items-center gap-1 rounded-full bg-peche-doux pl-3 pr-2 text-note font-bold text-peche-fonce">
+                <BookOpen size={14} strokeWidth={2.5} /> Recettes <ChevronRight size={15} strokeWidth={2.8} className="fleche-signe" />
+              </button>
             </div>
-            <div key={ongletVu} role="tabpanel" className="pt-3">
-              {ongletVu === 'souvent' && <div className="flex flex-wrap gap-1.5">{idees.slice(0, 8).map((x, n) => idee(x, x, n))}</div>}
-              {ongletVu === 'completer' && (
-                <>
-                  <p className="mb-2 px-1 text-note text-brume">Avec {sources.map((x) => x.toLowerCase()).join(', ').replace(/, ([^,]*)$/, ' et $1')} :</p>
-                  <div className="flex flex-wrap gap-1.5">{completer8.map((x, n) => idee(x, `c-${x}`, n))}</div>
-                </>
-              )}
-              {ongletVu === 'recettes' && (
-                <div className="flex flex-col gap-1.5">
-                  {recettesIdees.map(({ r, manque }, n) => (
-                    <button key={r.id} type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setRecette(r))} className="presse ligne-arrive-pop flex items-center gap-3 rounded-[16px] bg-[#FFF5EF] p-2 pr-3 text-left" style={{ animationDelay: `${n * 45}ms` }}>
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-carte text-[22px]" aria-hidden="true">{r.emoji}</span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sous font-bold text-encre">{r.nom}</span>
-                        <span className="block text-note text-peche-fonce">{manque ? `Il manque ${manque} article${manque > 1 ? 's' : ''}` : 'De saison · tout pour le repas'}</span>
-                      </span>
-                      <ChevronRight size={17} className="shrink-0 text-peche-fonce" />
-                    </button>
-                  ))}
-                  <button type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setToutesRecettes(true))} className="presse mt-0.5 flex min-h-[44px] items-center justify-center gap-1.5 rounded-full text-sous font-bold text-teinte-fonce">
-                    <BookOpen size={16} strokeWidth={2.4} /> Toutes les recettes <ChevronRight size={16} strokeWidth={2.6} className="fleche-signe" />
+            {tuiles.length > 0 && (
+              <div className="grid grid-cols-4 gap-1.5" aria-label="Suggestions à ajouter">
+                {tuiles.map((t, n) => (
+                  <button key={t.nom} type="button" onPointerDown={garderLeClavier} onClick={() => prendre(t.nom)} aria-label={`Ajouter ${t.nom}${t.avec ? `, pour aller avec ${t.avec}` : ''}`}
+                    className={`presse ligne-arrive-pop relative flex min-h-[72px] min-w-0 flex-col items-center justify-center rounded-[16px] bg-doux px-1 pb-1.5 pt-2 text-center ${sortants.includes(t.nom) ? 'idee-part' : ''}`} style={{ animationDelay: `${n * 30}ms` }}>
+                    <span className="text-[23px] leading-none" aria-hidden="true">{emojiDe(t.nom)}</span>
+                    <span className="mt-1 line-clamp-2 w-full break-words text-[12px] font-semibold leading-[1.15] text-encre">{t.nom}</span>
+                    {/* pourquoi elle est là : « avec 🥩 » (ce qui est déjà dans la liste) */}
+                    {t.avec && <span className="mt-0.5 text-[10px] font-semibold leading-none text-teinte-fonce">avec {emojiDe(t.avec)}</span>}
+                    <span className="absolute right-1 top-1 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-carte text-teinte" aria-hidden="true"><Plus size={11} strokeWidth={3.2} /></span>
                   </button>
-                </div>
-              )}
-            </div>
+                ))}
+              </div>
+            )}
+            {ideeRepas && (
+              <button type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setRecette(ideeRepas.r))} className="presse anim-entre mt-2 flex w-full items-center gap-2.5 rounded-[16px] bg-[#FFF5EF] p-2 pr-3 text-left">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-carte text-[20px]" aria-hidden="true">{ideeRepas.r.emoji}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sous font-bold text-encre">{ideeRepas.r.nom}</span>
+                  <span className="block truncate text-note text-peche-fonce">{ideeRepas.manque ? `Avec ta liste, il ne manque que ${ideeRepas.manque} article${ideeRepas.manque > 1 ? 's' : ''}` : 'Idée de saison · tout pour le repas'}</span>
+                </span>
+                <ChevronRight size={17} className="shrink-0 text-peche-fonce" />
+              </button>
+            )}
           </div>
         )}
         {tache && (
@@ -725,7 +722,19 @@ function Liste({ kind }: { kind: ListKind }) {
             {todo.length} {tache ? `chose${todo.length > 1 ? 's' : ''} à faire` : `article${todo.length > 1 ? 's' : ''} à prendre`}
             {done.length > 0 ? ` · ${done.length} ${tache ? `terminée${done.length > 1 ? 's' : ''}` : 'dans le panier'}` : ''}
           </p>
-          <button onClick={() => setEditing((v) => !v)} className="presse min-h-11 text-sous font-semibold text-teinte-fonce">
+          <button
+            onClick={() => {
+              // rien dans la liste à modifier : on le dit (Elisa, 21 novembre)
+              if (!editing && rienAModifier) {
+                warn()
+                toast('Rien à modifier pour le moment', 'info')
+                return
+              }
+              tap()
+              setEditing((v) => !v)
+            }}
+            className="presse min-h-11 text-sous font-semibold text-teinte-fonce"
+          >
             {editing ? 'Terminé' : 'Modifier'}
           </button>
         </div>

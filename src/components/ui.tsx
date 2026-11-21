@@ -1,4 +1,4 @@
-import { Check, ChevronLeft, ChevronRight, CircleAlert, Search, X } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, CircleAlert, Info, Search, X } from 'lucide-react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { COLORS } from '../lib/data'
@@ -375,8 +375,8 @@ export function Toasts() {
     <div className="pointer-events-none absolute inset-x-0 z-[70] flex flex-col items-center gap-2 px-6" style={{ top: 'calc(var(--sat) + 8px)' }} aria-live="polite">
       {toasts.map((t) => (
         <div key={t.id} className="anim-hud verre flex min-h-[44px] max-w-full items-center gap-2.5 rounded-full py-2 pl-2.5 pr-4 text-sous font-semibold text-encre">
-          <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white ${t.tone === 'err' ? 'bg-rouge' : 'bg-vert'}`}>
-            {t.tone === 'err' ? <CircleAlert size={17} strokeWidth={2.6} /> : <Check size={17} strokeWidth={3} />}
+          <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white ${t.tone === 'err' ? 'bg-rouge' : t.tone === 'info' ? 'bg-teinte' : 'bg-vert'}`}>
+            {t.tone === 'err' ? <CircleAlert size={17} strokeWidth={2.6} /> : t.tone === 'info' ? <Info size={17} strokeWidth={2.6} /> : <Check size={17} strokeWidth={3} />}
           </span>
           <span className="min-w-0">{t.text}</span>
         </div>

@@ -20,7 +20,7 @@ const pareil = (a: unknown, b: unknown) => a === b || JSON.stringify(a) === JSON
 // Une seule connexion à la fois, même si l'effet de démarrage est relancé.
 let boot: Promise<string> | null = null
 
-type Toast = { id: number; text: string; tone: 'ok' | 'err' }
+type Toast = { id: number; text: string; tone: 'ok' | 'err' | 'info' }
 
 type Store = {
   api: Backend
@@ -31,7 +31,7 @@ type Store = {
   requests: MyRequest[]
   state: FamilyState | null
   toasts: Toast[]
-  toast(text: string, tone?: 'ok' | 'err'): void
+  toast(text: string, tone?: 'ok' | 'err' | 'info'): void
   /** Exécute une action, rafraîchit la maison, affiche l'erreur s'il y en a une.
    *  `tout_de_suite` : ce que l'action change, montré sans attendre le serveur (annulé si elle échoue). */
   run(fn: (api: Backend) => Promise<unknown>, ok?: string, tout_de_suite?: (s: FamilyState) => FamilyState): Promise<boolean>
@@ -73,7 +73,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState(next)
   }, [])
 
-  const toast = useCallback((text: string, tone: 'ok' | 'err' = 'ok') => {
+  const toast = useCallback((text: string, tone: 'ok' | 'err' | 'info' = 'ok') => {
     const id = Date.now() + Math.random()
     setToasts((t) => [...t, { id, text, tone }])
     window.setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2800)

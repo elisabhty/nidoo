@@ -443,3 +443,34 @@ export function souvent(famille: string, dansLaListe: string[], achetes: string[
   }
   return out
 }
+
+// ───────── L'émoji d'un article (les tuiles de suggestions) ─────────
+
+/** Un émoji par article courant (clé « à la cle() » → émoji) ; sinon celui de son rayon. */
+const EMOJIS: [string, string][] = ([
+  ['pain de mie', '🍞'], ['pain', '🥖'], ['baguette', '🥖'], ['brioche', '🍞'], ['croissant', '🥐'], ['viennoiserie', '🥐'], ['wrap', '🌯'], ['tortilla', '🌮'],
+  ['lait', '🥛'], ['oeuf', '🥚'], ['beurre', '🧈'], ['fromage', '🧀'], ['mozzarella', '🧀'], ['parmesan', '🧀'], ['emmental', '🧀'], ['raclette', '🧀'], ['yaourt', '🥄'], ['creme', '🥛'],
+  ['poulet', '🍗'], ['dinde', '🍗'], ['viande hachee', '🥩'], ['steak', '🥩'], ['boeuf', '🥩'], ['veau', '🥩'], ['porc', '🥩'], ['agneau', '🥩'], ['jambon', '🍖'], ['lardon', '🥓'], ['bacon', '🥓'],
+  ['saucisse', '🌭'], ['merguez', '🌭'], ['saumon', '🐟'], ['thon', '🐟'], ['poisson', '🐟'], ['crevette', '🦐'], ['moule', '🦪'], ['huitre', '🦪'],
+  ['pate', '🍝'], ['spaghetti', '🍝'], ['lasagne', '🍝'], ['riz', '🍚'], ['farine', '🌾'], ['semoule', '🌾'], ['cereale', '🥣'], ['sucre', '🍬'], ['sel', '🧂'], ['poivre', '🧂'],
+  ['huile', '🫒'], ['olive', '🫒'], ['vinaigre', '🫙'], ['moutarde', '🫙'], ['mayonnaise', '🫙'], ['ketchup', '🍅'], ['sauce tomate', '🥫'], ['tomate concassee', '🥫'], ['conserve', '🥫'],
+  ['haricot', '🫘'], ['lentille', '🫘'], ['pois chiche', '🫘'], ['sauce soja', '🍶'], ['bouillon', '🍲'], ['epice', '🌶️'], ['piment', '🌶️'], ['herbe', '🌿'], ['basilic', '🌿'], ['persil', '🌿'],
+  ['tomate', '🍅'], ['carotte', '🥕'], ['pomme de terre', '🥔'], ['oignon', '🧅'], ['ail', '🧄'], ['echalote', '🧅'], ['salade', '🥬'], ['poireau', '🥬'], ['chou', '🥬'], ['epinard', '🥬'],
+  ['concombre', '🥒'], ['courgette', '🥒'], ['poivron', '🫑'], ['aubergine', '🍆'], ['champignon', '🍄'], ['brocoli', '🥦'], ['mai', '🌽'], ['avocat', '🥑'], ['potiron', '🎃'], ['courge', '🎃'],
+  ['gingembre', '🫚'], ['citron', '🍋'], ['pomme', '🍎'], ['poire', '🍐'], ['banane', '🍌'], ['orange', '🍊'], ['clementine', '🍊'], ['mandarine', '🍊'], ['fraise', '🍓'], ['raisin', '🍇'],
+  ['cerise', '🍒'], ['peche', '🍑'], ['abricot', '🍑'], ['ananas', '🍍'], ['mangue', '🥭'], ['kiwi', '🥝'], ['melon', '🍈'], ['pasteque', '🍉'], ['noix de coco', '🥥'], ['fruit', '🍎'], ['legume surgele', '🥦'], ['legume', '🥕'],
+  ['cafe', '☕'], ['the', '🍵'], ['chocolat', '🍫'], ['biscuit', '🍪'], ['cookie', '🍪'], ['gateau', '🍰'], ['miel', '🍯'], ['confiture', '🍯'], ['pate a tartiner', '🍫'], ['bonbon', '🍬'], ['chip', '🥔'],
+  ['noix', '🥜'], ['cacahuete', '🥜'], ['amande', '🥜'], ['glace', '🍨'], ['pizza', '🍕'], ['frite', '🍟'], ['surgele', '🧊'],
+  ['eau', '💧'], ['jus', '🧃'], ['soda', '🥤'], ['coca', '🥤'], ['biere', '🍺'], ['vin', '🍷'], ['champagne', '🍾'], ['sirop', '🧃'],
+  ['lessive', '🧺'], ['adoucissant', '🧺'], ['liquide vaisselle', '🧽'], ['pastille lave vaisselle', '🧽'], ['eponge', '🧽'], ['papier toilette', '🧻'], ['essuie tout', '🧻'], ['mouchoir', '🧻'], ['sac poubelle', '🗑️'],
+  ['savon', '🧼'], ['gel douche', '🧴'], ['shampoing', '🧴'], ['dentifrice', '🪥'], ['brosse a dent', '🪥'], ['coton', '☁️'], ['couche', '👶'], ['lingette', '🧻'], ['petit pot', '🍼'], ['lait infantile', '🍼'],
+  ['croquette', '🐾'], ['patee', '🐾'], ['litiere', '🐈'],
+] as [string, string][]).sort((a, b) => b[0].length - a[0].length)
+
+export function emojiDe(nom: string): string {
+  const k = cle(fiche(nom)?.nom ?? nom)
+  const kk = cle(nom)
+  const debut = (x: string, m: string) => x === m || x.startsWith(m + ' ')
+  for (const [m, e] of EMOJIS) if (debut(k, m) || debut(kk, m)) return e
+  return rayonDe(nom).emoji
+}
