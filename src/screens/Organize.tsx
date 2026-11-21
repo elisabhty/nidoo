@@ -155,8 +155,14 @@ function Semaine({ onOpen, onAdd }: { onOpen: (o: Ouvert) => void; onAdd: (day: 
                           <span className="block truncate text-note text-brume">
                             {e.all_day ? (rythme(e, at) && !e.weekly ? rythme(e, at) : 'Toute la journée') : timeLabel(at)}
                             {e.weekly ? ' · chaque semaine' : ''}
-                            {e.lieu ? ` · ${e.lieu}` : e.description ? ` · ${e.description}` : ''}
+                            {!e.lieu && e.description ? ` · ${e.description}` : ''}
                           </span>
+                          {e.lieu && (
+                            <span className="mt-0.5 flex items-start gap-1 text-note text-teinte-fonce">
+                              <MapPin size={12} strokeWidth={2.4} className="mt-[3px] shrink-0" />
+                              <span className="min-w-0 break-words">{e.lieu}</span>
+                            </span>
+                          )}
                         </span>
                         {!!e.members?.length && <MemberStack ids={e.members} size={26} max={3} />}
                         <ChevronRight size={17} strokeWidth={2.6} className="shrink-0 text-pale" />
@@ -853,9 +859,9 @@ export default function Organize() {
                               })()}
                             </span>
                             {e.lieu && (
-                              <span className="flex items-center gap-1 text-note text-teinte-fonce">
-                                <MapPin size={12} strokeWidth={2.4} className="shrink-0" />
-                                <span className="truncate">{e.lieu}</span>
+                              <span className="mt-0.5 flex items-start gap-1 text-note text-teinte-fonce">
+                                <MapPin size={12} strokeWidth={2.4} className="mt-[3px] shrink-0" />
+                                <span className="min-w-0 break-words">{e.lieu}</span>
                               </span>
                             )}
                             {e.description && <span className="block truncate text-note text-brume">{e.description}</span>}

@@ -24,7 +24,7 @@ const KEY = 'nidoo.demo.v2'
 const seances = new Map<string, string>()
 /** les séances qui sont un jeu en direct (pas un dessin) */
 const seancesJeu = new Set<string>()
-const DINER = 'À partir de 19 h 30. Chacun apporte un plat : Léa s’occupe du dessert, Mamie Jo du gratin.'
+const DINER = 'À partir de 19h30. Chacun apporte un plat : Léa s’occupe du dessert, Mamie Jo du gratin.'
 
 // Démo : ce que répondent les proches fictifs à la question du jour (des réponses qui collent à la question).
 const REPONSES_QUESTIONS: Record<string, string[]> = {
