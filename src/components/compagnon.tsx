@@ -1,8 +1,10 @@
-import { Check, ChevronRight, Frown, Heart, Hourglass, Lock, PenLine } from 'lucide-react'
-import { useEffect, useState, type ReactNode } from 'react'
-import { FOOD, LOVE, nextStage, PET_COST, petStage, SHOP, shopItem, SPECIES, type Shop } from '../lib/data'
-import { success, tap, warn } from '../lib/haptic'
-import { jouer, sonCompagnon } from '../lib/sons'
+import { BedDouble, BookOpen, Carrot, Check, ChevronRight, Compass, Dices, Drama, Feather, Flower2, Frown, Heart, HeartHandshake, Leaf, Lightbulb, Lock, Moon, Mountain, PawPrint, PenLine, Search, Shield, Snowflake, Sprout, Star, Users, Volume2, Zap, type LucideIcon } from 'lucide-react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { CARACTERES, FOOD, LOVE, nextStage, PET_COST, petStage, PRENOMS_SURPRISE, SHOP, shopItem, SPECIES, type Shop } from '../lib/data'
+import { select, success, tap, warn } from '../lib/haptic'
+import { confettis } from '../lib/fete'
+import { rebond } from '../lib/rebond'
+import { jouer, precharger, sonCompagnon } from '../lib/sons'
 import { useHome } from '../lib/store'
 import type { Pet } from '../lib/types'
 import { todayKey } from '../lib/util'
@@ -17,10 +19,15 @@ type Effect = { id: number; kind: 'repas' | 'caresse' | 'friandise' | 'jeu'; lov
 
 export function CompagnonPage({ onClose, onShop }: { onClose: () => void; onShop: (shop: Shop) => void }) {
   const { state } = useHome()
+  // le moment de l'adoption : « Bienvenue dans la famille ! » (Elisa, 21 novembre)
+  const [bienvenue, setBienvenue] = useState<{ species: string; name: string } | null>(null)
   return (
-    <Page title={state.pet ? state.pet.name : 'Notre compagnon'} onClose={onClose} trailing={<StarsPill />} scrollKey={state.pet ? 'compagnon' : 'adoption'}>
-      {state.pet ? <PetView pet={state.pet} onShop={onShop} /> : <Adopt />}
-    </Page>
+    <>
+      <Page title={state.pet ? state.pet.name : 'Notre petit compagnon'} onClose={onClose} trailing={<StarsPill />} scrollKey={state.pet ? 'compagnon' : 'adoption'}>
+        {state.pet ? <PetView pet={state.pet} onShop={onShop} /> : <Adopt onAdopte={setBienvenue} />}
+      </Page>
+      {bienvenue && <Bienvenue {...bienvenue} onMaison={onClose} onRester={() => setBienvenue(null)} />}
+    </>
   )
 }
 
@@ -35,33 +42,114 @@ export function StarsPill() {
 
 // ───────── Choisir son compagnon ─────────
 
-function Adopt() {
+const ICONES_TRAITS: Record<string, LucideIcon> = {
+  Joueur: PawPrint, Curieux: Search, Câlin: Heart, Loyal: Heart, Énergique: Zap, Protecteur: Shield, Paisible: Leaf, Affectueux: Heart, Gourmand: Carrot,
+  Intelligent: Lightbulb, Aventurier: Compass, Créatif: Star, Serein: Leaf, Bienveillant: HeartHandshake, Positif: Sprout, Tranquille: Moon, Doux: Feather,
+  Dormeur: BedDouble, Explorateur: Compass, Sociable: Users, Patient: Snowflake, Conseiller: BookOpen,
+}
+const ICONES_TITRES: Record<string, LucideIcon> = { chat: Search, chien: Heart, lapin: Leaf, renard: Drama, panda: Flower2, koala: Heart, pingouin: Mountain, hibou: BookOpen }
+
+/** Un petit saut avec un mouvement de tête (Web Animations : fluide, sans recréer l'image). */
+function sautille(el: Element | null | undefined) {
+  if (!el || typeof (el as HTMLElement).animate !== 'function' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  ;(el as HTMLElement).animate(
+    [
+      { transform: 'translateY(0) rotate(0deg) scale(1)' },
+      { transform: 'translateY(2px) rotate(0deg) scale(1.05, 0.94)', offset: 0.12 },
+      { transform: 'translateY(-16px) rotate(-7deg) scale(0.97, 1.04)', offset: 0.38 },
+      { transform: 'translateY(0) rotate(5deg) scale(1.04, 0.96)', offset: 0.64 },
+      { transform: 'translateY(-4px) rotate(-3deg) scale(1)', offset: 0.8 },
+      { transform: 'translateY(0) rotate(0deg) scale(1)' },
+    ],
+    { duration: 720, easing: 'cubic-bezier(0.3, 0.7, 0.4, 1)' },
+  )
+}
+
+function Adopt({ onAdopte }: { onAdopte: (x: { species: string; name: string }) => void }) {
   const { state, run } = useHome()
   const [species, setSpecies] = useState('chat')
   const [name, setName] = useState('')
   const sp = SPECIES.find((x) => x.key === species)!
+  const c = CARACTERES[species]
   const missing = PET_COST - state.family.stars
   const shown = name.trim() || sp.names[0]
+  const figure = useRef<HTMLSpanElement>(null)
+  const TitreIcone = ICONES_TITRES[species] ?? Heart
+  // leurs petits cris, prêts à partir dès le premier toucher
+  useEffect(() => precharger(...SPECIES.map((x) => sonCompagnon(x.key))), [])
+
+  const choisir = (key: string, el: Element) => {
+    tap()
+    jouer(sonCompagnon(key))
+    rebond(el.querySelector('[data-figure]'), 1)
+    setSpecies(key)
+    window.requestAnimationFrame(() => sautille(figure.current))
+  }
+  const surprise = () => {
+    select()
+    const pris = new Set([shown, ...sp.names])
+    const libres = PRENOMS_SURPRISE.filter((n) => !pris.has(n))
+    setName(libres[Math.floor(Math.random() * libres.length)])
+  }
 
   return (
     <div className="px-4">
-      <p className="-mt-1 px-1 text-sous text-brume">Choisissez-le ensemble : il vivra dans votre jardin et grandira avec l’amour de toute la famille.</p>
+      <p className="-mt-1 px-1 text-sous text-brume">Adoptez ensemble un petit compagnon qui grandira à vos côtés !</p>
 
-      <div className="mt-4 grid grid-cols-4 gap-2">
+      {/* son caractère, en grand : on sait tout de suite qui on adopte */}
+      <section className="relative mt-4 overflow-hidden rounded-[26px] p-4 pb-3.5 transition-colors duration-300" style={{ background: `linear-gradient(165deg, ${c.fond} 0%, #FFFFFF 135%)` }} aria-live="polite">
+        <button
+          type="button"
+          onClick={() => {
+            tap()
+            jouer(sonCompagnon(species))
+            sautille(figure.current)
+          }}
+          className="presse absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/80"
+          style={{ color: c.encre }}
+          aria-label={`Écouter le ${sp.name.toLowerCase()}`}
+        >
+          <Volume2 size={18} strokeWidth={2.4} />
+        </button>
+        <div className="flex items-center gap-3.5">
+          <span ref={figure} className="block w-[104px] shrink-0" style={{ transformOrigin: '50% 100%' }}>
+            <PetFigure pet={{ species, outfit: null }} className="w-full" />
+          </span>
+          <div className="min-w-0 flex-1 pr-8">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/80 px-2.5 py-1 text-note font-bold" style={{ color: c.encre }}>
+              <TitreIcone size={14} strokeWidth={2.6} /> {c.titre}
+            </span>
+            <p key={`${species}-${shown}`} className="anim-entre mt-1.5 font-rond text-titre3 leading-tight text-encre">
+              {shown} est très {c.adjectif}
+            </p>
+            <p className="mt-1 text-note text-encre/75">{c.texte}</p>
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {c.traits.map((t, i) => {
+            const I = ICONES_TRAITS[t] ?? Star
+            return (
+              <span key={`${species}-${t}`} className="ligne-arrive-pop inline-flex items-center gap-1.5 rounded-full bg-white/85 py-1 pl-2 pr-3 text-note font-semibold text-encre" style={{ animationDelay: `${i * 60}ms` }}>
+                <I size={14} strokeWidth={2.5} style={{ color: c.encre }} /> {t}
+              </span>
+            )
+          })}
+        </div>
+      </section>
+
+      <div className="mt-3 grid grid-cols-4 gap-2">
         {SPECIES.map((x) => {
           const on = x.key === species
           return (
             <button
               key={x.key}
-              onClick={() => {
-                tap()
-                jouer(sonCompagnon(x.key))
-                setSpecies(x.key)
-              }}
+              onClick={(e) => choisir(x.key, e.currentTarget)}
               aria-pressed={on}
               className={`presse flex flex-col items-center rounded-[20px] px-1 pb-2 pt-2.5 transition-shadow ${on ? 'bg-teinte-doux ring-[2.5px] ring-teinte' : 'bg-carte shadow-carte'}`}
             >
-              <PetFigure pet={{ species: x.key, outfit: null }} className={`w-[64px] ${on ? 'anim-flotte' : ''}`} />
+              <span data-figure className="block w-[60px]">
+                <PetFigure pet={{ species: x.key, outfit: null }} className="w-full" />
+              </span>
               <span className={`mt-1 text-legende ${on ? 'font-semibold text-teinte-fonce' : 'text-brume'}`}>{x.name}</span>
             </button>
           )
@@ -83,21 +171,37 @@ function Adopt() {
             {n}
           </button>
         ))}
+        <button onClick={surprise} className="presse flex h-8 items-center gap-1.5 rounded-full bg-teinte-doux px-3 text-sous font-semibold text-teinte-fonce">
+          <Dices size={16} strokeWidth={2.4} /> Surprise
+        </button>
       </div>
 
       <div className="groupe mt-5">
-        <Row icon={<Heart size={22} className="text-[#E77BA0]" fill="#E77BA0" />} text="Chaque repas, caresse, friandise et partie de jeu lui donne de l’amour : il grandit, de bébé à adulte." />
-        <Row icon={<BagIcon size={26} />} text={`Il mange les croquettes de la maison, un repas par jour. ${state.family.food ? `Il en reste ${state.family.food}.` : `Un sac de ${FOOD.meals} repas coûte ${FOOD.cost} étoiles.`}`} />
-        <Row icon={<Art name="lit-panier" size={28} />} text="Son coin, ses jeux et ses vêtements s’achètent à l’animalerie du centre commercial." />
-        {/* ce qui arrive si on l'oublie : dans la liste, sans cadre rouge (Elisa, 21 novembre) */}
-        <Row icon={<Hourglass size={21} strokeWidth={2.2} className="text-brume" />} text={`S’il est oublié, il est triste dès le lendemain, puis déprime. Au 4e jour sans manger, il s’en va : son amour part avec lui et les ${PET_COST} étoiles ne sont pas rendues.`} last />
+        <Row icon={<Heart size={22} className="text-[#E77BA0]" fill="#E77BA0" />} text="Nourrissez-le, câlinez-le et jouez avec lui pour le faire grandir." />
+        <Row
+          icon={<BagIcon size={26} />}
+          text={
+            state.family.food ? (
+              `Un repas par jour. Il reste ${state.family.food} repas à la maison.`
+            ) : (
+              <>
+                Un repas par jour : {FOOD.meals} repas pour {FOOD.cost} <Art name="picto-etoile" size={16} className="inline-block -translate-y-px" />
+              </>
+            )
+          }
+        />
+        <Row icon={<Art name="lit-panier" size={28} />} text="Décorez son petit coin et offrez-lui des accessoires." last />
       </div>
 
       <Btn
         className="mt-5"
         disabled={missing > 0}
         onClick={async () => {
-          if (await run((api) => api.adoptPet(state.family.id, species, shown), `Bienvenue ${shown} !`)) success()
+          const nom = shown
+          if (await run((api) => api.adoptPet(state.family.id, species, nom))) {
+            success()
+            onAdopte({ species, name: nom })
+          }
         }}
       >
         {missing > 0 ? (
@@ -114,11 +218,51 @@ function Adopt() {
   )
 }
 
-function Row({ icon, text, last }: { icon: ReactNode; text: string; last?: boolean }) {
+function Row({ icon, text, last }: { icon: ReactNode; text: ReactNode; last?: boolean }) {
   return (
     <div className={`flex items-center gap-3 px-4 py-3 ${last ? '' : 'border-b border-trait'}`}>
       <span className="flex w-8 shrink-0 justify-center">{icon}</span>
       <p className="min-w-0 flex-1 text-sous">{text}</p>
+    </div>
+  )
+}
+
+/** « Bienvenue dans la famille ! » : il arrive dans le jardin en sautillant, pousse son petit cri, et des confettis. */
+function Bienvenue({ species, name, onMaison, onRester }: { species: string; name: string; onMaison: () => void; onRester: () => void }) {
+  const c = CARACTERES[species] ?? CARACTERES.chat
+  useEffect(() => {
+    const t1 = window.setTimeout(() => jouer(sonCompagnon(species)), 1250)
+    const t2 = window.setTimeout(() => {
+      success()
+      confettis()
+    }, 1350)
+    return () => {
+      window.clearTimeout(t1)
+      window.clearTimeout(t2)
+    }
+  }, [species])
+  return (
+    <div className="anim-fondu absolute inset-0 z-[45] flex flex-col" role="dialog" aria-modal="true" aria-label={`Bienvenue dans la famille, ${name} !`} style={{ background: 'linear-gradient(180deg, #D9ECFF 0%, #F1F7FF 52%, #CFEAC0 52.4%, #B5DCA0 100%)' }}>
+      <span className="absolute left-[8%] top-[14%] h-[44px] w-[110px] rounded-full bg-white/70 blur-[7px]" />
+      <span className="absolute right-[10%] top-[24%] h-[32px] w-[80px] rounded-full bg-white/60 blur-[7px]" />
+      <div className="relative flex flex-1 flex-col items-center justify-end pb-[6%]">
+        <span className="absolute bottom-[calc(6%-6px)] left-1/2 h-[18px] w-[150px] -translate-x-1/2 rounded-[50%] bg-[#1d1a2b]/15 blur-[5px]" style={{ animation: 'arriveOmbre 1.3s ease-out both' }} />
+        <span className="block w-[46%] max-w-[210px]" style={{ animation: 'arriveCompagnon 1.3s cubic-bezier(0.3, 0.6, 0.4, 1) both', transformOrigin: '50% 100%' }}>
+          <PetFigure pet={{ species, outfit: null }} className="w-full" />
+        </span>
+      </div>
+      <div className="relative rounded-t-[30px] bg-fond px-6 pb-[calc(var(--sab)+18px)] pt-6 text-center" style={{ animation: 'monte 0.5s var(--ressort) 0.9s both' }}>
+        <p className="font-rond text-titre1 leading-tight">Bienvenue dans la famille, {name} ! 🐾</p>
+        <p className="mt-2 text-sous text-brume">
+          {name} est très {c.adjectif}. Il s’installe dans votre jardin : nourrissez-le, câlinez-le et jouez avec lui pour le faire grandir.
+        </p>
+        <Btn className="mt-5" onClick={onMaison}>
+          Découvrir sa nouvelle maison
+        </Btn>
+        <button type="button" onClick={onRester} className="presse mt-2 min-h-11 w-full text-sous font-semibold text-teinte-fonce">
+          Faire connaissance
+        </button>
+      </div>
     </div>
   )
 }
@@ -284,7 +428,7 @@ function PetView({ pet, onShop }: { pet: Pet; onShop: (shop: Shop) => void }) {
           <span className="flex items-center gap-1 font-semibold text-[#D45D88]">
             <Heart size={13} fill="#E77BA0" strokeWidth={0} /> {pet.love} d’amour
           </span>
-          <span>{next ? `encore ${next.min - pet.love} pour devenir ${next.label.toLowerCase()}` : 'il a tout l’amour du monde'}</span>
+          <span>{next ? `${Math.round(Math.min(100, ((pet.love - stage.min) / (next.min - stage.min)) * 100))} % · encore ${next.min - pet.love} ♥ pour devenir ${next.label.toLowerCase()}` : 'il a tout l’amour du monde'}</span>
         </div>
         <div className="mt-1.5 h-[8px] overflow-hidden rounded-full bg-remplissage">
           <div
@@ -355,9 +499,7 @@ function PetView({ pet, onShop }: { pet: Pet; onShop: (shop: Shop) => void }) {
         </span>
         <ChevronRight size={17} strokeWidth={2.6} className="text-pale" />
       </button>
-      <p className="px-1 pt-4 text-note text-brume">
-        {pet.name} mange une fois par jour (le premier de la famille qui le nourrit). Oublié, il devient triste, puis déprime, et au 4e jour sans manger il s’en va.
-      </p>
+      <p className="px-1 pt-4 text-note text-brume">{pet.name} mange une fois par jour : le premier de la famille qui le nourrit lui donne son repas.</p>
     </div>
   )
 }

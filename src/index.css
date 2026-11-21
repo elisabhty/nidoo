@@ -694,3 +694,18 @@ html.kb-visible .ios-sheet.h-\[92\%\] { height: calc(100% - var(--sat) - 8px); }
 .adieu { animation: adieu 0.38s ease-in-out; }
 @keyframes adieu { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 55% { transform: translateX(4px); } 80% { transform: translateX(-2px); } }
 @media (prefers-reduced-motion: reduce) { .adieu { animation: none; } }
+
+/* l'adoption : le compagnon arrive dans le jardin en sautillant (Elisa, 21 novembre) */
+@keyframes arriveCompagnon {
+  0% { transform: translateX(-160%) translateY(0) rotate(0); opacity: 0; }
+  10% { opacity: 1; }
+  18% { transform: translateX(-118%) translateY(-22%) rotate(-6deg); }
+  34% { transform: translateX(-78%) translateY(0) scale(1.05, 0.95); }
+  50% { transform: translateX(-40%) translateY(-18%) rotate(-5deg); }
+  66% { transform: translateX(-10%) translateY(0) scale(1.05, 0.95); }
+  80% { transform: translateX(0) translateY(-9%) rotate(4deg); }
+  90% { transform: translateX(0) translateY(0) scale(1.08, 0.92); }
+  100% { transform: translateX(0) translateY(0) rotate(0) scale(1); opacity: 1; }
+}
+@keyframes arriveOmbre { 0%, 60% { opacity: 0; transform: translateX(-50%) scale(0.5); } 100% { opacity: 1; transform: translateX(-50%) scale(1); } }
+@media (prefers-reduced-motion: reduce) { [style*='arriveCompagnon'] { animation: none !important; } }

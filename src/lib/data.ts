@@ -190,6 +190,20 @@ export const SPECIES: { key: string; name: string; names: string[] }[] = [
   { key: 'pingouin', name: 'Pingouin', names: ['Glaçon', 'Pingu', 'Esquimau'] },
   { key: 'hibou', name: 'Hibou', names: ['Plume', 'Noisette', 'Hulotte'] },
 ]
+/** Le caractère de chaque compagnon (Elisa, 21 novembre : « un cadre au début avec son caractère »). */
+export type Caractere = { titre: string; adjectif: string; texte: string; traits: [string, string, string]; fond: string; encre: string }
+export const CARACTERES: Record<string, Caractere> = {
+  chat: { titre: 'Le curieux', adjectif: 'curieux', texte: 'Malin, joueur et toujours partant pour une aventure !', traits: ['Joueur', 'Curieux', 'Câlin'], fond: '#EFE7FF', encre: '#6B4FD8' },
+  chien: { titre: 'Le fidèle', adjectif: 'fidèle', texte: 'Toujours joyeux, il adore la compagnie et veille sur la famille.', traits: ['Loyal', 'Énergique', 'Protecteur'], fond: '#FFF1D6', encre: '#B86A14' },
+  lapin: { titre: 'Le doux', adjectif: 'doux', texte: 'Calme, tendre et très gourmand, il apporte de la douceur.', traits: ['Paisible', 'Affectueux', 'Gourmand'], fond: '#FFE6EE', encre: '#C2477A' },
+  renard: { titre: 'Le malin', adjectif: 'malin', texte: 'Astucieux et débrouillard, il adore résoudre des petits défis !', traits: ['Intelligent', 'Aventurier', 'Créatif'], fond: '#FFE7D9', encre: '#C8571F' },
+  panda: { titre: 'Le zen', adjectif: 'zen', texte: 'Calme et bienveillant, il apporte de la sérénité à la maison.', traits: ['Serein', 'Bienveillant', 'Positif'], fond: '#E6F4DF', encre: '#3F7F33' },
+  koala: { titre: 'Le câlinou', adjectif: 'câlin', texte: 'Tout doux et tranquille, il adore les câlins et les moments calmes.', traits: ['Tranquille', 'Doux', 'Dormeur'], fond: '#E3EEFB', encre: '#3B67AD' },
+  pingouin: { titre: 'Le téméraire', adjectif: 'téméraire', texte: 'Toujours partant pour explorer, il a un grand esprit d’équipe !', traits: ['Explorateur', 'Sociable', 'Patient'], fond: '#E0F0FA', encre: '#24759F' },
+  hibou: { titre: 'Le sage', adjectif: 'sage', texte: 'Observateur et réfléchi, il adore apprendre de nouvelles choses !', traits: ['Intelligent', 'Curieux', 'Conseiller'], fond: '#EEE6FA', encre: '#7A4FC2' },
+}
+/** Des prénoms rigolos pour le bouton « Surprise ». */
+export const PRENOMS_SURPRISE = ['Pépite', 'Biscotte', 'Patapouf', 'Chouquette', 'Grignote', 'Câlinou', 'Fripouille', 'Gribouille', 'Filou', 'Galipette', 'Réglisse', 'Chamallow', 'Cachou', 'Mirabelle', 'Clafoutis', 'Zigzag', 'Myrtille', 'Papillote', 'Cookie', 'Brioche', 'Noisette', 'Tagada', 'Pistou', 'Bidule', 'Pompon', 'Caramel', 'Moustache', 'Plumetis', 'Gaufrette', 'Choupinou']
 export const PET_COST = 30
 /** Il grandit avec l'amour : bébé, puis jeune (20 ♥), puis adulte (60 ♥). */
 export const PET_STAGES = [

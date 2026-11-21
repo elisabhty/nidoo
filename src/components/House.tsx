@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useId, useRef, useState, type CSSProperties } from 'react'
 import { success, tap } from '../lib/haptic'
 import { jouer, sonCompagnon } from '../lib/sons'
 import { ANIMALS, CARE, moodOf, petStage, plantArt } from '../lib/data'
@@ -30,6 +30,8 @@ const OPENINGS: Record<HouseType, { win: { x: number; sill: number; w: number }[
   appartement: { win: [{ x: 0.399, sill: 0.585, w: 0.112 }, { x: 0.676, sill: 0.585, w: 0.1 }], door: null, box: 8.5, frame: '#9C86D9' },
   chalet: { win: [{ x: 0.667, sill: 0.744, w: 0.118 }], door: { x: 0.433, y: 0.856 }, box: 9.5, frame: '#C98F55' },
 }
+// le vide transparent sous chaque image (en % de sa hauteur), pour la poser bien au sol en vignette
+const VIDE_BAS: Record<HouseType, number> = { maison: 6.1, appartement: 2.7, chalet: 9.4 }
 const HOUSE: Record<HouseType, { w: number; bottom: number; smoke: [number, number] }> = {
   maison: { w: 47, bottom: 15, smoke: [62, 64] },
   appartement: { w: 33, bottom: 15, smoke: [44, 64] },
@@ -134,6 +136,9 @@ export default function House({
   gold?: boolean
 }) {
   const night = phase === 'nuit'
+  // un identifiant par maison : plusieurs maisons sur la page (vignettes, choix du type), et une cachée prenait les
+  // dégradés des autres (les collines disparaissaient)
+  const uid = useId().replace(/:/g, '')
   const base = HOUSE[type]
   const s = ratio ? Math.min(1, BASE / ratio) : 1
   // En vignette, la maison occupe presque tout le cadre.
@@ -470,34 +475,39 @@ export default function House({
       {/* collines */}
       <svg viewBox="0 0 320 220" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" style={{ transform: 'translateY(calc(var(--par, 0) * 0.05px))' }} aria-hidden>
         <defs>
-          <linearGradient id={`c1-${phase}`} x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={`c1-${phase}-${uid}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stopColor={night ? '#5B7F7C' : '#CDE9CC'} />
             <stop offset="1" stopColor={night ? '#4A6B6C' : '#B5DCB9'} />
           </linearGradient>
-          <linearGradient id={`c2-${phase}`} x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={`c2-${phase}-${uid}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stopColor={night ? '#4F7272' : '#BFE3C0'} />
             <stop offset="1" stopColor={night ? '#3E5E62' : '#A3D2AB'} />
           </linearGradient>
         </defs>
-        <ellipse cx="60" cy="190" rx="170" ry="52" fill={`url(#c1-${phase})`} />
-        <ellipse cx="280" cy="196" rx="170" ry="56" fill={`url(#c1-${phase})`} />
-        <ellipse cx="160" cy="240" rx="260" ry="70" fill={`url(#c2-${phase})`} />
+        <ellipse cx="60" cy="190" rx="170" ry="52" fill={`url(#c1-${phase}-${uid})`} />
+        <ellipse cx="280" cy="196" rx="170" ry="56" fill={`url(#c1-${phase}-${uid})`} />
+        <ellipse cx="160" cy="240" rx="260" ry="70" fill={`url(#c2-${phase}-${uid})`} />
       </svg>
 
       {!bare && ORDER.filter((k) => k !== 'montgolfiere' && has(k) && SPOTS[k].z < 4).map((k) => deco(k))}
 
+      {/* en vignette : la maison entière, bien cadrée, quelle que soit la forme du cadre (Elisa, 21 novembre :
+          « que la maison, l'appartement, le chalet soient bien cadrés » ; le toit et la cheminée étaient coupés) */}
+      {bare && (
+        <div className="absolute inset-x-[7%] bottom-[8%] top-[9%]" style={{ zIndex: 4 }}>
+          <span className="absolute bottom-[-3%] left-1/2 h-[9%] w-[62%] -translate-x-1/2 rounded-[50%] bg-[#1d1a2b]/20 blur-[4px]" />
+          <img src={`./art/maison-${type}.webp`} alt="" draggable={false} className="relative block h-full w-full select-none object-contain object-bottom" style={{ transform: `translateY(${VIDE_BAS[type]}%)`, filter: night ? 'brightness(0.86)' : undefined }} />
+        </div>
+      )}
+
       {/* ombre de contact, halo des fenêtres la nuit, puis la maison */}
-      <span className="absolute left-1/2 h-[7%] -translate-x-1/2 rounded-[50%] bg-[#1d1a2b]/20 blur-[6px]" style={{ width: `${h.w * 0.92}%`, bottom: `${h.bottom - 2.5}%`, zIndex: 4 }} />
-      {night && <span className="absolute left-1/2 aspect-square -translate-x-1/2 rounded-full" style={{ width: `${h.w * 1.5}%`, bottom: `${h.bottom - 6}%`, zIndex: 3, background: 'radial-gradient(circle, rgba(255,206,120,0.42) 0%, rgba(255,206,120,0) 62%)', animation: 'scintille 4.5s ease-in-out infinite' }} />}
-      <div
-        onClick={
-          bare
-            ? undefined
-            : () => {
-                tap()
-                setBounce((n) => n + 1)
-              }
-        }
+      {!bare && <span className="absolute left-1/2 h-[7%] -translate-x-1/2 rounded-[50%] bg-[#1d1a2b]/20 blur-[6px]" style={{ width: `${h.w * 0.92}%`, bottom: `${h.bottom - 2.5}%`, zIndex: 4 }} />}
+      {night && !bare && <span className="absolute left-1/2 aspect-square -translate-x-1/2 rounded-full" style={{ width: `${h.w * 1.5}%`, bottom: `${h.bottom - 6}%`, zIndex: 3, background: 'radial-gradient(circle, rgba(255,206,120,0.42) 0%, rgba(255,206,120,0) 62%)', animation: 'scintille 4.5s ease-in-out infinite' }} />}
+      {!bare && <div
+        onClick={() => {
+          tap()
+          setBounce((n) => n + 1)
+        }}
         className="absolute left-1/2 -translate-x-1/2"
         style={{ width: `${h.w}%`, bottom: `${h.bottom}%`, zIndex: 4 }}
       >
@@ -511,7 +521,7 @@ export default function House({
             ))}
           </span>
         )}
-      </div>
+      </div>}
 
       {!bare &&
         has('fumee') &&
