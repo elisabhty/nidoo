@@ -29,5 +29,7 @@ export default defineConfig({
       },
     },
   ],
+  // le travailleur de la carte (MapLibre, « Où est la famille ») : un seul fichier, en module
+  worker: { format: 'es' },
   server: { host: '0.0.0.0', allowedHosts: ['terminal.local'] },
 })

@@ -313,3 +313,71 @@ struct VueHumeur: View {
         .buttonStyle(.plain)
     }
 }
+
+/// « Où est la famille » (Elisa, 21 novembre) : chacun, là où il est, depuis quand ; la batterie presque vide en rouge.
+struct VueOu: View {
+    let e: Entree
+    let f: WidgetFamily
+
+    var body: some View {
+        if let etat = e.etat {
+            let gens = lignes(etat)
+            VStack(alignment: .leading, spacing: f == .systemSmall ? 6 : 7) {
+                HStack(spacing: 5) {
+                    Image(systemName: "location.fill").font(.system(size: 11, weight: .bold)).foregroundStyle(Color(hex: 0x2F7FD0))
+                    Text("Où est la famille").font(rond(14)).foregroundStyle(Theme.encre).lineLimit(1).minimumScaleFactor(0.8)
+                }
+                if gens.isEmpty {
+                    Spacer(minLength: 0)
+                    Text("Personne ne partage sa position pour l’instant. Ouvre NIDOO › Famille.")
+                        .font(rond(11.5, .medium)).foregroundStyle(Theme.brume).lineLimit(4)
+                    Spacer(minLength: 0)
+                } else {
+                    ForEach(Array(gens.prefix(combien))) { ligne(etat, $0.m, $0.p) }
+                    Spacer(minLength: 0)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .bandeau(e)
+            .fond(f) { Theme.azur }
+            .widgetURL(Partage.lien("ouest"))
+        } else {
+            VueVide(e: e, f: f, titre: "Où est la famille")
+        }
+    }
+
+    private var combien: Int { f == .systemSmall ? 2 : f == .systemMedium ? 3 : 7 }
+
+    private struct Quelqu: Identifiable {
+        let m: Etat.Membre
+        let p: Etat.Position
+        var id: String { m.id }
+    }
+
+    /// Les autres d'abord (du plus récent au plus ancien), moi à la fin.
+    private func lignes(_ etat: Etat) -> [Quelqu] {
+        let tous = (etat.positions ?? []).compactMap { p in etat.membre(p.id).map { Quelqu(m: $0, p: p) } }
+        return tous.filter { $0.m.id != etat.moi } + tous.filter { $0.m.id == etat.moi }
+    }
+
+    private func ligne(_ etat: Etat, _ m: Etat.Membre, _ p: Etat.Position) -> some View {
+        let petit = f == .systemSmall
+        return HStack(spacing: 8) {
+            Pastille(m: m, taille: petit ? 30 : 34, humeur: false)
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 4) {
+                    Text(m.id == etat.moi ? "Moi" : m.n).font(rond(12.5)).foregroundStyle(Theme.encre).lineLimit(1)
+                    if let b = p.b, b <= 20 {
+                        Image(systemName: "battery.25percent").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.rouge)
+                    }
+                    if !petit {
+                        Spacer(minLength: 2)
+                        Text(Temps.ilYA(p.q, maintenant: e.date)).font(rond(10.5, .medium)).foregroundStyle(Theme.brume).lineLimit(1)
+                    }
+                }
+                Text(petit ? (p.v ?? p.libelle) : p.libelle)
+                    .font(rond(11, .medium)).foregroundStyle(Theme.brume).lineLimit(1).minimumScaleFactor(0.85)
+            }
+        }
+    }
+}

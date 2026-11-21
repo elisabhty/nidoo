@@ -256,6 +256,8 @@ export type Partie = {
   /** Devine l'année : les photos, lisibles par la famille. */
   photos?: (string | null)[]
 }
+/** « Où est la famille » : la dernière position qu'un proche a choisi de partager (une seule, jamais d'historique). */
+export type Position = { member_id: string; family_id: string; lat: number; lon: number; precision_m: number | null; lieu: string | null; ville: string | null; batterie: number | null; updated_at: string }
 export type StarEntry = { id: string | number; member_id: string | null; reason: string; amount: number; created_at: string }
 
 export type FamilyState = {
@@ -299,6 +301,8 @@ export type FamilyState = {
   flags: Record<string, AppFlag>
   /** Calendrier de l'Avent : les cases déjà ouvertes par la maison. */
   advent: AdventDoor[]
+  /** Où est la famille : les positions partagées (celles des autres, et la mienne si je la partage). */
+  positions: Position[]
 }
 
 /** Un interrupteur à distance : allumé, et éventuellement borné dans le temps. */
@@ -422,6 +426,10 @@ export interface Backend {
   porteRecords(familyId: string, memberId: string): Promise<Record<number, { e: number; t: number }>>
   /** Une partie gagnée : garde le meilleur résultat, et renvoie les étoiles gagnées pour la maison (les nouvelles seulement). */
   porteFini(familyId: string, niveau: number, etoiles: number, temps: number): Promise<{ gain: number }>
+  /** Partager ma position avec cette maison (la première fois, ou pour la remettre à jour). */
+  partagerPosition(familyId: string, p: { lat: number; lon: number; precision?: number | null; lieu?: string | null; ville?: string | null; batterie?: number | null }): Promise<void>
+  /** Ne plus partager ma position avec cette maison : elle disparaît tout de suite. */
+  arreterPosition(familyId: string): Promise<void>
   /** La clé des widgets de ce téléphone pour cette maison ('' en démo : pas de widgets). */
   widgetCle(familyId: string): Promise<string>
   /** Mode démo uniquement : installe toutes les décorations, ou revient à la maison de départ. */

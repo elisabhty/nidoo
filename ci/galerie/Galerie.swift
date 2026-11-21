@@ -185,6 +185,14 @@ struct Planche: View {
                 Cadre(f: .systemSmall) { VueCompagnon(e: erreur, f: .systemSmall) }
             }
             Cadre(f: .systemMedium) { VueSondage(e: pasBranche, f: .systemMedium) }
+        case 10:
+            // Où est la famille
+            HStack(spacing: 24) {
+                Cadre(f: .systemSmall) { VueOu(e: e, f: .systemSmall) }
+                Cadre(f: .systemSmall) { VueOu(e: pasBranche, f: .systemSmall) }
+            }
+            Cadre(f: .systemMedium) { VueOu(e: e, f: .systemMedium) }
+            Cadre(f: .systemLarge) { VueOu(e: e, f: .systemLarge) }
         default:
             Cadre(f: .systemMedium) { VueSondage(e: sixChoix, f: .systemMedium) }
             Cadre(f: .systemLarge) { VueMur(e: toutCalme, f: .systemLarge) }

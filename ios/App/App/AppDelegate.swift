@@ -7,7 +7,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        // « Où est la famille » : si on partage sa position, le suivi reprend (aussi quand iOS relance l'appli
+        // en arrière-plan après un déplacement, sans écran)
+        Suivi.partage.reprendre()
         return true
     }
 

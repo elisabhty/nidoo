@@ -23,6 +23,7 @@ struct Tendresse: WidgetBundle {
         AttentionsWidget()
         FamilleWidget()
         HumeurWidget()
+        OuWidget()
     }
 }
 
@@ -85,6 +86,17 @@ struct FamilleWidget: Widget {
         .configurationDisplayName("Ma famille")
         .description("Tout le monde et son humeur du jour. Touche un proche : « je pense à toi ».")
         .supportedFamilies([.systemMedium, .systemLarge])
+    }
+}
+
+struct OuWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "NidooOuEst", provider: Fournisseur()) { e in
+            Selon { f in VueOu(e: e, f: f) }
+        }
+        .configurationDisplayName("Où est la famille")
+        .description("Où se trouve chacun, depuis quand, s’il a choisi de partager sa position.")
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
 

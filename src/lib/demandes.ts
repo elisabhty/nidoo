@@ -39,3 +39,28 @@ export function demandeDuChemin(chemin: string): DemandeOrganiser | null {
   if (quoi === 'courses') return { seg: 'course' }
   return null
 }
+
+// « Où est la famille » : le widget ouvre l'onglet Famille et la carte.
+let ouEstEnAttente = false
+const ecoutesOuEst = new Set<() => void>()
+
+export function demanderOuEst() {
+  ouEstEnAttente = true
+  for (const f of ecoutesOuEst) f()
+}
+
+export function useDemandeOuEst(f: () => void) {
+  const actuelle = useRef(f)
+  actuelle.current = f
+  useEffect(() => {
+    const prendre = () => {
+      ouEstEnAttente = false
+      actuelle.current()
+    }
+    if (ouEstEnAttente) prendre()
+    ecoutesOuEst.add(prendre)
+    return () => {
+      ecoutesOuEst.delete(prendre)
+    }
+  }, [])
+}

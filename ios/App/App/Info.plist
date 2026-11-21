@@ -10,6 +10,10 @@
 	<string>NIDOO utilise le micro pour enregistrer les vocaux du fil et tes souvenirs vocaux dans les dossiers.</string>
 	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
 	<string>Nidoo ajoute à ton calendrier les événements de la famille que tu choisis.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Pour « Où est la famille » : tes proches te voient sur la carte, seulement si tu choisis de partager ta position.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Pour que ta famille voie où tu es même quand NIDOO est fermée. Tu peux arrêter de partager quand tu veux.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>NIDOO accède aux photos et vidéos que tu choisis de partager avec tes proches ou de garder dans un dossier.</string>
 	<key>CFBundleDevelopmentRegion</key>

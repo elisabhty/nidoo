@@ -20,6 +20,8 @@ import { upcoming } from './Home'
 import { HousePicker, ProfilePicker } from '../components/pickers'
 import { dateVersion, etatMaj, verifier } from '../lib/majDistance'
 import Onboarding from './Onboarding'
+import { OuEstApercu, OuEstPage } from '../components/ouEst'
+import { useDemandeOuEst } from '../lib/demandes'
 
 type Open = null | 'profil' | 'maison' | 'plus' | 'compte' | 'ajouter' | 'widgets'
 
@@ -144,6 +146,11 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
   const { state, run, api, circles, open, toast, requests, reload } = useHome()
   const { family, me, members } = state
   const [sheet, setSheet] = useState<Open>(null)
+  const [ouEst, setOuEst] = useState(false)
+  useDemandeOuEst(() => {
+    setSection('proches')
+    setOuEst(true)
+  })
   const [dessin, setDessin] = useState<{ to: string | null } | null>(null)
   const [dessins, setDessins] = useState<Drawing | null>(null)
   const [name, setName] = useState(me.display_name)
@@ -358,6 +365,9 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
           </button>
         </div>
 
+        {/* où est la famille (Elisa, 21 novembre) : la carte s'ouvre en page */}
+        <OuEstApercu onOuvrir={() => setOuEst(true)} />
+
         <p className="entete mt-6">Inviter un proche</p>
         <div className="groupe mx-4 shadow-carte">
           <button
@@ -506,6 +516,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
         </Sheet>
       )}
 
+      {ouEst && <OuEstPage onClose={() => setOuEst(false)} />}
       {sheet === 'plus' && (
         <Sheet title="Famille+" onClose={() => setSheet(null)}>
           <div className="flex flex-col items-center text-center">

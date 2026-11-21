@@ -4,7 +4,7 @@ import { SUPABASE_KEY, SUPABASE_URL } from '../config'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { isMemory } from './jeux'
 import { jourParis, type AnneeState, type MotLigne, type MotMoi, type Secret } from './parties'
-import type { AdventDoor, AppFlag, Answer, Backend, Game, Partie, HouseCare, Pet, Plot, Circle, Drawing, DrawingData, FamEvent, Family, FamilyState, Folder, JoinRequest, LiveEvent, LiveInvite, MyRequest, FolderItem, FolderMember, ListItem, Member, Moment, PollVote, Reaction, StarEntry, Thought, Ecrit } from './types'
+import type { AdventDoor, AppFlag, Answer, Backend, Game, Partie, HouseCare, Pet, Plot, Circle, Drawing, DrawingData, FamEvent, Family, FamilyState, Folder, JoinRequest, LiveEvent, LiveInvite, MyRequest, FolderItem, FolderMember, ListItem, Member, Moment, PollVote, Position, Reaction, StarEntry, Thought, Ecrit } from './types'
 import { compressImage, daysAgoKey, todayKey, uid } from './util'
 import { createSignedUrlCache } from './signedUrls'
 import { ecrireCopie, effacerCopies, lireCopie } from './cacheEtat'
@@ -176,7 +176,7 @@ export function createSupabaseBackend(): Backend {
       )
       const since = new Date(Date.now() - 14 * 86400000).toISOString()
       const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString()
-      const [family, members, requests, weekly, moments, pollVotes, folders, folderMembers, folderItems, reactions, thoughts, drawings, events, items, answers, house, stars, cares, pets, plots, stock, owned, games, jeux2, motJour, flags, advent] = await Promise.all([
+      const [family, members, requests, weekly, moments, pollVotes, folders, folderMembers, folderItems, reactions, thoughts, drawings, events, items, answers, house, stars, cares, pets, plots, stock, owned, games, jeux2, motJour, flags, advent, positions] = await Promise.all([
         sb.from('families').select('*').eq('id', fid).single(),
         sb.from('members').select('*').eq('family_id', fid).order('joined_at'),
         // Lisibles seulement par les responsables (RLS) : vide pour les autres.
@@ -207,6 +207,8 @@ export function createSupabaseBackend(): Backend {
         // Les interrupteurs à distance et l'Avent : s'ils manquent, l'appli marche quand même (sans calendrier).
         sb.from('app_flags').select('key, enabled, starts_at, ends_at'),
         sb.from('advent_doors').select('year, day, opened_by, opened_at').eq('family_id', fid),
+        // Où est la famille : si la table manque (base pas encore à jour), l'appli marche sans.
+        sb.from('positions').select('member_id, family_id, lat, lon, precision_m, lieu, ville, batterie, updated_at').eq('family_id', fid),
       ])
       const pet = ((check(pets) ?? []) as Pet[])[0] ?? null
       const mem = check(members) as Member[]
@@ -293,13 +295,14 @@ export function createSupabaseBackend(): Backend {
         mot: (motJour.data ?? []) as MotLigne[],
         flags: Object.fromEntries(((flags.data ?? []) as ({ key: string } & AppFlag)[]).map(({ key, ...f }) => [key, f])),
         advent: (advent.data ?? []) as AdventDoor[],
+        positions: (positions.data ?? []) as Position[],
       }
       return state
     },
 
     subscribe(fid, onChange) {
       const ch = sb.channel(`famille:${fid}`)
-      for (const table of ['members', 'join_requests', 'weekly_rewards', 'moments', 'poll_votes', 'folders', 'folder_members', 'folder_items', 'reactions', 'thoughts', 'drawings', 'events', 'list_items', 'daily_answers', 'house_items', 'house_care', 'pets', 'garden_plots', 'family_stock', 'shop_items', 'games', 'parties', 'mot_essais', 'advent_doors']) {
+      for (const table of ['members', 'join_requests', 'weekly_rewards', 'moments', 'poll_votes', 'folders', 'folder_members', 'folder_items', 'reactions', 'thoughts', 'drawings', 'events', 'list_items', 'daily_answers', 'house_items', 'house_care', 'pets', 'garden_plots', 'family_stock', 'shop_items', 'games', 'parties', 'mot_essais', 'advent_doors', 'positions']) {
         ch.on('postgres_changes', { event: '*', schema: 'public', table, filter: `family_id=eq.${fid}` }, onChange)
       }
       ch.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'families', filter: `id=eq.${fid}` }, onChange)
@@ -366,6 +369,15 @@ export function createSupabaseBackend(): Backend {
     async porteRecords(fid, memberId) {
       const rows = check(await sb.from('porte_records').select('niveau, etoiles, temps').eq('family_id', fid).eq('member_id', memberId)) as { niveau: number; etoiles: number; temps: number }[]
       return Object.fromEntries(rows.map((r) => [r.niveau, { e: r.etoiles, t: Number(r.temps) }]))
+    },
+    // ───── Où est la famille (supabase/migrations/20261121220000_positions.sql) ─────
+    async partagerPosition(fid, p) {
+      check(await sb.rpc('position_partager', {
+        p_family: fid, p_lat: p.lat, p_lon: p.lon, p_precision: p.precision ?? null, p_lieu: p.lieu ?? null, p_ville: p.ville ?? null, p_batterie: p.batterie ?? null,
+      }))
+    },
+    async arreterPosition(fid) {
+      check(await sb.rpc('position_arreter', { p_family: fid }))
     },
     async widgetCle(fid) {
       return (check(await sb.rpc('widget_cle', { p_family: fid })) as string) ?? ''

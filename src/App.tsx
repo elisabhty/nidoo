@@ -11,7 +11,7 @@ import { ajouterNaissance } from './lib/naissance'
 import { select } from './lib/haptic'
 import { useStore } from './lib/store'
 import { ecouterWidgets, oublierWidgets, synchroniserWidgets } from './lib/widgets'
-import { demanderOrganiser, demandeDuChemin } from './lib/demandes'
+import { demanderOrganiser, demanderOuEst, demandeDuChemin } from './lib/demandes'
 import Family from './screens/Family'
 import Home from './screens/Home'
 import Dossiers from './screens/Folders'
@@ -85,6 +85,10 @@ export default function App() {
         if (chemin === 'recus') {
           navigate('maison')
           setShowIncoming(true)
+        } else if (chemin === 'ouest') {
+          // « Où est la famille » : l'onglet Famille, et la carte
+          demanderOuEst()
+          navigate('famille')
         } else if (demande) {
           // l'agenda (et la fiche de l'événement), les tâches ou les courses
           demanderOrganiser(demande)

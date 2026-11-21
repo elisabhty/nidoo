@@ -1,6 +1,8 @@
 // Le pont natif « Nidoo » de l'appli iPhone (ios/App/App/NidooPlugin.swift), déclaré une seule fois.
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core'
 
+import type { Autorisation, PositionLue } from './localisation'
+
 export type EvenementCalendrier = { titre: string; debut: number; fin: number; journee: boolean; lieu?: string; notes?: string; repete?: string; rappel?: boolean }
 
 export type Pont = {
@@ -11,6 +13,10 @@ export type Pont = {
   depart(): Promise<{ chemin?: string }>
   /** La fiche « Nouvel événement » du calendrier de l'iPhone, déjà remplie (iOS 17 et plus). */
   calendrier(o: EvenementCalendrier): Promise<{ action: 'ajoute' | 'annule' }>
+  /** « Où est la famille » : l'autorisation de l'iPhone, la position maintenant, suivre en arrière-plan (ou arrêter). */
+  positionAutorisation(): Promise<{ etat: Autorisation }>
+  positionMaintenant(): Promise<PositionLue>
+  positionSuivre(o: { oui: boolean }): Promise<{ etat: Autorisation }>
   addListener(nom: 'ouvrir', f: (e: { chemin: string }) => void): Promise<PluginListenerHandle>
 }
 

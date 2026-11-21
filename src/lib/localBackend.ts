@@ -6,14 +6,15 @@ import { applyMove, botMemory, botMorpion, botPuissance4, isMemory, MEMORY_MAX, 
 import { partiesDemo, type Cache, type MotDemo } from './partiesDemo'
 import type { AnneeState } from './parties'
 import { etoilesDe, parisToday } from './avent'
-import type { AdventDoor, AppFlag, Backend, Drawing, Ecrit, Game, Family, FamilyState, Folder, FolderItem, JoinRequest, LiveEvent, Member, Moment, MyRequest, Sticker, ThoughtKind } from './types'
+import type { AdventDoor, AppFlag, Backend, Drawing, Ecrit, Game, Family, FamilyState, Folder, FolderItem, JoinRequest, LiveEvent, Member, Moment, MyRequest, Position, Sticker, ThoughtKind } from './types'
 import { blobToDataUrl, compressImage, daysAgoKey, todayKey, uid } from './util'
 import { challenge, nextReward, WEEKLY, weekIndex, weekKey, weekStart, type WeeklyCounts, type WeeklyKey } from './weekly'
 
 // Mode démo : toute la maison vit sur l'appareil, avec des proches fictifs
 // qui répondent aux attentions. Même contrat que le backend Supabase.
 
-type Raw = Omit<FamilyState, 'me' | 'weekly' | 'houseSince' | 'mot' | 'flags' | 'advent'> & { houseSince?: Record<string, string>; advent?: AdventDoor[] }
+type Raw = Omit<FamilyState, 'me' | 'weekly' | 'houseSince' | 'mot' | 'flags' | 'advent' | 'positions'> & { houseSince?: Record<string, string>; advent?: AdventDoor[] }
+  & { positions?: (Position & { il?: number })[] }
   & { caches?: Record<string, Cache>; motDemo?: MotDemo } & { dossiersDemo?: boolean; enfantsDemo?: boolean; weeklyClaims?: Record<string, string>; aventDemo?: number }
   & { jeuxDemo?: boolean; decks?: Record<string, { deck: number[]; pending: number | null }> }
   & { porte?: Record<string, Record<number, { e: number; t: number }>> }
@@ -226,6 +227,18 @@ function migrate(f: Raw, userId: string) {
       const g = [0, 0, 0, 0, 1, 0, 0, 0, 0]
       f.games.unshift({ id: uid(), family_id: f.family.id, kind: 'morpion', p1: lea.id, p2: moi.id, turn: moi.id, status: 'en_cours', winner: null, state: { g, last: 4, line: null }, created_at: iso(40), updated_at: iso(38) })
     }
+  }
+  if (!f.positions) {
+    // Où est la famille : Papa au travail, Mamie Jo chez elle, Léa au bord du lac (« il » : il y a combien de minutes).
+    const pos = (name: string, lat: number, lon: number, lieu: string, il: number, batterie: number) => {
+      const m = f.members.find((x) => x.display_name === name && x.user_id && x.user_id !== userId)
+      return m ? [{ member_id: m.id, family_id: f.family.id, lat, lon, precision_m: 20, lieu, ville: 'Annecy', batterie, updated_at: iso(il), il }] : []
+    }
+    f.positions = [
+      ...pos('Léa', 45.9061, 6.1453, 'Avenue d’Albigny', 4, 18),
+      ...pos('Papa', 45.9135, 6.13, 'Avenue de Brogny', 12, 64),
+      ...pos('Mamie Jo', 45.8993, 6.1244, 'Rue Sainte-Claire', 130, 88),
+    ]
   }
   if (!f.drawings) {
     // Un premier dessin de Léa pour toute la famille, pour voir le widget rempli.
@@ -738,6 +751,8 @@ export function createLocalBackend(): Backend {
         aventDemo: undefined,
         flags: { avent: demoFlag() },
         advent: f.advent ?? [],
+        // en démo, les proches viennent de bouger : leurs positions restent fraîches
+        positions: (f.positions ?? []).map(({ il, ...p }) => (il != null ? { ...p, updated_at: iso(il) } : p)),
       })
     },
     subscribe(_fid, onChange) {
@@ -1294,6 +1309,22 @@ export function createLocalBackend(): Backend {
     // ───── « À deux, on porte ! » : comme la base (un niveau ne compte que si le précédent est fini, étoiles nouvelles seulement) ─────
     async porteRecords(fid, memberId) {
       return { ...(fam(fid).porte?.[memberId] ?? {}) }
+    },
+    async partagerPosition(fid, p) {
+      const f = fam(fid)
+      const me = myId(f)
+      const ligne: Position = {
+        member_id: me, family_id: fid, lat: Math.round(p.lat * 1e5) / 1e5, lon: Math.round(p.lon * 1e5) / 1e5, precision_m: p.precision ?? null,
+        lieu: p.lieu ?? null, ville: p.ville ?? null, batterie: p.batterie ?? null, updated_at: new Date().toISOString(),
+      }
+      f.positions = [ligne, ...(f.positions ?? []).filter((x) => x.member_id !== me)]
+      save()
+    },
+    async arreterPosition(fid) {
+      const f = fam(fid)
+      const me = myId(f)
+      f.positions = (f.positions ?? []).filter((x) => x.member_id !== me)
+      save()
     },
     async widgetCle() {
       return ''

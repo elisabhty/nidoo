@@ -94,6 +94,25 @@ struct Etat: Codable {
         var moi: Int?
     }
 
+    /// « Où est la famille » : la dernière position de ceux qui la partagent.
+    struct Position: Codable, Identifiable {
+        var id: String
+        var la: Double
+        var lo: Double
+        var p: Int?
+        /// la rue (ou le lieu), la ville, la batterie du téléphone
+        var l: String?
+        var v: String?
+        var b: Int?
+        var q: String
+
+        /// « Rue Sainte-Claire, Annecy » ; sans rue : la ville.
+        var libelle: String {
+            if let l, let v, !l.localizedCaseInsensitiveContains(v) { return "\(l), \(v)" }
+            return l ?? v ?? "Position partagée"
+        }
+    }
+
     var v: Int
     var maintenant: String
     var jour: String
@@ -108,6 +127,8 @@ struct Etat: Codable {
     var parties: [Partie]
     var compagnon: Compagnon?
     var sondage: Sondage?
+    /// absent des états gardés avant « Où est la famille »
+    var positions: [Position]?
 
     func membre(_ id: String?) -> Membre? {
         guard let id else { return nil }
@@ -255,6 +276,21 @@ enum Temps {
         var sans = iso
         sans.removeSubrange(r)
         return f.date(from: sans)
+    }
+
+    /// « à l’instant », « il y a 5 min », « il y a 2 h », « hier », « le 12 nov. »
+    static func ilYA(_ iso: String, maintenant: Date) -> String {
+        guard let d = date(iso) else { return "" }
+        let min = max(0, Int((maintenant.timeIntervalSince(d) / 60).rounded()))
+        if min < 2 { return "à l’instant" }
+        if min < 60 { return "il y a \(min) min" }
+        let cal = Calendar.current
+        if min < 6 * 60 || cal.isDate(d, inSameDayAs: maintenant) { return "il y a \(Int((Double(min) / 60).rounded())) h" }
+        if let hier = cal.date(byAdding: .day, value: -1, to: maintenant), cal.isDate(d, inSameDayAs: hier) { return "hier" }
+        let f = DateFormatter()
+        f.locale = fr
+        f.dateFormat = "d MMM"
+        return "le \(f.string(from: d))"
     }
 
     /// « AAAA-MM-JJ » : ce jour-là, à minuit, ici.

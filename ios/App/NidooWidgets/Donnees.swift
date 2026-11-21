@@ -252,7 +252,13 @@ extension Etat {
                            2, 1, 2, 1, 1, 2, 0], der: 17, ligne: nil, q: ilYA(12)),
             ],
             compagnon: Compagnon(e: "renard", n: "Cannelle", a: 34, tenue: nil, friandises: 3),
-            sondage: Sondage(id: "s1", q: "Ce soir, on mange quoi ?", de: "papa", choix: ["Pizza", "Raclette", "Crêpes"], voix: [1, 3, 1], moi: 1)
+            sondage: Sondage(id: "s1", q: "Ce soir, on mange quoi ?", de: "papa", choix: ["Pizza", "Raclette", "Crêpes"], voix: [1, 3, 1], moi: 1),
+            positions: [
+                Position(id: "lea", la: 45.9061, lo: 6.1453, p: 20, l: "Avenue d’Albigny", v: "Annecy", b: 18, q: ilYA(4)),
+                Position(id: "papa", la: 45.9135, lo: 6.13, p: 20, l: "Avenue de Brogny", v: "Annecy", b: 64, q: ilYA(12)),
+                Position(id: "mamie", la: 45.8993, lo: 6.1244, p: 20, l: "Rue Sainte-Claire", v: "Annecy", b: 88, q: ilYA(130)),
+                Position(id: "moi", la: 45.9029, lo: 6.1269, p: 12, l: "Place de l’Hôtel de Ville", v: "Annecy", b: 71, q: ilYA(1)),
+            ]
         )
     }
 }
