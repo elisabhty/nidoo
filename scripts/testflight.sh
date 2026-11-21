@@ -41,12 +41,19 @@ AUTH=()
 if [ -n "$CLE" ]; then
   KEY_ID=$(basename "$CLE" .p8)
   KEY_ID="${KEY_ID#AuthKey_}"
+  if [ -n "${ASC_ISSUER:-}" ] && ! [[ "$ASC_ISSUER" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+    echo "« $ASC_ISSUER » n'est pas un Issuer ID. L'Issuer ID est la longue suite en haut de la page" >&2
+    echo "App Store Connect > Intégrations > App Store Connect API (8-4-4-4-12 caractères, ex. 69a6de7e-1a2b-…)," >&2
+    echo "pas l'ID de la clé ($KEY_ID)." >&2
+    exit 1
+  fi
   if [ -n "${ASC_ISSUER:-}" ]; then
     mkdir -p "$RANGEMENT"
     printf '%s\n' "$ASC_ISSUER" > "$RANGEMENT/issuer"
     chmod 600 "$RANGEMENT/issuer"
   fi
   ISSUER=$(cat "$RANGEMENT/issuer" 2>/dev/null || true)
+  if [ "$ISSUER" = "$KEY_ID" ]; then ISSUER=""; fi
   if [ -z "$ISSUER" ]; then
     echo "Il manque l'Issuer ID (en haut de la page App Store Connect > Intégrations > App Store Connect API) :" >&2
     echo "    ASC_ISSUER=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx npm run testflight" >&2
