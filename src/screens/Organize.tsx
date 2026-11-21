@@ -247,7 +247,7 @@ const garderLeClavier = (e: React.PointerEvent) => e.preventDefault()
 function TitrePartie({ emoji, children, n }: { emoji: string; children: ReactNode; n?: number }) {
   return (
     <div className="mb-2 mt-5 flex items-center gap-2 px-5">
-      <span className="flex h-7 w-7 items-center justify-center rounded-[9px] bg-carte text-[15px] shadow-carte" aria-hidden="true">{emoji}</span>
+      <span className="flex h-7 w-7 items-center justify-center rounded-[9px] bg-carte text-[15px] ring-1 ring-inset ring-trait" aria-hidden="true">{emoji}</span>
       <p className="flex-1 text-sous font-bold">{children}</p>
       {n !== undefined && <span className="text-note font-semibold text-brume">{n}</span>}
     </div>
@@ -263,7 +263,7 @@ function Quantite({ qte, onChange, nom }: { qte: string; onChange: (q: string) =
     <span className="mr-2 flex shrink-0 items-center rounded-full bg-remplissage p-0.5" role="group" aria-label={`Quantité de ${nom}`}>
       <button type="button" onPointerDown={garderLeClavier} onClick={() => (select(), onChange(String(Math.max(1, n - 1))))} disabled={n <= 1} aria-label={`Un ${nom} de moins`} className="presse flex h-8 w-8 items-center justify-center rounded-full text-[18px] font-bold text-teinte-fonce disabled:opacity-30">−</button>
       <span key={n} className="anim-pop min-w-[22px] text-center text-sous font-extrabold text-encre" aria-live="polite">{n}</span>
-      <button type="button" onPointerDown={garderLeClavier} onClick={() => (select(), onChange(String(Math.min(99, n + 1))))} aria-label={`Un ${nom} de plus`} className="presse flex h-8 w-8 items-center justify-center rounded-full bg-carte text-[18px] font-bold text-teinte-fonce shadow-carte">+</button>
+      <button type="button" onPointerDown={garderLeClavier} onClick={() => (select(), onChange(String(Math.min(99, n + 1))))} aria-label={`Un ${nom} de plus`} className="presse flex h-8 w-8 items-center justify-center rounded-full bg-carte text-[18px] font-bold text-teinte-fonce">+</button>
     </span>
   )
 }
@@ -511,7 +511,7 @@ function Liste({ kind }: { kind: ListKind }) {
       {tache && items.length > 0 && (
         <div role="group" aria-label="Filtrer les tâches" className="no-bar mt-4 flex gap-1.5 overflow-x-auto px-4 pb-1">
           {[['toutes', 'À faire', todo.length], ['moi', 'Pour moi'], ['autres', 'Pour les autres'], ['libres', 'Pour tout le monde'], ['terminees', 'Terminées', done.length]].map(([id, label, n]) => (
-            <button key={id} type="button" aria-pressed={filtre === id} onClick={() => (select(), setFiltre(id as string))} className={`presse flex min-h-[38px] shrink-0 items-center gap-1.5 rounded-full px-3.5 text-note font-bold ${filtre === id ? 'bg-teinte text-white' : 'bg-carte text-encre shadow-carte'}`}>
+            <button key={id} type="button" aria-pressed={filtre === id} onClick={() => (select(), setFiltre(id as string))} className={`presse flex min-h-[38px] shrink-0 items-center gap-1.5 rounded-full px-3.5 text-note font-bold ${filtre === id ? 'bg-teinte text-white' : 'bg-carte text-encre ring-1 ring-inset ring-trait'}`}>
               {label}
               {n !== undefined && Number(n) > 0 && <span className={`rounded-full px-1.5 text-[11px] ${filtre === id ? 'bg-white/25' : 'bg-teinte-doux text-teinte-fonce'}`}>{n}</span>}
             </button>

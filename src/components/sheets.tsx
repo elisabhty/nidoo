@@ -507,7 +507,7 @@ export const lienPlans = (lieu: string) => `https://maps.apple.com/?q=${encodeUR
 export function WhoPicker({ value, onChange }: { value: string[]; onChange: (ids: string[]) => void }) {
   const { state } = useHome()
   const all = value.length === 0
-  const chip = (on: boolean) => `presse flex h-10 items-center gap-1.5 rounded-full text-sous font-medium ${on ? 'bg-teinte text-white' : 'bg-carte text-encre shadow-carte'}`
+  const chip = (on: boolean) => `presse flex h-10 items-center gap-1.5 rounded-full text-sous font-medium ${on ? 'bg-teinte text-white' : 'bg-carte text-encre ring-1 ring-inset ring-trait'}`
   return (
     <div className="flex flex-wrap gap-2">
       <button
@@ -665,7 +665,7 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
       {extra}
     </div>
   )
-  const puce = (on: boolean) => `presse shrink-0 rounded-full px-3.5 py-2 text-sous font-semibold transition-colors ${on ? 'bg-teinte text-white shadow-[0_3px_10px_-3px_rgba(102,70,204,0.6)]' : 'bg-carte text-encre shadow-carte'}`
+  const puce = (on: boolean) => `presse shrink-0 rounded-full px-3.5 py-2 text-sous font-semibold transition-colors ${on ? 'bg-teinte text-white' : 'bg-carte text-encre ring-1 ring-inset ring-trait'}`
 
   return (
     <Sheet title={event ? 'Modifier l’événement' : 'Nouvel événement'} tall onClose={() => {if(!busy) onClose()}} footer={<Btn onClick={save} disabled={busy || !title.trim() || !date || ko}>{busy ? 'Enregistrement…' : event ? 'Enregistrer' : 'Ajouter à l’agenda'}</Btn>}>
@@ -675,7 +675,7 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
           const on = kind === k.key
           return (
             <button key={k.key} type="button" aria-pressed={on} onClick={() => (select(), changeKind(k.key))}
-              className={`presse flex flex-col items-center gap-1 rounded-[18px] px-1 pb-2 pt-2.5 text-note font-bold transition-[box-shadow,background-color] ${on ? 'bg-teinte-doux text-teinte-fonce ring-2 ring-teinte' : 'bg-carte text-encre shadow-carte'}`}>
+              className={`presse flex flex-col items-center gap-1 rounded-[18px] px-1 pb-2 pt-2.5 text-note font-bold transition-[box-shadow,background-color] ${on ? 'bg-teinte-doux text-teinte-fonce ring-2 ring-teinte' : 'bg-carte text-encre ring-1 ring-inset ring-trait'}`}>
               <Art name={k.art} size={34} />
               {k.label}
             </button>
@@ -748,6 +748,9 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
   const [toutLire, setToutLire] = useState(false)
   const at = nextOccurrence(ev) // recalculé : la date a pu être modifiée
   const author = state.members.find((m) => m.id === ev.created_by)
+  // seule la personne qui l'a ajouté peut le modifier ou le supprimer (Elisa, 21 novembre) ;
+  // un événement dont l'auteur n'est plus dans la maison reste modifiable par tous
+  const peutModifier = !author || author.id === state.me.id
   const fin = finDe(ev, at)
   // sur plusieurs jours : « Du samedi 28 au dimanche 29 novembre »
   const full = (joursEnPlus(ev)
@@ -758,7 +761,7 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
   d0.setHours(0, 0, 0, 0)
   const diff = Math.round((new Date(at.getFullYear(), at.getMonth(), at.getDate()).getTime() - d0.getTime()) / 86400000)
   const soon = diff < 0 ? 'En ce moment' : diff === 0 ? 'Aujourd’hui' : diff === 1 ? 'Demain' : diff <= 30 ? `Dans ${diff} jours` : null
-  if (modif) return <EventSheet event={ev} onClose={() => setModif(false)} />
+  if (modif && peutModifier) return <EventSheet event={ev} onClose={() => setModif(false)} />
   const concernes = (ev.members ?? []).length ? state.members.filter((m) => ev.members!.includes(m.id)) : []
   const noms = concernes.map((m) => (m.id === state.me.id ? 'toi' : m.display_name))
   const qui = !concernes.length ? 'Toute la famille' : noms.length === 1 ? noms[0].replace(/^toi$/, 'Toi') : `${noms.slice(0, -1).join(', ')} et ${noms[noms.length - 1]}`.replace(/^toi/, 'Toi')
@@ -833,19 +836,21 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
       </div>
       {author && (
         <p className="mt-2 px-1 text-note text-brume">
-          Ajouté par {author.id === state.me.id ? 'toi' : author.display_name} · toute la famille peut le modifier
+          {author.id === state.me.id ? 'Ajouté par toi · tu es la seule personne à pouvoir le modifier ou le supprimer' : `Ajouté par ${author.display_name} · seule la personne qui l’a ajouté peut le modifier`}
         </p>
       )}
 
-      <div className="mt-4 grid grid-cols-2 gap-2.5">
-        <Btn
-          onClick={() => {
-            tap()
-            setModif(true)
-          }}
-        >
-          <PenLine size={17} strokeWidth={2.4} /> Modifier
-        </Btn>
+      <div className={`mt-4 grid gap-2.5 ${peutModifier ? 'grid-cols-2' : 'grid-cols-1'}`}>
+        {peutModifier && (
+          <Btn
+            onClick={() => {
+              tap()
+              setModif(true)
+            }}
+          >
+            <PenLine size={17} strokeWidth={2.4} /> Modifier
+          </Btn>
+        )}
         <Btn
           kind="gris"
           onClick={() => {
@@ -853,12 +858,14 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
             ajouterAuCalendrier(ev)
           }}
         >
-          <CalendarPlus size={17} strokeWidth={2.4} /> Calendrier
+          <CalendarPlus size={17} strokeWidth={2.4} /> {peutModifier ? 'Calendrier' : 'Ajouter à mon calendrier'}
         </Btn>
       </div>
-      <button onClick={() => void supprimer()} className="presse mt-1 flex min-h-11 w-full items-center justify-center gap-1.5 text-sous font-semibold text-rouge">
-        <Trash2 size={15} strokeWidth={2.4} /> Supprimer l’événement
-      </button>
+      {peutModifier && (
+        <button onClick={() => void supprimer()} className="presse mt-1 flex min-h-11 w-full items-center justify-center gap-1.5 text-sous font-semibold text-rouge">
+          <Trash2 size={15} strokeWidth={2.4} /> Supprimer l’événement
+        </button>
+      )}
     </Sheet>
   )
 }
