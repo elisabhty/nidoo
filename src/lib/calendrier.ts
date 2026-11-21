@@ -39,6 +39,8 @@ export function fichierIcs(e: FamEvent): string {
   const regle = { jour: 'FREQ=DAILY', semaine: 'FREQ=WEEKLY', '2semaines': 'FREQ=WEEKLY;INTERVAL=2', mois: 'FREQ=MONTHLY', annee: 'FREQ=YEARLY' } as const
   if (r) lignes.push(`RRULE:${regle[r]}`)
   lignes.push(`SUMMARY:${texte(titreCalendrier(e))}`)
+  // le genre, pour la page « Ajouter au calendrier » (son image) ; les calendriers ignorent les lignes X-
+  lignes.push(`X-NIDOO-GENRE:${e.kind}`)
   if (e.lieu) lignes.push(`LOCATION:${texte(e.lieu)}`)
   if (e.description) lignes.push(`DESCRIPTION:${texte(e.description)}`)
   if (!e.all_day) lignes.push('BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${texte(e.title)}`, 'TRIGGER:-PT1H', 'END:VALARM')
