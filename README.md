@@ -89,7 +89,7 @@ Comment ça marche :
 
 Dans Xcode, une seule fois : choisir son équipe (« Team ») dans *Signing & Capabilities* pour les **deux** cibles, `App` et `NidooWidgets`. Le groupe d'apps est déjà déclaré dans les deux. Si on change le numéro de version de l'appli, mettre le même sur `NidooWidgets`.
 
-Envoyer sur TestFlight d'une seule commande (sur un Mac, Xcode connecté au compte Apple) : `TEAM=<identifiant d'équipe> npm run testflight` (`scripts/testflight.sh` : build web, archive, envoi, avec un numéro de build neuf commun à l'appli et aux widgets).
+Envoyer sur TestFlight d'une seule commande, sans ouvrir Xcode : `npm run testflight` (`scripts/testflight.sh` : build web, archive, envoi, numéro de build neuf commun à l'appli et aux widgets). Il signe avec une clé d'API App Store Connect (fichier `AuthKey_….p8`, rangé dans `~/.appstoreconnect/private_keys` ; la première fois, `ASC_ISSUER=<Issuer ID> npm run testflight`), sinon avec le compte connecté dans Xcode. Mode d'emploi en tête du script.
 
 Outils : `scripts/widgets_xcode.py` (ajoute la cible au projet Xcode ; à relancer si on ajoute un fichier Swift), `scripts/widgets_images.py` (les illustrations de l'appli en PNG pour l'extension), et `.github/workflows/ios.yml` qui, sur un Mac de GitHub (branche `widgets`), compile l'appli avec ses widgets et dessine chaque widget avec la famille d'exemple (`ci/galerie`).
 
