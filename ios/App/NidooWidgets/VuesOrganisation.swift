@@ -135,7 +135,7 @@ struct VueDates: View {
                     .font(.system(size: n == 1 ? 13 : 17, weight: .bold, design: .rounded))
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
-                Text(d.t)
+                Text(Self.nomCourt(d))
                     .font(.system(size: 8.5, weight: .semibold, design: .rounded))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
@@ -143,6 +143,15 @@ struct VueDates: View {
             }
             .padding(.horizontal, 7)
         }
+    }
+
+    /// Un anniversaire : le prénom suffit (le gâteau dit déjà que c'est un anniversaire).
+    static func nomCourt(_ d: Etat.Jour) -> String {
+        guard d.k == "anniversaire" else { return d.t }
+        for p in ["Anniversaire de ", "Anniversaire d’", "Anniversaire d'"] where d.t.hasPrefix(p) {
+            return String(d.t.dropFirst(p.count))
+        }
+        return d.t
     }
 
     static func icone(_ k: String) -> String {
