@@ -677,7 +677,9 @@ html.natif.kb-ouvert, html.natif.kb-ouvert body { background: var(--fond-clavier
 .sheet-footer-dedans { min-height: 0; }
 html.kb-visible .sheet-footer-clavier { grid-template-rows: 0fr; padding-top: 0; opacity: 0; pointer-events: none; }
 html.kb-visible .sheet-footer-clavier .sheet-footer-dedans { overflow: hidden; }
-html.kb-visible .ios-sheet { padding-bottom: 10px !important; }
+html.kb-visible .ios-sheet { padding-bottom: 10px !important; max-height: calc(100% - var(--sat) - 8px); }
+/* clavier ouvert : la fenêtre ne monte plus sous l'heure et la batterie */
+html.kb-visible .ios-sheet.h-\[92\%\] { height: calc(100% - var(--sat) - 8px); }
 
 /* Cocher une chose à faire ou un article (Elisa, 21 novembre) : le nom se barre lentement, de gauche à droite
    (sur toutes ses lignes), devient pâle, puis des confettis, puis la ligne se range. */

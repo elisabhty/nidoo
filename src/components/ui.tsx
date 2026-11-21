@@ -160,8 +160,13 @@ export function Sheet({ title, onClose, children, tall = false, footer, cacherBa
   const contenu = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const box = defile.current
-    if (!footer || !box) return
-    const voir = () => setDessous(box.scrollHeight - box.scrollTop - box.clientHeight > 6)
+    if (!box) return
+    const voir = () => {
+      // la zone a grandi (clavier fermé, bouton du bas revenu) : jamais de vide sous le contenu
+      const max = Math.max(0, box.scrollHeight - box.clientHeight)
+      if (box.scrollTop > max + 1) box.scrollTop = max
+      if (footer) setDessous(box.scrollHeight - box.scrollTop - box.clientHeight > 6)
+    }
     voir()
     const ro = new ResizeObserver(voir)
     ro.observe(box)

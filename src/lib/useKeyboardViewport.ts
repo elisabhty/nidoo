@@ -82,16 +82,21 @@ function recaler(box: HTMLElement | null) {
   }
 }
 
-/** Fait défiler la zone qui contient le champ (pas la page entière) pour qu'il soit bien visible au-dessus du clavier. */
+/** Fait défiler la zone qui contient le champ (pas la page entière) juste assez pour qu'il soit visible au-dessus
+ *  du clavier, sans jamais dépasser le bas du contenu (Elisa, 21 novembre : un grand vide restait sous la fiche).
+ *  On s'arrête à la première zone qui défile : jamais la page derrière une fenêtre. */
 function montrer(el: Element | null) {
   if (!(el instanceof HTMLElement)) return
   let box = el.parentElement
-  while (box && !(/(auto|scroll)/.test(getComputedStyle(box).overflowY) && box.scrollHeight > box.clientHeight)) box = box.parentElement
+  while (box && !/(auto|scroll)/.test(getComputedStyle(box).overflowY)) box = box.parentElement
   if (!box) return
   const r = el.getBoundingClientRect()
   const b = box.getBoundingClientRect()
-  // en douceur (plus de saut d'un coup quand le clavier monte)
-  if (r.top < b.top + 12 || r.bottom > b.bottom - 12) box.scrollBy({ top: r.top - b.top - (b.height - r.height) / 2, behavior: 'smooth' })
+  const marge = 16
+  const delta = r.bottom > b.bottom - marge ? r.bottom - (b.bottom - marge) : r.top < b.top + marge ? r.top - (b.top + marge) : 0
+  if (!delta) return
+  const max = Math.max(0, box.scrollHeight - box.clientHeight)
+  box.scrollTo({ top: Math.min(max, Math.max(0, box.scrollTop + delta)), behavior: 'smooth' })
 }
 
 /** Keep the active sheet inside the visible area when the software keyboard opens.
@@ -115,8 +120,10 @@ export function useKeyboardViewport() {
       root.classList.add('kb-ouvert', 'kb-visible')
       root.style.setProperty('--app-height', `${window.innerHeight - Math.max(0, Math.round(keyboardHeight))}px`)
       setKeyboard(true)
-      // le champ, bien visible au-dessus du clavier, une fois l'appli calée
+      // le champ, bien visible au-dessus du clavier, une fois l'appli calée ; puis on vérifie que la zone n'est pas
+      // restée défilée au-delà du bas (le clavier change parfois de hauteur : barre de suggestions, émojis…)
       window.setTimeout(() => montrer(document.activeElement), 280)
+      window.setTimeout(() => recaler(zone), 650)
     })
     const cache = Keyboard.addListener('keyboardWillHide', () => {
       ouvert = false

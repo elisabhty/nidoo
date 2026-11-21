@@ -5,13 +5,19 @@ import { select, tap } from '../lib/haptic'
 
 /** Le lieu d'un événement : en tapant, une liste d'adresses et de lieux (gratuite) ; champ vide, les lieux déjà utilisés
  *  par la famille. Un toucher sur une suggestion la met dans le champ. */
-export const ChampLieu = memo(function ChampLieu({ value, onChange, placeholder, recents }: { value: string; onChange: (v: string) => void; placeholder: string; recents: string[] }) {
+export const ChampLieu = memo(function ChampLieu({ value, onChange, placeholder, recents, autoFocus = false }: { value: string; onChange: (v: string) => void; placeholder: string; recents: string[]; autoFocus?: boolean }) {
   const [focus, setFocus] = useState(false)
   const [choisi, setChoisi] = useState(false)
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [cherche, setCherche] = useState(false)
   const [eclat, setEclat] = useState(0)
   const champ = useRef<HTMLInputElement>(null)
+  // ouvert depuis la fiche d'un événement : le clavier vient tout de suite (après l'arrivée du champ)
+  useEffect(() => {
+    if (!autoFocus) return
+    const t = window.setTimeout(() => champ.current?.focus(), 120)
+    return () => window.clearTimeout(t)
+  }, [autoFocus])
 
   useEffect(() => {
     const q = value.trim()

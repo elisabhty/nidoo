@@ -961,6 +961,25 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
   const taches = state.items.filter((i) => i.kind === 'tache' && i.event_id === ev.id)
   const [nouvelle, setNouvelle] = useState('')
   const [arrivee, setArrivee] = useState('')
+  // ajouter une adresse sans passer par « Modifier » (Elisa, 21 novembre : « de ici pouvoir mettre une adresse »)
+  const [ajoutLieu, setAjoutLieu] = useState(false)
+  const [lieu, setLieu] = useState('')
+  const [lieuArrive, setLieuArrive] = useState(false)
+  const lieuxConnus = useMemo(() => [...new Set([...state.events].sort((a, b) => b.starts_at.localeCompare(a.starts_at)).map((e) => e.lieu?.trim()).filter((x): x is string => !!x))], [state.events])
+  const enregistrerLieu = async () => {
+    const l = lieu.trim().slice(0, 200)
+    if (!l) return
+    ;(document.activeElement as HTMLElement | null)?.blur?.()
+    setAjoutLieu(false)
+    setLieuArrive(true)
+    window.setTimeout(() => setLieuArrive(false), 1600)
+    const ok = await run((a) => a.updateEvent(ev.id, { lieu: l }), 'Adresse ajoutée', (st) => ({ ...st, events: st.events.map((x) => (x.id === ev.id ? { ...x, lieu: l } : x)) }))
+    if (ok) success()
+    else {
+      setLieu(l)
+      setAjoutLieu(true)
+    }
+  }
   const [touchees, setTouchees] = useState<string[]>([])
   const ajouterTache = async () => {
     const t = nouvelle.trim().slice(0, 80)
@@ -1050,8 +1069,26 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
       </div>
 
       <div className="groupe mt-4">
+        {!ev.lieu && peutModifier && (ajoutLieu ? (
+          <form className="anim-entre border-b border-trait p-3" onSubmit={(e) => { e.preventDefault(); void enregistrerLieu() }}>
+            <ChampLieu value={lieu} onChange={setLieu} placeholder="Une adresse, un lieu…" recents={lieuxConnus} autoFocus />
+            <div className="mt-2.5 flex gap-2">
+              <button type="button" onClick={() => (tap(), setAjoutLieu(false), setLieu(''))} className="presse min-h-11 flex-1 rounded-full bg-doux text-sous font-semibold text-encre">Annuler</button>
+              <button type="submit" disabled={!lieu.trim()} className="presse flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-full bg-teinte text-sous font-bold text-white transition-opacity disabled:opacity-40">
+                <Check size={17} strokeWidth={3} /> Enregistrer
+              </button>
+            </div>
+          </form>
+        ) : (
+          <button type="button" onClick={() => (tap(), setAjoutLieu(true))} className="presse-ligne block w-full text-left">
+            <Info icone={<MapPin size={18} strokeWidth={2.3} />} fleche>
+              <span className="block font-semibold text-teinte-fonce">Ajouter une adresse</span>
+              <span className="text-note text-brume">Pour l’itinéraire et le calendrier</span>
+            </Info>
+          </button>
+        ))}
         {ev.lieu && (
-          <button type="button" onClick={() => (tap(), void ouvrirLieu(ev.lieu!))} className="presse-ligne block w-full text-left">
+          <button type="button" onClick={() => (tap(), void ouvrirLieu(ev.lieu!))} className={`presse-ligne block w-full text-left ${lieuArrive ? 'ligne-arrive' : ''}`}>
             <Info icone={<MapPin size={18} strokeWidth={2.3} />} fleche>
               <span className="block break-words">{ev.lieu}</span>
               <span className="text-note text-brume">Plans, Google Maps, Citymapper ou Waze</span>

@@ -18,6 +18,13 @@ type Seg = 'agenda' | 'course' | 'tache'
 type Vue = 'liste' | 'semaine'
 type Ouvert = { e: FamEvent; at: Date }
 
+/** L'ordre de l'agenda (Elisa, 21 novembre : « bien ranger dans l'ordre ») : jour par jour ; dans une journée,
+ *  les anniversaires, puis ce qui dure toute la journée, puis le reste à l'heure ; à égalité, par nom. */
+const rangDe = (e: FamEvent) => (e.kind === 'anniversaire' ? 0 : e.all_day ? 1 : 2)
+const jourDe = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+const ordreAgenda = (a: Ouvert, b: Ouvert) =>
+  jourDe(a.at) - jourDe(b.at) || rangDe(a.e) - rangDe(b.e) || (rangDe(a.e) === 2 ? a.at.getTime() - b.at.getTime() : 0) || a.e.title.localeCompare(b.e.title, 'fr')
+
 /** Lundi de la semaine de d (à minuit). */
 function mondayOf(d: Date) {
   const m = new Date(d.getFullYear(), d.getMonth(), d.getDate())
@@ -36,7 +43,7 @@ function Semaine({ onOpen, onAdd }: { onOpen: (o: Ouvert) => void; onAdd: (day: 
     state.events
       .map((e) => ({ e, at: occursOn(e, day) }))
       .filter((x): x is Ouvert => !!x.at)
-      .sort((a, b) => Number(b.e.all_day) - Number(a.e.all_day) || a.at.getTime() - b.at.getTime()),
+      .sort(ordreAgenda),
   )
   const sunday = days[6]
   const range =
@@ -811,7 +818,7 @@ export default function Organize() {
   const coming = state.events
     .map((e) => ({ e, at: nextOccurrence(e) }))
     .filter((x) => finDe(x.e, x.at) >= start) // un week-end commencé hier compte encore
-    .sort((a, b) => a.at.getTime() - b.at.getTime())
+    .sort(ordreAgenda)
   const groups = new Map<string, typeof coming>()
   for (const x of coming) {
     const k = x.at.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
@@ -868,6 +875,8 @@ export default function Organize() {
                 <div className="groupe mx-4 shadow-carte">
                   {list.map(({ e, at }, k) => {
                     const today = dayLabel(at) === 'Aujourd’hui'
+                    const suite = k > 0 && jourDe(list[k - 1].at) === jourDe(at)
+                    const finDuJour = k === list.length - 1 || jourDe(list[k + 1].at) !== jourDe(at)
                     return (
                       <button
                         key={e.id}
@@ -875,23 +884,28 @@ export default function Organize() {
                           tap()
                           setOpen({ e, at })
                         }}
-                        className="presse-ligne flex w-full items-center gap-3 pl-3.5 text-left"
+                        className={`presse-ligne flex w-full items-center gap-3 pl-3.5 text-left ${k < list.length - 1 && finDuJour ? 'border-b border-trait' : ''}`}
                       >
+                        {/* le jour une seule fois : les suivants du même jour se rangent dessous */}
+                        {suite ? <span className="w-[44px] shrink-0" aria-hidden="true" /> : (
                         <span className="flex h-[44px] w-[44px] shrink-0 flex-col items-center justify-center overflow-hidden rounded-[12px] bg-fond leading-none">
                           <span className={`text-[10px] font-semibold uppercase ${today ? 'text-peche-fonce' : 'text-rouge'}`}>{at.toLocaleDateString('fr-FR', { weekday: 'short' }).replace('.', '')}</span>
                           <span className="mt-0.5 font-rond text-[19px] font-semibold">{at.getDate()}</span>
                         </span>
-                        <span className={`flex min-w-0 flex-1 items-center gap-2 py-2.5 pr-3.5 ${k < list.length - 1 ? 'border-b border-trait' : ''}`}>
+                        )}
+                        <span className={`flex min-w-0 flex-1 items-center gap-2 py-2.5 pr-3.5 ${k < list.length - 1 && !finDuJour ? 'border-b border-trait/60' : ''}`}>
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-corps">{e.title}</span>
                             <span className={`block text-note ${today ? 'font-semibold text-peche-fonce' : 'text-brume'}`}>
                               {(() => {
-                                // « Demain · 10:00 · Tous les jeudis », « Du 28 au 29 novembre », « Samedi · chaque année »
+                                // « Demain · 10h00 · Tous les jeudis », « Du 28 au 29 novembre », « Samedi · chaque année » ;
+                                // sous le premier du jour, le jour n'est plus répété : « 12h00 », « Toute la journée »
                                 const r = rythme(e, at)
-                                const quand = `${at < start ? 'En ce moment' : dayLabel(at)}${e.all_day ? '' : ` · ${timeLabel(at)}`}`
-                                if (repeteDe(e) && repeteDe(e) !== 'annee') return `${quand} · ${r}`
-                                if (r) return at < start ? `En ce moment · ${r}` : r
-                                return `${quand}${e.yearly ? ' · chaque année' : ''}`
+                                const rep = repeteDe(e)
+                                const heure = e.all_day ? '' : timeLabel(at)
+                                const quand = suite ? heure || (e.kind === 'anniversaire' ? '' : 'Toute la journée') : [at < start ? 'En ce moment' : dayLabel(at), heure].filter(Boolean).join(' · ')
+                                const t = rep && rep !== 'annee' ? [quand, r].filter(Boolean).join(' · ') : r ? (at < start ? `En ce moment · ${r}` : r) : [quand, e.yearly ? 'chaque année' : ''].filter(Boolean).join(' · ')
+                                return t.charAt(0).toUpperCase() + t.slice(1)
                               })()}
                             </span>
                             {e.lieu && (
