@@ -633,6 +633,7 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
     { label: `Dim. ${dimanche.getDate()}`, v: iso(dimanche) },
   ].filter((x, k, t) => t.findIndex((y) => y.v === x.v) === k)
   const HEURES = ['09:00', '12:00', '14:00', '19:30']
+  const heure = (h: string) => { const [a, b] = h.split(':'); return `${Number(a)} h ${b}` }
   const jourLong = (v: string) => {
     const d = new Date(`${v}T12:00`)
     if (Number.isNaN(d.getTime())) return 'Choisir'
@@ -641,7 +642,7 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
   }
   const resume = [
     date ? jourLong(date) : '',
-    birthday ? 'chaque année' : journee ? (plusieurs && fin > date ? `→ ${jourLong(fin).toLowerCase()}` : 'toute la journée') : time.replace(':', ' h '),
+    birthday ? 'chaque année' : journee ? (plusieurs && fin > date ? `→ ${jourLong(fin).toLowerCase()}` : 'toute la journée') : heure(time),
     !birthday && hebdo ? 'chaque semaine' : '',
     lieu.trim(),
   ].filter(Boolean).join(' · ')
@@ -711,9 +712,9 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
         {birthday ? <p className="flex min-h-[48px] items-center gap-2 border-t border-trait px-4 text-sous text-brume"><Repeat size={15} className="text-teinte" /> Revient tout seul chaque année à cette date.</p> : <>
           <div className="flex min-h-[54px] items-center justify-between gap-2 border-t border-trait px-4 text-corps">Toute la journée<Switch on={journee} onChange={setJournee} label="Toute la journée" /></div>
           {!journee && <>
-            {ligneChoix('Heure', time.replace(':', ' h '), <input aria-label="Heure de l’événement" type="time" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={time} onChange={e => e.target.value && setTime(e.target.value)} />)}
+            {ligneChoix('Heure', heure(time), <input aria-label="Heure de l’événement" type="time" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={time} onChange={e => e.target.value && setTime(e.target.value)} />)}
             <div className="flex gap-1.5 px-4 pb-3" role="group" aria-label="Raccourcis d’heure">
-              {HEURES.map((h) => <button key={h} type="button" aria-pressed={time === h} onClick={() => (select(), setTime(h))} className={`presse flex-1 rounded-full py-1.5 text-note font-bold ${time === h ? 'bg-teinte text-white' : 'bg-remplissage text-encre'}`}>{h.replace(':', ' h ')}</button>)}
+              {HEURES.map((h) => <button key={h} type="button" aria-pressed={time === h} onClick={() => (select(), setTime(h))} className={`presse flex-1 rounded-full py-1.5 text-note font-bold ${time === h ? 'bg-teinte text-white' : 'bg-remplissage text-encre'}`}>{heure(h)}</button>)}
             </div>
           </>}
           {journee && <div className="flex min-h-[54px] items-center justify-between border-t border-trait px-4 text-corps">Sur plusieurs jours<Switch on={plusieurs} onChange={v => {setPlusieurs(v);if(v && !(fin > date)){const d=new Date(`${date}T12:00`);d.setDate(d.getDate()+1);setFin(iso(d))}}} label="Sur plusieurs jours" /></div>}
