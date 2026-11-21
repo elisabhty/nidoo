@@ -230,20 +230,60 @@ export function oublierWidgets() {
   void pont.oublier().catch(() => undefined)
 }
 
-/** Où un widget veut ouvrir l'appli : au lancement, puis à chaque fois qu'on en touche un. */
+/** Où un widget veut ouvrir l'appli : au lancement, puis à chaque fois qu'on en touche un.
+ *  Le chemin est aussi gardé quelques secondes (Elisa, 21 novembre : « quand on ouvre, ça nous emmène que rien ») :
+ *  au lancement, une mise à jour à distance déjà téléchargée s'installe et recharge l'appli, et le chemin demandé
+ *  par le widget se perdait avec la première page. La page rechargée le retrouve ici. */
+const DEMANDE = 'nidoo.widget.chemin'
+function garderDemande(chemin: string) {
+  try {
+    sessionStorage.setItem(DEMANDE, JSON.stringify({ chemin, t: Date.now() }))
+  } catch {
+    /* rien */
+  }
+}
+function demandeRecente(): string | null {
+  try {
+    const d = JSON.parse(sessionStorage.getItem(DEMANDE) ?? 'null') as { chemin?: string; t?: number } | null
+    if (d?.chemin && d.t && Date.now() - d.t < 30000) return d.chemin
+  } catch {
+    /* rien */
+  }
+  return null
+}
+function oublierDemande() {
+  try {
+    sessionStorage.removeItem(DEMANDE)
+  } catch {
+    /* rien */
+  }
+}
+
 export function ecouterWidgets(ouvrir: (chemin: string) => void): () => void {
   if (!pont) return () => undefined
   let fini = false
   let ecoute: PluginListenerHandle | null = null
+  let menage = 0
+  const aller = (chemin: string) => {
+    if (fini) return
+    garderDemande(chemin)
+    ouvrir(chemin)
+    // l'appli n'a pas été rechargée entre-temps : la demande est servie, on l'oublie
+    window.clearTimeout(menage)
+    menage = window.setTimeout(oublierDemande, 12000)
+  }
+  // une demande d'avant le rechargement de l'appli (mise à jour installée au lancement)
+  const avant = demandeRecente()
+  if (avant) aller(avant)
   void pont
     .depart()
-    .then((d) => !fini && d?.chemin && ouvrir(d.chemin))
+    .then((d) => d?.chemin && aller(d.chemin))
     .catch(() => undefined)
   void pont
     .addListener('ouvrir', (e) => {
       // noté comme lu, pour ne pas le rejouer au prochain lancement
       void pont.depart().catch(() => undefined)
-      if (!fini && e?.chemin) ouvrir(e.chemin)
+      if (e?.chemin) aller(e.chemin)
     })
     .then((h) => {
       if (fini) void h.remove()
@@ -252,6 +292,7 @@ export function ecouterWidgets(ouvrir: (chemin: string) => void): () => void {
     .catch(() => undefined)
   return () => {
     fini = true
+    window.clearTimeout(menage)
     void ecoute?.remove()
   }
 }
