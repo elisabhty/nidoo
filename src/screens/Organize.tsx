@@ -224,9 +224,12 @@ function Glisse({ children, onRetirer, label, partant = false, range = false, ad
     // Elisa, 21 novembre, « ça saute avec le validé »)
     <div className={`grid transition-[grid-template-rows,opacity] ease-[cubic-bezier(0.32,0.72,0,1)] ${partant && !glisse ? 'duration-[380ms] delay-[320ms]' : 'duration-[380ms]'} ${part || range ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr]'}`}>
       <div className="relative min-h-0 overflow-hidden">
-        <div className="absolute inset-y-0 right-0 flex items-center justify-end bg-rouge pr-5 text-sous font-semibold text-white" style={{ width: Math.max(0, -dx) + 8 }} aria-hidden="true">
-          {dx < -40 && 'Retirer'}
-        </div>
+        {/* le rouge n'est là que pendant qu'on glisse (sinon un liseré rose dépassait au bord arrondi de la carte) */}
+        {(dx < 0 || part) && (
+          <div className="absolute inset-y-0 right-0 flex items-center justify-end bg-rouge pr-5 text-sous font-semibold text-white" style={{ width: Math.max(0, -dx) + 8 }} aria-hidden="true">
+            {dx < -40 && 'Retirer'}
+          </div>
+        )}
         <div
           className={`relative transition-colors duration-200 ${adieu || partant ? 'bg-[#FFF1F1]' : 'bg-carte'} ${adieu && !partant ? 'adieu' : ''}`}
           style={{ transform: part ? 'translateX(-105%)' : `translateX(${dx}px)`, transition: depart.current?.actif ? 'none' : partant && !glisse ? 'transform 0.45s cubic-bezier(0.55, 0, 0.75, 0.2), background-color 0.2s' : 'transform 0.28s cubic-bezier(0.4, 0, 0.6, 1), background-color 0.2s', touchAction: 'pan-y' }}
