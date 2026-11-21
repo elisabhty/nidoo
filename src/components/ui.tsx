@@ -370,7 +370,7 @@ export function Vide({ art, title, text, children }: { art: string; title: strin
 
 /** Notifications discrètes en haut d'écran, comme les bandeaux système. */
 export function Toasts() {
-  const { toasts } = useStore()
+  const { toasts, fermerToast } = useStore()
   return (
     <div className="pointer-events-none absolute inset-x-0 z-[70] flex flex-col items-center gap-2 px-6" style={{ top: 'calc(var(--sat) + 8px)' }} aria-live="polite">
       {toasts.map((t) => (
@@ -379,6 +379,18 @@ export function Toasts() {
             {t.tone === 'err' ? <CircleAlert size={17} strokeWidth={2.6} /> : t.tone === 'info' ? <Info size={17} strokeWidth={2.6} /> : <Check size={17} strokeWidth={3} />}
           </span>
           <span className="min-w-0">{t.text}</span>
+          {t.action && (
+            <button
+              onClick={() => {
+                tap()
+                t.action!.run()
+                fermerToast(t.id)
+              }}
+              className="presse pointer-events-auto -my-1 -mr-2 ml-1 min-h-9 shrink-0 rounded-full bg-teinte-doux px-3.5 text-sous font-bold text-teinte-fonce"
+            >
+              {t.action.label}
+            </button>
+          )}
         </div>
       ))}
     </div>

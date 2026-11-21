@@ -52,11 +52,15 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('maison')
   const [visited, setVisited] = useState<Tab[]>(['maison'])
   const panes = useRef<HTMLDivElement>(null)
+  /** Le haut d'un onglet (Elisa, 21 novembre : « à chaque appui, que les onglets reviennent en haut »). */
+  const enHaut = (t: Tab, doux: boolean) => {
+    const scroll = Array.from(panes.current?.querySelectorAll<HTMLElement>(`[data-tab="${t}"] .no-bar`) ?? []).find(el => el.getClientRects().length > 0 && el.scrollHeight > el.clientHeight)
+    scroll?.scrollTo({top:0,behavior:doux && !window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'smooth' : 'auto'})
+  }
   const navigate = (next: Tab) => {
-    if(next === tab) {
-      const scroll = Array.from(panes.current?.querySelectorAll<HTMLElement>(`[data-tab="${next}"] .no-bar`) ?? []).find(el => el.getClientRects().length > 0 && el.scrollHeight > el.clientHeight)
-      scroll?.scrollTo({top:0,behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'})
-    }
+    // le même onglet : on remonte en douceur ; un autre : il s'ouvre en haut, pas là où on l'avait laissé
+    if(next === tab) enHaut(next, true)
+    else requestAnimationFrame(() => requestAnimationFrame(() => enHaut(next, false)))
     setVisited(current => current.includes(next) ? current : [...current, next])
     setTab(next)
   }

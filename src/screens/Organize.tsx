@@ -201,7 +201,7 @@ function Coche({ fait }: { fait: boolean }) {
 }
 
 /** Une ligne qu'on fait glisser vers la gauche pour la retirer (et qu'on peut toujours toucher pour cocher). */
-function Glisse({ children, onRetirer, label, partant = false, range = false }: { children: ReactNode; onRetirer: () => void; label: string; partant?: boolean; range?: boolean }) {
+function Glisse({ children, onRetirer, label, partant = false, range = false, adieu = false }: { children: ReactNode; onRetirer: () => void; label: string; partant?: boolean; range?: boolean; adieu?: boolean }) {
   const [dx, setDx] = useState(0)
   const [glisse, setPart] = useState(false)
   // qui part (glissée, poubelle ou « Retirer ») : elle file vers la gauche et la place se referme
@@ -217,13 +217,15 @@ function Glisse({ children, onRetirer, label, partant = false, range = false }: 
     depart.current = null
   }
   return (
-    <div className={`relative overflow-hidden transition-[max-height,opacity] duration-300 ${part || range ? 'max-h-0 opacity-0' : 'max-h-[120px]'}`}>
+    // retirée par la poubelle ou « Retirer » (Elisa, 21 novembre : « ça va trop vite ») : elle rosit et frémit,
+    // puis file vers la gauche, et la place se referme après
+    <div className={`relative overflow-hidden transition-[max-height,opacity] ${partant && !glisse ? 'duration-[350ms] delay-[320ms]' : 'duration-300'} ${part || range ? 'max-h-0 opacity-0' : 'max-h-[120px]'}`}>
       <div className="absolute inset-y-0 right-0 flex items-center justify-end bg-rouge pr-5 text-sous font-semibold text-white" style={{ width: Math.max(0, -dx) + 8 }} aria-hidden="true">
         {dx < -40 && 'Retirer'}
       </div>
       <div
-        className="relative bg-carte"
-        style={{ transform: `translateX(${part ? -400 : dx}px)`, transition: depart.current?.actif ? 'none' : 'transform 0.28s cubic-bezier(0.4, 0, 0.6, 1)', touchAction: 'pan-y' }}
+        className={`relative transition-colors duration-200 ${adieu || partant ? 'bg-[#FFF1F1]' : 'bg-carte'} ${adieu && !partant ? 'adieu' : ''}`}
+        style={{ transform: part ? 'translateX(-105%)' : `translateX(${dx}px)`, transition: depart.current?.actif ? 'none' : partant && !glisse ? 'transform 0.45s cubic-bezier(0.55, 0, 0.75, 0.2), background-color 0.2s' : 'transform 0.28s cubic-bezier(0.4, 0, 0.6, 1), background-color 0.2s', touchAction: 'pan-y' }}
         onPointerDown={(e) => {
           depart.current = { x: e.clientX, y: e.clientY, actif: false }
           aGlisse.current = false
@@ -499,13 +501,40 @@ function Liste({ kind }: { kind: ListKind }) {
     setArrivees((a) => [...a.filter((x) => x !== k), k])
     window.setTimeout(() => setArrivees((a) => a.filter((x) => x !== k)), 1500)
   }
+  const [adieux, setAdieux] = useState<string[]>([])
   const retirerAnime = (ids: string[]) => {
+    if (ids.some((id) => adieux.includes(id))) return
     choc()
-    setPartants((p) => [...p, ...ids])
+    const partis = items.filter((i) => ids.includes(i.id))
+    setAdieux((a) => [...a, ...ids])
+    window.setTimeout(() => setPartants((p) => [...p, ...ids]), 420)
     window.setTimeout(() => {
       retirer(ids)
       setPartants((p) => p.filter((x) => !ids.includes(x)))
-    }, 300)
+      setAdieux((a) => a.filter((x) => !ids.includes(x)))
+      // une erreur de doigt : « Annuler » la remet (pas pour « Vider le panier »)
+      const aRendre = partis.filter((i) => !i.done && !i.id.startsWith('attente-'))
+      if (aRendre.length && aRendre.length === partis.length) {
+        const texte = aRendre.length === 1
+          ? `« ${tache ? aRendre[0].title : lireArticle(aRendre[0].title).nom} » retiré${tache ? 'e' : ''}`
+          : `${aRendre.length} ${tache ? 'tâches retirées' : 'articles retirés'}`
+        toast(texte, 'info', { label: 'Annuler', run: () => restaurer(aRendre) })
+      }
+    }, 1100)
+  }
+  /** Annuler un retrait : les lignes reviennent (avec leur quantité, pour qui, leur événement). */
+  const restaurer = (liste: ListItem[]) => {
+    success()
+    for (const i of liste) {
+      const tmp = { ...i, id: `attente-${Date.now()}-${Math.random()}`, done: false, created_at: new Date().toISOString(), connus: new Set(state.items.map((x) => x.id)) }
+      setAjouts((a) => [...a, tmp])
+      marquerArrivee(tache ? i.title : lireArticle(i.title).nom)
+      void fond(
+        () => api.addItem(family.id, me.id, kind, i.title, i.assigned_to ?? null, i.event_id ?? null),
+        () => setAjouts((a) => a.filter((x) => x.id !== tmp.id)),
+        () => setAjouts((a) => a.filter((x) => x.id !== tmp.id)),
+      )
+    }
   }
   const retirer = (ids: string[]) => {
     const vrais = ids.filter((id) => !id.startsWith('attente-'))
@@ -541,7 +570,7 @@ function Liste({ kind }: { kind: ListKind }) {
     const attente = i.id.startsWith('attente-')
     const art = lireArticle(i.title)
     return (
-      <Glisse key={i.id} onRetirer={() => retirer([i.id])} partant={partants.includes(i.id)} range={ranges.includes(i.id)} label={`Glisse vers la gauche pour retirer ${i.title}`}>
+      <Glisse key={i.id} onRetirer={() => retirer([i.id])} partant={partants.includes(i.id)} adieu={adieux.includes(i.id)} range={ranges.includes(i.id)} label={`Glisse vers la gauche pour retirer ${i.title}`}>
         <div className={`flex items-center ${attente ? 'ligne-arrive-pop opacity-70' : ''} ${arrivees.includes(cle(tache ? i.title : art.nom)) ? 'ligne-arrive' : ''} ${dernier ? '' : 'border-b border-trait'}`}>
           {/* le gris du toucher s'arrête avant la quantité, avec un peu d'air (Elisa, 21 novembre) */}
           <button onClick={(e) => basculer(i, e.currentTarget)} className={`presse-ligne flex min-h-[54px] min-w-0 flex-1 items-center gap-3 py-2 pl-4 pr-3 text-left ${!tache && !editing ? 'rounded-r-[16px]' : ''}`} aria-label={`Cocher ${i.title}`}>
@@ -764,7 +793,7 @@ function Liste({ kind }: { kind: ListKind }) {
             {doneVisible.map((i, k) => {
               const who = members.find((m) => m.id === i.assigned_to)
               return (
-                <Glisse key={i.id} onRetirer={() => retirer([i.id])} partant={partants.includes(i.id)} label={`Glisse vers la gauche pour retirer ${i.title}`}>
+                <Glisse key={i.id} onRetirer={() => retirer([i.id])} partant={partants.includes(i.id)} adieu={adieux.includes(i.id)} label={`Glisse vers la gauche pour retirer ${i.title}`}>
                   <button onClick={() => basculer(i)} className="presse-ligne flex w-full items-center gap-3 pl-4 text-left" aria-label={`Décocher ${i.title}`}>
                     <Coche fait />
                     <span className={`flex min-h-[50px] min-w-0 flex-1 items-center gap-2 py-2 pr-3 ${k < doneVisible.length - 1 ? 'border-b border-trait' : ''}`}>
