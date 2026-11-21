@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#F8F7FC" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="NIDOO" />
+    <meta name="description" content="NIDOO, le petit chez-nous qui tient dans un widget." />
+    <link rel="icon" type="image/png" href="./icon-512.png" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="preload" as="image" href="./panda.webp" />
+    <title>NIDOO</title>
+    <!-- Avant même que l'appli soit chargée : le fond de la maison et le panda, jamais une page blanche.
+         L'appli prend ensuite sa place (même écran d'attente), sans à-coup. -->
+    <style>
+      html, body { margin: 0; height: 100%; background: #f8f7fc; }
+      #demarrage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #f8f7fc; }
+      #demarrage img { width: 120px; height: 120px; border-radius: 28px; box-shadow: 0 24px 50px -18px rgba(102, 70, 204, 0.55); }
+      @media (min-width: 640px) { html, body, #demarrage { background: #e9e4f2; } }
+    </style>
+    <script type="module" crossorigin src="./assets/index-aaOGVLrP.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-CsT9gkYd.css">
+  </head>
+  <body>
+    <div id="root"><div id="demarrage"><img src="./panda.webp" alt="" width="120" height="120" /></div></div>
+  </body>
+</html>
