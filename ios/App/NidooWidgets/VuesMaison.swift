@@ -184,7 +184,7 @@ struct VueMaison: View {
                 Spacer(minLength: 0)
             }
             Spacer(minLength: 0)
-            scene(etat, maison: 178, perso: 92, nombre: 6)
+            scene(etat, maison: 176, perso: 106, nombre: 6)
             Spacer(minLength: 0)
             ligne(etat)
         }
