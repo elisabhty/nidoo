@@ -519,19 +519,13 @@ function Liste({ kind }: { kind: ListKind }) {
       () => oublier(i.id),
     )
   }
-  // « Légumes » dans la liste : on le remplace par ce qu'on veut vraiment (Elisa, 21 novembre : « toujours préciser
-  // les légumes ») : la ligne devient « Carottes », avec sa quantité habituelle.
-  const preciser = (i: ListItem, x: string) => {
-    select()
+  // « Légumes » dans la liste (ajouté ailleurs, ou avant) : on le décompose (Elisa, 21 novembre : « ne mets pas légumes,
+  // décompose-les : mes avocats, mes carottes ») : chaque touche ajoute sa ligne, « C'est tout » retire « Légumes ».
+  const [decomposes, setDecomposes] = useState<string[]>([])
+  const decomposer = (i: ListItem, x: string) => {
     if (i.id.startsWith('attente-')) return
-    const titre = ecrireArticle(completer(comprendre(x)))
-    marquerArrivee(x)
-    setChanges((c) => ({ ...c, [i.id]: { ...c[i.id], titre } }))
-    void fond(
-      () => api.renameItem(i.id, titre),
-      () => oublier(i.id),
-      () => oublier(i.id),
-    )
+    setDecomposes((d) => (d.includes(i.id) ? d : [...d, i.id]))
+    prendre(x)
   }
   // cocher (Elisa, 21 novembre) : le rond se coche, le nom se barre lentement, des confettis jaillissent,
   // puis la ligne se range et part dans « terminées » / le panier. Décocher reste immédiat.
@@ -626,7 +620,7 @@ function Liste({ kind }: { kind: ListKind }) {
             {barres.includes(i.id) ? <span className="coche-saut flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-teinte text-white"><Check size={16} strokeWidth={3.2} /></span> : <Coche fait={false} />}
             <span className="min-w-0 flex-1">
               <span className="block text-corps"><span className={barres.includes(i.id) ? 'barre-lente' : ''}>{tache ? i.title : art.nom}</span></span>
-              {!tache && !editing && estVague(art.nom) && <span className="mt-0.5 block text-note font-semibold text-peche-fonce">Lesquels ?</span>}
+              {!tache && !editing && estVague(art.nom) && <span className="mt-0.5 block text-note font-semibold text-peche-fonce">{decomposes.includes(i.id) ? 'D’autres ?' : 'Lesquels ?'}</span>}
               {tache && evtDe(i.event_id) && (
                 <span className="mt-0.5 flex items-center gap-1 text-note font-semibold text-teinte-fonce">
                   <EventIcon event={evtDe(i.event_id)!} size={15} />
@@ -636,7 +630,8 @@ function Liste({ kind }: { kind: ListKind }) {
             </span>
             {who && <Avatar m={who} size={28} />}
           </button>
-          {!tache && !editing && !attente && <Quantite qte={art.qte} nom={art.nom} onChange={(q) => changerQuantite(i, q)} onRetirer={() => retirerAnime([i.id])} />}
+          {/* « Légumes » n'a pas de quantité : on le décompose */}
+          {!tache && !editing && !attente && !estVague(art.nom) && <Quantite qte={art.qte} nom={art.nom} onChange={(q) => changerQuantite(i, q)} onRetirer={() => retirerAnime([i.id])} />}
           {!tache && attente && art.qte && <span className="ml-2.5 mr-3 shrink-0 text-note font-bold text-brume">{art.qte}</span>}
           {editing && (
             <button onClick={() => retirerAnime([i.id])} className="presse mr-2 flex min-h-11 items-center rounded-full bg-rouge/10 px-3 text-note font-semibold text-rouge" aria-label={`Retirer ${i.title}`}>
@@ -646,8 +641,14 @@ function Liste({ kind }: { kind: ListKind }) {
         </div>
         {!tache && !editing && !attente && estVague(art.nom) && (
           <div className={`no-bar flex gap-1.5 overflow-x-auto pb-2.5 pl-[54px] pr-4 ${dernier ? '' : 'border-b border-trait'}`} role="group" aria-label={`Préciser ${art.nom}`}>
+            {/* en premier, bien visible : on a pris ce qu'il fallait, « Légumes » s'en va */}
+            {decomposes.includes(i.id) && (
+              <button type="button" onClick={() => (select(), retirerAnime([i.id]))} className="presse anim-pop flex min-h-9 shrink-0 items-center gap-1 rounded-full bg-teinte px-3 text-note font-bold text-white" aria-label={`C’est tout, retirer ${art.nom}`}>
+                <Check size={14} strokeWidth={3.2} /> C’est tout
+              </button>
+            )}
             {(precisions(art.nom) ?? []).filter((x, n, t) => iconeDe(x) && t.findIndex((y) => iconeDe(y) === iconeDe(x)) === n && !todo.some((j) => memeArticle(lireArticle(j.title).nom, x))).map((x, n) => (
-              <button key={x} type="button" onClick={() => preciser(i, x)} className="presse ligne-arrive-pop flex min-h-9 shrink-0 items-center gap-1.5 rounded-full bg-doux pl-1.5 pr-3 text-note font-semibold text-encre" style={{ animationDelay: `${n * 30}ms` }}>
+              <button key={x} type="button" onClick={() => decomposer(i, x)} aria-label={`Ajouter ${x}`} className={`presse ligne-arrive-pop flex min-h-9 shrink-0 items-center gap-1.5 rounded-full bg-doux pl-1.5 pr-3 text-note font-semibold text-encre ${sortants.includes(x) ? 'idee-part' : ''}`} style={{ animationDelay: `${n * 30}ms` }}>
                 <IconeArticle nom={x} taille={26} className="-my-1" /> {x}
               </button>
             ))}

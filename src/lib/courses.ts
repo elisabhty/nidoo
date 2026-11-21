@@ -410,29 +410,50 @@ const LEGUMES_SAISON = [
   ['Tomates', 'Courgettes', 'Aubergines', 'Poivrons', 'Haricots verts', 'Concombre'],
   ['Potiron', 'Champignons', 'Poireaux', 'Brocolis', 'Carottes', 'Courge butternut'],
 ]
+/** Ceux qu'on achète toute l'année (Elisa, 21 novembre : « mes avocats, mes carottes, mais pas légumes »). */
+const LEGUMES_TOUJOURS = ['Tomates', 'Courgettes', 'Salade', 'Concombre', 'Oignons', 'Pommes de terre']
 const FRUITS_SAISON = [
   ['Clémentines', 'Oranges', 'Pommes', 'Poires', 'Kiwis', 'Bananes'],
   ['Fraises', 'Pommes', 'Bananes', 'Kiwis', 'Rhubarbe', 'Citrons'],
   ['Pêches', 'Abricots', 'Melon', 'Pastèque', 'Cerises', 'Fraises'],
   ['Pommes', 'Poires', 'Raisin', 'Clémentines', 'Figues', 'Bananes'],
 ]
-/** Les mots trop vagues pour une liste de courses, et ce qu'on propose à la place (de saison pour les fruits et légumes). */
-const PRECISIONS: Record<string, (m: number) => string[]> = {
-  legume: (m) => LEGUMES_SAISON[saisonDe(m)],
-  fruit: (m) => FRUITS_SAISON[saisonDe(m)],
-  'legume surgele': () => ['Haricots verts surgelés', 'Épinards surgelés', 'Petits pois surgelés', 'Poêlée de légumes', 'Brocolis surgelés'],
-  viande: () => ['Poulet', 'Viande hachée', 'Saucisses', 'Lardons', 'Jambon'],
-  poisson: () => ['Saumon', 'Cabillaud', 'Thon', 'Crevettes'],
-  fromage: () => ['Emmental', 'Mozzarella', 'Camembert'],
-  charcuterie: () => ['Jambon', 'Saucisson', 'Lardons', 'Saucisses'],
-  boisson: () => ['Eau', 'Jus d’orange', 'Lait', 'Sirop', 'Thé'],
+const FRUITS_TOUJOURS = ['Bananes', 'Pommes', 'Citrons', 'Kiwis']
+const sansDouble = (l: string[]) => l.filter((x, n) => l.findIndex((y) => cle(y) === cle(x)) === n)
+/** Les mots trop généraux pour une liste de courses, et ce qu'on propose à la place : du concret, chacun avec sa vraie
+ *  icône (de saison pour les fruits et légumes). Jamais « Légumes », « Viande », « Surgelés »… dans les suggestions. */
+const GENERAUX: [string[], (m: number) => string[]][] = [
+  [['légumes', 'légume'], (m) => sansDouble(['Carottes', 'Avocats', ...LEGUMES_SAISON[saisonDe(m)], ...LEGUMES_TOUJOURS]).slice(0, 10)],
+  [['fruits', 'fruit'], (m) => sansDouble([...FRUITS_SAISON[saisonDe(m)], ...FRUITS_TOUJOURS]).slice(0, 8)],
+  [['légumes surgelés'], () => ['Haricots verts surgelés', 'Épinards surgelés', 'Petits pois surgelés', 'Brocolis surgelés']],
+  [['viande', 'viandes'], () => ['Poulet', 'Viande hachée', 'Saucisses', 'Lardons', 'Jambon']],
+  [['poisson', 'poissons'], () => ['Saumon', 'Cabillaud', 'Thon', 'Crevettes']],
+  [['fromage', 'fromages'], () => ['Emmental', 'Mozzarella', 'Camembert', 'Comté']],
+  [['charcuterie'], () => ['Jambon', 'Saucisson', 'Lardons', 'Saucisses']],
+  [['boisson', 'boissons'], () => ['Eau', 'Jus d’orange', 'Lait', 'Sirop', 'Thé']],
+  [['surgelés', 'surgelé'], () => ['Haricots verts surgelés', 'Épinards surgelés', 'Petits pois surgelés', 'Pizza surgelée', 'Glace']],
+  [['conserves', 'conserve'], () => ['Thon', 'Maïs', 'Tomates concassées']],
+  [['desserts', 'dessert'], () => ['Yaourts', 'Compote', 'Crème dessert', 'Glace']],
+  [['produits laitiers', 'laitages', 'laitage'], () => ['Lait', 'Yaourts', 'Beurre', 'Crème fraîche', 'Emmental']],
+  [['féculents', 'féculent'], () => ['Pâtes', 'Riz', 'Pommes de terre']],
+  [['crudités', 'crudité'], () => ['Carottes', 'Concombre', 'Tomates cerises', 'Radis']],
+]
+const PRECISIONS: Record<string, (m: number) => string[]> = Object.fromEntries(GENERAUX.flatMap(([noms, f]) => noms.map((n) => [cle(n), f])))
+/** « Légumes verts », « Fruits de saison » : rangés avec les légumes ou les fruits, tout aussi généraux. */
+function cleGenerale(nom: string): string | null {
+  const k = cle(nom)
+  if (PRECISIONS[k]) return k
+  if (!/^(legume|fruit)\b/.test(k)) return null
+  const f = fiche(nom)
+  const kf = f ? cle(f.nom) : ''
+  return kf === 'legume' || kf === 'fruit' ? kf : null
 }
-/** Un nom trop vague (« Légumes ») : ce qu'on propose à la place ; sinon null. */
+/** Un nom trop général (« Légumes ») : ce qu'on propose à la place ; sinon null. */
 export function precisions(nom: string, mois = new Date().getMonth() + 1): string[] | null {
-  const f = PRECISIONS[cle(nom)]
-  return f ? f(mois) : null
+  const k = cleGenerale(nom)
+  return k ? PRECISIONS[k](mois) : null
 }
-export const estVague = (nom: string) => !!PRECISIONS[cle(nom)]
+export const estVague = (nom: string) => !!cleGenerale(nom)
 
 /** Les idées de départ : du concret, de saison (plus de « Fruits » ni de « Légumes »). */
 export function ideesCourses(mois = new Date().getMonth() + 1): string[] {
@@ -475,7 +496,7 @@ export function souvent(famille: string, dansLaListe: string[], achetes: string[
   const out: string[] = []
   for (const nom of [...frequents, ...achetes, ...ideesCourses()]) {
     const k = cle(nom)
-    if (PRECISIONS[k]) continue // « Légumes », « Fruits » : on propose du concret
+    if (estVague(nom)) continue // « Légumes », « Fruits », « Viande » : on propose du concret
     if (!k || presents.has(k) || presents.has(cle(fiche(nom)?.nom ?? nom)) || out.some((x) => cle(x) === k)) continue
     out.push(nom)
     if (out.length >= max) break

@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import { strict as assert } from 'node:assert'
 import { loadTs } from './loadTs.mjs'
 const { LES_RECETTES, PAYS, REGIONS, chercherRecettes, recettesDuMonde, lignesDe, occasionsAVenir, occasionProche, portionsFamille, recetteDe, recettesAvec, recettesDe, recettesDuMoment } = await loadTs('src/lib/recettes.ts')
-const { estVague, fiche, iconeDe, precisions, souvent } = await loadTs('src/lib/courses.ts')
+const { estVague, fiche, iconeDe, pourAllerAvec, precisions, souvent } = await loadTs('src/lib/courses.ts')
 const r = (id) => LES_RECETTES.find((x) => x.id === id)
 const ligne = (res, nom) => res.lignes.find((l) => l.nom === nom)
 
@@ -70,7 +70,7 @@ test('par occasion : Noël, Nouvel An, Épiphanie, rangés entrées, plats, dess
 
 test('jamais « Légumes » : on précise (de saison), et chaque suggestion a sa vraie icône', () => {
   assert.ok(estVague('Légumes') && estVague('fruits') && estVague('Viande') && !estVague('Carottes'))
-  assert.deepEqual(precisions('légumes', 1).slice(0, 3), ['Carottes', 'Poireaux', 'Endives'])
+  assert.deepEqual(precisions('légumes', 1).slice(0, 4), ['Carottes', 'Avocats', 'Poireaux', 'Endives'])
   assert.ok(precisions('fruits', 7).includes('Pêches'))
   for (const n of [1, 4, 7, 10]) for (const k of ['légumes', 'fruits']) for (const x of precisions(k, n)) assert.ok(fiche(x), x)
   assert.equal(iconeDe('Pommes de terre'), 'pomme-de-terre')
@@ -82,6 +82,24 @@ test('jamais « Légumes » : on précise (de saison), et chaque suggestion a sa
   assert.equal(iconeDe('Mouchoirs'), 'mouchoirs')
   assert.equal(iconeDe('Papier toilette'), 'papier-toilette')
   assert.ok(!souvent('famille-test', [], []).some((x) => estVague(x)))
+})
+
+test('aucune suggestion générale (Elisa, 21 novembre : « mes avocats, mes carottes, mais pas légumes »)', () => {
+  for (const x of ['Légumes', 'Légumes verts', 'Fruits de saison', 'Viande', 'Poisson', 'Fromage', 'Charcuterie', 'Boissons', 'Surgelés', 'Légumes surgelés', 'Conserves', 'Desserts', 'Laitages', 'Produits laitiers', 'Féculents', 'Crudités'])
+    assert.ok(estVague(x), x)
+  for (const x of ['Carottes', 'Avocats', 'Fruits rouges', 'Bouillon de légumes', 'Fromage râpé', 'Poisson pané', 'Crème dessert', 'Jus d’orange'])
+    assert.ok(!estVague(x), x)
+  // ce qu'on propose à la place : du concret, connu du référentiel, au moins trois vraies icônes différentes
+  for (const k of ['légumes', 'fruits', 'viande', 'poisson', 'fromage', 'charcuterie', 'boissons', 'surgelés', 'légumes surgelés', 'conserves', 'desserts', 'laitages', 'féculents', 'crudités'])
+    for (const n of [1, 4, 7, 11]) {
+      const p = precisions(k, n)
+      for (const x of p) assert.ok(fiche(x) && !estVague(x), `${k} : ${x}`)
+      assert.ok(new Set(p.map(iconeDe).filter(Boolean)).size >= 3, k)
+    }
+  // « pour aller avec » : jamais un mot général non plus
+  const liste = ['Pain', 'Baguette', 'Fromage à raclette', 'Cornichons', 'Citron', 'Madeleines', 'Pâtes', 'Riz', 'Poulet', 'Yaourt nature', 'Lait']
+  for (const g of pourAllerAvec(liste, 20)) for (const x of g.idees) assert.ok(!estVague(x), `${g.avec} : ${x}`)
+  assert.ok(precisions('légumes', 11).includes('Avocats'))
 })
 
 test('du monde : chaque région, ses pays, les plats que tout le monde connaît', () => {
