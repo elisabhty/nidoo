@@ -196,7 +196,11 @@ export type FamEvent = {
   ends_on?: string | null
   /** Revient chaque semaine (activités des enfants…). */
   weekly?: boolean
+  /** Le rythme, s'il revient (Elisa, 21 novembre : « Répéter » avec plusieurs fréquences). weekly et yearly restent
+   *  remplis pour « semaine » et « annee » (les anciennes versions de l'appli les lisent). */
+  repete?: Repete | null
 }
+export type Repete = 'jour' | 'semaine' | '2semaines' | 'mois' | 'annee'
 
 export type ListItem = {
   id: string
@@ -303,7 +307,7 @@ export type AdventDoor = { year: number; day: number; opened_by: string | null; 
 
 export type Circle = { family: Family; me: Member }
 
-export type NewEvent = { sticker?: string | null; title: string; kind: EventKind; starts_at: string; all_day: boolean; yearly: boolean; weekly?: boolean; ends_on?: string | null; lieu?: string | null; description?: string | null; members?: string[] }
+export type NewEvent = { sticker?: string | null; title: string; kind: EventKind; starts_at: string; all_day: boolean; yearly: boolean; weekly?: boolean; repete?: Repete | null; ends_on?: string | null; lieu?: string | null; description?: string | null; members?: string[] }
 
 export interface Backend {
   mode: 'supabase' | 'local'
@@ -360,6 +364,8 @@ export interface Backend {
   linkItem(id: string, eventId: string | null): Promise<void>
   /** Le lien tâche ↔ événement est-il possible (la base le connaît) ? */
   lienTaches(): Promise<boolean>
+  /** La base connaît-elle les rythmes « tous les jours », « un sur deux », « tous les mois » (la colonne repete) ? */
+  repetitions(): Promise<boolean>
   toggleItem(item: ListItem, memberId: string): Promise<void>
   /** Changer le nom d'un article (sa quantité vit dedans : « Lait · 2 »). */
   renameItem(id: string, title: string): Promise<void>

@@ -49,11 +49,11 @@ export function ChampLieu({ value, onChange, placeholder, recents }: { value: st
 
   return (
     <div>
-      <div key={eclat} className={`groupe flex items-center gap-3 px-4 shadow-carte ${eclat ? 'lieu-choisi' : ''}`}>
-        <MapPin size={19} className="shrink-0 text-[#2F6FD6]" />
+      <div key={eclat} className={`flex items-center gap-2.5 rounded-[14px] bg-doux pl-3.5 pr-1 transition-shadow focus-within:shadow-[0_0_0_2px_rgba(112,80,213,0.35)] ${eclat ? 'lieu-choisi' : ''}`}>
+        <MapPin size={18} className="shrink-0 text-teinte" />
         <input
           ref={champ}
-          className="h-[54px] min-w-0 flex-1 bg-transparent text-corps outline-none placeholder:text-brume"
+          className="h-12 min-w-0 flex-1 bg-transparent text-corps outline-none placeholder:text-pale"
           placeholder={placeholder}
           maxLength={200}
           value={value}
@@ -69,8 +69,8 @@ export function ChampLieu({ value, onChange, placeholder, recents }: { value: st
           aria-autocomplete="list"
         />
         {value && (
-          <button type="button" onPointerDown={garder} onClick={() => (tap(), onChange(''), setChoisi(false), champ.current?.focus())} aria-label="Effacer le lieu" className="presse -mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-brume">
-            <X size={16} strokeWidth={2.6} />
+          <button type="button" onPointerDown={garder} onClick={() => (tap(), onChange(''), setChoisi(false), champ.current?.focus())} aria-label="Effacer le lieu" className="presse anim-pop flex h-9 w-9 shrink-0 items-center justify-center">
+            <span className="flex h-[19px] w-[19px] items-center justify-center rounded-full bg-[rgba(60,56,82,0.32)] text-white"><X size={11} strokeWidth={3.4} /></span>
           </button>
         )}
       </div>
@@ -81,7 +81,7 @@ export function ChampLieu({ value, onChange, placeholder, recents }: { value: st
           <p className="mb-1.5 flex items-center gap-1 px-1 text-note font-semibold text-brume"><Clock size={13} /> Déjà utilisés</p>
           <div className="flex flex-wrap gap-1.5">
             {deja.map((r, i) => (
-              <button key={r} type="button" onPointerDown={garder} onClick={() => prendre(r)} className="presse anim-pop max-w-full truncate rounded-full bg-carte px-3 py-2 text-note font-semibold text-encre ring-1 ring-inset ring-trait" style={{ animationDelay: `${i * 35}ms` }}>
+              <button key={r} type="button" onPointerDown={garder} onClick={() => prendre(r)} className="presse anim-pop max-w-full truncate rounded-full bg-doux px-3 py-2 text-note font-semibold text-encre" style={{ animationDelay: `${i * 35}ms` }}>
                 {r}
               </button>
             ))}
@@ -91,7 +91,7 @@ export function ChampLieu({ value, onChange, placeholder, recents }: { value: st
 
       {/* en tapant : adresses et lieux */}
       {focus && !choisi && value.trim().length >= 3 && (cherche || suggestions.length > 0) && (
-        <div className="anim-entre groupe mt-2 overflow-hidden shadow-carte" role="listbox" aria-label="Suggestions de lieux">
+        <div className="anim-entre mt-2 overflow-hidden rounded-[14px] bg-carte shadow-[0_0_0_1px_rgba(60,56,82,0.08),0_8px_20px_-12px_rgba(29,26,43,0.18)]" role="listbox" aria-label="Suggestions de lieux">
           {suggestions.map((s, i) => (
             <button
               key={s.texte}

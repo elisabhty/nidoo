@@ -970,6 +970,7 @@ export function createLocalBackend(): Backend {
         if (e && patch.all_day !== undefined) e.all_day = patch.all_day
         if (e && patch.yearly !== undefined) e.yearly = patch.yearly
         if (e && patch.weekly !== undefined) e.weekly = patch.weekly
+        if (e && patch.repete !== undefined) e.repete = patch.repete
         if (e && patch.ends_on !== undefined) e.ends_on = patch.ends_on
         if (e && patch.description !== undefined) e.description = patch.description?.trim() || null
         if (e && patch.lieu !== undefined) e.lieu = patch.lieu?.trim() || null
@@ -994,6 +995,9 @@ export function createLocalBackend(): Backend {
         if (it) it.event_id = eventId
       }
       save()
+    },
+    async repetitions() {
+      return true
     },
     async lienTaches() {
       return true

@@ -1,4 +1,4 @@
-import { AlignLeft, Cake, CalendarDays, CalendarPlus, Camera, Check, Plus, ChevronRight, Images, MapPin, Navigation, PenLine, Repeat, Share, Sticker as StickerIcon, Trash2, Undo2, Users } from 'lucide-react'
+import { AlignLeft, Cake, CalendarDays, CalendarPlus, Camera, Check, Plus, ChevronDown, ChevronRight, Clock, X, Images, MapPin, Navigation, PenLine, Repeat, Share, Sticker as StickerIcon, Trash2, Undo2, Users } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { moodOf, MOODS, THOUGHTS, thoughtOf } from '../lib/data'
 import { Smiley } from './Smiley'
@@ -9,12 +9,13 @@ import { partagerTexte } from '../lib/share'
 import { ouvrirLieu } from '../lib/plans'
 import { useLienTaches } from '../lib/lienTaches'
 import { ChampLieu } from './champLieu'
-import type { EventKind, FamEvent, Member, Sticker, ThoughtKind } from '../lib/types'
+import type { EventKind, FamEvent, Member, Repete, Sticker, ThoughtKind } from '../lib/types'
 import { chargerImage, photoFinale, vignettesFiltres, type FiltreKey } from '../lib/filtres'
 import { MAX_STICKERS } from '../lib/stickers'
 import { CadreCanvas, CadreRow, FilterRow, nouveauSticker, StickerStage, StickerImg, StickerTray } from './stickers'
 import { vignettesCadres } from '../lib/cadres'
-import { compressImage, errorText, finDe, isToday, joursEnPlus, nextOccurrence, rythme, timeLabel } from '../lib/util'
+import { compressImage, errorText, finDe, isToday, joursEnPlus, nextOccurrence, repeteDe, REPETITIONS, rythme, timeLabel } from '../lib/util'
+import { useRepetitions } from '../lib/repeter'
 import { ajouterAuCalendrier, titreCalendrier } from '../lib/calendrier'
 import { estFerie, prochainsJoursSpeciaux } from '../lib/joursSpeciaux'
 import { anniversaireDe } from '../lib/naissance'
@@ -508,42 +509,46 @@ export function EventIcon({event,size=34,className=''}:{event:Pick<FamEvent,'kin
 }
 /** Ce qu'on peut mettre dans l'agenda (pour les raccourcis « Ajouter »). */
 export const TYPES_AGENDA = KINDS.map((k) => ({ key: k.key, label: k.label, art: k.art }))
-const LIEU_EXEMPLE: Record<string, string> = { evenement: 'Où ? Ex. : Chez Mamie, à Lyon', rdv: 'Où ? Ex. : Cabinet du Dr Martin', anniversaire: 'Où se fête-t-il ? (facultatif)' }
+const LIEU_EXEMPLE: Record<string, string> = { evenement: 'Ex. : Chez Mamie, à Lyon', rdv: 'Ex. : Cabinet du Dr Martin', anniversaire: 'Où se fête-t-il ?' }
 
-/** Qui est concerné : toute la famille, ou les proches choisis (avec leur tête et leur prénom). */
+/** Qui est concerné (Elisa, 21 novembre : « les personnes concernées, de manière UI UX ») : une rangée de têtes,
+ *  comme pour partager à quelqu'un sur iPhone. « Toute la famille » d'abord ; toucher une tête la coche. */
 export function WhoPicker({ value, onChange }: { value: string[]; onChange: (ids: string[]) => void }) {
   const { state } = useHome()
   const all = value.length === 0
-  const chip = (on: boolean) => `presse flex h-10 items-center gap-1.5 rounded-full text-sous font-medium ${on ? 'bg-teinte text-white' : 'bg-carte text-encre ring-1 ring-inset ring-trait'}`
   return (
-    <div className="flex flex-wrap gap-2">
-      <button
-        onClick={() => {
-          select()
-          onChange([])
-        }}
-        aria-pressed={all}
-        className={`${chip(all)} px-3.5`}
-      >
-        <Users size={17} strokeWidth={2.4} /> Toute la famille
-      </button>
+    <div className="no-bar -mx-4 flex gap-1 overflow-x-auto px-3 pb-0.5 pt-1" role="group" aria-label="Les personnes concernées">
+      <Bulle on={all} nom="Toute la famille" onClick={() => (select(), onChange([]))}>
+        <span className="flex h-full w-full items-center justify-center rounded-full bg-teinte-doux text-teinte-fonce">
+          <Users size={22} strokeWidth={2.3} />
+        </span>
+      </Bulle>
       {state.members.map((m) => {
         const on = value.includes(m.id)
         return (
-          <button
-            key={m.id}
-            onClick={() => {
-              select()
-              onChange(on ? value.filter((x) => x !== m.id) : [...value, m.id])
-            }}
-            aria-pressed={on}
-            className={`${chip(on)} pl-1 pr-3.5`}
-          >
-            <Avatar m={m} size={32} /> {m.id === state.me.id ? 'Moi' : m.display_name}
-          </button>
+          <Bulle key={m.id} on={on} nom={m.id === state.me.id ? 'Moi' : m.display_name} onClick={() => (select(), onChange(on ? value.filter((x) => x !== m.id) : [...value, m.id]))}>
+            <Avatar m={m} size={50} />
+          </Bulle>
         )
       })}
     </div>
+  )
+}
+
+/** Une tête qu'on coche : un anneau violet et une petite coche qui arrive avec un rebond. */
+function Bulle({ on, nom, onClick, children, taille = 50 }: { on: boolean; nom: string; onClick: () => void; children: React.ReactNode; taille?: number }) {
+  return (
+    <button type="button" aria-pressed={on} onClick={onClick} className="presse flex w-[66px] shrink-0 flex-col items-center gap-1.5 py-1">
+      <span className={`choix-pop relative rounded-full p-[3px] transition-shadow duration-200 ${on ? 'shadow-[0_0_0_2px_#7050D5]' : ''}`} data-on={on}>
+        <span className="block overflow-hidden rounded-full" style={{ width: taille, height: taille }}>{children}</span>
+        {on && (
+          <span className="anim-pop absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-teinte text-white">
+            <Check size={11} strokeWidth={3.4} />
+          </span>
+        )}
+      </span>
+      <span className={`line-clamp-2 w-full break-words text-center text-[12px] leading-[1.2] ${on ? 'font-bold text-teinte-fonce' : 'font-medium text-brume'}`}>{nom}</span>
+    </button>
   )
 }
 
@@ -575,10 +580,27 @@ export function WhoList({ ids }: { ids: string[] }) {
   )
 }
 
+/** Une carte de la fiche « Nouvel événement » : blanche, sans trait, une ombre à peine là (Elisa, 21 novembre :
+ *  « alléger les bordures et les ombres »). */
+function CarteEvt({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <section className={`carte-evt mt-3 rounded-[20px] bg-carte p-4 ${className}`}>{children}</section>
+}
+function TitreCarte({ icone: I, titre, extra }: { icone: typeof CalendarDays; titre: string; extra?: React.ReactNode }) {
+  return (
+    <div className="mb-3 flex items-center gap-2.5">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-teinte-doux text-teinte"><I size={17} strokeWidth={2.3} /></span>
+      <h3 className="min-w-0 flex-1 text-corps font-bold">{titre}</h3>
+      {extra}
+    </div>
+  )
+}
+const FACULTATIF = <span className="text-note text-pale">Facultatif</span>
+const NOTES_EXEMPLE: Record<string, string> = { evenement: 'Ajouter un détail (menu, qui apporte quoi…)', rdv: 'Ajouter un détail (papiers à apporter…)', anniversaire: 'Ajouter un détail (idée de cadeau…)' }
+
 /** Nouvel événement ; « day » : le jour touché dans la vue de la semaine. */
 /** Ajouter un événement, ou en modifier un (titre, type, jour, heure, lieu, qui, détails : tout se change). */
 export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: { onClose: () => void; day?: Date; kind?: EventKind; event?: FamEvent }) {
-  const { state, run } = useHome()
+  const { state, run, api } = useHome()
   const [title, setTitle] = useState(event?.title ?? '')
   const [kind, setKind] = useState<EventKind>(event?.kind ?? kind0)
   const [sticker,setSticker] = useState<string|null>(event?.sticker ?? null)
@@ -589,21 +611,33 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
   const [date, setDate] = useState(`${first.getFullYear()}-${pad(first.getMonth() + 1)}-${pad(first.getDate())}`)
   // « Toute la journée » se voit (avant, une case d'heure vide ne disait rien) ; un rendez-vous a une heure
   const [journee, setJournee] = useState(event ? event.all_day : kind0 !== 'rdv')
-  // un week-end, des vacances : plusieurs jours d'affilée ; une activité : chaque semaine
+  // un week-end, des vacances : plusieurs jours d'affilée
   const [plusieurs, setPlusieurs] = useState(!!event?.ends_on)
   const [fin, setFin] = useState(event?.ends_on ?? '')
-  const [hebdo, setHebdo] = useState(!!event?.weekly)
-  const [time, setTime] = useState(event && !event.all_day ? `${pad(first.getHours())}:${pad(first.getMinutes())}` : '10:00')
+  // « Répéter » : jamais, chaque jour, chaque semaine… (les rythmes en plus attendent la colonne repete)
+  const repOk = useRepetitions(api, state.events)
+  const [rep, setRep] = useState<Repete | null>(event && event.kind !== 'anniversaire' ? repeteDe(event) : null)
+  const [repOuvert, setRepOuvert] = useState(false)
+  const [time, setTime] = useState(event && !event.all_day ? `${pad(first.getHours())}:${pad(first.getMinutes())}` : kind0 === 'rdv' ? '09:00' : '12:00')
   const [description, setDescription] = useState(event?.description ?? '')
   const [lieu, setLieu] = useState(event?.lieu ?? '')
   const [who, setWho] = useState<string[]>(event?.members ?? [])
   const birthday = kind === 'anniversaire'
+  const nom = useRef<HTMLInputElement>(null)
   // les lieux déjà utilisés par la famille (les plus récents d'abord), proposés quand le champ est vide
   const lieuxConnus = [...new Set([...state.events].sort((a, b) => b.starts_at.localeCompare(a.starts_at)).map((e) => e.lieu?.trim()).filter((x): x is string => !!x))]
+  // l'heure proposée suit le genre (9h00 pour un rendez-vous, 12h00 pour un repas), tant qu'on ne l'a pas choisie
+  const heureTouchee = useRef(!!event)
   const changeKind = (k: EventKind) => {
     setKind(k)
     if (k === 'rdv') setJournee(false)
     if (k === 'evenement' && kind === 'rdv') setJournee(true)
+    if (!heureTouchee.current) setTime(k === 'rdv' ? '09:00' : '12:00')
+  }
+  const choisirHeure = (h: string) => {
+    heureTouchee.current = true
+    select()
+    setTime(h)
   }
 
   const save = async () => {
@@ -612,7 +646,8 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
     const starts = new Date(`${date}T${allDay ? '09:00' : time}`)
     if (Number.isNaN(starts.getTime())) return
     const ends_on = !birthday && allDay && plusieurs && fin > date ? fin : null
-    const champs = { sticker, title: title.trim(), kind, starts_at: starts.toISOString(), all_day: allDay, yearly: birthday, weekly: !birthday && hebdo, ends_on, lieu: lieu.trim() || null, description: description.trim() || null, members: who }
+    const r: Repete | null = birthday ? 'annee' : rep
+    const champs = { sticker, title: title.trim(), kind, starts_at: starts.toISOString(), all_day: allDay, yearly: r === 'annee', weekly: r === 'semaine', ...(repOk ? { repete: r } : {}), ends_on, lieu: lieu.trim() || null, description: description.trim() || null, members: who }
     setBusy(true)
     const ok = await run(
       (api) => (event ? api.updateEvent(event.id, champs) : api.addEvent(state.family.id, state.me.id, champs)),
@@ -629,7 +664,8 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
   // les raccourcis de date (Elisa, 21 novembre) : toujours aujourd'hui et demain, puis
   // - un événement : les jours qu'on fête dans les deux mois (Noël, l'Épiphanie, la fête de la musique…), sinon le week-end ;
   // - un rendez-vous : les prochains jours de semaine (ni week-end ni jour férié) ;
-  // - un anniversaire : les membres de la famille (plus haut, près du prénom).
+  // - un anniversaire : pas de raccourci, le jour se choisit (les membres de la famille sont près du prénom).
+  // La date choisie ne s'écrit qu'une fois : sur son raccourci, ou sur « Autre date » (plus de résumé ni de champ en double).
   const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
   const auj = new Date()
   const dans = (n: number) => {
@@ -655,6 +691,14 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
     }
   }
   const jours: Raccourci[] = [{ label: 'Aujourd’hui', v: iso(auj) }, { label: 'Demain', v: iso(dans(1)) }, ...suite].filter((x, k, t) => t.findIndex((y) => y.v === x.v) === k)
+  const surRaccourci = jours.some((j) => j.v === date)
+  const rangee = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const r = rangee.current
+    const b = r?.querySelector<HTMLElement>('[aria-pressed="true"]')
+    if (!r || !b) return
+    if (b.offsetLeft < r.scrollLeft || b.offsetLeft > r.scrollLeft + r.clientWidth - 44) r.scrollTo({ left: Math.max(0, b.offsetLeft - 16), behavior: 'smooth' })
+  }, [date, kind])
   // un jour de fête choisi alors que le nom est vide : on le propose comme nom (on le remplace si on change de jour)
   const nomPropose = useRef('')
   const choisirJour = (j: Raccourci) => {
@@ -669,25 +713,20 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
   const autres = state.events.filter((e) => e.id !== event?.id)
   const sansAnniv = birthday ? state.members.filter((m) => !anniversaireDe(m, autres)) : []
   const avecAnniv = birthday ? state.members.map((m) => ({ m, e: anniversaireDe(m, autres) })).filter((x) => x.e) : []
-  const HEURES = ['09:00', '12:00', '14:00', '19:30']
+  const HEURES = kind === 'rdv' ? ['09:00', '14:00', '17:00'] : ['12:00', '16:00', '19:30']
   const heure = (h: string) => { const [a, b] = h.split(':'); return `${Number(a)}h${b}` }
-  const jourLong = (v: string) => {
-    const d = new Date(`${v}T12:00`)
+  const dateDe = (v: string) => new Date(`${v}T12:00`)
+  const dateCourte = (v: string) => {
+    const d = dateDe(v)
     if (Number.isNaN(d.getTime())) return 'Choisir'
-    const t = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', ...(d.getFullYear() !== auj.getFullYear() ? { year: 'numeric' } : {}) })
-    return t.charAt(0).toUpperCase() + t.slice(1)
+    const loin = d.getFullYear() !== auj.getFullYear() && (d < auj || d.getTime() - auj.getTime() > 330 * 86400000)
+    return court(d, { weekday: 'short', day: 'numeric', month: 'short', ...(loin ? { year: 'numeric' } : {}) })
   }
-  const resume = [
-    date ? jourLong(date) : '',
-    birthday ? 'chaque année' : journee ? (plusieurs && fin > date ? `→ ${jourLong(fin).toLowerCase()}` : 'toute la journée') : heure(time),
-    !birthday && hebdo ? 'chaque semaine' : '',
-    lieu.trim(),
-  ].filter(Boolean).join(' · ')
   const ko = !birthday && journee && plusieurs && (!fin || fin < date)
   /** Ce qui manque : on y va, et le champ s'allume un instant. */
   const montrerManque = () => {
     const el = document.getElementById(!title.trim() ? 'event-name' : 'event-fin')
-    const cadre = el?.closest('.rounded-\\[22px\\], .groupe') ?? el
+    const cadre = el?.closest('.champ-evt') ?? el
     el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     if (cadre instanceof HTMLElement) {
       cadre.classList.remove('a-remplir')
@@ -696,128 +735,171 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
     }
     if (!title.trim()) window.setTimeout(() => (el as HTMLInputElement | null)?.focus({ preventScroll: true }), 350)
   }
-  /** Une ligne du cadre « Quand » : un libellé, et à droite la valeur (le sélecteur d'iOS s'ouvre en touchant toute la valeur). */
-  const ligneChoix = (label: string, valeur: string, input: React.ReactNode, haut = true) => (
-    <label className={`relative flex min-h-[54px] items-center justify-between gap-3 px-4 text-corps ${haut ? 'border-t border-trait' : ''}`}>
-      <span>{label}</span>
-      <span className="relative flex items-center gap-1 rounded-full bg-teinte-doux px-3 py-1.5 text-sous font-semibold text-teinte-fonce">
-        {valeur}
-        <ChevronRight size={15} className="rotate-90 opacity-70" />
-        {input}
-      </span>
-    </label>
-  )
-  const titreSection = (Icon: typeof CalendarDays, t: string, fond: string, encre: string, extra?: React.ReactNode) => (
-    <div className="mb-2 mt-6 flex items-center gap-2 px-1">
-      <span className="flex h-7 w-7 items-center justify-center rounded-[9px]" style={{ background: fond, color: encre }}><Icon size={16} strokeWidth={2.4} /></span>
-      <p className="flex-1 text-sous font-bold">{t}</p>
-      {extra}
-    </div>
-  )
-  const puce = (on: boolean) => `presse shrink-0 rounded-full px-3.5 py-2 text-sous font-semibold transition-colors ${on ? 'bg-teinte text-white' : 'bg-carte text-encre ring-1 ring-inset ring-trait'}`
+  const puce = (on: boolean) => `presse choix-pop shrink-0 rounded-full px-3.5 py-2 text-sous font-semibold transition-[background-color,color,box-shadow] duration-200 ${on ? 'bg-teinte text-white shadow-[0_4px_12px_-5px_rgba(112,80,213,0.7)]' : 'bg-doux text-encre'}`
+  const repetitions = REPETITIONS.filter((o) => repOk || o.v === null || o.v === 'semaine' || o.v === 'annee')
+  const repLabel = (r: Repete | null) => (r === 'annee' ? 'Chaque année' : r ? rythme({ starts_at: dateDe(date).toISOString(), yearly: false, repete: r }, dateDe(date)) ?? '' : 'Jamais')
+  const ligne = 'flex min-h-[48px] items-center justify-between gap-3 text-corps'
 
   return (
-    <Sheet title={event ? 'Modifier l’événement' : 'Nouvel événement'} tall onClose={() => {if(!busy) onClose()}} footer={
+    <Sheet title={event ? 'Modifier l’événement' : 'Nouvel événement'} tall cacherBasAuClavier onClose={() => {if(!busy) onClose()}} footer={
       <Btn onClick={save} disabled={busy} manque={!title.trim() ? (birthday ? 'son prénom' : 'le nom de l’événement') : !date ? 'la date' : ko ? 'la date de fin' : null} onManque={montrerManque}>
+        {!busy && <Check size={19} strokeWidth={3} />}
         {busy ? 'Enregistrement…' : event ? 'Enregistrer' : 'Ajouter à l’agenda'}
       </Btn>
     }>
-      {/* le genre : trois cartes illustrées */}
+      {/* le genre : trois cartes basses (l'explication en dessous est partie, Elisa, 21 novembre) */}
       <div className="grid grid-cols-3 gap-2 pt-1" role="group" aria-label="Le genre d’événement">
         {KINDS.map((k) => {
           const on = kind === k.key
           return (
             <button key={k.key} type="button" aria-pressed={on} onClick={() => (select(), changeKind(k.key))}
-              className={`presse choix-pop flex flex-col items-center gap-1 rounded-[18px] px-1 pb-2 pt-2.5 text-note font-bold transition-[box-shadow,background-color] ${on ? 'bg-teinte-doux text-teinte-fonce ring-2 ring-teinte' : 'bg-carte text-encre ring-1 ring-inset ring-trait'}`}>
-              <span key={on ? 'on' : 'off'} className={on ? 'saut' : ''}><Art name={k.art} size={34} /></span>
+              className={`presse choix-pop relative flex h-[60px] flex-col items-center justify-center gap-0.5 rounded-[16px] text-[12.5px] font-bold transition-[box-shadow,background-color,color] duration-200 ${on ? 'bg-teinte-doux text-teinte-fonce shadow-[inset_0_0_0_1.5px_#7050D5]' : 'carte-evt bg-carte text-encre'}`}>
+              <span key={on ? 'on' : 'off'} className={on ? 'saut' : ''}><Art name={k.art} size={27} /></span>
               {k.label}
+              {on && <span className="anim-pop absolute right-1.5 top-1.5 flex h-[17px] w-[17px] items-center justify-center rounded-full bg-teinte text-white"><Check size={10} strokeWidth={3.6} /></span>}
             </button>
           )
         })}
       </div>
-      <p className="mt-2 px-1 text-center text-note text-brume">{KINDS.find((k) => k.key === kind)?.aide}</p>
 
-      {/* l'événement tel qu'il apparaîtra : son sticker, son nom, et le résumé qui se remplit */}
-      <div className="mt-4 rounded-[22px] bg-carte p-3 shadow-carte">
-        <div className="flex items-center gap-3">
-          <button onClick={() => setStickersOpen(v => !v)} aria-label="Changer le sticker de l’événement" aria-expanded={stickersOpen} className="presse relative flex h-[64px] w-[64px] shrink-0 items-center justify-center rounded-[18px] bg-teinte-doux">
-            <EventIcon event={{kind,sticker}} size={42} />
-            <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-white text-teinte-fonce shadow-carte"><PenLine size={12} /></span>
+      {/* le nom : un vrai champ, qu'on touche pour écrire ; l'image se change à côté (« Changer », plus de crayon ambigu) */}
+      <CarteEvt>
+        <div className="flex items-center gap-3.5">
+          <button type="button" onClick={() => (tap(), setStickersOpen((v) => !v))} aria-label="Changer l’image de l’événement" aria-expanded={stickersOpen} className="presse relative flex h-[66px] w-[66px] shrink-0 items-center justify-center rounded-[18px] bg-teinte-doux">
+            <span key={`${kind}${sticker}`} className="anim-pop"><EventIcon event={{ kind, sticker }} size={42} /></span>
+            <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-white px-2 py-[2px] text-[10.5px] font-bold text-teinte-fonce shadow-[0_2px_6px_rgba(29,26,43,0.12)]">Changer</span>
           </button>
           <div className="min-w-0 flex-1">
-            <label htmlFor="event-name" className="block px-0.5 text-note font-semibold text-brume">{birthday ? 'Anniversaire de…' : 'Nom de l’événement'}</label>
-            <input id="event-name" required aria-describedby="event-name-aide" className="h-10 w-full bg-transparent px-0.5 font-rond text-[20px] font-extrabold text-encre outline-none placeholder:font-sans placeholder:text-[17px] placeholder:font-semibold placeholder:text-brume/80" placeholder={birthday ? 'Ex. : Mamie' : kind === 'rdv' ? 'Ex. : Dentiste de Léa' : 'Ex. : Repas chez Mamie'} maxLength={60} value={title} onChange={e => setTitle(e.target.value)} enterKeyHint="done" onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur() } }} />
+            <label htmlFor="event-name" className="mb-1.5 block px-0.5 text-note font-semibold text-brume">{birthday ? 'Anniversaire de…' : 'Nom de l’événement'} <span className="text-teinte" aria-hidden="true">*</span></label>
+            <div className="champ-evt flex items-center rounded-[14px] bg-doux pl-3.5 pr-1 transition-shadow focus-within:shadow-[0_0_0_2px_rgba(112,80,213,0.35)]">
+              <input ref={nom} id="event-name" required className="h-11 min-w-0 flex-1 bg-transparent font-rond text-[18px] font-extrabold text-encre outline-none placeholder:font-sans placeholder:text-[16px] placeholder:font-medium placeholder:text-pale" placeholder={birthday ? 'Son prénom' : kind === 'rdv' ? 'Ex. : Dentiste de Léa' : 'Ex. : Repas chez Mamie'} maxLength={60} value={title} onChange={e => setTitle(e.target.value)} enterKeyHint="done" onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur() } }} />
+              {title && (
+                <button type="button" onPointerDown={(e) => e.preventDefault()} onClick={() => (tap(), setTitle(''), nom.current?.focus())} aria-label="Effacer le nom" className="presse anim-pop flex h-9 w-9 shrink-0 items-center justify-center">
+                  <span className="flex h-[19px] w-[19px] items-center justify-center rounded-full bg-[rgba(60,56,82,0.32)] text-white"><X size={11} strokeWidth={3.4} /></span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
-        <p id="event-name-aide" className={`mt-2 flex items-center gap-1.5 rounded-[12px] bg-fond px-3 py-2 text-note font-semibold ${title.trim() ? 'text-teinte-fonce' : 'text-brume'}`}>
-          <CalendarDays size={14} className="shrink-0" /> <span key={resume} className={`min-w-0 truncate ${title.trim() ? 'anim-entre' : ''}`}>{title.trim() ? resume : birthday ? 'Écris son prénom pour l’ajouter.' : 'Donne-lui un nom pour l’ajouter.'}</span>
-        </p>
-      </div>
-      {birthday && (sansAnniv.length > 0 || avecAnniv.length > 0) && (
-        <div className="mt-3">
-          {sansAnniv.length > 0 && (
-            <>
-              <p className="mb-1.5 px-1 text-note font-semibold text-brume">C’est l’anniversaire de…</p>
-              <div className="no-bar -mx-5 flex gap-2 overflow-x-auto px-5 pb-1" role="group" aria-label="Les membres de la famille">
-                {sansAnniv.map((m) => {
-                  const on = title.trim() === m.display_name
-                  return (
-                    <button key={m.id} type="button" aria-pressed={on} onClick={() => (select(), setTitle(m.display_name), setWho([m.id]))} className={`${puce(on)} choix-pop flex items-center gap-1.5 !py-1 !pl-1`}>
-                      <Avatar m={m} size={30} /> {m.id === state.me.id ? 'Moi' : m.display_name}
-                    </button>
-                  )
-                })}
-              </div>
-            </>
-          )}
-          {avecAnniv.length > 0 && (
-            <p className="mt-1.5 flex items-start gap-1.5 px-1 text-note text-brume">
-              <Cake size={14} className="mt-0.5 shrink-0 text-teinte" />
-              <span>Déjà dans l’agenda : {avecAnniv.map(({ m, e }) => `${m.id === state.me.id ? 'toi' : m.display_name} (${new Date(e!.starts_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })})`).join(', ')}</span>
-            </p>
-          )}
-        </div>
-      )}
-      {stickersOpen && <div className="mt-3"><StickerTray start="fete" onClose={() => setStickersOpen(false)} onPick={key => {setSticker(key);setStickersOpen(false)}} /><button onClick={() => {setSticker(null);setStickersOpen(false)}} className="mt-1 min-h-11 px-1 text-sous font-semibold text-teinte-fonce">Revenir à l’icône par défaut</button></div>}
-
-      {/* Quand */}
-      {titreSection(CalendarDays, 'Quand ?', '#FFEDE2', '#E26F3C')}
-      <div className="no-bar -mx-5 mb-2.5 flex gap-2 overflow-x-auto px-5 pb-1" role="group" aria-label="Raccourcis de date">
-        {jours.map((j) => (
-          <button key={j.v} type="button" aria-pressed={date === j.v} onClick={() => choisirJour(j)} className={`${puce(date === j.v)} choix-pop`}>
-            {j.label}
-            {j.detail && <span className={`ml-1.5 font-medium ${date === j.v ? 'text-white/80' : 'text-brume'}`}>{j.detail}</span>}
-          </button>
-        ))}
-      </div>
-      <div className="groupe shadow-carte">
-        {ligneChoix(birthday ? 'Le jour' : 'Date', jourLong(date), <input aria-label="Date de l’événement" type="date" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={date} onChange={e => e.target.value && setDate(e.target.value)} />, false)}
-        {birthday ? <p className="flex min-h-[48px] items-center gap-2 border-t border-trait px-4 text-sous text-brume"><Repeat size={15} className="text-teinte" /> Revient tout seul chaque année à cette date.</p> : <>
-          <div className="flex min-h-[54px] items-center justify-between gap-2 border-t border-trait px-4 text-corps">Toute la journée<Switch on={journee} onChange={setJournee} label="Toute la journée" /></div>
-          {!journee && <>
-            {ligneChoix('Heure', heure(time), <input aria-label="Heure de l’événement" type="time" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={time} onChange={e => e.target.value && setTime(e.target.value)} />)}
-            <div className="flex gap-1.5 px-4 pb-3" role="group" aria-label="Raccourcis d’heure">
-              {HEURES.map((h) => <button key={h} type="button" aria-pressed={time === h} onClick={() => (select(), setTime(h))} className={`presse choix-pop flex-1 rounded-full py-1.5 text-note font-bold ${time === h ? 'bg-teinte text-white' : 'bg-remplissage text-encre'}`}>{heure(h)}</button>)}
+        {stickersOpen && <div className="anim-entre mt-4"><StickerTray start="fete" onClose={() => setStickersOpen(false)} onPick={key => {setSticker(key);setStickersOpen(false)}} /><button onClick={() => {setSticker(null);setStickersOpen(false)}} className="mt-1 min-h-11 px-1 text-sous font-semibold text-teinte-fonce">Revenir à l’image de départ</button></div>}
+        {birthday && sansAnniv.length > 0 && (
+          <div className="mt-4">
+            <p className="mb-0.5 px-0.5 text-note font-semibold text-brume">Dans la famille</p>
+            <div className="no-bar -mx-4 flex gap-1 overflow-x-auto px-3" role="group" aria-label="C’est l’anniversaire de…">
+              {sansAnniv.map((m) => (
+                <Bulle key={m.id} taille={44} on={title.trim() === m.display_name} nom={m.id === state.me.id ? 'Moi' : m.display_name} onClick={() => (select(), setTitle(m.display_name), setWho([m.id]))}>
+                  <Avatar m={m} size={44} />
+                </Bulle>
+              ))}
             </div>
-          </>}
-          {journee && <div className="flex min-h-[54px] items-center justify-between border-t border-trait px-4 text-corps">Sur plusieurs jours<Switch on={plusieurs} onChange={v => {setPlusieurs(v);if(v && !(fin > date)){const d=new Date(`${date}T12:00`);d.setDate(d.getDate()+1);setFin(iso(d))}}} label="Sur plusieurs jours" /></div>}
-          {journee && plusieurs && ligneChoix('Jusqu’au', fin ? jourLong(fin) : 'Choisir', <input id="event-fin" aria-label="Date de fin" type="date" min={date} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={fin} onChange={e => setFin(e.target.value)} />)}
-          <div className="flex min-h-[54px] items-center justify-between border-t border-trait px-4 text-corps"><span className="flex items-center gap-2">Chaque semaine</span><Switch on={hebdo} onChange={setHebdo} label="Chaque semaine" /></div>
-        </>}
-      </div>
-      {ko && <p role="alert" className="mt-2 px-1 text-note text-rouge">La fin doit être le même jour ou après le début.</p>}
+          </div>
+        )}
+        {birthday && avecAnniv.length > 0 && (
+          <p className="mt-2 flex items-start gap-1.5 px-0.5 text-note text-brume">
+            <Cake size={14} className="mt-0.5 shrink-0 text-teinte" />
+            <span>Déjà dans l’agenda : {avecAnniv.map(({ m, e }) => `${m.id === state.me.id ? 'toi' : m.display_name} (${new Date(e!.starts_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })})`).join(', ')}</span>
+          </p>
+        )}
+      </CarteEvt>
 
-      {/* Où */}
-      {titreSection(MapPin, 'Où ?', '#E3F0FF', '#2F6FD6', <span className="text-note text-brume">facultatif</span>)}
-      <ChampLieu value={lieu} onChange={setLieu} placeholder={LIEU_EXEMPLE[kind] ?? 'Où ?'} recents={lieuxConnus} />
+      {/* Date et horaire */}
+      <CarteEvt>
+        <TitreCarte icone={CalendarDays} titre={birthday ? 'Date' : 'Date et horaire'} />
+        {birthday ? (
+          <label className="champ-evt presse relative flex h-12 items-center gap-2.5 rounded-[14px] bg-doux px-3.5 text-corps font-semibold">
+            <CalendarDays size={18} className="shrink-0 text-teinte" />
+            <span key={date} className="anim-entre flex-1">Le {dateDe(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</span>
+            <ChevronDown size={17} className="shrink-0 text-teinte" />
+            <input aria-label="Le jour de l’anniversaire" type="date" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={date} onChange={e => e.target.value && (select(), setDate(e.target.value))} />
+          </label>
+        ) : (
+          <div className="flex items-center gap-2">
+            <div ref={rangee} className="no-bar fondu-droite relative -ml-4 flex min-w-0 flex-1 gap-2 overflow-x-auto py-0.5 pl-4 pr-4" role="group" aria-label="Raccourcis de date">
+              {jours.map((j) => (
+                <button key={j.v} type="button" aria-pressed={date === j.v} onClick={() => choisirJour(j)} className={puce(date === j.v)}>
+                  {j.label}
+                  {j.detail && <span className={`ml-1.5 font-medium ${date === j.v ? 'text-white/80' : 'text-brume'}`}>{j.detail}</span>}
+                </button>
+              ))}
+            </div>
+            <label className={`${puce(!surRaccourci)} relative flex items-center gap-1.5 !px-3`} data-on={!surRaccourci}>
+              <CalendarDays size={16} strokeWidth={2.3} className={surRaccourci ? 'text-teinte' : ''} />
+              <span key={surRaccourci ? 'autre' : date}>{surRaccourci ? 'Autre date' : dateCourte(date)}</span>
+              <input aria-label="Choisir une autre date" type="date" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={date} onChange={e => e.target.value && (select(), setDate(e.target.value))} />
+            </label>
+          </div>
+        )}
+        {birthday ? (
+          <p className="mt-3 flex items-center gap-2 px-0.5 text-note text-brume"><Repeat size={14} className="text-teinte" /> Revient tout seul chaque année à cette date.</p>
+        ) : (
+          <>
+            <div className={`${ligne} mt-3 border-t border-trait/60 pt-3`}>Toute la journée<Switch on={journee} onChange={setJournee} label="Toute la journée" /></div>
+            {!journee && (
+              <div className="anim-entre mt-2 flex gap-1.5" role="group" aria-label="L’heure">
+                {HEURES.map((h) => (
+                  <button key={h} type="button" aria-pressed={time === h} onClick={() => choisirHeure(h)} className={`${puce(time === h)} flex-1 !px-1`}>{heure(h)}</button>
+                ))}
+                <label className={`${puce(!HEURES.includes(time))} relative flex flex-1 items-center justify-center gap-1 !px-1`} data-on={!HEURES.includes(time)}>
+                  <Clock size={15} strokeWidth={2.4} className={HEURES.includes(time) ? 'text-teinte' : ''} />
+                  <span key={HEURES.includes(time) ? 'autre' : time}>{HEURES.includes(time) ? 'Autre' : heure(time)}</span>
+                  <input aria-label="Choisir une autre heure" type="time" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={time} onChange={e => e.target.value && choisirHeure(e.target.value)} />
+                </label>
+              </div>
+            )}
+            {journee && (
+              <div className={`${ligne} mt-2 border-t border-trait/60 pt-2`}>Sur plusieurs jours<Switch on={plusieurs} onChange={v => {setPlusieurs(v);if(v && !(fin > date)){const d=new Date(`${date}T12:00`);d.setDate(d.getDate()+1);setFin(iso(d))}}} label="Sur plusieurs jours" /></div>
+            )}
+            {journee && plusieurs && (
+              <div className={`${ligne} anim-entre mt-1`}>
+                Jusqu’au
+                <label className="champ-evt presse relative flex items-center gap-1 rounded-full bg-teinte-doux px-3 py-1.5 text-sous font-semibold text-teinte-fonce">
+                  <span key={fin}>{fin ? dateCourte(fin) : 'Choisir'}</span>
+                  <ChevronDown size={15} className="opacity-70" />
+                  <input id="event-fin" aria-label="Date de fin" type="date" min={date} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={fin} onChange={e => setFin(e.target.value)} />
+                </label>
+              </div>
+            )}
+          </>
+        )}
+        {ko && <p role="alert" className="mt-2 px-0.5 text-note text-rouge">La fin doit être le même jour ou après le début.</p>}
+      </CarteEvt>
 
-      {/* Avec qui */}
-      {titreSection(Users, 'Avec qui ?', '#E3F6EC', '#14955A', <span className="text-note text-brume">{who.length ? `${who.length} personne${who.length > 1 ? 's' : ''}` : 'toute la famille'}</span>)}
-      <WhoPicker value={who} onChange={setWho} />
+      {/* Répéter (plus seulement « chaque semaine ») */}
+      {!birthday && (
+        <CarteEvt className="!p-0">
+          <button type="button" onClick={() => (tap(), setRepOuvert((v) => !v))} aria-expanded={repOuvert} className="presse-ligne flex w-full items-center gap-2.5 rounded-[20px] p-4 text-left">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-teinte-doux text-teinte"><Repeat size={17} strokeWidth={2.3} /></span>
+            <span className="flex-1 text-corps font-bold">Répéter</span>
+            <span key={`${rep}${date}`} className={`anim-entre text-sous ${rep ? 'font-semibold text-teinte-fonce' : 'text-brume'}`}>{repLabel(rep)}</span>
+            <ChevronRight size={17} className={`shrink-0 text-pale transition-transform duration-200 ${repOuvert ? 'rotate-90' : ''}`} />
+          </button>
+          {repOuvert && (
+            <div className="anim-entre -mt-1 flex flex-wrap gap-1.5 px-4 pb-4" role="group" aria-label="Répéter">
+              {repetitions.map((o) => (
+                <button key={o.label} type="button" aria-pressed={rep === o.v} onClick={() => { select(); setRep(o.v); window.setTimeout(() => setRepOuvert(false), 260) }} className={puce(rep === o.v)}>{o.label}</button>
+              ))}
+            </div>
+          )}
+        </CarteEvt>
+      )}
 
-      {/* Détails */}
-      {titreSection(AlignLeft, 'Détails', '#FFF4D6', '#B07A00', <span className="text-note text-brume">facultatif</span>)}
-      <textarea id="event-details" className="groupe block min-h-[88px] w-full resize-none px-4 py-3 text-corps shadow-carte outline-none placeholder:text-brume" placeholder="Qui apporte quoi, l’heure du départ…" maxLength={500} value={description} onChange={e => setDescription(e.target.value)} aria-label="Détails" />
+      {/* Lieu */}
+      <CarteEvt>
+        <TitreCarte icone={MapPin} titre="Lieu" extra={FACULTATIF} />
+        <ChampLieu value={lieu} onChange={setLieu} placeholder={LIEU_EXEMPLE[kind] ?? 'Où ?'} recents={lieuxConnus} />
+      </CarteEvt>
+
+      {/* Les personnes concernées */}
+      <CarteEvt>
+        <TitreCarte icone={Users} titre="Personnes concernées" extra={<span key={who.length} className="anim-entre text-note text-brume">{who.length ? `${who.length} personne${who.length > 1 ? 's' : ''}` : 'Toute la famille'}</span>} />
+        <WhoPicker value={who} onChange={setWho} />
+      </CarteEvt>
+
+      {/* Notes */}
+      <CarteEvt>
+        <TitreCarte icone={AlignLeft} titre="Notes" extra={FACULTATIF} />
+        <textarea id="event-details" className="block min-h-[84px] w-full resize-none rounded-[14px] bg-doux px-3.5 py-3 text-corps outline-none transition-shadow placeholder:text-pale focus:shadow-[0_0_0_2px_rgba(112,80,213,0.35)]" placeholder={NOTES_EXEMPLE[kind]} maxLength={500} value={description} onChange={e => setDescription(e.target.value)} aria-label="Notes" />
+      </CarteEvt>
     </Sheet>
   )
 }
@@ -931,12 +1013,12 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
         </span>
         <p className="mt-3 break-words px-2 font-rond text-titre2 leading-tight">{titreCalendrier(ev)}</p>
         <p className="mt-1 px-2 text-sous text-brume">{quand}</p>
-        {(soon || ev.yearly || ev.weekly) && (
+        {(soon || repeteDe(ev)) && (
           <span className="mt-2 flex flex-wrap justify-center gap-1.5">
             {soon && <span className="anim-pop rounded-full bg-peche-doux px-2.5 py-1 text-legende font-bold text-peche-fonce" style={{ animationDelay: '160ms' }}>{soon}</span>}
-            {(ev.yearly || ev.weekly) && (
+            {repeteDe(ev) && (
               <span className="flex items-center gap-1 rounded-full bg-remplissage px-2.5 py-1 text-legende font-semibold text-brume">
-                <Repeat size={12} strokeWidth={2.6} /> {ev.yearly ? 'Chaque année' : rythme(ev, at)}
+                <Repeat size={12} strokeWidth={2.6} /> {repeteDe(ev) === 'annee' ? 'Chaque année' : rythme(ev, at)}
               </span>
             )}
           </span>

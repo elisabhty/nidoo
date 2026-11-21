@@ -12,7 +12,7 @@ import { choc, select, success, tap } from '../lib/haptic'
 import { confettis, petille } from '../lib/fete'
 import { useHome } from '../lib/store'
 import type { EventKind, FamEvent, ListItem, ListKind } from '../lib/types'
-import { dayLabel, errorText, finDe, nextOccurrence, occursOn, rythme, timeLabel, todayKey } from '../lib/util'
+import { dayLabel, errorText, finDe, nextOccurrence, occursOn, repeteDe, rythme, timeLabel, todayKey } from '../lib/util'
 
 type Seg = 'agenda' | 'course' | 'tache'
 type Vue = 'liste' | 'semaine'
@@ -153,8 +153,8 @@ function Semaine({ onOpen, onAdd }: { onOpen: (o: Ouvert) => void; onAdd: (day: 
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-corps">{e.title}</span>
                           <span className="block truncate text-note text-brume">
-                            {e.all_day ? (rythme(e, at) && !e.weekly ? rythme(e, at) : 'Toute la journée') : timeLabel(at)}
-                            {e.weekly ? ' · chaque semaine' : ''}
+                            {e.all_day ? (rythme(e, at) && !repeteDe(e) ? rythme(e, at) : 'Toute la journée') : timeLabel(at)}
+                            {repeteDe(e) && repeteDe(e) !== 'annee' ? ` · ${rythme(e, at)?.toLowerCase()}` : repeteDe(e) === 'annee' && e.kind !== 'anniversaire' ? ' · chaque année' : ''}
                             {!e.lieu && e.description ? ` · ${e.description}` : ''}
                           </span>
                           {e.lieu && (
@@ -853,7 +853,7 @@ export default function Organize() {
                                 // « Demain · 10:00 · Tous les jeudis », « Du 28 au 29 novembre », « Samedi · chaque année »
                                 const r = rythme(e, at)
                                 const quand = `${at < start ? 'En ce moment' : dayLabel(at)}${e.all_day ? '' : ` · ${timeLabel(at)}`}`
-                                if (e.weekly) return `${quand} · ${r}`
+                                if (repeteDe(e) && repeteDe(e) !== 'annee') return `${quand} · ${r}`
                                 if (r) return at < start ? `En ce moment · ${r}` : r
                                 return `${quand}${e.yearly ? ' · chaque année' : ''}`
                               })()}

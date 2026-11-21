@@ -627,6 +627,7 @@ export function createSupabaseBackend(): Backend {
             ...(patch.all_day !== undefined ? { all_day: patch.all_day } : {}),
             ...(patch.yearly !== undefined ? { yearly: patch.yearly } : {}),
             ...(patch.weekly !== undefined ? { weekly: patch.weekly } : {}),
+            ...(patch.repete !== undefined ? { repete: patch.repete } : {}),
             ...(patch.ends_on !== undefined ? { ends_on: patch.ends_on } : {}),
             ...(patch.description !== undefined ? { description: patch.description?.trim() || null } : {}),
             ...(patch.lieu !== undefined ? { lieu: patch.lieu?.trim().slice(0, 200) || null } : {}),
@@ -647,6 +648,11 @@ export function createSupabaseBackend(): Backend {
     },
     async linkItem(id, eventId) {
       check(await sb.from('list_items').update({ event_id: eventId }).eq('id', id))
+    },
+    async repetitions() {
+      // la colonne repete existe-t-elle ? (ajoutée par 20261121170000_repeter.sql)
+      const { error } = await sb.from('events').select('repete').limit(1)
+      return !error
     },
     async lienTaches() {
       // la colonne event_id existe-t-elle ? (ajoutée par 20261121160000_taches_evenements.sql)

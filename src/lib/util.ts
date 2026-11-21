@@ -1,3 +1,5 @@
+import type { Repete } from './types'
+
 export const todayKey = (d = new Date()) => {
   const p = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
@@ -16,7 +18,19 @@ export function ago(iso: string): string {
 }
 
 /** Ce qu'il faut savoir d'un événement pour placer ses dates. */
-type Quand = { starts_at: string; yearly: boolean; weekly?: boolean; ends_on?: string | null }
+type Quand = { starts_at: string; yearly: boolean; weekly?: boolean; repete?: Repete | null; ends_on?: string | null }
+
+/** Le rythme d'un événement qui revient (null s'il n'a lieu qu'une fois). Les anciens événements n'ont que weekly / yearly. */
+export const repeteDe = (q: Quand): Repete | null => q.repete ?? (q.yearly ? 'annee' : q.weekly ? 'semaine' : null)
+/** Les choix de « Répéter », dans l'ordre de la liste. */
+export const REPETITIONS: { v: Repete | null; label: string }[] = [
+  { v: null, label: 'Jamais' },
+  { v: 'jour', label: 'Chaque jour' },
+  { v: 'semaine', label: 'Chaque semaine' },
+  { v: '2semaines', label: 'Toutes les 2 semaines' },
+  { v: 'mois', label: 'Chaque mois' },
+  { v: 'annee', label: 'Chaque année' },
+]
 
 const minuit = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate())
 const plusJours = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n, d.getHours(), d.getMinutes())
@@ -38,19 +52,30 @@ export function nextOccurrence(e: Quand | string, yearly = false, from = new Dat
   const d = new Date(q.starts_at)
   const duree = joursEnPlus(q)
   const jour = minuit(from)
-  if (q.yearly) {
+  const r = repeteDe(q)
+  const encore = (n: Date) => plusJours(minuit(n), duree) >= jour // cette fois-là touche encore aujourd'hui
+  if (r === 'annee') {
     let n = new Date(jour.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes())
-    if (plusJours(minuit(n), duree) < jour) n = new Date(jour.getFullYear() + 1, d.getMonth(), d.getDate(), d.getHours(), d.getMinutes())
+    if (!encore(n)) n = new Date(jour.getFullYear() + 1, d.getMonth(), d.getDate(), d.getHours(), d.getMinutes())
     return n
   }
-  if (q.weekly && minuit(d) < jour) {
-    // la dernière fois qui touche encore aujourd'hui, sinon la prochaine
-    const ecart = Math.floor((jour.getTime() - minuit(d).getTime()) / 86400000)
-    let n = plusJours(d, ecart - (ecart % 7))
-    if (plusJours(minuit(n), duree) < jour) n = plusJours(n, 7)
-    return n
+  if (minuit(d) >= jour || !r) return d
+  if (r === 'mois') {
+    // le même jour chaque mois (le 31 tombe le dernier jour des mois plus courts)
+    const le = (a: number, m: number) => new Date(a, m, Math.min(d.getDate(), new Date(a, m + 1, 0).getDate()), d.getHours(), d.getMinutes())
+    const ce = le(jour.getFullYear(), jour.getMonth())
+    if (minuit(ce) > jour) {
+      const avant = le(jour.getFullYear(), jour.getMonth() - 1)
+      return encore(avant) ? avant : ce
+    }
+    return encore(ce) ? ce : le(jour.getFullYear(), jour.getMonth() + 1)
   }
-  return d
+  // tous les jours, chaque semaine, une semaine sur deux : la dernière fois qui touche encore aujourd'hui, sinon la prochaine
+  const pas = r === 'jour' ? 1 : r === '2semaines' ? 14 : 7
+  const ecart = Math.floor((jour.getTime() - minuit(d).getTime()) / 86400000)
+  let n = plusJours(d, ecart - (ecart % pas))
+  if (!encore(n)) n = plusJours(n, pas)
+  return n
 }
 
 /** Le dernier jour d'une fois de l'événement (le même jour s'il ne dure qu'un jour). */
@@ -69,7 +94,15 @@ export function occursOn(e: Quand, day: Date): Date | null {
 
 /** « Du 28 au 29 novembre », « Tous les mercredis »… : la petite ligne qui dit quand ça revient ou combien ça dure. */
 export function rythme(e: Quand, at: Date): string | null {
-  if (e.weekly) return `Tous les ${at.toLocaleDateString('fr-FR', { weekday: 'long' })}s`
+  const r = repeteDe(e)
+  const jourSemaine = at.toLocaleDateString('fr-FR', { weekday: 'long' })
+  if (r === 'jour') return 'Tous les jours'
+  if (r === 'semaine') return `Tous les ${jourSemaine}s`
+  if (r === '2semaines') return `Un ${jourSemaine} sur deux`
+  if (r === 'mois') {
+    const n = new Date(e.starts_at).getDate()
+    return `Tous les mois, le ${n === 1 ? '1er' : n}`
+  }
   const n = joursEnPlus(e)
   if (!n) return null
   const fin = finDe(e, at)

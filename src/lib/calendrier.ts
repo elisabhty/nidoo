@@ -1,6 +1,6 @@
 import { Capacitor } from '@capacitor/core'
 import type { FamEvent } from './types'
-import { finDe, nextOccurrence } from './util'
+import { finDe, nextOccurrence, repeteDe } from './util'
 
 // « Ajouter à mon calendrier » : un petit fichier .ics que l'iPhone (ou Google Agenda) sait ouvrir.
 // Il garde l'heure, le lieu, les détails, et la répétition (chaque semaine, chaque année).
@@ -26,7 +26,8 @@ export const titreCalendrier = (e: Pick<FamEvent, 'kind' | 'title'>) => {
 }
 
 export function fichierIcs(e: FamEvent): string {
-  const debut = e.yearly || e.weekly ? nextOccurrence(e) : new Date(e.starts_at)
+  const r = repeteDe(e)
+  const debut = r ? nextOccurrence(e) : new Date(e.starts_at)
   const lignes = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//NIDOO//Agenda de la famille//FR', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'BEGIN:VEVENT', `UID:${e.id}@nidoo`, `DTSTAMP:${heureUtc(new Date())}`]
   if (e.all_day) {
     const lendemainFin = finDe(e, debut)
@@ -35,8 +36,8 @@ export function fichierIcs(e: FamEvent): string {
   } else {
     lignes.push(`DTSTART:${heureUtc(debut)}`, `DTEND:${heureUtc(new Date(debut.getTime() + 60 * 60000))}`)
   }
-  if (e.yearly) lignes.push('RRULE:FREQ=YEARLY')
-  if (e.weekly) lignes.push('RRULE:FREQ=WEEKLY')
+  const regle = { jour: 'FREQ=DAILY', semaine: 'FREQ=WEEKLY', '2semaines': 'FREQ=WEEKLY;INTERVAL=2', mois: 'FREQ=MONTHLY', annee: 'FREQ=YEARLY' } as const
+  if (r) lignes.push(`RRULE:${regle[r]}`)
   lignes.push(`SUMMARY:${texte(titreCalendrier(e))}`)
   if (e.lieu) lignes.push(`LOCATION:${texte(e.lieu)}`)
   if (e.description) lignes.push(`DESCRIPTION:${texte(e.description)}`)

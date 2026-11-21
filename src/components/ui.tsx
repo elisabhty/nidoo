@@ -149,9 +149,25 @@ export function Page({ title, back = 'Retour', onClose, trailing, children, scro
 }
 
 /** Feuille modale iOS : poignée, glisser vers le bas pour fermer. */
-export function Sheet({ title, onClose, children, tall = false, footer }: { title: string; onClose: () => void; children: ReactNode; tall?: boolean; footer?: ReactNode }) {
+export function Sheet({ title, onClose, children, tall = false, footer, cacherBasAuClavier = false }: { title: string; onClose: () => void; children: ReactNode; tall?: boolean; footer?: ReactNode
+  /** Le bouton du bas se cache quand le clavier est ouvert (une fiche à remplir : il ne masque plus le champ). */
+  cacherBasAuClavier?: boolean }) {
   const [dy, setDy] = useState(0)
   const [contentScrolled, setContentScrolled] = useState(false)
+  // il reste de quoi lire sous le bouton du bas : un trait léger le dit
+  const [dessous, setDessous] = useState(false)
+  const defile = useRef<HTMLDivElement>(null)
+  const contenu = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const box = defile.current
+    if (!footer || !box) return
+    const voir = () => setDessous(box.scrollHeight - box.scrollTop - box.clientHeight > 6)
+    voir()
+    const ro = new ResizeObserver(voir)
+    ro.observe(box)
+    if (contenu.current) ro.observe(contenu.current)
+    return () => ro.disconnect()
+  }, [footer])
   const dragStarted = useRef(0)
   const start = useRef<number | null>(null)
   const root = useRef<HTMLDivElement>(null)
@@ -216,8 +232,8 @@ export function Sheet({ title, onClose, children, tall = false, footer }: { titl
           </div>
         </div>
         {/* de l'air sous le dernier champ : il ne colle plus au bouton du bas, même clavier ouvert (Elisa, 21 novembre) */}
-        <div className={`no-bar min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 ${footer ? 'pb-8' : 'pb-4'}`} onScroll={e => setContentScrolled(e.currentTarget.scrollTop > 8)}>{children}</div>
-        {footer && <div className="sheet-footer shrink-0 px-5 pt-4">{footer}</div>}
+        <div ref={defile} className={`no-bar min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 ${footer ? 'pb-8' : 'pb-4'}`} onScroll={e => { const b = e.currentTarget; setContentScrolled(b.scrollTop > 8); if (footer) setDessous(b.scrollHeight - b.scrollTop - b.clientHeight > 6) }}>{footer ? <div ref={contenu}>{children}</div> : children}</div>
+        {footer && <div className={`sheet-footer shrink-0 px-5 pt-4 ${dessous ? 'sheet-footer-dessous' : ''} ${cacherBasAuClavier ? 'sheet-footer-clavier' : ''}`}>{footer}</div>}
       </div>
     </div>
   )

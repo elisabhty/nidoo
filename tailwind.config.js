@@ -12,6 +12,7 @@ export default {
         pale: 'rgba(60, 56, 82, 0.56)', // label tertiaire (assez foncé pour se lire : heures, indications)
         trait: 'rgba(60, 56, 82, 0.14)', // séparateur
         remplissage: 'rgba(118, 112, 148, 0.12)', // fill
+        doux: '#F4F2F9', // le fond d'un champ ou d'une puce posés sur une carte blanche (sans trait)
         teinte: { DEFAULT: '#7050D5', doux: '#EEE8FC', fonce: '#6646CC' },
         peche: { DEFAULT: '#F58B5C', doux: '#FFEDE2', fonce: '#E26F3C' },
         rouge: '#FF453A',
