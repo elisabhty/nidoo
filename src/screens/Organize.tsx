@@ -201,69 +201,19 @@ function Coche({ fait }: { fait: boolean }) {
   )
 }
 
-/** Une ligne qu'on fait glisser vers la gauche pour la retirer (et qu'on peut toujours toucher pour cocher). */
-function Glisse({ children, onRetirer, label, partant = false, range = false, adieu = false }: { children: ReactNode; onRetirer: () => void; label: string; partant?: boolean; range?: boolean; adieu?: boolean }) {
-  const [dx, setDx] = useState(0)
-  const [glisse, setPart] = useState(false)
-  // qui part (glissée, poubelle ou « Retirer ») : elle file vers la gauche et la place se referme
-  const part = glisse || partant
-  const depart = useRef<{ x: number; y: number; actif: boolean } | null>(null)
-  const aGlisse = useRef(false) // un glissé n'est pas un toucher : on ne coche pas en lâchant
-  const fini = () => {
-    if (dx < -90) {
-      choc()
-      setPart(true)
-      window.setTimeout(onRetirer, 180)
-    } else setDx(0)
-    depart.current = null
-  }
+/** Une ligne de la liste. Retirée (poubelle ou « Retirer ») : elle frémit, s'efface en glissant un peu, et la place
+ *  se referme d'un seul mouvement. Plus de bande rouge ni de fond rose, plus de glisser pour retirer (Elisa, 21 novembre :
+ *  « j'aime pas le truc rouge qui apparaît, ça sert à rien »). */
+function Ligne({ children, partant = false, range = false, adieu = false }: { children: ReactNode; partant?: boolean; range?: boolean; adieu?: boolean }) {
   return (
-    // retirée par la poubelle ou « Retirer » (Elisa, 21 novembre : « ça va trop vite ») : elle rosit et frémit,
-    // puis file vers la gauche, et la place se referme après
-    // la place se referme d'un seul mouvement (hauteur réelle, plus de max-height qui attend puis claque :
-    // Elisa, 21 novembre, « ça saute avec le validé »)
-    <div className={`grid transition-[grid-template-rows,opacity] ease-[cubic-bezier(0.32,0.72,0,1)] ${partant && !glisse ? 'duration-[380ms] delay-[320ms]' : 'duration-[380ms]'} ${part || range ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr]'}`}>
-      <div className="relative min-h-0 overflow-hidden">
-        {/* le rouge n'est là que pendant qu'on glisse (sinon un liseré rose dépassait au bord arrondi de la carte) */}
-        {(dx < 0 || part) && (
-          <div className="absolute inset-y-0 right-0 flex items-center justify-end bg-rouge pr-5 text-sous font-semibold text-white" style={{ width: Math.max(0, -dx) + 8 }} aria-hidden="true">
-            {dx < -40 && 'Retirer'}
-          </div>
-        )}
+    <div className={`grid transition-[grid-template-rows,opacity] duration-[320ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${partant ? 'delay-[140ms]' : ''} ${partant || range ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr]'}`}>
+      <div className="min-h-0 overflow-hidden">
         <div
-          className={`relative transition-colors duration-200 ${adieu || partant ? 'bg-[#FFF1F1]' : 'bg-carte'} ${adieu && !partant ? 'adieu' : ''}`}
-          style={{ transform: part ? 'translateX(-105%)' : `translateX(${dx}px)`, transition: depart.current?.actif ? 'none' : partant && !glisse ? 'transform 0.45s cubic-bezier(0.55, 0, 0.75, 0.2), background-color 0.2s' : 'transform 0.28s cubic-bezier(0.4, 0, 0.6, 1), background-color 0.2s', touchAction: 'pan-y' }}
-          onPointerDown={(e) => {
-            depart.current = { x: e.clientX, y: e.clientY, actif: false }
-            aGlisse.current = false
-          }}
-          onPointerMove={(e) => {
-            const d = depart.current
-            if (!d) return
-            const mx = e.clientX - d.x
-            if (!d.actif && Math.abs(mx) > 12 && Math.abs(mx) > Math.abs(e.clientY - d.y)) {
-              d.actif = true
-              aGlisse.current = true
-              e.currentTarget.setPointerCapture(e.pointerId)
-            }
-            if (d.actif) setDx(Math.min(0, Math.max(-220, mx)))
-          }}
-          onPointerUp={() => (depart.current?.actif ? fini() : (depart.current = null))}
-          onPointerCancel={() => {
-            depart.current = null
-            setDx(0)
-          }}
-          onClickCapture={(e) => {
-            if (aGlisse.current) {
-              aGlisse.current = false
-              e.stopPropagation()
-              e.preventDefault()
-            }
-          }}
+          className={`bg-carte ${adieu && !partant ? 'adieu' : ''}`}
+          style={{ opacity: partant ? 0 : 1, transform: partant ? 'translateX(-18px)' : undefined, transition: 'opacity 0.24s ease-out, transform 0.28s cubic-bezier(0.4, 0, 0.6, 1)' }}
         >
           {children}
         </div>
-        <span className="sr-only">{label}</span>
       </div>
     </div>
   )
@@ -575,7 +525,7 @@ function Liste({ kind }: { kind: ListKind }) {
       retirer(ids)
       setPartants((p) => p.filter((x) => !ids.includes(x)))
       setAdieux((a) => a.filter((x) => !ids.includes(x)))
-      // plus de notification « retiré · Annuler » : la ligne qui rosit, frémit et part le dit déjà (Elisa, 21 novembre :
+      // plus de notification « retiré · Annuler » : la ligne qui frémit et part le dit déjà (Elisa, 21 novembre :
       // « pas de notifications quand il y a une micro-interaction »)
     }, 1100)
   }
@@ -613,7 +563,7 @@ function Liste({ kind }: { kind: ListKind }) {
     const attente = i.id.startsWith('attente-')
     const art = lireArticle(i.title)
     return (
-      <Glisse key={i.id} onRetirer={() => retirer([i.id])} partant={partants.includes(i.id)} adieu={adieux.includes(i.id)} range={ranges.includes(i.id)} label={`Glisse vers la gauche pour retirer ${i.title}`}>
+      <Ligne key={i.id} partant={partants.includes(i.id)} adieu={adieux.includes(i.id)} range={ranges.includes(i.id)}>
         <div className={`flex items-center ${attente ? 'ligne-arrive-pop opacity-70' : ''} ${arrivees.includes(cle(tache ? i.title : art.nom)) ? 'ligne-arrive' : ''} ${dernier || (!tache && !editing && !attente && estVague(art.nom)) ? '' : 'border-b border-trait'}`}>
           {/* le gris du toucher s'arrête avant la quantité, avec un peu d'air (Elisa, 21 novembre) */}
           <button onClick={(e) => basculer(i, e.currentTarget)} className={`presse-ligne flex min-h-[54px] min-w-0 flex-1 items-center gap-3 py-2 pl-4 pr-3 text-left ${!tache && !editing ? 'rounded-r-[16px]' : ''}`} aria-label={`Cocher ${i.title}`}>
@@ -654,7 +604,7 @@ function Liste({ kind }: { kind: ListKind }) {
             ))}
           </div>
         )}
-      </Glisse>
+      </Ligne>
     )
   }
 
@@ -854,7 +804,7 @@ function Liste({ kind }: { kind: ListKind }) {
           </div>
         ))}
       {tache && todoVisible.length > 0 && <div className="groupe mx-4 mt-1 overflow-hidden shadow-carte">{todoVisible.map((i, k) => ligne(i, k === todoVisible.length - 1))}</div>}
-      {todo.length > 0 && !tache && <p className="mt-2 px-5 text-mini text-pale">Touche pour cocher · − et + pour la quantité · glisse vers la gauche pour retirer</p>}
+      {todo.length > 0 && !tache && <p className="mt-2 px-5 text-mini text-pale">Touche pour cocher · − et + pour la quantité, la poubelle pour retirer</p>}
 
       {doneVisible.length > 0 && (
         <>
@@ -868,7 +818,7 @@ function Liste({ kind }: { kind: ListKind }) {
             {doneVisible.map((i, k) => {
               const who = members.find((m) => m.id === i.assigned_to)
               return (
-                <Glisse key={i.id} onRetirer={() => retirer([i.id])} partant={partants.includes(i.id)} adieu={adieux.includes(i.id)} label={`Glisse vers la gauche pour retirer ${i.title}`}>
+                <Ligne key={i.id} partant={partants.includes(i.id)} adieu={adieux.includes(i.id)}>
                   <button onClick={() => basculer(i)} className="presse-ligne flex w-full items-center gap-3 pl-4 text-left" aria-label={`Décocher ${i.title}`}>
                     <Coche fait />
                     <span className={`flex min-h-[50px] min-w-0 flex-1 items-center gap-2 py-2 pr-3 ${k < doneVisible.length - 1 ? 'border-b border-trait' : ''}`}>
@@ -881,7 +831,7 @@ function Liste({ kind }: { kind: ListKind }) {
                       )}
                     </span>
                   </button>
-                </Glisse>
+                </Ligne>
               )
             })}
           </div>
