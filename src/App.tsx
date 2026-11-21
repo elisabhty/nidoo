@@ -11,6 +11,7 @@ import { ajouterNaissance } from './lib/naissance'
 import { select } from './lib/haptic'
 import { useStore } from './lib/store'
 import { ecouterWidgets, oublierWidgets, synchroniserWidgets } from './lib/widgets'
+import { demanderOrganiser, demandeDuChemin } from './lib/demandes'
 import Family from './screens/Family'
 import Home from './screens/Home'
 import Dossiers from './screens/Folders'
@@ -76,9 +77,14 @@ export default function App() {
   useEffect(
     () =>
       ecouterWidgets((chemin) => {
+        const demande = demandeDuChemin(chemin)
         if (chemin === 'recus') {
           navigate('maison')
           setShowIncoming(true)
+        } else if (demande) {
+          // l'agenda (et la fiche de l'événement), les tâches ou les courses
+          demanderOrganiser(demande)
+          navigate('organiser')
         } else if (TABS.some((t) => t.key === chemin)) navigate(chemin as Tab)
       }),
     [], // eslint-disable-line react-hooks/exhaustive-deps

@@ -25,7 +25,8 @@ struct VueDates: View {
                 }
             }
             .fond(f) { Theme.azur }
-            .widgetURL(Partage.lien("organiser"))
+            // toucher : la fiche de cet événement dans l'agenda (Elisa, 21 novembre : « ça nous emmène que rien »)
+            .widgetURL(Partage.lien(etat.dates.first.map { "agenda/\($0.id)" } ?? "agenda"))
         } else {
             VueVide(e: e, f: f, titre: "Prochaines dates")
         }
@@ -123,24 +124,38 @@ struct VueDates: View {
         }
     }
 
+    /// Le rond de l'écran verrouillé : de quoi il s'agit (l'icône et le nom), et quand (« Demain », « J-5 »).
     private func cercle(_ d: Etat.Jour) -> some View {
         let n = jours(d)
         return ZStack {
             AccessoryWidgetBackground()
-            if n == 0 {
-                Image(systemName: d.k == "anniversaire" ? "birthday.cake.fill" : "star.fill").font(.system(size: 22, weight: .semibold))
-            } else {
-                VStack(spacing: -3) {
-                    Text("\(n)").font(.system(size: 24, weight: .bold, design: .rounded))
-                    Text(n == 1 ? "jour" : "jours").font(.system(size: 9.5, weight: .semibold, design: .rounded))
-                }
+            VStack(spacing: 0) {
+                Image(systemName: Self.icone(d.k)).font(.system(size: 12, weight: .bold))
+                Text(n == 0 ? "Auj." : n == 1 ? "Demain" : "J-\(n)")
+                    .font(.system(size: n == 1 ? 13 : 17, weight: .bold, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                Text(d.t)
+                    .font(.system(size: 8.5, weight: .semibold, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .opacity(0.85)
             }
+            .padding(.horizontal, 7)
+        }
+    }
+
+    static func icone(_ k: String) -> String {
+        switch k {
+        case "anniversaire": return "birthday.cake.fill"
+        case "rdv": return "mappin.and.ellipse"
+        default: return "party.popper.fill"
         }
     }
 
     private func rectangle(_ d: Etat.Jour) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Label(d.t, systemImage: d.k == "anniversaire" ? "birthday.cake.fill" : "calendar")
+            Label(d.t, systemImage: Self.icone(d.k))
                 .font(.system(size: 14, weight: .bold, design: .rounded))
                 .lineLimit(1)
             Text(Temps.dansTexte(jours(d))).font(.system(size: 13, weight: .semibold, design: .rounded))
@@ -207,7 +222,7 @@ struct VueAFaire: View {
             }
             .bandeau(e)
             .fond(f) { Theme.menthe }
-            .widgetURL(Partage.lien("organiser"))
+            .widgetURL(Partage.lien(e.liste == "courses" ? "courses" : e.liste == "tout" ? "organiser" : "afaire"))
         } else {
             VueVide(e: e, f: f, titre: "À faire")
         }

@@ -39,7 +39,8 @@ struct ProcheEntity: AppEntity {
 struct ProcheQuery: EntityQuery {
     private func tous() -> [ProcheEntity] {
         guard Partage.branche, let etat = Memoire.etat() else { return [] }
-        return etat.autres.map { ProcheEntity(id: $0.id, nom: $0.n) }
+        // seulement les proches qui ont un téléphone : un bisou à quelqu'un sans téléphone, personne ne le voit
+        return etat.autres.filter { $0.tel }.map { ProcheEntity(id: $0.id, nom: $0.n) }
     }
 
     func entities(for identifiers: [String]) async throws -> [ProcheEntity] {
@@ -110,7 +111,7 @@ struct BisouAuProche: AppIntent {
     static var description = IntentDescription("Envoie un bisou au dernier proche qui a pensé à toi.")
 
     func perform() async throws -> some IntentResult {
-        guard let etat = await Source.etat(), let proche = etat.proche(nil) else { return .result() }
+        guard let etat = await Source.etat(), let proche = etat.proche(nil, avecTelephone: true) else { return .result() }
         await Action.faire("attention", ["a": proche.id, "k": "bisou"]) { local in
             local.envoi = Local.Envoi(a: proche.id, k: "bisou", le: Date().timeIntervalSince1970)
         }

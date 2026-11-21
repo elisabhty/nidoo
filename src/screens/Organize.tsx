@@ -11,6 +11,7 @@ import { Art, AuDessus, Avatar, Rond, Screen, Segments, Vide } from '../componen
 import { choc, select, success, tap } from '../lib/haptic'
 import { bravo, confettis } from '../lib/fete'
 import { useHome } from '../lib/store'
+import { useDemandeOrganiser } from '../lib/demandes'
 import type { EventKind, FamEvent, ListItem, ListKind } from '../lib/types'
 import { dayLabel, errorText, finDe, nextOccurrence, occursOn, repeteDe, rythme, timeLabel, todayKey } from '../lib/util'
 
@@ -812,6 +813,16 @@ export default function Organize() {
   const [vue, setVue] = useState<Vue>('liste')
   const [adding, setAdding] = useState<{ day?: Date; kind?: EventKind } | null>(null)
   const [open, setOpen] = useState<Ouvert | null>(null)
+  // un widget demande l'agenda (et la fiche d'un événement), les tâches ou les courses
+  useDemandeOrganiser((d) => {
+    setSeg(d.seg)
+    if (d.seg === 'agenda') setVue('liste')
+    const e = d.evt ? state.events.find((x) => x.id === d.evt) : undefined
+    if (e) {
+      setAdding(null)
+      setOpen({ e, at: nextOccurrence(e) })
+    }
+  })
 
   const start = new Date()
   start.setHours(0, 0, 0, 0)

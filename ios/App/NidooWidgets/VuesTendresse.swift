@@ -10,7 +10,7 @@ struct VueBisou: View {
     let f: WidgetFamily
 
     var body: some View {
-        if let etat = e.etat, let p = etat.proche(e.proche) {
+        if let etat = e.etat, let p = etat.proche(e.proche, avecTelephone: true) {
             Group {
                 if f == .accessoryCircular { cercle(p) } else { carre(etat, p) }
             }
@@ -58,11 +58,13 @@ struct VueBisou: View {
         return Button(intent: EnvoyerAttention(a: p.id, k: "bisou")) {
             ZStack {
                 AccessoryWidgetBackground()
+                // « Bisou » écrit dessus (Elisa, 21 novembre : « ça veut dire quoi ? »), puis « Envoyé »
                 VStack(spacing: 0) {
-                    Image(systemName: envoye ? "checkmark" : "heart.fill").font(.system(size: 17, weight: .bold))
+                    Image(systemName: envoye ? "checkmark" : "heart.fill").font(.system(size: 15, weight: .bold))
+                    Text(envoye ? "Envoyé" : "Bisou").font(.system(size: 9, weight: .heavy, design: .rounded)).textCase(.uppercase).lineLimit(1).minimumScaleFactor(0.6)
                     Text(p.n).font(.system(size: 10, weight: .semibold, design: .rounded)).lineLimit(1).minimumScaleFactor(0.6)
                 }
-                .padding(.horizontal, 5)
+                .padding(.horizontal, 6)
             }
         }
         .buttonStyle(.plain)
@@ -76,7 +78,7 @@ struct VueAttentions: View {
 
     var body: some View {
         if let etat = e.etat {
-            let cible = etat.proche(e.proche)
+            let cible = etat.proche(e.proche, avecTelephone: true)
             HStack(spacing: 12) {
                 recue(etat)
                 if let cible { reponse(cible) }
@@ -202,7 +204,8 @@ struct VueFamille: View {
                 .minimumScaleFactor(0.75)
         }
         .frame(maxWidth: .infinity)
-        if m.id == etat.moi {
+        // soi-même, ou un proche sans téléphone (il ne verrait pas le « je pense à toi ») : juste sa tête
+        if m.id == etat.moi || !m.tel {
             dessin
         } else {
             Button(intent: EnvoyerAttention(a: m.id, k: "coeur")) { dessin }.buttonStyle(.plain)

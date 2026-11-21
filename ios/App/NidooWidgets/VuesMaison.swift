@@ -85,7 +85,8 @@ struct Habitant: View {
             .frame(height: hauteur)
             .shadow(color: .black.opacity(0.12), radius: 2, y: 2)
         }
-        if m.id == moi {
+        // soi-même, ou un proche sans téléphone (il ne verrait pas le « je pense à toi ») : juste sa silhouette
+        if m.id == moi || !m.tel {
             dessin
         } else {
             Button(intent: EnvoyerAttention(a: m.id, k: "coeur")) { dessin }.buttonStyle(.plain)
