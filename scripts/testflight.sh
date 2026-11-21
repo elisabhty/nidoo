@@ -71,6 +71,8 @@ SORTIE="$PWD/ios/build"
 ARCHIVE="$SORTIE/NIDOO.xcarchive"
 
 echo "→ 1/4  L'appli web"
+# les modules à jour (un plugin ajouté depuis le dernier envoi, comme le clavier le 21 novembre)
+npm install --no-audit --no-fund --loglevel=error
 npm run build
 npx cap sync ios
 

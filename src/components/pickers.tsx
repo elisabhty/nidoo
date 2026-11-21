@@ -8,6 +8,8 @@ import { BLUSH, BOUCHES, CHEVEUX, labHex, LUNETTES, MONTURES, NEZ, nomPeau, peau
 import { COULEURS_MONTURE, FORMES_LUNETTES } from '../lib/lunettes'
 import { accPlace, accTop, CH, CW, GROUPS, PERSOS, persoOf, type Group, type Perso } from '../lib/persos'
 import { VISAGES } from '../lib/visages'
+import { PEAUX } from '../lib/peaux'
+import { noterFigurine, type Presentation } from '../lib/presentation'
 import type { HouseType } from '../lib/types'
 import { Character } from './Character'
 import House from './House'
@@ -18,6 +20,8 @@ function usePerso(avatar: string, setAvatar: (v: string) => void) {
   const look = lookOf(avatar)
   const mine = persoOf(look)
   const [group, setGroup] = useState<Group>(mine.g)
+  // la figurine change (proposée d'après l'accueil, ou choisie) : la galerie s'ouvre sur sa catégorie (une fillette : « Fille »)
+  useEffect(() => setGroup(mine.g), [mine.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const [zoom, setZoom] = useState(false)
   const set = (patch: Partial<Look>) => {
     select()
@@ -28,22 +32,30 @@ function usePerso(avatar: string, setAvatar: (v: string) => void) {
     set(patch)
     setZoom(true)
   }
+  // la taille, la silhouette : on voit le personnage en entier
+  const corps = (patch: Partial<Look>) => {
+    set(patch)
+    setZoom(false)
+  }
   // en changeant de figurine, on garde à peu près la même couleur de peau si on en avait choisi une
   const pick = (p: Perso, t?: number) => {
     const q = t ?? (look.q ? peauProche(p, skinLab(mine, look)) : 0)
     set({ k: PERSOS.indexOf(p) + 1, a: p.a, p: 0, q })
     setZoom(false)
   }
-  return { look, mine, group, setGroup, zoom, setZoom, set, tune, pick }
+  return { look, mine, group, setGroup, zoom, setZoom, set, tune, corps, pick }
 }
 type Perso_ = ReturnType<typeof usePerso>
 
-/** Le portrait : la figurine sur son fond. Un toucher alterne le zoom du visage et la vue entière. */
+/** Le cadre rond découpe vraiment ce qu'il contient, aussi sur iPhone : Safari laissait déborder du rond (clip-path)
+ *  la figurine pendant et après son zoom, parce qu'elle s'anime sur sa propre couche. Un masque sur le cadre la tient. */
+const DECOUPE_ROND = { WebkitMaskImage: '-webkit-radial-gradient(white, black)', maskImage: 'radial-gradient(white, black)', isolation: 'isolate' } as const
+
+/** Le portrait : la figurine dans son rond. Un toucher alterne le zoom du visage et la vue entière.
+ *  Elle tient toujours dans le rond : en entier (même à sa plus grande taille), ou zoomée sur le visage. */
 function Portrait({ ed, color, size = 206 }: { ed: Perso_; color: string; size?: number }) {
   const { look, mine, zoom } = ed
   const c = COLORS[color] ?? COLORS.lavande
-  // Un seul personnage, en pied : le zoom l'agrandit en douceur vers son visage (une transformation animée),
-  // au lieu de remplacer l'image par un portrait d'un coup.
   const R = CH / CW
   const [, , , , , bx0, by0, bs0] = mine.m
   const tete = porteA(look, 'T')
@@ -58,28 +70,31 @@ function Portrait({ ed, color, size = 206 }: { ed: Perso_; color: string; size?:
     bx -= extra / 2
   }
   const over = pl ? Math.max(0, -at) : 0
-  const wf = Math.min(size * 0.54 * (AGE_SCALE[look.a] ?? 1) * echelleTaille(look), size * 0.88 / (R * (1 + over)))
+  // le rond (diamètre D, posé à 5 % du bord) ; la figurine la plus grande (adulte, taille la plus grande) y tient,
+  // de 9 % à 92 % de sa hauteur : la taille et l'âge se voient, sans jamais dépasser
+  const D = size * 0.9
+  const hautMax = D * 0.83
+  const plusGrand = 1 + 4 * 0.035
+  const wf = Math.min((hautMax / (R * plusGrand)) * (AGE_SCALE[look.a] ?? 1) * echelleTaille(look), hautMax / (R * (1 + over)))
   const he = wf * R * (1 + over)
-  const left = (size - wf) / 2, top = size * 0.93 - he
+  const left = (D - wf) / 2, top = D * 0.92 - he
   const ox = (bx + bs / 2) * wf, oy = (R * over + by + bs / 2) * wf
-  const k = (size * 0.84) / (bs * wf)
-  const transform = zoom ? `translate(${size / 2 - (left + ox)}px, ${size * 0.51 - (top + oy)}px) scale(${k})` : 'none'
+  const k = (D * 0.92) / (bs * wf)
+  const transform = zoom ? `translate(${D / 2 - (left + ox)}px, ${D * 0.53 - (top + oy)}px) scale(${k})` : 'none'
   const doux = 'cubic-bezier(0.22, 0.8, 0.24, 1)'
   return (
     <div className="relative mx-auto shrink-0" style={{ width: size, height: size }}>
-      <span className="absolute inset-[5%] rounded-full" style={{ background: `radial-gradient(circle at 50% 35%, ${c.bg}, ${c.deep})` }} />
-      <span className="absolute bottom-[6%] left-1/2 h-[6%] w-[40%] -translate-x-1/2 rounded-[50%] bg-[#1d1a2b]/15 blur-[3px] transition-opacity duration-300" style={{ opacity: zoom ? 0 : 1 }} />
       <button
         onClick={() => {
           tap()
-          ed.setZoom(v => !v)
+          ed.setZoom((v) => !v)
         }}
-        className="absolute inset-0 block h-full w-full overflow-hidden"
-        // zoomé, le personnage est découpé dans le rond (le découpage s'anime avec lui)
-        style={{ clipPath: zoom ? 'circle(42% at 50% 51%)' : 'circle(75% at 50% 50%)', transition: `clip-path 0.45s ${doux}` }}
+        className="absolute left-[5%] top-[5%] block overflow-hidden rounded-full"
+        style={{ width: D, height: D, background: `radial-gradient(circle at 50% 35%, ${c.bg}, ${c.deep})`, ...DECOUPE_ROND }}
         aria-label={`${zoom ? 'Voir le personnage en entier' : 'Zoomer sur le personnage'} : ${mine.label}`}
         aria-pressed={zoom}
       >
+        <span className="absolute h-[5%] w-[34%] -translate-x-1/2 rounded-[50%] bg-[#1d1a2b]/15 blur-[3px] transition-opacity duration-300" style={{ left: '50%', top: D * 0.92 - D * 0.03, opacity: zoom ? 0 : 1 }} />
         <span
           className="absolute block"
           style={{ left, top, width: wf, transform, transformOrigin: `${ox}px ${oy}px`, transition: `transform 0.45s ${doux}, left 0.3s ${doux}, top 0.3s ${doux}, width 0.3s ${doux}` }}
@@ -88,7 +103,7 @@ function Portrait({ ed, color, size = 206 }: { ed: Perso_; color: string; size?:
         </span>
       </button>
       <button
-        onClick={() => { tap(); ed.setZoom(v => !v) }}
+        onClick={() => { tap(); ed.setZoom((v) => !v) }}
         aria-label={zoom ? 'Voir le personnage en entier' : 'Zoomer sur le visage'}
         aria-pressed={zoom}
         className="presse verre absolute bottom-0 right-0 flex h-11 w-11 items-center justify-center rounded-full text-teinte-fonce shadow-carte"
@@ -132,7 +147,7 @@ function Curseur({ label, gauche, droite, valeur, noms, onChange }: { label: str
 }
 
 /** Tout ce qu'on peut choisir : la figurine (par catégorie et couleur de peau), sa taille, les détails, le fond. */
-function PersoOptions({ ed, color, setColor, owned = [] }: { ed: Perso_; color: string; setColor: (v: string) => void; owned?: string[] }) {
+function PersoOptions({ ed, color, setColor, owned = [], pres }: { ed: Perso_; color: string; setColor: (v: string) => void; owned?: string[]; pres?: Presentation }) {
   const { look, mine, group, set, tune, pick } = ed
   const peaux = peauxDe(mine)
   const peau = peauOf(mine, look)
@@ -155,7 +170,11 @@ function PersoOptions({ ed, color, setColor, owned = [] }: { ed: Perso_; color: 
     const i = premieres[group].indexOf(p.id)
     return i < 0 ? premieres[group].length : i
   }
-  const list = PERSOS.filter((p) => p.g === group).sort((p, q) => priorite(p) - priorite(q) || Number(!!p.s) - Number(!!q.s) || p.t - q.t)
+  // à l'accueil, on a dit son âge, ses cheveux, sa peau : les figurines qui y ressemblent le plus viennent d'abord
+  const ressemblance = (p: Perso) => (pres ? noterFigurine(pres, p, PEAUX)?.score ?? -99 : 0)
+  const list = PERSOS.filter((p) => p.g === group).sort(
+    (p, q) => ressemblance(q) - ressemblance(p) || priorite(p) - priorite(q) || Number(!!p.s) - Number(!!q.s) || p.t - q.t,
+  )
   const galerie = useRef<HTMLDivElement>(null)
   const galerieId = useId()
   const [restants, setRestants] = useState(Math.max(0, list.length - 5))
@@ -225,14 +244,20 @@ function PersoOptions({ ed, color, setColor, owned = [] }: { ed: Perso_; color: 
 
   return (
     <>
-      <div className="mb-4" role="tablist" aria-label="Personnaliser le personnage">
-        <div className="flex rounded-full bg-remplissage p-1">
-          {([['personnage','Personnage'],['details','Détails'],['fond','Fond']] as const).map(([key,label]) => <button key={key} role="tab" aria-selected={section === key} aria-controls={`perso-panel-${galerieId}`} onClick={() => { tap(); setSection(key); if (key === 'details') ed.setZoom(true) }} className={`presse min-h-11 flex-1 rounded-full px-3 text-sous font-semibold ${section === key ? 'bg-carte text-encre shadow-carte' : 'text-brume'}`}>{label}</button>)}
-        </div>
+      <div className="mb-4" aria-label="Personnaliser le personnage">
+        <Segments
+          value={section}
+          onChange={(key) => {
+            setSection(key)
+            // les détails (cheveux, yeux, lunettes) se voient de près ; le reste, en entier
+            ed.setZoom(key === 'details')
+          }}
+          options={[{ key: 'personnage', label: 'Personnage' }, { key: 'details', label: 'Détails' }, { key: 'fond', label: 'Fond' }]}
+        />
       </div>
       <div id={`perso-panel-${galerieId}`} role="tabpanel" aria-label={section === 'personnage' ? 'Personnage' : section === 'details' ? 'Détails' : 'Fond'}>
       {section === 'personnage' && <>
-      <Segments value={group} onChange={(g) => (select(), ed.setGroup(g))} options={GROUPS} />
+      <Segments value={group} onChange={(g) => ed.setGroup(g)} options={GROUPS} />
 
       <div className="mb-2 mt-4 flex items-center justify-between px-1"><p className="text-sous font-semibold">Teint</p><span className="text-note text-brume">Aperçu en direct</span></div>
       <div className="flex flex-wrap gap-1" role="group" aria-label="Couleur de peau">
@@ -277,7 +302,7 @@ function PersoOptions({ ed, color, setColor, owned = [] }: { ed: Perso_; color: 
           droite="Plus grande"
           valeur={look.G || 5}
           noms={['Toute petite', 'Petite', 'Plutôt petite', 'Un peu petite', 'Moyenne', 'Un peu grande', 'Plutôt grande', 'Grande', 'Très grande']}
-          onChange={(v) => set({ G: v === 5 ? 0 : v })}
+          onChange={(v) => ed.corps({ G: v === 5 ? 0 : v })}
         />
         <Curseur
           label="Silhouette"
@@ -285,7 +310,7 @@ function PersoOptions({ ed, color, setColor, owned = [] }: { ed: Perso_; color: 
           droite="Tout en rondeur"
           valeur={look.L || 5}
           noms={['Très fine', 'Fine', 'Élancée', 'Un peu élancée', 'Équilibrée', 'Un peu ronde', 'Joliment ronde', 'Tout en rondeur', 'Bien en chair']}
-          onChange={(v) => set({ L: v === 5 ? 0 : v })}
+          onChange={(v) => ed.corps({ L: v === 5 ? 0 : v })}
         />
       </div>
 
@@ -470,7 +495,7 @@ export function ProfilePicker({ name, setName, avatar, setAvatar, color, setColo
 }
 
 /** Le premier écran du personnage : l'aperçu, le prénom, et les choix dans une fenêtre à part (l'aperçu y reste visible). */
-export function ProfileStep({ name, setName, avatar, setAvatar, color, setColor, placeholder = 'Ton prénom ou ton surnom', owned = [], sansNom = false }: ProfileProps & { sansNom?: boolean }) {
+export function ProfileStep({ name, setName, avatar, setAvatar, color, setColor, placeholder = 'Ton prénom ou ton surnom', owned = [], sansNom = false, pres }: ProfileProps & { sansNom?: boolean; pres?: Presentation }) {
   const ed = usePerso(avatar, setAvatar)
   const [open, setOpen] = useState(false)
   // la fenêtre s'ouvre par-dessus tout l'écran (data-feuilles), pas dans l'étape qui s'anime
@@ -495,7 +520,7 @@ export function ProfileStep({ name, setName, avatar, setAvatar, color, setColor,
             <Portrait ed={ed} color={color} size={156} />
           </div>
           <div className="pt-2">
-            <PersoOptions ed={ed} color={color} setColor={setColor} owned={owned} />
+            <PersoOptions ed={ed} color={color} setColor={setColor} owned={owned} pres={pres} />
           </div>
         </Sheet>,
         target,

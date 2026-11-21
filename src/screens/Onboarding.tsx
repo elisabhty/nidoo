@@ -9,16 +9,17 @@ import type { HouseType } from '../lib/types'
 import { encodeLook, lookOf, randomLook } from '../lib/look'
 import { PEAUX } from '../lib/peaux'
 import { PERSOS } from '../lib/persos'
-import { AGES, cheveuxPossibles, figurinePour, GENRES, TEINTS, type Presentation } from '../lib/presentation'
+import { persoImg } from '../lib/personnalise'
+import { AGES, cheveuxPossibles, figurinePour, GENRES, noterFigurine, TEINTS, type Age, type Genre, type Presentation } from '../lib/presentation'
 import { errorText, familyLabel } from '../lib/util'
 import { ONBOARDING as T } from '../lib/textes'
 
 /* L'accueil, dans l'esprit de celui de Requête (un panda qui parle dans une bulle, une question par écran,
    des cartes à choisir, l'étape en cours en haut), aux couleurs de Nidoo.
-   Premier passage : bonjour → prénom → ce qui t'amène → tes proches → créer ou rejoindre
+   Premier passage : bonjour → Panda se présente → prénom → qui es-tu → allure → ce qui t'amène → tes proches → créer ou rejoindre
    → (personnage, maison) ou (code, personnage) → connexion → invitation.
    Depuis Famille (« ajouter une maison ») : on va droit au choix, sans les questions ni la connexion. */
-type Step = 'bonjour' | 'prenom' | 'qui' | 'allure' | 'raison' | 'proches' | 'choix' | 'code' | 'perso' | 'maison' | 'connexion' | 'invite'
+type Step = 'bonjour' | 'panda' | 'prenom' | 'qui' | 'allure' | 'raison' | 'proches' | 'choix' | 'code' | 'perso' | 'maison' | 'connexion' | 'invite'
 
 const RAISONS = [
   { key: 'lien', label: 'Garder le lien avec mes proches éloignés', Icon: Heart, fond: '#FFE6EE', encre: '#D23F72' },
@@ -39,6 +40,16 @@ const PROCHES = [
 ] as const
 
 const PANDA = (humeur: string) => `./art/stickers/panda-${humeur}.webp`
+
+// « Qui es-tu ? » : une tête par réponse, et pour chaque âge une figurine du bon genre (elles changent avec lui)
+const TETES: Record<Genre, string[]> = { femme: ['f03'], homme: ['h02'], neutre: ['f06', 'h03'] }
+const PAR_AGE: Record<Genre, Record<Age, string>> = {
+  femme: { enfant: 'fi1', ado: 'fa1', jeune: 'f01', adulte: 'f03', senior: 'gf1' },
+  homme: { enfant: 'gi1', ado: 'ga1', jeune: 'h01', adulte: 'h02', senior: 'gm1' },
+  neutre: { enfant: 'fi3', ado: 'ga2', jeune: 'f06', adulte: 'h03', senior: 'gf2' },
+}
+const TAILLE_AGE: Record<Age, number> = { enfant: 0.74, ado: 0.88, jeune: 1, adulte: 1, senior: 0.97 }
+const AGE_COURT: Record<Age, string> = { enfant: 'Moins de 12 ans', ado: '12 à 17 ans', jeune: '18 à 34 ans', adulte: '35 à 59 ans', senior: '60 ans et plus' }
 
 /** Une tête de personnage, recadrée dans la figurine entière. */
 function Tete({ id, size = 34 }: { id: string; size?: number }) {
@@ -103,15 +114,23 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
     heading?.focus({ preventScroll: true })
   }, [step])
 
-  // En arrivant au personnage : la figurine qui ressemble à ce qu'on a dit (une seule fois par réponses données).
-  const cleProposition = JSON.stringify(pres)
+  // Les images de l'accueil, chargées d'avance : chaque écran arrive entier (pas de panda ni de figurine qui apparaît après).
   useEffect(() => {
-    if (step !== 'perso' || cleProposition === '{}' || propose.current === cleProposition) return
-    propose.current = cleProposition
-    const f = figurinePour(pres, PERSOS, PEAUX)
-    if (f) setAvatar((v) => encodeLook({ ...lookOf(v), k: f.k, a: f.a, q: f.q, x: f.x, p: 0 }))
-  }, [step, cleProposition, pres])
-
+    for (const h of ['heureux', 'motive', 'amour', 'fete']) new Image().src = PANDA(h)
+    for (const id of new Set([...Object.values(TETES).flat(), ...PROCHES.flatMap((p) => p.persos)])) new Image().src = `./art/persos/${id}.webp`
+  }, [])
+  // …et les figurines qui ressemblent le plus à ce qu'on vient de dire
+  useEffect(() => {
+    if (!pres.genre && !pres.age) return
+    const t = window.setTimeout(() => {
+      PERSOS.map((f) => ({ f, n: noterFigurine(pres, f, PEAUX) }))
+        .filter((x) => x.n)
+        .sort((a, b) => b.n!.score - a.n!.score)
+        .slice(0, 3)
+        .forEach(({ f, n }) => (new Image().src = persoImg(f, n!.q)))
+    }, 250)
+    return () => window.clearTimeout(t)
+  }, [pres])
   // Invité par un lien : on montre tout de suite la maison qui l'attend.
   useEffect(() => {
     if (!invite || urlCode.length !== 6) return
@@ -120,15 +139,23 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
 
   // Le parcours, selon qu'on crée ou qu'on rejoint
   const flow = useMemo<Step[]>(() => {
-    const debut: Step[] = onCancel ? ['choix'] : invite ? ['bonjour', 'prenom', 'qui', 'allure'] : ['bonjour', 'prenom', 'qui', 'allure', 'raison', 'proches', 'choix']
+    const debut: Step[] = onCancel ? ['choix'] : invite ? ['bonjour', 'panda', 'prenom', 'qui', 'allure'] : ['bonjour', 'panda', 'prenom', 'qui', 'allure', 'raison', 'proches', 'choix']
     const suite: Step[] = path === 'rejoindre' ? ['code', 'perso'] : ['perso', 'maison']
     return [...debut, ...suite, ...(onCancel ? [] : ['connexion' as Step])]
   }, [onCancel, invite, path])
-  const etapes: Step[] = flow.filter((s) => s !== 'bonjour')
+  const etapes: Step[] = flow.filter((s) => s !== 'bonjour' && s !== 'panda')
   const rang = etapes.indexOf(step) + 1
   const minutes = Math.max(1, Math.ceil((etapes.length - rang + 1) / 3))
   const aller = (s: Step) => {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+    // en arrivant au personnage : la figurine qui ressemble à ce qu'on a dit (une fois par réponses données),
+    // choisie avant d'afficher l'écran — pas une figurine au hasard remplacée sous les yeux
+    const cle = JSON.stringify(pres)
+    if (s === 'perso' && cle !== '{}' && propose.current !== cle) {
+      propose.current = cle
+      const f = figurinePour(pres, PERSOS, PEAUX)
+      if (f) setAvatar((v) => encodeLook({ ...lookOf(v), k: f.k, a: f.a, q: f.q, x: f.x, p: 0 }))
+    }
     setStep(s)
   }
   const suivant = () => {
@@ -233,8 +260,11 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
 
   const prenom = name.trim()
   const header = step !== 'bonjour' && step !== 'invite'
+  const compte = step !== 'connexion' && step !== 'panda'
   const pied = (() => {
     switch (step) {
+      case 'panda':
+        return { label: 'C’est parti', ok: true, go: suivant }
       case 'prenom':
         return { label: 'Continuer', ok: !!prenom, go: suivant }
       case 'qui':
@@ -263,14 +293,14 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
   })()
 
   return (
-    <div data-feuilles className="ob relative flex h-full flex-col" style={{ paddingTop: 'var(--sat)' }}>
+    <div data-feuilles data-fond-clavier="#5132B4" className="ob relative flex h-full flex-col" style={{ paddingTop: 'var(--sat)' }}>
       {header && (
         <div className="shrink-0 px-5">
           <div className="flex h-[48px] items-center">
             <button onClick={back} className="presse -ml-2 flex h-11 min-w-[88px] items-center gap-0.5 pr-2 text-appel font-bold text-white" aria-label={rang <= 1 && onCancel ? 'Annuler' : 'Retour'}>
               <ChevronLeft size={24} strokeWidth={2.6} /> {rang <= 1 && onCancel ? 'Annuler' : 'Retour'}
             </button>
-            {step !== 'connexion' && (
+            {compte && (
               <>
                 <p className="flex-1 text-center text-note font-bold text-white/85">
                   Étape {rang} sur {etapes.length}
@@ -279,7 +309,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
               </>
             )}
           </div>
-          {step !== 'connexion' && (
+          {compte && (
             <div className="ob-traits mt-1" style={{ gridTemplateColumns: `repeat(${etapes.length}, 1fr)` }} aria-hidden="true">
               {etapes.map((s, i) => (
                 <i key={s} className={i + 1 < rang ? 'fait' : i + 1 === rang ? 'ici' : ''} />
@@ -307,14 +337,14 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
               <div className="rounded-[28px] bg-white p-5 text-encre shadow-xl">
                 <h2 className="text-center font-rond text-titre2">Connexion</h2>
                 <p className="mt-1 text-center text-note text-brume">Entre librement pour découvrir Nidoo.</p>
-                <button className="ob-cta violet mt-5" onClick={() => { tap(); aller('prenom') }}>
+                <button className="ob-cta violet mt-5" onClick={() => { tap(); aller('panda') }}>
                   Commencer <ChevronRight size={20} strokeWidth={2.8} />
                 </button>
                 <p className="my-3 text-center text-mini text-brume">Les connexions arrivent bientôt</p>
                 <div className="grid grid-cols-3 gap-2">
                   {['Apple', 'Google', 'E-mail'].map((service) => (
                     <button key={service} type="button" className="presse flex min-h-[52px] items-center justify-center gap-1.5 rounded-[16px] border border-[#E4DFF3] px-2 text-note font-semibold"
-                      onClick={() => { tap(); toast(`La connexion avec ${service} arrive bientôt. Tu peux déjà découvrir Nidoo.`); aller('prenom') }}>
+                      onClick={() => { tap(); toast(`La connexion avec ${service} arrive bientôt. Tu peux déjà découvrir Nidoo.`); aller('panda') }}>
                       {service === 'E-mail' && <Mail size={16} />} {service}
                     </button>
                   ))}
@@ -324,11 +354,40 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
             </div>
           )}
 
+          {step === 'panda' && (
+            <div className="flex flex-1 flex-col items-center text-center">
+              <div className="mt-5"><Titre avant="Coucou, moi c’est " mot="Panda" apres=" !" /></div>
+              <div className="relative mt-4 flex h-[176px] w-[176px] items-center justify-center">
+                <span className="absolute inset-0 rounded-full bg-white/[0.12]" aria-hidden="true" />
+                <span className="absolute inset-5 rounded-full bg-white/[0.10]" aria-hidden="true" />
+                <img src={PANDA('heureux')} alt="" width={140} height={140} className="ob-salut relative h-[140px] w-[140px] drop-shadow-[0_10px_16px_rgba(30,10,90,0.4)]" />
+              </div>
+              <p className="ob-bulle queue-haut mt-4 max-w-[340px] !text-center text-[17px] leading-[23px]">
+                Je vais t’accompagner pour préparer ta maison de famille. Quelques questions, et on s’y met&nbsp;!
+              </p>
+              <ul className="mt-6 grid w-full max-w-[360px] gap-2.5 text-left" aria-label="Ce qu’on va faire ensemble">
+                {([
+                  { Icon: Smile, texte: 'Ton personnage, qui te ressemble', fond: '#FFF4D6', encre: '#B07A00' },
+                  { Icon: HouseIcon, texte: 'Votre maison, à décorer ensemble', fond: '#EEE8FC', encre: '#6646CC' },
+                  { Icon: Heart, texte: 'Tes proches, invités avec un code', fond: '#FFE6EE', encre: '#D23F72' },
+                ] as const).map(({ Icon, texte, fond, encre }, i) => (
+                  <li key={texte} className="ob-etape flex items-center gap-3 rounded-[16px] bg-white/[0.14] px-3.5 py-2.5 text-[15px] font-bold ring-[1.5px] ring-inset ring-white/25" style={{ animationDelay: `${0.15 + i * 0.09}s` }}>
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px]" style={{ background: fond, color: encre }}>
+                      <Icon size={19} strokeWidth={2.4} />
+                    </span>
+                    {texte}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-4 text-note font-semibold text-white/75">Ça prend à peine deux minutes.</p>
+            </div>
+          )}
+
           {step === 'prenom' && (
             <form className="flex flex-1 flex-col" noValidate onSubmit={(e) => (e.preventDefault(), prenom && suivant())}>
               <div className="mt-4"><Titre avant="Faisons " mot="connaissance" apres="." /></div>
               <p className="ob-sous mt-2 text-center">Quelques questions rapides pour préparer votre petit chez-vous.</p>
-              <Panda>Coucou ! Comment tes proches t’appellent&#8209;ils ?</Panda>
+              <Panda>Pour commencer : comment tes proches t’appellent&#8209;ils ?</Panda>
               <label htmlFor="ob-prenom" className="mb-1.5 mt-6 px-1 text-sous font-bold text-white">Ton prénom ou ton surnom</label>
               <input
                 id="ob-prenom"
@@ -348,22 +407,49 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
             <div className="flex flex-1 flex-col">
               <div className="mt-4"><Titre avant="Qui " mot="es-tu" apres=" ?" /></div>
               <p className="ob-sous mt-2 text-center">Pour te proposer un personnage qui te ressemble.</p>
-              <Panda>{prenom ? `Enchanté, ${prenom} ! Dis-m’en un peu plus.` : 'Enchanté ! Dis-m’en un peu plus.'}</Panda>
-              <p id="ob-genre" className="mb-2 mt-6 px-1 text-sous font-bold">Tu es</p>
-              <div className="flex flex-wrap gap-2" role="group" aria-labelledby="ob-genre">
+              <Panda humeur={pres.genre && pres.age ? 'fete' : 'heureux'}>
+                {pres.genre && pres.age ? 'Parfait ! J’ai déjà une petite idée…' : prenom ? `Enchanté, ${prenom} ! Dis-m’en un peu plus.` : 'Enchanté ! Dis-m’en un peu plus.'}
+              </Panda>
+              <p id="ob-genre" className="mb-2.5 mt-6 px-1 text-sous font-bold">Tu es</p>
+              <div className="grid grid-cols-3 gap-2.5" role="group" aria-labelledby="ob-genre">
                 {GENRES.map((g) => (
-                  <button key={g.key} type="button" className="ob-puce" aria-pressed={pres.genre === g.key} onClick={() => (select(), setPres((p) => ({ ...p, genre: g.key })))}>
-                    {g.label}
+                  <button
+                    key={g.key}
+                    type="button"
+                    className="ob-carte flex-col !gap-2 !px-1.5 !pb-2.5 !pt-3"
+                    aria-pressed={pres.genre === g.key}
+                    aria-label={g.label}
+                    onClick={() => (select(), setPres((p) => ({ ...p, genre: g.key })))}
+                  >
+                    <span className="flex h-[52px] items-center justify-center">
+                      {TETES[g.key].map((id, k) => (
+                        <span key={id} style={{ marginLeft: k ? -12 : 0 }}><Tete id={id} size={TETES[g.key].length > 1 ? 42 : 52} /></span>
+                      ))}
+                    </span>
+                    <span className="text-[14px] leading-[17px]">{g.key === 'neutre' ? 'Je préfère ne pas dire' : g.label}</span>
                   </button>
                 ))}
               </div>
-              <p id="ob-age" className="mb-2 mt-6 px-1 text-sous font-bold">Ton âge</p>
-              <div className="grid grid-cols-2 gap-2" role="group" aria-labelledby="ob-age">
-                {AGES.map((g, i) => (
-                  <button key={g.key} type="button" className={`ob-puce ${i === AGES.length - 1 ? 'col-span-2' : ''}`} aria-pressed={pres.age === g.key} onClick={() => (select(), setPres((p) => ({ ...p, age: g.key, cheveux: p.cheveux && cheveuxPossibles({ ...p, age: g.key }).some((c) => c.key === p.cheveux) ? p.cheveux : undefined })))}>
-                    {g.label}
-                  </button>
-                ))}
+              <p id="ob-age" className="mb-2.5 mt-6 px-1 text-sous font-bold">Ton âge</p>
+              <div className="grid grid-cols-5 gap-1.5" role="group" aria-labelledby="ob-age">
+                {AGES.map((g) => {
+                  const id = PAR_AGE[pres.genre ?? 'neutre'][g.key]
+                  return (
+                    <button
+                      key={g.key}
+                      type="button"
+                      className="ob-carte flex-col !justify-end !gap-1.5 !px-0.5 !pb-2 !pt-2"
+                      aria-pressed={pres.age === g.key}
+                      aria-label={g.label}
+                      onClick={() => (select(), setPres((p) => ({ ...p, age: g.key, cheveux: p.cheveux && cheveuxPossibles({ ...p, age: g.key }).some((c) => c.key === p.cheveux) ? p.cheveux : undefined })))}
+                    >
+                      <span className="flex h-[92px] w-full items-end justify-center">
+                        <img key={id} src={`./art/persos/${id}.webp`} alt="" draggable={false} className="ob-age-perso block w-auto select-none" style={{ height: `${TAILLE_AGE[g.key] * 92}px` }} />
+                      </span>
+                      <span className="text-[11.5px] leading-[14px]">{AGE_COURT[g.key]}</span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
           )}
@@ -523,7 +609,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
               <p className="ob-sous mb-4 mt-2 text-center">
                 {propose.current ? `Voilà ton personnage${prenom ? `, ${prenom}` : ''} ! Change-le si tu veux, quand tu veux.` : `${prenom ? `À quoi tu ressembles, ${prenom} ? ` : ''}Tu pourras le changer quand tu veux.`}
               </p>
-              <ProfileStep name={name} setName={setName} avatar={avatar} setAvatar={setAvatar} color={color} setColor={setColor} sansNom />
+              <ProfileStep name={name} setName={setName} avatar={avatar} setAvatar={setAvatar} color={color} setColor={setColor} sansNom pres={pres} />
               {onCancel && (
                 <>
                   <label htmlFor="ob-prenom" className="mb-1.5 mt-5 px-1 text-sous font-bold text-white">Ton prénom ou ton surnom</label>

@@ -156,6 +156,33 @@ export function cachedSrc(key: string) {
   return done.get(key)
 }
 
+/** Les environs des sourcils du masque (7 px autour), pour les retrouver sur une autre peau de la figurine. */
+function autourDesSourcils(m: Uint8ClampedArray, W: number, H: number): Uint8Array {
+  const r = 7
+  const a = new Uint8Array(W * H), b = new Uint8Array(W * H)
+  for (let i = 0; i < W * H; i++) {
+    const c = m[i * 4 + 2]
+    a[i] = c > 60 && c < 110 ? 1 : 0
+  }
+  for (let y = 0; y < H; y++) {
+    let n = 0
+    for (let x = -r; x < W; x++) {
+      if (x + r < W) n += a[y * W + x + r]
+      if (x - r - 1 >= 0) n -= a[y * W + x - r - 1]
+      if (x >= 0) b[y * W + x] = n > 0 ? 1 : 0
+    }
+  }
+  for (let x = 0; x < W; x++) {
+    let n = 0
+    for (let y = -r; y < H; y++) {
+      if (y + r < H) n += b[(y + r) * W + x]
+      if (y - r - 1 >= 0) n -= b[(y - r - 1) * W + x]
+      if (y >= 0) a[y * W + x] = n > 0 ? 1 : 0
+    }
+  }
+  return a
+}
+
 export function renderPerso(p: Perso, look: Look): Promise<string> {
   const key = pixelKey(p, look)
   const t = peauOf(p, look)
@@ -205,13 +232,24 @@ export function renderPerso(p: Perso, look: Look): Promise<string> {
     const ha = v.ha, ir = v.ir
     // les cheveux sombres qui deviennent clairs gagnent du relief, et inversement
     const hs = hT && ha ? Math.max(0.55, Math.min(2.4, (hT[0] + 10) / (ha[0] + 10))) : 1
+    // sur une autre peau, les sourcils ne sont pas tout à fait là où le masque (fait sur la figurine de départ) les place :
+    // on les cherche autour, à leur couleur (celle des cheveux, pas celle de la peau) — sinon un sourcil restait blond
+    const autour = t && hT && ha ? autourDesSourcils(m, W, H) : null
+    const sk = autour ? skinLab(p, look) : null
     for (let i = 0; i < d.length; i += 4) {
       if (d[i + 3] < 8) continue
       const wh = m[i + 1] / 255, cls = m[i + 2]
       const iris = cls > 230
       const brow = cls > 60 && cls < 110
       const wHair = hT ? wh : 0
-      const wBrow = hT && brow ? 0.85 : 0
+      let wBrow = hT && brow ? 0.85 : 0
+      if (autour && sk && ha && autour[i >> 2] && wh < 0.5) {
+        const [L, A, B] = rgb2lab(d[i], d[i + 1], d[i + 2])
+        const dH = Math.hypot((L - ha[0]) * 0.6, A - ha[1], B - ha[2])
+        const dS = Math.hypot((L - sk[0]) * 0.6, A - sk[1], B - sk[2])
+        const garde = Math.max(0, Math.min(1, (26 - Math.hypot(A - ha[1], B - ha[2])) / 9))
+        wBrow = 0.85 * garde * Math.max(0, Math.min(1, (dS - dH) / 6 + 0.5)) * (1 - wh)
+      }
       const wEye = eT && iris ? 1 : 0
       if (!wHair && !wEye && !wBrow) continue
       const [L, A, B] = rgb2lab(d[i], d[i + 1], d[i + 2])

@@ -54,56 +54,76 @@ export function cheveuxPossibles(pr: Presentation): typeof CHEVEUX {
 }
 
 /**
- * La figurine la plus ressemblante : d'abord le bon âge et le bon genre, puis les cheveux, les lunettes, la peau.
- * Renvoie son numéro (k, à partir de 1), sa taille (a), l'image de peau à prendre (q, 0 : la sienne)
- * et la couleur des cheveux si on doit les reteindre (x, 0 : les siens).
- * `hasard` (entre 0 et 1) départage deux figurines aussi ressemblantes.
+ * Combien une figurine ressemble à ce qu'on a dit (sans hasard) : `null` si elle n'est pas du bon âge ou du bon genre.
+ * Avec l'image de peau à prendre (q, 0 : la sienne) et la couleur des cheveux si on doit les reteindre (x, 0 : les siens).
  */
-export function figurinePour(pr: Presentation, figurines: Fig[], peaux: AutresPeaux, hasard: () => number = Math.random): { k: number; a: number; q: number; x: number } | null {
+export function noterFigurine(pr: Presentation, f: Fig, peaux: AutresPeaux): { score: number; q: number; x: number } | null {
   const filles = pr.genre === 'homme' ? [] : ['fille']
   const garcons = pr.genre === 'femme' ? [] : ['garcon']
   const groupes =
     pr.age === 'enfant' || pr.age === 'ado'
       ? [...filles, ...garcons]
       : [...(pr.genre === 'homme' ? [] : ['femme']), ...(pr.genre === 'femme' ? [] : ['homme'])]
+  if (pr.age && !groupes.includes(f.g)) return null
+  if (!pr.age && pr.genre && !(pr.genre === 'femme' ? ['femme', 'fille'] : pr.genre === 'homme' ? ['homme', 'garcon'] : [f.g]).includes(f.g)) return null
+  if (f.g === 'bebe') return null
+  let score = 0
+  // l'âge
+  if (pr.age === 'enfant') score += f.a === 2 ? 6 : -6
+  else if (pr.age === 'ado') score += f.a === 1 ? 6 : -6
+  else if (pr.age === 'senior') score += f.s ? 6 : -4
+  else if (pr.age) score += f.s ? -6 : 2
+  // les cheveux : ceux de la figurine, sinon on les reteint (x : numéro dans CHEVEUX de personnalise.ts, à partir de 1)
+  let x = 0
+  if (pr.cheveux) {
+    if (f.c === pr.cheveux) score += 5
+    else if (pr.cheveux === 'chauve' && f.c === 'gris') score += 1
+    else if (pr.cheveux === 'voile' || f.c === 'voile' || pr.cheveux === 'chauve' || f.c === 'chauve') score -= 6
+    else {
+      x = TEINTURE[pr.cheveux] ?? 0
+      score += 2
+    }
+  } else if (f.c === 'voile' || f.c === 'chauve') score -= 1.5
+  // les lunettes
+  if (pr.lunettes !== undefined) score += !!f.l === pr.lunettes ? 2.5 : -1.5
+  // la peau : la sienne, ou une autre image de la même figurine
+  let q = 0
+  if (pr.teint !== undefined) {
+    if (f.t === pr.teint) score += 3
+    else {
+      const autre = (peaux[f.id] ?? []).find((x) => x.b === pr.teint)
+      if (autre) {
+        q = autre.t
+        score += 2.4
+      } else score -= Math.abs(f.t - pr.teint) * 1.5
+    }
+  }
+  return { score, q, x }
+}
+
+/** Le groupe de la galerie (femme, fille…) qui va avec ce qu'on a dit, s'il n'y en a qu'un. */
+export function groupePour(pr: Presentation): string | null {
+  if (!pr.age) return pr.genre === 'femme' ? 'femme' : pr.genre === 'homme' ? 'homme' : null
+  const enfant = pr.age === 'enfant' || pr.age === 'ado'
+  if (pr.genre === 'femme') return enfant ? 'fille' : 'femme'
+  if (pr.genre === 'homme') return enfant ? 'garcon' : 'homme'
+  return null
+}
+
+/**
+ * La figurine la plus ressemblante : d'abord le bon âge et le bon genre, puis les cheveux, les lunettes, la peau.
+ * Renvoie son numéro (k, à partir de 1), sa taille (a), l'image de peau à prendre (q, 0 : la sienne)
+ * et la couleur des cheveux si on doit les reteindre (x, 0 : les siens).
+ * `hasard` (entre 0 et 1) départage deux figurines aussi ressemblantes.
+ */
+export function figurinePour(pr: Presentation, figurines: Fig[], peaux: AutresPeaux, hasard: () => number = Math.random): { k: number; a: number; q: number; x: number } | null {
   let meilleur: { k: number; a: number; q: number; x: number; score: number } | null = null
   for (let i = 0; i < figurines.length; i++) {
     const f = figurines[i]
-    if (pr.age && !groupes.includes(f.g)) continue
-    if (!pr.age && pr.genre && !(pr.genre === 'femme' ? ['femme', 'fille'] : pr.genre === 'homme' ? ['homme', 'garcon'] : [f.g]).includes(f.g)) continue
-    if (f.g === 'bebe') continue
-    let score = hasard() * 0.6
-    // l'âge
-    if (pr.age === 'enfant') score += f.a === 2 ? 6 : -6
-    else if (pr.age === 'ado') score += f.a === 1 ? 6 : -6
-    else if (pr.age === 'senior') score += f.s ? 6 : -4
-    else if (pr.age) score += f.s ? -6 : 2
-    // les cheveux : ceux de la figurine, sinon on les reteint (x : numéro dans CHEVEUX de personnalise.ts, à partir de 1)
-    let x = 0
-    if (pr.cheveux) {
-      if (f.c === pr.cheveux) score += 5
-      else if (pr.cheveux === 'chauve' && f.c === 'gris') score += 1
-      else if (pr.cheveux === 'voile' || f.c === 'voile' || pr.cheveux === 'chauve' || f.c === 'chauve') score -= 6
-      else {
-        x = TEINTURE[pr.cheveux] ?? 0
-        score += 2
-      }
-    } else if (f.c === 'voile' || f.c === 'chauve') score -= 1.5
-    // les lunettes
-    if (pr.lunettes !== undefined) score += !!f.l === pr.lunettes ? 2.5 : -1.5
-    // la peau : la sienne, ou une autre image de la même figurine
-    let q = 0
-    if (pr.teint !== undefined) {
-      if (f.t === pr.teint) score += 3
-      else {
-        const autre = (peaux[f.id] ?? []).find((x) => x.b === pr.teint)
-        if (autre) {
-          q = autre.t
-          score += 2.4
-        } else score -= Math.abs(f.t - pr.teint) * 1.5
-      }
-    }
-    if (!meilleur || score > meilleur.score) meilleur = { k: i + 1, a: f.a, q, x, score }
+    const n = noterFigurine(pr, f, peaux)
+    if (!n) continue
+    const score = n.score + hasard() * 0.6
+    if (!meilleur || score > meilleur.score) meilleur = { k: i + 1, a: f.a, q: n.q, x: n.x, score }
   }
   return meilleur && { k: meilleur.k, a: meilleur.a, q: meilleur.q, x: meilleur.x }
 }

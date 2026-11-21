@@ -173,7 +173,7 @@ export function Sheet({ title, onClose, children, tall = false, footer }: { titl
       <div
         ref={panel}
         tabIndex={-1}
-        className={`ios-sheet anim-monte relative outline-none flex flex-col rounded-t-feuille bg-fond ${tall ? 'h-[92%]' : 'max-h-[92%]'}`}
+        className={`ios-sheet anim-monte relative outline-none flex flex-col rounded-t-feuille bg-fond text-encre ${tall ? 'h-[92%]' : 'max-h-[92%]'}`}
         style={{ paddingBottom: 'calc(var(--sab) + 14px)', transform: dy ? `translateY(${dy}px)` : undefined, transition: start.current === null ? 'transform 0.35s var(--ressort)' : 'none' }}
       >
         <div

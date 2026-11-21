@@ -1,4 +1,32 @@
+import { Capacitor } from '@capacitor/core'
+import { Keyboard, KeyboardResize } from '@capacitor/keyboard'
 import { useEffect, useState } from 'react'
+
+/** Dans l'appli iPhone, le clavier est géré comme dans Requête (13 novembre ; Elisa, 21 novembre : « ça bug au niveau
+ *  du clavier et il y a des flashs ») : la vue de l'appli ne change plus de taille ni ne défile quand il s'ouvre
+ *  (mode « none », défilement coupé). C'est l'appli qui se cale au-dessus de lui dès qu'il s'annonce, une seule fois,
+ *  et suit son mouvement (0,26 s, la courbe du clavier d'iOS) : plus de saut en deux temps, plus d'image de travers.
+ *  Sous le clavier, la couleur du bas de l'écran (le violet de l'accueil). */
+const NATIF = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios'
+
+export function preparerClavier() {
+  if (!NATIF) return
+  document.documentElement.classList.add('natif')
+  Keyboard.setResizeMode({ mode: KeyboardResize.None }).catch(() => undefined)
+  Keyboard.setScroll({ isDisabled: true }).catch(() => undefined)
+}
+
+/** La couleur du bas de l'écran, à mettre sous le clavier. */
+function fondDuBas(): string {
+  const el = document.elementFromPoint(window.innerWidth / 2, window.innerHeight - 4)
+  const marque = el?.closest<HTMLElement>('[data-fond-clavier]')
+  if (marque) return marque.dataset.fondClavier!
+  for (let n: Element | null = el; n; n = n.parentElement) {
+    const c = getComputedStyle(n).backgroundColor
+    if (c && c !== 'transparent' && !/rgba\(.*,\s*0\)$/.test(c)) return c
+  }
+  return '#F8F7FC'
+}
 
 /** La zone qui défile autour d'un élément (pas la page entière). */
 function zoneDe(el: Element | null): HTMLElement | null {
@@ -40,7 +68,46 @@ function montrer(el: Element | null) {
 export function useKeyboardViewport() {
   const [keyboard, setKeyboard] = useState(false)
   const [decale, setDecale] = useState(false)
+  // l'appli iPhone : le clavier s'annonce (sa hauteur), l'appli se cale au-dessus de lui
   useEffect(() => {
+    if (!NATIF) return
+    const root = document.documentElement
+    let ouvert = false
+    let zone: HTMLElement | null = null
+    let fin = 0
+    const montre = Keyboard.addListener('keyboardWillShow', ({ keyboardHeight }) => {
+      window.clearTimeout(fin)
+      if (!ouvert) root.style.setProperty('--fond-clavier', fondDuBas())
+      ouvert = true
+      zone = zoneDe(document.activeElement)
+      root.classList.add('kb-ouvert')
+      root.style.setProperty('--app-height', `${window.innerHeight - Math.max(0, Math.round(keyboardHeight))}px`)
+      setKeyboard(true)
+      // le champ, bien visible au-dessus du clavier, une fois l'appli calée
+      window.setTimeout(() => montrer(document.activeElement), 280)
+    })
+    const cache = Keyboard.addListener('keyboardWillHide', () => {
+      ouvert = false
+      root.style.setProperty('--app-height', `${window.innerHeight}px`)
+      setKeyboard(false)
+      const box = zone
+      fin = window.setTimeout(() => {
+        if (ouvert) return
+        root.classList.remove('kb-ouvert')
+        root.style.removeProperty('--app-height')
+        recaler(box)
+      }, 300)
+    })
+    return () => {
+      window.clearTimeout(fin)
+      void montre.then((h) => h.remove())
+      void cache.then((h) => h.remove())
+      root.classList.remove('kb-ouvert')
+      root.style.removeProperty('--app-height')
+    }
+  }, [])
+  useEffect(() => {
+    if (NATIF) return
     const viewport = window.visualViewport
     if (!viewport) return
     let frame = 0
