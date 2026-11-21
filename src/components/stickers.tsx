@@ -1,4 +1,4 @@
-import { Check, RotateCw, X } from 'lucide-react'
+import { Check, ChevronRight, RotateCw, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { CADRES, peindreCadre } from '../lib/cadres'
 import { FILTRES, type FiltreKey } from '../lib/filtres'
@@ -247,6 +247,19 @@ export function StickerImg({ cle, className, style }: { cle: string; className?:
 export function StickerTray({ onPick, onClose, start }: { onPick: (key: string, t?: string, c?: number) => void; onClose: () => void; start?: string }) {
   const [cat, setCat] = useState(start ?? CATS[0].key)
   const [, bump] = useState(0)
+  const piles = useRef<HTMLDivElement>(null)
+  const [plus, setPlus] = useState(true)
+  const voirPlus = () => {
+    const r = piles.current
+    if (r) setPlus(r.scrollWidth - r.scrollLeft - r.clientWidth > 6)
+  }
+  useEffect(() => {
+    // la pile choisie au départ (« fete ») se montre
+    const r = piles.current
+    const b = r?.querySelector<HTMLElement>('[aria-pressed="true"]')
+    if (r && b && b.offsetLeft + b.offsetWidth > r.clientWidth - 48) r.scrollLeft = b.offsetLeft - 8
+    voirPlus()
+  }, [])
   const items = CATS.find((c) => c.key === cat)?.items ?? []
   const mots = cat === 'mots'
   // le mot qu'on écrit soi-même, et sa couleur
@@ -262,9 +275,16 @@ export function StickerTray({ onPick, onClose, start }: { onPick: (key: string, 
   }
   return (
     <div className="anim-fondu mt-3 rounded-[22px] bg-carte p-2.5 shadow-carte">
-      <div className="flex items-center gap-2">
-        {/* un fondu à droite : on voit qu'il y a d'autres catégories en faisant glisser */}
-        <div className="no-bar -ml-1 flex flex-1 gap-1.5 overflow-x-auto px-1 py-0.5 pr-6" style={{ maskImage: 'linear-gradient(to right, #000 85%, transparent)', WebkitMaskImage: 'linear-gradient(to right, #000 85%, transparent)' }}>
+      {/* en haut : le titre et « Fermer » en rond avec une croix (Elisa, 21 novembre) */}
+      <div className="mb-2 flex items-center justify-between pl-1.5">
+        <p className="text-sous font-bold text-encre">Stickers</p>
+        <button onClick={() => (tap(), onClose())} aria-label="Fermer les stickers" className="presse flex h-8 w-8 items-center justify-center rounded-full bg-doux text-encre/70">
+          <X size={15} strokeWidth={2.8} />
+        </button>
+      </div>
+      {/* les piles : une flèche qui fait signe tant qu'il y en a d'autres à droite (elle les fait défiler) */}
+      <div className="relative">
+        <div ref={piles} onScroll={voirPlus} className="no-bar relative -ml-1 flex gap-1.5 overflow-x-auto px-1 py-0.5 pr-12">
           {CATS.map((c) => (
             <button
               key={c.key}
@@ -273,15 +293,19 @@ export function StickerTray({ onPick, onClose, start }: { onPick: (key: string, 
                 setCat(c.key)
               }}
               aria-pressed={cat === c.key}
-              className={`h-9 shrink-0 rounded-full px-3.5 text-note font-semibold transition-colors ${cat === c.key ? 'bg-teinte text-white' : 'bg-remplissage text-encre'}`}
+              className={`presse choix-pop h-9 shrink-0 rounded-full px-3.5 text-note font-semibold transition-colors ${cat === c.key ? 'bg-teinte text-white' : 'bg-doux text-encre'}`}
             >
               {c.label}
             </button>
           ))}
         </div>
-        <button onClick={onClose} className="h-9 shrink-0 rounded-full px-2 text-note font-semibold text-teinte-fonce">
-          Fermer
-        </button>
+        {plus && (
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pl-8" style={{ background: 'linear-gradient(to right, rgba(255,255,255,0), #fff 45%)' }}>
+            <button onClick={() => (tap(), piles.current?.scrollBy({ left: 160, behavior: 'smooth' }))} aria-label="Voir les autres piles de stickers" className="presse pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full bg-teinte-doux text-teinte-fonce">
+              <ChevronRight size={17} strokeWidth={2.8} className="fleche-signe" />
+            </button>
+          </div>
+        )}
       </div>
       {mots && (
         <div className="mt-2 rounded-[16px] bg-fond p-2">
