@@ -1,4 +1,4 @@
-import { Check, ChevronRight, Heart, Lock, PenLine, TriangleAlert } from 'lucide-react'
+import { Check, ChevronRight, Frown, Heart, Hourglass, Lock, PenLine } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { FOOD, LOVE, nextStage, PET_COST, petStage, SHOP, shopItem, SPECIES, type Shop } from '../lib/data'
 import { success, tap, warn } from '../lib/haptic'
@@ -88,13 +88,9 @@ function Adopt() {
       <div className="groupe mt-5">
         <Row icon={<Heart size={22} className="text-[#E77BA0]" fill="#E77BA0" />} text="Chaque repas, caresse, friandise et partie de jeu lui donne de l’amour : il grandit, de bébé à adulte." />
         <Row icon={<BagIcon size={26} />} text={`Il mange les croquettes de la maison, un repas par jour. ${state.family.food ? `Il en reste ${state.family.food}.` : `Un sac de ${FOOD.meals} repas coûte ${FOOD.cost} étoiles.`}`} />
-        <Row icon={<Art name="lit-panier" size={28} />} text="Son coin, ses jeux et ses vêtements s’achètent à l’animalerie du centre commercial." last />
-      </div>
-      <div className="mt-3 flex gap-3 rounded-[18px] bg-[#FDECEC] px-4 py-3">
-        <TriangleAlert size={20} strokeWidth={2.3} className="mt-0.5 shrink-0 text-rouge" />
-        <p className="text-sous text-encre">
-          <span className="font-semibold">S’il est oublié</span>, il est triste dès le lendemain, puis déprime. Au 4e jour sans manger, il s’en va : son amour part avec lui et les {PET_COST} étoiles ne sont pas rendues.
-        </p>
+        <Row icon={<Art name="lit-panier" size={28} />} text="Son coin, ses jeux et ses vêtements s’achètent à l’animalerie du centre commercial." />
+        {/* ce qui arrive si on l'oublie : dans la liste, sans cadre rouge (Elisa, 21 novembre) */}
+        <Row icon={<Hourglass size={21} strokeWidth={2.2} className="text-brume" />} text={`S’il est oublié, il est triste dès le lendemain, puis déprime. Au 4e jour sans manger, il s’en va : son amour part avec lui et les ${PET_COST} étoiles ne sont pas rendues.`} last />
       </div>
 
       <Btn
@@ -299,8 +295,8 @@ function PetView({ pet, onShop }: { pet: Pet; onShop: (shop: Shop) => void }) {
       </div>
 
       {mood !== 'bien' && (
-        <div className="mt-3 flex gap-3 rounded-[18px] bg-[#FDECEC] px-4 py-3">
-          <TriangleAlert size={20} strokeWidth={2.3} className="mt-0.5 shrink-0 text-rouge" />
+        <div className="mt-3 flex gap-3 rounded-[18px] bg-peche-doux px-4 py-3">
+          <Frown size={20} strokeWidth={2.3} className="mt-0.5 shrink-0 text-peche-fonce" />
           <p className="text-sous">{mood === 'deprime' ? `${pet.name} déprime : deux jours sans manger. Demain, il s’en va.` : `${pet.name} est triste : il n’a pas mangé hier.`}</p>
         </div>
       )}

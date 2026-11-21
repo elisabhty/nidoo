@@ -48,6 +48,37 @@ export function bravo(el?: Element | null) {
   canon()({ particleCount: 34, spread: 88, startVelocity: 23, ticks: 95, gravity: 0.9, scalar: 0.82, decay: 0.9, origin: depuis(el), colors: COULEURS, shapes: ['circle', 'square'] })
 }
 
+/** Les petits émojis de chaque humeur (Elisa, 21 novembre : « des émojis en micro au lieu des cœurs, selon
+ *  l'humeur ») et leur façon de bouger : la joie jaillit, le zen flotte, la fatigue monte en « zzz », le coup de mou
+ *  tombe en pluie… */
+const HUMEURS: Record<string, { emojis: string[]; tir: confetti.Options }> = {
+  heureux: { emojis: ['☀️', '✨', '😄'], tir: { spread: 75, startVelocity: 22, gravity: 0.7, ticks: 110 } },
+  serein: { emojis: ['🍃', '🌿', '🫧'], tir: { spread: 100, startVelocity: 9, gravity: 0.22, drift: 0.4, ticks: 170 } },
+  motive: { emojis: ['⚡', '🔥', '💪'], tir: { spread: 55, startVelocity: 28, gravity: 0.9, ticks: 100 } },
+  fete: { emojis: ['🎉', '🎊', '🥳'], tir: { spread: 90, startVelocity: 25, gravity: 0.75, ticks: 120 } },
+  fatigue: { emojis: ['💤', '😴', '🌙'], tir: { spread: 40, startVelocity: 7, gravity: -0.18, drift: 0.25, ticks: 160, angle: 90 } },
+  stresse: { emojis: ['💦', '😬', '🌀'], tir: { spread: 140, startVelocity: 16, gravity: 0.8, ticks: 90 } },
+  nostalgique: { emojis: ['🍂', '💭', '📷'], tir: { spread: 80, startVelocity: 10, gravity: 0.35, drift: -0.4, ticks: 170 } },
+  triste: { emojis: ['🌧️', '💧', '☁️'], tir: { spread: 50, startVelocity: 5, gravity: 0.9, ticks: 120, angle: 270 } },
+}
+const formesEmoji = new Map<string, confetti.Shape>()
+function formeDe(e: string): confetti.Shape | null {
+  try {
+    if (!formesEmoji.has(e)) formesEmoji.set(e, confetti.shapeFromText({ text: e, scalar: 2.2 }))
+    return formesEmoji.get(e)!
+  } catch {
+    return null
+  }
+}
+/** Les émojis d'une humeur qui partent d'un élément (une humeur choisie, puis partagée : n plus grand). */
+export function humeurEnVol(el: Element | null | undefined, humeur: string, n = 7) {
+  if (calme()) return
+  const h = HUMEURS[humeur]
+  if (!h) return coeurs(el, n)
+  const shapes = h.emojis.map(formeDe).filter((x): x is confetti.Shape => !!x)
+  canon()({ particleCount: n, decay: 0.92, scalar: 1.7, flat: true, origin: depuis(el), ...h.tir, shapes: shapes.length ? shapes : ['circle'] })
+}
+
 /** Des cœurs qui s'envolent d'un élément (un proche choisi, le panda caressé, un bisou). */
 export function coeurs(el?: Element | null, n = 9) {
   if (calme()) return

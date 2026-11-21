@@ -3,7 +3,7 @@ import { forwardRef, memo, useEffect, useMemo, useRef, useState } from 'react'
 import { rebond } from '../lib/rebond'
 import { moodOf, MOODS, THOUGHTS, thoughtOf } from '../lib/data'
 import { Smiley } from './Smiley'
-import { coeurs, confettis } from '../lib/fete'
+import { coeurs, confettis, humeurEnVol } from '../lib/fete'
 import { feel, select, success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
 import { partagerTexte } from '../lib/share'
@@ -41,7 +41,7 @@ export function MoodSheet({ onClose, member }: { onClose: () => void; member?: M
     setBusy(false)
     if (ok) {
       success()
-      if (mood) coeurs(null, 14)
+      if (mood) humeurEnVol(null, mood, 16)
       onClose()
     }
   }
@@ -57,14 +57,15 @@ export function MoodSheet({ onClose, member }: { onClose: () => void; member?: M
               key={m.key}
               onClick={(e) => {
                 select()
-                if (!on) coeurs(e.currentTarget, 6)
+                if (!on) humeurEnVol(e.currentTarget, m.key, 7)
+                rebond(e.currentTarget.querySelector('[data-smiley]'))
                 setMood(on ? null : m.key)
               }}
               aria-pressed={on}
               className={`presse flex flex-col items-center gap-1 rounded-[20px] pb-2.5 pt-2 ${on ? 'bg-teinte-doux ring-2 ring-teinte' : 'bg-carte'}`}
             >
               <span className="flex h-14 w-14 items-center justify-center">
-                <span key={on ? 'on' : 'off'} className={on ? 'saut' : ''}><Smiley mood={m.key} size={44} /></span>
+                <span data-smiley className="inline-flex"><Smiley mood={m.key} size={44} /></span>
               </span>
               <span className={`text-legende ${on ? 'font-semibold text-teinte-fonce' : 'font-medium text-encre'}`}>{m.label}</span>
             </button>
@@ -792,7 +793,7 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
             </div>
           </div>
         </div>
-        {stickersOpen && <div className="anim-entre mt-4"><StickerTray start="fete" onClose={() => setStickersOpen(false)} onPick={key => {setSticker(key);setStickersOpen(false)}} /><button onClick={() => {setSticker(null);setStickersOpen(false)}} className="mt-1 min-h-11 px-1 text-sous font-semibold text-teinte-fonce">Revenir à l’image de départ</button></div>}
+        {stickersOpen && <div className="anim-entre mt-4"><StickerTray start="fete" onClose={() => setStickersOpen(false)} onPick={key => {setSticker(key);setStickersOpen(false)}} /><button onClick={() => {setSticker(null);setStickersOpen(false)}} className="mt-1 min-h-11 px-1 text-sous font-semibold text-teinte-fonce">Revenir à l’image initiale</button></div>}
         {birthday && sansAnniv.length > 0 && (
           <div className="mt-4">
             <p className="mb-0.5 px-0.5 text-note font-semibold text-brume">Dans la famille</p>

@@ -10,7 +10,6 @@ export const ChampLieu = memo(function ChampLieu({ value, onChange, placeholder,
   const [choisi, setChoisi] = useState(false)
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [cherche, setCherche] = useState(false)
-  const [eclat, setEclat] = useState(0)
   const champ = useRef<HTMLInputElement>(null)
   // ouvert depuis la fiche d'un événement : le clavier vient tout de suite (après l'arrivée du champ)
   useEffect(() => {
@@ -41,21 +40,47 @@ export const ChampLieu = memo(function ChampLieu({ value, onChange, placeholder,
     }
   }, [value, focus, choisi])
 
+  const cadre = useRef<HTMLDivElement>(null)
   const prendre = (texte: string) => {
     select()
     onChange(texte)
     setChoisi(true)
     setSuggestions([])
-    setEclat((n) => n + 1)
+    // le champ s'éclaire (sans être recréé : sur iPhone, le recréer pendant la saisie perdait le toucher)
+    cadre.current?.animate?.([{ boxShadow: '0 0 0 3px rgba(112, 80, 213, 0.4)', transform: 'scale(1.015)' }, { boxShadow: '0 0 0 3px rgba(112, 80, 213, 0)', transform: 'none' }], { duration: 900, easing: 'ease-out' })
     champ.current?.blur()
   }
-  const garder = (e: React.PointerEvent) => e.preventDefault() // toucher une suggestion ne ferme pas le clavier avant de la prendre
+  // Toucher une adresse la met dans le champ (Elisa, 21 novembre : « quand on clique sur une adresse ça ne la met
+  // pas ») : on la prend dès qu'on lève le doigt (un vrai toucher, pas un glissé), sans attendre le « clic » d'iOS,
+  // qui se perdait quand le clavier se fermait. On peut toujours faire défiler la liste en glissant dessus.
+  const garder = (e: React.PointerEvent) => e.preventDefault() // effacer garde le clavier
+  const appui = useRef<{ x: number; y: number } | null>(null)
+  const pris = useRef(0)
+  const toucher = (texte: string) => ({
+    onPointerDown: (e: React.PointerEvent) => {
+      appui.current = { x: e.clientX, y: e.clientY }
+    },
+    onPointerUp: (e: React.PointerEvent) => {
+      const a = appui.current
+      appui.current = null
+      if (!a || Math.hypot(e.clientX - a.x, e.clientY - a.y) > 12) return
+      pris.current = Date.now()
+      prendre(texte)
+    },
+    onPointerCancel: () => {
+      appui.current = null
+    },
+    // le clavier ou un lecteur d'écran : le clic seul (pas deux fois après un toucher)
+    onClick: () => {
+      if (Date.now() - pris.current > 700) prendre(texte)
+    },
+  })
   const deja = recents.filter((r) => r.trim().toLowerCase() !== value.trim().toLowerCase()).slice(0, 6)
   const Icone = ({ s }: { s: Suggestion }) => (s.genre === 'lieu' ? <Store size={17} strokeWidth={2.3} /> : s.genre === 'ville' ? <Building2 size={17} strokeWidth={2.3} /> : <MapPin size={17} strokeWidth={2.3} />)
 
   return (
     <div>
-      <div key={eclat} className={`flex items-center gap-2.5 rounded-[14px] bg-doux pl-3.5 pr-1 transition-shadow focus-within:shadow-[0_0_0_2px_rgba(112,80,213,0.35)] ${eclat ? 'lieu-choisi' : ''}`}>
+      <div ref={cadre} className="flex items-center gap-2.5 rounded-[14px] bg-doux pl-3.5 pr-1 transition-shadow focus-within:shadow-[0_0_0_2px_rgba(112,80,213,0.35)]">
         <MapPin size={18} className="shrink-0 text-teinte" />
         <input
           ref={champ}
@@ -68,7 +93,8 @@ export const ChampLieu = memo(function ChampLieu({ value, onChange, placeholder,
             onChange(e.target.value)
           }}
           onFocus={() => setFocus(true)}
-          onBlur={() => setFocus(false)}
+          // la liste reste un instant après avoir quitté le champ : le toucher en cours peut encore la prendre
+          onBlur={() => window.setTimeout(() => document.activeElement !== champ.current && setFocus(false), 250)}
           enterKeyHint="done"
           autoComplete="street-address"
           aria-label="Lieu"
@@ -87,7 +113,7 @@ export const ChampLieu = memo(function ChampLieu({ value, onChange, placeholder,
           <p className="mb-1.5 flex items-center gap-1 px-1 text-note font-semibold text-brume"><Clock size={13} /> Déjà utilisés</p>
           <div className="flex flex-wrap gap-1.5">
             {deja.map((r, i) => (
-              <button key={r} type="button" onPointerDown={garder} onClick={() => prendre(r)} className="presse anim-pop max-w-full truncate rounded-full bg-doux px-3 py-2 text-note font-semibold text-encre" style={{ animationDelay: `${i * 35}ms` }}>
+              <button key={r} type="button" {...toucher(r)} className="presse anim-pop max-w-full truncate rounded-full bg-doux px-3 py-2 text-note font-semibold text-encre" style={{ animationDelay: `${i * 35}ms` }}>
                 {r}
               </button>
             ))}
@@ -104,8 +130,7 @@ export const ChampLieu = memo(function ChampLieu({ value, onChange, placeholder,
               type="button"
               role="option"
               aria-selected={false}
-              onPointerDown={garder}
-              onClick={() => prendre(s.texte)}
+              {...toucher(s.texte)}
               className="presse-ligne ligne-arrive-pop flex w-full items-center gap-3 pl-4 text-left"
               style={{ animationDelay: `${i * 40}ms` }}
             >
