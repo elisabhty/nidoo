@@ -614,6 +614,19 @@ html.natif.kb-ouvert, html.natif.kb-ouvert body { background: var(--fond-clavier
 .ligne-arrive-pop { animation: ligneArrivePop 0.45s cubic-bezier(0.3, 1.5, 0.5, 1) both; }
 @keyframes ligneArrivePop { 0% { transform: translateY(-8px) scale(0.97); opacity: 0; } 100% { transform: none; } }
 @media (prefers-reduced-motion: reduce) { .ligne-arrive, .ligne-arrive-pop { animation: none; } }
+/* un lieu choisi dans la liste : le champ s'éclaire */
+.lieu-choisi { animation: lieuChoisi 0.9s ease-out; }
+@keyframes lieuChoisi { 0% { box-shadow: 0 0 0 3px rgba(47, 111, 214, 0.45); transform: scale(1.015); } 100% { box-shadow: 0 0 0 3px rgba(47, 111, 214, 0); transform: none; } }
+/* trois petits points qui attendent */
+.points-attente { display: inline-flex; gap: 3px; }
+.points-attente i { width: 5px; height: 5px; border-radius: 99px; background: currentColor; animation: pointAttente 1s ease-in-out infinite; }
+.points-attente i:nth-child(2) { animation-delay: 0.15s; }
+.points-attente i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes pointAttente { 0%, 80%, 100% { opacity: 0.25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+/* la fiche d'un événement : l'image flotte doucement, les boutons rebondissent */
+.flotte-doux { animation: flotteDoux 4s ease-in-out infinite; }
+@keyframes flotteDoux { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-4px) rotate(-2deg); } }
+@media (prefers-reduced-motion: reduce) { .lieu-choisi, .points-attente i, .flotte-doux { animation: none; } }
 /* un rond qui se coche : il gonfle puis se pose (en vague avec « Tout sélectionner ») */
 .coche-saut { animation: cocheSaut 0.42s cubic-bezier(0.3, 1.6, 0.5, 1) both; }
 @keyframes cocheSaut { 0% { transform: scale(0.4); } 60% { transform: scale(1.22); } 100% { transform: none; } }

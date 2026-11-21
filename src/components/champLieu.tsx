@@ -1,0 +1,125 @@
+import { Building2, Clock, MapPin, Store, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { chercherAdresses, type Suggestion } from '../lib/adresses'
+import { select, tap } from '../lib/haptic'
+
+/** Le lieu d'un événement : en tapant, une liste d'adresses et de lieux (gratuite) ; champ vide, les lieux déjà utilisés
+ *  par la famille. Un toucher sur une suggestion la met dans le champ. */
+export function ChampLieu({ value, onChange, placeholder, recents }: { value: string; onChange: (v: string) => void; placeholder: string; recents: string[] }) {
+  const [focus, setFocus] = useState(false)
+  const [choisi, setChoisi] = useState(false)
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
+  const [cherche, setCherche] = useState(false)
+  const [eclat, setEclat] = useState(0)
+  const champ = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    const q = value.trim()
+    if (!focus || choisi || q.length < 3) {
+      setSuggestions([])
+      setCherche(false)
+      return
+    }
+    const ctrl = new AbortController()
+    setCherche(true)
+    const t = window.setTimeout(() => {
+      chercherAdresses(q, ctrl.signal)
+        .then((s) => {
+          if (!ctrl.signal.aborted) setSuggestions(s)
+        })
+        .finally(() => !ctrl.signal.aborted && setCherche(false))
+    }, 280)
+    return () => {
+      ctrl.abort()
+      window.clearTimeout(t)
+    }
+  }, [value, focus, choisi])
+
+  const prendre = (texte: string) => {
+    select()
+    onChange(texte)
+    setChoisi(true)
+    setSuggestions([])
+    setEclat((n) => n + 1)
+    champ.current?.blur()
+  }
+  const garder = (e: React.PointerEvent) => e.preventDefault() // toucher une suggestion ne ferme pas le clavier avant de la prendre
+  const deja = recents.filter((r) => r.trim().toLowerCase() !== value.trim().toLowerCase()).slice(0, 6)
+  const Icone = ({ s }: { s: Suggestion }) => (s.genre === 'lieu' ? <Store size={17} strokeWidth={2.3} /> : s.genre === 'ville' ? <Building2 size={17} strokeWidth={2.3} /> : <MapPin size={17} strokeWidth={2.3} />)
+
+  return (
+    <div>
+      <div key={eclat} className={`groupe flex items-center gap-3 px-4 shadow-carte ${eclat ? 'lieu-choisi' : ''}`}>
+        <MapPin size={19} className="shrink-0 text-[#2F6FD6]" />
+        <input
+          ref={champ}
+          className="h-[54px] min-w-0 flex-1 bg-transparent text-corps outline-none placeholder:text-brume"
+          placeholder={placeholder}
+          maxLength={200}
+          value={value}
+          onChange={(e) => {
+            setChoisi(false)
+            onChange(e.target.value)
+          }}
+          onFocus={() => setFocus(true)}
+          onBlur={() => setFocus(false)}
+          enterKeyHint="done"
+          autoComplete="street-address"
+          aria-label="Lieu"
+          aria-autocomplete="list"
+        />
+        {value && (
+          <button type="button" onPointerDown={garder} onClick={() => (tap(), onChange(''), setChoisi(false), champ.current?.focus())} aria-label="Effacer le lieu" className="presse -mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-brume">
+            <X size={16} strokeWidth={2.6} />
+          </button>
+        )}
+      </div>
+
+      {/* champ vide : les lieux déjà utilisés par la famille */}
+      {focus && !value.trim() && deja.length > 0 && (
+        <div className="anim-entre mt-2">
+          <p className="mb-1.5 flex items-center gap-1 px-1 text-note font-semibold text-brume"><Clock size={13} /> Déjà utilisés</p>
+          <div className="flex flex-wrap gap-1.5">
+            {deja.map((r, i) => (
+              <button key={r} type="button" onPointerDown={garder} onClick={() => prendre(r)} className="presse anim-pop max-w-full truncate rounded-full bg-carte px-3 py-2 text-note font-semibold text-encre ring-1 ring-inset ring-trait" style={{ animationDelay: `${i * 35}ms` }}>
+                {r}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* en tapant : adresses et lieux */}
+      {focus && !choisi && value.trim().length >= 3 && (cherche || suggestions.length > 0) && (
+        <div className="anim-entre groupe mt-2 overflow-hidden shadow-carte" role="listbox" aria-label="Suggestions de lieux">
+          {suggestions.map((s, i) => (
+            <button
+              key={s.texte}
+              type="button"
+              role="option"
+              aria-selected={false}
+              onPointerDown={garder}
+              onClick={() => prendre(s.texte)}
+              className="presse-ligne ligne-arrive-pop flex w-full items-center gap-3 pl-4 text-left"
+              style={{ animationDelay: `${i * 40}ms` }}
+            >
+              <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${s.genre === 'lieu' ? 'bg-peche-doux text-peche-fonce' : 'bg-[#E3F0FF] text-[#2F6FD6]'}`}>
+                <Icone s={s} />
+              </span>
+              <span className={`min-w-0 flex-1 py-2.5 pr-4 ${i < suggestions.length - 1 ? 'border-b border-trait' : ''}`}>
+                <span className="block truncate text-corps">{s.titre}</span>
+                {s.detail && <span className="block truncate text-note text-brume">{s.detail}</span>}
+              </span>
+            </button>
+          ))}
+          {cherche && !suggestions.length && (
+            <p className="flex items-center gap-2 px-4 py-3 text-note text-brume">
+              <span className="points-attente" aria-hidden="true"><i /><i /><i /></span> Je cherche…
+            </p>
+          )}
+          {suggestions.length > 0 && <p className="border-t border-trait px-4 py-1.5 text-mini text-pale">Adresses : Géoplateforme (IGN) · Lieux : © OpenStreetMap</p>}
+        </div>
+      )}
+    </div>
+  )
+}

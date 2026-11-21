@@ -8,6 +8,7 @@ import { useHome } from '../lib/store'
 import { partagerTexte } from '../lib/share'
 import { ouvrirLieu } from '../lib/plans'
 import { useLienTaches } from '../lib/lienTaches'
+import { ChampLieu } from './champLieu'
 import type { EventKind, FamEvent, Member, Sticker, ThoughtKind } from '../lib/types'
 import { chargerImage, photoFinale, vignettesFiltres, type FiltreKey } from '../lib/filtres'
 import { MAX_STICKERS } from '../lib/stickers'
@@ -597,6 +598,8 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
   const [lieu, setLieu] = useState(event?.lieu ?? '')
   const [who, setWho] = useState<string[]>(event?.members ?? [])
   const birthday = kind === 'anniversaire'
+  // les lieux déjà utilisés par la famille (les plus récents d'abord), proposés quand le champ est vide
+  const lieuxConnus = [...new Set([...state.events].sort((a, b) => b.starts_at.localeCompare(a.starts_at)).map((e) => e.lieu?.trim()).filter((x): x is string => !!x))]
   const changeKind = (k: EventKind) => {
     setKind(k)
     if (k === 'rdv') setJournee(false)
@@ -806,7 +809,7 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
 
       {/* Où */}
       {titreSection(MapPin, 'Où ?', '#E3F0FF', '#2F6FD6', <span className="text-note text-brume">facultatif</span>)}
-      <div className="groupe flex items-center gap-3 px-4 shadow-carte"><MapPin size={19} className="shrink-0 text-[#2F6FD6]" /><input className="h-[54px] min-w-0 flex-1 bg-transparent text-corps outline-none placeholder:text-brume" placeholder={LIEU_EXEMPLE[kind] ?? 'Où ?'} maxLength={200} value={lieu} onChange={e => setLieu(e.target.value)} aria-label="Lieu" /></div>
+      <ChampLieu value={lieu} onChange={setLieu} placeholder={LIEU_EXEMPLE[kind] ?? 'Où ?'} recents={lieuxConnus} />
 
       {/* Avec qui */}
       {titreSection(Users, 'Avec qui ?', '#E3F6EC', '#14955A', <span className="text-note text-brume">{who.length ? `${who.length} personne${who.length > 1 ? 's' : ''}` : 'toute la famille'}</span>)}
@@ -821,21 +824,23 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
 
 /** Un bouton rond de la fiche d'un événement, comme sur une fiche de contact. */
 function ActionEvt({ icone: I, label, onClick, href }: { icone: typeof CalendarPlus; label: string; onClick?: () => void; href?: string }) {
+  // l'icône rebondit à chaque toucher (Elisa, 21 novembre : « mettre des interactions »)
+  const [n, setN] = useState(0)
   const cls = 'presse flex min-w-0 flex-col items-center gap-1.5 rounded-[18px] bg-carte px-1 pb-2.5 pt-3 text-note font-semibold text-teinte-fonce shadow-carte'
   const dedans = (
     <>
-      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-teinte-doux">
+      <span key={n} className={`flex h-10 w-10 items-center justify-center rounded-full bg-teinte-doux ${n ? 'saut' : ''}`}>
         <I size={19} strokeWidth={2.4} />
       </span>
       <span className="w-full truncate text-center">{label}</span>
     </>
   )
   return href ? (
-    <a href={href} target="_blank" rel="noopener noreferrer" className={cls} onClick={() => tap()}>
+    <a href={href} target="_blank" rel="noopener noreferrer" className={cls} onClick={() => (tap(), setN((x) => x + 1))}>
       {dedans}
     </a>
   ) : (
-    <button type="button" className={cls} onClick={() => (tap(), onClick?.())}>
+    <button type="button" className={cls} onClick={() => (tap(), setN((x) => x + 1), onClick?.())}>
       {dedans}
     </button>
   )
@@ -853,11 +858,15 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
   const peutLier = useLienTaches(api, state.items)
   const taches = state.items.filter((i) => i.kind === 'tache' && i.event_id === ev.id)
   const [nouvelle, setNouvelle] = useState('')
+  const [arrivee, setArrivee] = useState('')
+  const [touchees, setTouchees] = useState<string[]>([])
   const ajouterTache = async () => {
     const t = nouvelle.trim().slice(0, 80)
     if (!t) return
     setNouvelle('')
     tap()
+    setArrivee(t)
+    window.setTimeout(() => setArrivee((a) => (a === t ? '' : a)), 1600)
     if (!(await run((a) => a.addItem(state.family.id, state.me.id, 'tache', t, null, ev.id)))) setNouvelle(t)
   }
   const at = nextOccurrence(ev) // recalculé : la date a pu être modifiée
@@ -905,6 +914,7 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
     <Sheet title={KINDS.find((k) => k.key === ev.kind)?.label ?? 'Événement'} onClose={onClose}>
       <div className="flex flex-col items-center pt-1 text-center">
         <span className="anim-pop relative">
+          <span className="flotte-doux block">
           {fete ? (
             <>
               <Avatar m={fete} size={88} mood />
@@ -917,12 +927,13 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
               <EventIcon event={ev} size={60} />
             </span>
           )}
+          </span>
         </span>
         <p className="mt-3 break-words px-2 font-rond text-titre2 leading-tight">{titreCalendrier(ev)}</p>
         <p className="mt-1 px-2 text-sous text-brume">{quand}</p>
         {(soon || ev.yearly || ev.weekly) && (
           <span className="mt-2 flex flex-wrap justify-center gap-1.5">
-            {soon && <span className="rounded-full bg-peche-doux px-2.5 py-1 text-legende font-bold text-peche-fonce">{soon}</span>}
+            {soon && <span className="anim-pop rounded-full bg-peche-doux px-2.5 py-1 text-legende font-bold text-peche-fonce" style={{ animationDelay: '160ms' }}>{soon}</span>}
             {(ev.yearly || ev.weekly) && (
               <span className="flex items-center gap-1 rounded-full bg-remplissage px-2.5 py-1 text-legende font-semibold text-brume">
                 <Repeat size={12} strokeWidth={2.6} /> {ev.yearly ? 'Chaque année' : rythme(ev, at)}
@@ -977,8 +988,20 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
             {taches.map((t) => {
               const qui = state.members.find((m) => m.id === t.assigned_to)
               return (
-                <button key={t.id} type="button" onClick={() => (t.done ? tap() : success(), void run((a) => a.toggleItem(t, state.me.id)))} aria-pressed={t.done} className="presse-ligne flex w-full items-center gap-3 pl-4 text-left">
-                  <span className={`flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full ${t.done ? 'bg-teinte text-white' : 'border-2 border-pale'}`}>{t.done && <Check size={14} strokeWidth={3.2} className="anim-pop" />}</span>
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => {
+                    if (t.done) tap()
+                    else success()
+                    setTouchees((x) => (x.includes(t.id) ? x : [...x, t.id]))
+                    // coché tout de suite à l'écran, enregistré en arrière-plan
+                    void run((a) => a.toggleItem(t, state.me.id), undefined, (st) => ({ ...st, items: st.items.map((x) => (x.id === t.id ? { ...x, done: !x.done, done_by: x.done ? null : st.me.id } : x)) }))
+                  }}
+                  aria-pressed={t.done}
+                  className={`presse-ligne flex w-full items-center gap-3 pl-4 text-left ${t.title === arrivee ? 'ligne-arrive-pop ligne-arrive' : ''}`}
+                >
+                  <span key={String(t.done)} className={`flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full ${t.done ? 'coche-saut bg-teinte text-white' : `${touchees.includes(t.id) ? 'coche-retire' : ''} border-2 border-pale`}`}>{t.done && <Check size={14} strokeWidth={3.2} />}</span>
                   <span className={`flex min-h-[48px] min-w-0 flex-1 items-center gap-2 border-b border-trait py-2 pr-4 text-corps ${t.done ? 'text-pale line-through' : ''}`}>
                     <span className="min-w-0 flex-1">{t.title}</span>
                     {qui && <Avatar m={qui} size={24} />}
