@@ -69,11 +69,27 @@ function zoneDe(el: Element | null): HTMLElement | null {
 /** Quand le clavier se ferme, la zone qui défile grandit d'autant ; Safari garde parfois l'ancienne position,
  *  au-delà du bas : on voit alors un grand vide sous le contenu (et la barre d'écriture au milieu de l'écran).
  *  On la ramène dans les limites, et la page entière à sa place. */
+// Le doigt est sur l'écran (on fait défiler une liste) : on ne touche à rien, sinon la liste saute sous le doigt
+// (Elisa, 21 novembre : « quand on cherche et qu'on fait défiler la liste, ça commence à sauter »).
+let doigtPose = false
+let dernierDefile = 0
+if (typeof window !== 'undefined') {
+  window.addEventListener('touchstart', () => (doigtPose = true), { passive: true, capture: true })
+  const leve = () => {
+    doigtPose = false
+  }
+  window.addEventListener('touchend', leve, { passive: true, capture: true })
+  window.addEventListener('touchcancel', leve, { passive: true, capture: true })
+  window.addEventListener('scroll', () => (dernierDefile = Date.now()), { passive: true, capture: true })
+}
+// (un simple toucher, pour écrire dans un champ, ne compte pas : seul un vrai défilement, ou son élan)
+const onDefile = () => (doigtPose && Date.now() - dernierDefile < 400) || Date.now() - dernierDefile < 250
+
 function recaler(box: HTMLElement | null) {
-  if (box) {
+  // seulement s'il reste un vide sous le contenu, et jamais pendant qu'on fait défiler (l'élan continue)
+  if (box && !onDefile()) {
     const max = Math.max(0, box.scrollHeight - box.clientHeight)
     if (box.scrollTop > max) box.scrollTop = max
-    else box.scrollTop = box.scrollTop // force Safari à recalculer
   }
   if (window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || (window.visualViewport?.offsetTop ?? 0) > 1) {
     window.scrollTo(0, 0)
@@ -86,7 +102,7 @@ function recaler(box: HTMLElement | null) {
  *  du clavier, sans jamais dépasser le bas du contenu (Elisa, 21 novembre : un grand vide restait sous la fiche).
  *  On s'arrête à la première zone qui défile : jamais la page derrière une fenêtre. */
 function montrer(el: Element | null) {
-  if (!(el instanceof HTMLElement)) return
+  if (!(el instanceof HTMLElement) || onDefile()) return
   let box = el.parentElement
   while (box && !/(auto|scroll)/.test(getComputedStyle(box).overflowY)) box = box.parentElement
   if (!box) return

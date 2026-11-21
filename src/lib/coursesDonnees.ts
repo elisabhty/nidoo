@@ -13,6 +13,8 @@ export const ARTICLES = `
 pomme|FL|kg|1|0.5
 poire|FL|kg|1|0.5
 banane|FL|kg|1|0.5
+bananes plantains|FL||2|1
+pousses de soja|FL||1|1
 orange|FL|kg|2|1
 clémentine|FL|kg|1|0.5
 mandarine|FL|kg|1|0.5
@@ -202,6 +204,8 @@ dinde|VIA||1|1
 foie gras|VIA||1|1
 saumon|VIA||4|2
 saumon fumé|VIA||1|1
+thon frais|VIA|g|300|100
+poisson fumé|VIA||1|1
 cabillaud|VIA||4|2
 colin|VIA||4|2
 poisson|VIA||4|2
@@ -262,6 +266,19 @@ gros sel|EPS||1|1
 poivre|EPS||1|1
 herbes de Provence|EPS||1|1
 cumin|EPS||1|1
+frik|EPS||1|1
+câpres|EPS||1|1
+nuoc-mâm|EPS||1|1
+garam masala|EPS||1|1
+feuilles de brick|EPS||1|1
+galettes de riz|EPS||1|1
+vermicelles de riz|EPS||1|1
+nouilles de riz|EPS||1|1
+huile de palme|EPS||1|1
+pâte d’arachide|EPS||1|1
+pâte de noix de palme|EPS||1|1
+attiéké|EPS||1|1
+haricots noirs|EPS||1|1
 curry|EPS||1|1
 paprika|EPS||1|1
 ras el hanout|EPS||1|1
@@ -344,6 +361,7 @@ légumes surgelés|SURG||1|1
 haricots verts surgelés|SURG||1|1
 petits pois surgelés|SURG||1|1
 épinards surgelés|SURG||1|1
+feuilles de manioc|SURG||1|1
 brocolis surgelés|SURG||1|1
 poêlée|SURG||1|1
 frites|SURG||1|1
@@ -367,6 +385,7 @@ jus de pomme|BOI||1|1
 jus de fruits|BOI||1|1
 soda|BOI||1|1
 sirop|BOI||1|1
+sirop de Liège|EPSU||1|1
 thé glacé|BOI||1|1
 bière|BOI||1|1
 vin rouge|BOI||1|1

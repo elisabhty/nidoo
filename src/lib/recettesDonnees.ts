@@ -6,16 +6,18 @@
 // Fromages de Savoie, Elle & Vire, Hachette, Ôdélices, Marmiton ; le reste : proportions classiques à affiner) ;
 // les formats d'achat vérifiés sur des drives (novembre 2026) ; les portions des enfants (GEM-RCN, ANSES).
 //
-// # id | nom | catégorie | base (pers, ou plat:parts) | mois | emoji | autres noms | occasions
+// # id | nom | catégorie | base (pers, ou plat:parts) | mois | emoji | autres noms | occasions | pays
 // (occasions : noel, nouvelan, epiphanie, chandeleur, saintvalentin, mardigras, paques, parents, halloween,
 // anniversaire — Elisa, 21 novembre : « classer aussi par événement : Noël, Épiphanie, Nouvel An »)
+// (pays : maroc, algerie, tunisie, france, belgique, allemagne, italie, espagne, uk, usa, mexique, argentine, bresil,
+// senegal, cotedivoire, congo, vietnam, inde, thailande, chine — Elisa : « les gros plats que tout le monde connaît »)
 // Puis un ingrédient par ligne : nom [quantité unité] [P = placard, décoché] [B = frais de base, décoché en petite
 // quantité] [H = une pièce par convive : steak, pavé, cuisse, pain burger].
 // Le nom est celui du référentiel des courses (rayon, format, pas du − / +).
 
 export const RECETTES = `
 
-# Q01 | Pâtes bolognaise | quotidien | pers | 1-12 | 🍝 | bolognaise, bolo, spaghetti bolognaise, spaghettis bolognaise
+# Q01 | Pâtes bolognaise | quotidien | pers | 1-12 | 🍝 | bolognaise, bolo, spaghetti bolognaise, spaghettis bolognaise |  | italie
 Spaghetti 100 g
 Viande hachée 100 g
 Tomates concassées 100 g
@@ -28,7 +30,7 @@ Herbes de Provence P
 Sel P
 Poivre P
 
-# Q02 | Carbonara | quotidien | pers | 1-12 | 🍝 | pates carbonara, spaghetti carbonara, carbo
+# Q02 | Carbonara | quotidien | pers | 1-12 | 🍝 | pates carbonara, spaghetti carbonara, carbo |  | italie
 Pâtes 100 g
 Lardons 50 g
 Crème fraîche 5 cl
@@ -45,7 +47,7 @@ Lait 5 cl B
 Beurre 5 g B
 Muscade P
 
-# Q04 | Hachis parmentier | quotidien | pers | 1-12 | 🥔 | parmentier, hachis
+# Q04 | Hachis parmentier | quotidien | pers | 1-12 | 🥔 | parmentier, hachis |  | france
 Pommes de terre 250 g
 Viande hachée 125 g
 Oignons 0.25 pce
@@ -56,7 +58,7 @@ Muscade P
 Sel P
 Poivre P
 
-# Q05 | Quiche lorraine | quotidien | plat:6 | 1-12 | 🥧 | quiche
+# Q05 | Quiche lorraine | quotidien | plat:6 | 1-12 | 🥧 | quiche |  | france
 Pâte brisée 1 rouleau
 Lardons 200 g
 Œufs 3 pce B
@@ -66,7 +68,7 @@ Muscade P
 Sel P
 Poivre P
 
-# Q06 | Croque-monsieur | quotidien | pers | 1-12 | 🥪 | croque monsieur, croques, croque
+# Q06 | Croque-monsieur | quotidien | pers | 1-12 | 🥪 | croque monsieur, croques, croque |  | france
 Pain de mie 4 tranche
 Jambon 1 tranche
 Fromage râpé 40 g
@@ -90,7 +92,7 @@ Beurre 10 g B
 Thym P
 Huile P
 
-# Q09 | Poulet au curry et riz | quotidien | pers | 1-12 | 🍛 | poulet curry, curry de poulet, poulet coco
+# Q09 | Poulet au curry et riz | quotidien | pers | 1-12 | 🍛 | poulet curry, curry de poulet, poulet coco |  | inde
 Blanc de poulet 130 g
 Lait de coco 10 cl
 Riz basmati 70 g
@@ -98,7 +100,7 @@ Oignons 0.25 pce
 Curry 1 cac P
 Huile P
 
-# Q10 | Chili con carne | quotidien | pers | 1-12 | 🌶️ | chili
+# Q10 | Chili con carne | quotidien | pers | 1-12 | 🌶️ | chili |  | mexique
 Viande hachée 125 g
 Haricots rouges 75 g
 Maïs 50 g
@@ -109,7 +111,7 @@ Riz 70 g
 Cumin P
 Piment P
 
-# Q11 | Lasagnes bolognaise | quotidien | plat:6 | 1-12 | 🍝 | lasagne, lasagnes
+# Q11 | Lasagnes bolognaise | quotidien | plat:6 | 1-12 | 🍝 | lasagne, lasagnes |  | italie
 Lasagnes 250 g
 Viande hachée 600 g
 Tomates concassées 800 g
@@ -121,7 +123,7 @@ Beurre 50 g B
 Farine 50 g P
 Muscade P
 
-# Q12 | Risotto aux champignons | quotidien | pers | 1-12 | 🍚 | risotto
+# Q12 | Risotto aux champignons | quotidien | pers | 1-12 | 🍚 | risotto |  | italie
 Riz arborio 80 g
 Champignons de Paris 100 g
 Échalotes 0.5 pce
@@ -130,7 +132,7 @@ Parmesan 20 g
 Beurre 10 g B
 Bouillon de volaille P
 
-# Q13 | Riz cantonais | quotidien | pers | 1-12 | 🍚 | riz cantonnais
+# Q13 | Riz cantonais | quotidien | pers | 1-12 | 🍚 | riz cantonnais |  | chine
 Riz 75 g
 Œufs 1 pce B
 Jambon 0.5 tranche
@@ -210,7 +212,7 @@ Tomates 0.5 pce
 Fromage frais 30 g
 Épices tex-mex P
 
-# Q22 | Tacos au bœuf | quotidien | pers | 1-12 | 🌮 | tacos, taco, fajitas, fajita
+# Q22 | Tacos au bœuf | quotidien | pers | 1-12 | 🌮 | tacos, taco |  | mexique
 Tortillas 3 pce
 Viande hachée 100 g
 Tomates 0.5 pce
@@ -219,7 +221,7 @@ Fromage râpé 30 g
 Crème fraîche 2 cl
 Épices tex-mex P
 
-# Q23 | Burgers maison et frites | quotidien | pers | 1-12 | 🍔 | burger, burgers, hamburger, burger maison | anniversaire
+# Q23 | Burgers maison et frites | quotidien | pers | 1-12 | 🍔 | burger, burgers, hamburger, burger maison | anniversaire | usa
 Pains burger 1 pce H
 Steak haché 1 pce H
 Cheddar 1 tranche
@@ -229,7 +231,7 @@ Oignons 0.25 pce
 Frites 200 g
 Ketchup P
 
-# Q24 | Pizza maison jambon-champignons | quotidien | pers | 1-12 | 🍕 | pizza maison, pizzas maison, soiree pizza, pizza reine | anniversaire
+# Q24 | Pizza maison jambon-champignons | quotidien | pers | 1-12 | 🍕 | pizza maison, pizzas maison, soiree pizza, pizza reine | anniversaire | italie
 Pâte à pizza 0.5 rouleau
 Sauce tomate 50 g
 Mozzarella 0.5 boule
@@ -238,7 +240,7 @@ Champignons de Paris 40 g
 Origan P
 Huile d’olive P
 
-# Q25 | Gratin dauphinois | quotidien | pers | 1-12 | 🥔 | gratin, dauphinois
+# Q25 | Gratin dauphinois | quotidien | pers | 1-12 | 🥔 | gratin, dauphinois |  | france
 Pommes de terre 250 g
 Crème fraîche 5 cl
 Ail 0.25 gousse
@@ -246,7 +248,7 @@ Lait 10 cl B
 Beurre 5 g B
 Muscade P
 
-# Q26 | Endives au jambon | quotidien | pers | 10-4 | 🥬 | endives jambon, chicons au gratin
+# Q26 | Endives au jambon | quotidien | pers | 10-4 | 🥬 | endives jambon, chicons au gratin |  | belgique
 Endives 2 pce
 Jambon 2 tranche
 Fromage râpé 25 g
@@ -274,7 +276,7 @@ Farine 150 g P
 Levure chimique P
 Huile P
 
-# Q29 | Galettes complètes | quotidien | pers | 1-12 | 🥞 | galette complete, galettes, galettes bretonnes, galette de sarrasin | chandeleur
+# Q29 | Galettes complètes | quotidien | pers | 1-12 | 🥞 | galette complete, galettes, galettes bretonnes, galette de sarrasin | chandeleur | france
 Farine de sarrasin 50 g
 Jambon 2 tranche
 Fromage râpé 40 g
@@ -282,7 +284,7 @@ Fromage râpé 40 g
 Beurre 10 g B
 Gros sel P
 
-# W01 | Couscous poulet-merguez | weekend | pers | 1-12 | 🍲 | couscous
+# W01 | Couscous poulet-merguez | weekend | pers | 1-12 | 🍲 | couscous |  | maroc,algerie,tunisie
 Semoule 80 g
 Cuisses de poulet 1 pce H
 Merguez 2 pce
@@ -295,7 +297,7 @@ Tomates concassées 50 g
 Ras el hanout P
 Bouillon de volaille P
 
-# W02 | Tajine poulet, citron et olives | weekend | pers | 1-12 | 🍋 | tajine, tagine
+# W02 | Tajine poulet, citron et olives | weekend | pers | 1-12 | 🍋 | tajine, tagine |  | maroc
 Cuisses de poulet 1 pce H
 Oignons 0.5 pce
 Citron confit 0.25 pce
@@ -304,7 +306,7 @@ Semoule 70 g
 Gingembre P
 Curcuma P
 
-# W03 | Blanquette de veau | weekend | pers | 1-12 | 🍲 | blanquette
+# W03 | Blanquette de veau | weekend | pers | 1-12 | 🍲 | blanquette |  | france
 Veau blanquette 200 g
 Carottes 0.5 pce
 Champignons de Paris 40 g
@@ -318,7 +320,7 @@ Farine P
 Bouquet garni P
 Fond de veau P
 
-# W04 | Bœuf bourguignon | weekend | pers | 10-3 | 🍷 | bourguignon, boeuf bourguignon
+# W04 | Bœuf bourguignon | weekend | pers | 10-3 | 🍷 | bourguignon, boeuf bourguignon |  | france
 Bœuf bourguignon 200 g
 Vin rouge 12.5 cl
 Lardons 25 g
@@ -331,7 +333,7 @@ Farine P
 Bouquet garni P
 Bouillon de bœuf P
 
-# W05 | Pot-au-feu | weekend | pers | 10-3 | 🍲 | pot au feu
+# W05 | Pot-au-feu | weekend | pers | 10-3 | 🍲 | pot au feu |  | france
 Plat de côtes 250 g
 Os à moelle 0.5 pce
 Carottes 1.5 pce
@@ -351,7 +353,7 @@ Bouillon de bœuf P
 Thym P
 Laurier P
 
-# W07 | Tartiflette | weekend | pers | 11-3 | 🧀 | tartiflette
+# W07 | Tartiflette | weekend | pers | 11-3 | 🧀 | tartiflette |  | france
 Pommes de terre 250 g
 Reblochon 0.25 pce
 Lardons 50 g
@@ -359,7 +361,7 @@ Oignons 0.5 pce
 Vin blanc 2.5 cl
 Poivre P
 
-# W08 | Raclette | weekend | pers | 11-3 | 🧀 | raclette, soiree raclette | nouvelan
+# W08 | Raclette | weekend | pers | 11-3 | 🧀 | raclette, soiree raclette | nouvelan | france
 Fromage à raclette 200 g
 Pommes de terre 250 g
 Jambon cru 2 tranche
@@ -368,7 +370,7 @@ Rosette 50 g
 Cornichons 30 g
 Salade 40 g
 
-# W09 | Fondue savoyarde | weekend | pers | 11-3 | 🫕 | fondue, fondue savoyarde | nouvelan
+# W09 | Fondue savoyarde | weekend | pers | 11-3 | 🫕 | fondue, fondue savoyarde | nouvelan | france
 Fromage à fondue 220 g
 Baguette 0.5 pce
 Vin blanc 10 cl
@@ -376,7 +378,7 @@ Ail 0.25 gousse
 Kirsch P
 Fécule de maïs P
 
-# W10 | Choucroute garnie | weekend | pers | 10-3 | 🌭 | choucroute
+# W10 | Choucroute garnie | weekend | pers | 10-3 | 🌭 | choucroute |  | france,allemagne
 Choucroute 300 g
 Saucisses de Strasbourg 1 pce
 Saucisses de Montbéliard 0.5 pce
@@ -385,7 +387,7 @@ Pommes de terre 250 g
 Vin blanc 5 cl
 Baies de genièvre P
 
-# W11 | Moules-frites | weekend | pers | 7-1 | 🦪 | moules frites, moules marinieres, moules
+# W11 | Moules-frites | weekend | pers | 7-1 | 🦪 | moules frites, moules marinieres, moules |  | belgique
 Moules 700 g
 Frites 200 g
 Échalotes 0.5 pce
@@ -393,7 +395,7 @@ Vin blanc 5 cl
 Persil 0.1 botte
 Beurre 10 g B
 
-# W12 | Paella | weekend | pers | 5-9 | 🥘 | paella
+# W12 | Paella | weekend | pers | 5-9 | 🥘 | paella |  | espagne
 Riz rond 100 g
 Cuisses de poulet 100 g
 Chorizo 25 g
@@ -409,7 +411,7 @@ Bouillon de volaille P
 Safran P
 Huile d’olive P
 
-# W13 | Cassoulet | weekend | pers | 10-3 | 🫘 | cassoulet
+# W13 | Cassoulet | weekend | pers | 10-3 | 🫘 | cassoulet |  | france
 Haricots blancs 80 g
 Saucisses de Toulouse 1 pce H
 Confit de canard 0.5 pce
@@ -419,7 +421,7 @@ Oignons 0.25 pce
 Ail 1 gousse
 Bouquet garni P
 
-# D01 | Crêpes | dessert | plat:5 | 1-12 | 🥞 | crepe, crepes, chandeleur, soiree crepes, pate a crepes | chandeleur,mardigras
+# D01 | Crêpes | dessert | plat:5 | 1-12 | 🥞 | crepe, crepes, chandeleur, soiree crepes, pate a crepes | chandeleur,mardigras | france
 Lait 60 cl
 Beurre 50 g
 Œufs 3 pce B
@@ -430,7 +432,7 @@ Sucre vanillé P
 Fleur d’oranger P
 Rhum P
 
-# D02 | Gaufres | dessert | plat:5 | 1-12 | 🧇 | gaufre | mardigras,chandeleur
+# D02 | Gaufres | dessert | plat:5 | 1-12 | 🧇 | gaufre | mardigras,chandeleur | belgique
 Lait 50 cl
 Beurre 100 g
 Œufs 3 pce B
@@ -458,7 +460,7 @@ Levure chimique P
 Sucre vanillé P
 Extrait de vanille P
 
-# D05 | Cookies | dessert | plat:10 | 1-12 | 🍪 | cookie | halloween
+# D05 | Cookies | dessert | plat:10 | 1-12 | 🍪 | cookie | halloween | usa
 Beurre 125 g
 Pépites de chocolat 150 g
 Œufs 1 pce B
@@ -476,7 +478,7 @@ Cassonade 100 g P
 Cannelle P
 Sucre vanillé P
 
-# D07 | Tarte aux pommes | dessert | plat:8 | 9-4 | 🥧 | tarte pommes
+# D07 | Tarte aux pommes | dessert | plat:8 | 9-4 | 🥧 | tarte pommes |  | france
 Pâte brisée 1 rouleau
 Pommes 5 pce
 Beurre 20 g B
@@ -484,7 +486,7 @@ Sucre 40 g P
 Sucre vanillé P
 Cannelle P
 
-# D08 | Tiramisu | dessert | plat:6 | 1-12 | 🍰 | tiramisu | saintvalentin,parents
+# D08 | Tiramisu | dessert | plat:6 | 1-12 | 🍰 | tiramisu | saintvalentin,parents | italie
 Mascarpone 250 g
 Biscuits cuillère 24 pce
 Œufs 3 pce B
@@ -494,7 +496,7 @@ Cacao P
 Sucre vanillé P
 Amaretto P
 
-# D09 | Mousse au chocolat | dessert | plat:6 | 1-12 | 🍫 | mousse chocolat | saintvalentin
+# D09 | Mousse au chocolat | dessert | plat:6 | 1-12 | 🍫 | mousse chocolat | saintvalentin | france
 Chocolat pâtissier 200 g
 Œufs 6 pce
 Sucre P
@@ -507,7 +509,7 @@ Sucre 80 g P
 Vanille 1 pce P
 Cannelle P
 
-# D11 | Pancakes | dessert | plat:4 | 1-12 | 🥞 | pancake | chandeleur,parents
+# D11 | Pancakes | dessert | plat:4 | 1-12 | 🥞 | pancake | chandeleur,parents | usa
 Lait 30 cl
 Beurre 40 g
 Sirop d’érable
@@ -517,7 +519,7 @@ Sucre 30 g P
 Levure chimique P
 Extrait de vanille P
 
-# D12 | Galette des rois | dessert | plat:8 | 1 | 👑 | galette, galette frangipane, epiphanie | epiphanie
+# D12 | Galette des rois | dessert | plat:8 | 1 | 👑 | galette, galette frangipane, epiphanie | epiphanie | france
 Pâte feuilletée 2 rouleau
 Poudre d’amande 125 g
 Beurre 75 g
@@ -527,7 +529,7 @@ Extrait d’amande amère P
 Rhum P
 Fève P
 
-# D13 | Clafoutis aux cerises | dessert | plat:6 | 6-7 | 🍒 | clafoutis
+# D13 | Clafoutis aux cerises | dessert | plat:6 | 6-7 | 🍒 | clafoutis |  | france
 Cerises 500 g
 Lait 40 cl
 Œufs 3 pce B
@@ -537,7 +539,7 @@ Farine 80 g P
 Sucre vanillé P
 Kirsch P
 
-# F01 | Chapon aux marrons | fete | pers | 12 | 🎄 | chapon, dinde aux marrons, repas de noel, noel | noel
+# F01 | Chapon aux marrons | fete | pers | 12 | 🎄 | chapon, dinde aux marrons, repas de noel, noel | noel | france
 Chapon 450 g
 Marrons 80 g
 Chair à saucisse 50 g
@@ -545,7 +547,7 @@ Chair à saucisse 50 g
 Beurre 10 g B
 Bouillon de volaille P
 
-# F02 | Bûche au chocolat | fete | plat:8 | 12 | 🎄 | buche, buche de noel | noel
+# F02 | Bûche au chocolat | fete | plat:8 | 12 | 🎄 | buche, buche de noel | noel | france
 Chocolat pâtissier 200 g
 Crème liquide 40 cl
 Œufs 4 pce
@@ -630,7 +632,7 @@ Tarama 20 g
 Concombre 0.1 pce
 Ciboulette P
 
-# E06 | Gougères au comté | entree | plat:6 | 1-12 | 🧀 | gougere, gougeres | noel,nouvelan
+# E06 | Gougères au comté | entree | plat:6 | 1-12 | 🧀 | gougere, gougeres | noel,nouvelan | france
 Comté 75 g
 Beurre 60 g
 Œufs 2 pce B
@@ -673,7 +675,7 @@ Fromage râpé 30 g
 Œufs 0.5 pce B
 Ail 0.5 gousse
 
-# Q31 | Gnocchis crème et lardons | quotidien | pers | 1-12 | 🥟 | gnocchis, gnocchi
+# Q31 | Gnocchis crème et lardons | quotidien | pers | 1-12 | 🥟 | gnocchis, gnocchi |  | italie
 Gnocchis 125 g
 Lardons 50 g
 Crème fraîche 5 cl
@@ -705,7 +707,7 @@ Crème fraîche 5 cl
 Citrons 0.25 pce
 Aneth P
 
-# Q35 | Ratatouille | quotidien | pers | 6-9 | 🍆 | ratatouille
+# Q35 | Ratatouille | quotidien | pers | 6-9 | 🍆 | ratatouille |  | france
 Courgettes 0.5 pce
 Aubergines 0.5 pce
 Poivrons 0.5 pce
@@ -725,7 +727,7 @@ Basilic P
 Huile d’olive P
 Vinaigre P
 
-# Q37 | Pâtes au pesto | quotidien | pers | 1-12 | 🌿 | pesto, pates pesto, pates au pesto
+# Q37 | Pâtes au pesto | quotidien | pers | 1-12 | 🌿 | pesto, pates pesto, pates au pesto |  | italie
 Pâtes 100 g
 Pesto 30 g
 Tomates cerises 40 g
@@ -795,7 +797,7 @@ Lait 5 cl B
 Beurre 10 g B
 Chapelure P
 
-# W18 | Soupe à l’oignon gratinée | weekend | pers | 11-2 | 🧅 | soupe a l oignon, gratinee | nouvelan
+# W18 | Soupe à l’oignon gratinée | weekend | pers | 11-2 | 🧅 | soupe a l oignon, gratinee | nouvelan | france
 Oignons 1.5 pce
 Pain 2 tranche
 Fromage râpé 30 g
@@ -845,7 +847,7 @@ Ail 1 gousse
 Miel P
 Persil P
 
-# F11 | Coquilles Saint-Jacques | fete | pers | 11-4 | 🐚 | saint jacques, coquilles saint jacques | noel,nouvelan
+# F11 | Coquilles Saint-Jacques | fete | pers | 11-4 | 🐚 | saint jacques, coquilles saint jacques | noel,nouvelan | france
 Noix de Saint-Jacques 100 g
 Poireaux 0.5 pce
 Crème fraîche 5 cl
@@ -999,6 +1001,364 @@ Sucre 120 g P
 Cacao P
 Levure chimique P
 
+# MA1 | Harira | quotidien | pers | 10-4 | 🥣 | harira, soupe harira | | maroc
+Épaule d’agneau 60 g
+Lentilles 30 g
+Pois chiches 40 g
+Tomates concassées 100 g
+Oignons 0.25 pce
+Céleri 0.25 pce
+Vermicelles 15 g
+Coriandre P
+Persil P
+Gingembre P
+Cannelle P
+Farine P
+
+# MA2 | Pastilla au poulet | weekend | plat:6 | 1-12 | 🥧 | pastilla, bastilla | | maroc
+Feuilles de brick 10 pce
+Cuisses de poulet 4 pce
+Oignons 2 pce
+Amandes 100 g
+Œufs 4 pce
+Beurre 60 g
+Persil P
+Coriandre P
+Cannelle P
+Gingembre P
+Safran P
+Sucre glace P
+
+# MA3 | Tajine de kefta aux œufs | quotidien | pers | 1-12 | 🍳 | kefta, tajine kefta, tajine de kefta | | maroc
+Viande hachée 125 g
+Tomates concassées 100 g
+Œufs 1 pce
+Oignons 0.25 pce
+Baguette 0.25 pce
+Coriandre P
+Cumin P
+Paprika P
+
+# DZ1 | Chorba frik | quotidien | pers | 10-4 | 🥣 | chorba, chorba frik, chorba algerienne | | algerie
+Épaule d’agneau 70 g
+Frik 25 g
+Pois chiches 40 g
+Tomates concassées 80 g
+Oignons 0.25 pce
+Coriandre P
+Menthe P
+Cannelle P
+Paprika P
+
+# DZ2 | Loubia | quotidien | pers | 1-12 | 🫘 | loubia, haricots blancs a la tomate | | algerie
+Haricots blancs 80 g
+Tomates concassées 100 g
+Oignons 0.25 pce
+Ail 1 gousse
+Baguette 0.25 pce
+Cumin P
+Paprika P
+Huile d’olive P
+
+# DZ3 | Bourek à la viande | entree | plat:6 | 1-12 | 🥟 | bourek, boureks, bourak | | algerie
+Feuilles de brick 12 pce
+Viande hachée 300 g
+Oignons 1 pce
+Fromage râpé 60 g
+Œufs 2 pce B
+Persil P
+Huile de tournesol P
+
+# TN1 | Bricks à l’œuf et au thon | entree | pers | 1-12 | 🥟 | brick, bricks, brick a l oeuf, brick au thon | | tunisie
+Feuilles de brick 1 pce
+Œufs 1 pce
+Thon 30 g
+Citrons 0.25 pce
+Câpres P
+Persil P
+Huile de tournesol P
+
+# TN2 | Ojja aux merguez | quotidien | pers | 1-12 | 🍳 | ojja, ojja merguez | | tunisie
+Merguez 1.5 pce
+Œufs 1.5 pce
+Tomates concassées 100 g
+Poivrons 0.5 pce
+Ail 1 gousse
+Baguette 0.25 pce
+Harissa P
+Cumin P
+
+# TN3 | Chakchouka | quotidien | pers | 5-9 | 🫑 | chakchouka, shakshuka, chakchouka aux oeufs | | tunisie
+Poivrons 1 pce
+Tomates 1.5 pce
+Oignons 0.5 pce
+Œufs 1.5 pce
+Ail 1 gousse
+Cumin P
+Harissa P
+
+# FR1 | Coq au vin | weekend | pers | 10-3 | 🍷 | coq au vin | | france
+Cuisses de poulet 1 pce H
+Vin rouge 15 cl
+Lardons 40 g
+Champignons 60 g
+Carottes 0.5 pce
+Oignons 0.25 pce
+Beurre 10 g B
+Farine P
+Bouquet garni P
+
+# FR2 | Navarin d’agneau | weekend | pers | 3-6 | 🐑 | navarin, navarin printanier | paques | france
+Épaule d’agneau 200 g
+Carottes 1 pce
+Navets 1 pce
+Petits pois 60 g
+Pommes de terre 150 g
+Oignons 0.25 pce
+Farine P
+Bouquet garni P
+
+# FR3 | Steak-frites | quotidien | pers | 1-12 | 🥩 | steak frites, steak frite | | france
+Steak 1 pce H
+Frites 200 g
+Salade 30 g
+Moutarde P
+
+# BE1 | Carbonnade flamande | weekend | pers | 10-3 | 🍺 | carbonade, carbonnade, carbonade flamande, carbonnades | | belgique
+Bœuf bourguignon 200 g
+Bière 15 cl
+Oignons 0.5 pce
+Pain d’épices 20 g
+Frites 200 g
+Moutarde P
+Cassonade P
+Thym P
+Laurier P
+
+# BE2 | Waterzooi de poulet | weekend | pers | 10-3 | 🍲 | waterzooi | | belgique
+Blanc de poulet 150 g
+Poireaux 0.5 pce
+Carottes 0.5 pce
+Céleri 0.25 pce
+Pommes de terre 150 g
+Crème fraîche 5 cl
+Œufs 0.5 pce B
+Bouillon de volaille P
+
+# BE3 | Boulets à la liégeoise | weekend | pers | 1-12 | 🍖 | boulets liegeois, boulets a la liegeoise, boulettes liegeoises | | belgique
+Viande hachée 150 g
+Sirop de Liège 30 g
+Oignons 0.5 pce
+Chapelure 15 g
+Frites 200 g
+Œufs 0.25 pce B
+Vinaigre P
+
+# DE1 | Currywurst | quotidien | pers | 1-12 | 🌭 | currywurst | | allemagne
+Saucisses 1.5 pce
+Ketchup 40 g
+Frites 200 g
+Curry P
+
+# DE2 | Schnitzel et salade de pommes de terre | quotidien | pers | 1-12 | 🥩 | schnitzel, escalope viennoise, escalope panee | | allemagne
+Escalope de dinde 1 pce H
+Pommes de terre 200 g
+Chapelure 30 g
+Citrons 0.25 pce
+Œufs 0.5 pce B
+Farine P
+Cornichons P
+Moutarde P
+
+# CI1 | Garba (attiéké et thon) | quotidien | pers | 1-12 | 🐟 | garba, attieke thon, attieke | | cotedivoire
+Attiéké 150 g
+Thon frais 120 g
+Tomates 0.5 pce
+Oignons 0.25 pce
+Piment P
+Huile de tournesol P
+
+# CI2 | Kedjenou de poulet | weekend | pers | 1-12 | 🍗 | kedjenou, kedjenou poulet | | cotedivoire
+Cuisses de poulet 1 pce H
+Tomates 1 pce
+Oignons 0.5 pce
+Aubergines 0.25 pce
+Ail 1 gousse
+Attiéké 100 g
+Gingembre P
+Piment P
+Laurier P
+
+# CI3 | Alloco et poulet braisé | quotidien | pers | 1-12 | 🍌 | alloco, allocos, poulet braise | | cotedivoire
+Bananes plantains 1 pce
+Cuisses de poulet 1 pce H
+Tomates 0.5 pce
+Oignons 0.25 pce
+Moutarde P
+Piment P
+Huile de tournesol P
+
+# CD1 | Poulet à la moambé | weekend | pers | 1-12 | 🥜 | moambe, poulet moambe, poulet a la moambe | | congo
+Cuisses de poulet 1 pce H
+Pâte de noix de palme 80 g
+Tomates concassées 60 g
+Oignons 0.25 pce
+Ail 1 gousse
+Riz 70 g
+Piment P
+
+# CD2 | Pondu (saka-saka) | weekend | pers | 1-12 | 🥬 | pondu, saka saka, sakasaka | | congo
+Feuilles de manioc 150 g
+Poisson fumé 60 g
+Aubergines 0.25 pce
+Oignons 0.25 pce
+Ail 1 gousse
+Huile de palme 2 cl
+Riz 70 g
+
+# SN1 | Poulet yassa | quotidien | pers | 1-12 | 🍋 | yassa, poulet yassa | | senegal
+Cuisses de poulet 1 pce H
+Oignons 1.5 pce
+Citrons 1 pce
+Ail 1 gousse
+Riz 70 g
+Moutarde P
+Piment P
+
+# SN2 | Thiéboudienne | weekend | pers | 1-12 | 🐟 | thieboudienne, tieboudienne, tchep, thiep, tieb, ceebu jen, riz au poisson | | senegal
+Cabillaud 1 pce H
+Riz 80 g
+Concentré de tomate 20 g
+Carottes 0.5 pce
+Chou 0.1 pce
+Aubergines 0.25 pce
+Oignons 0.25 pce
+Ail 1 gousse
+Persil P
+Piment P
+
+# SN3 | Mafé | weekend | pers | 1-12 | 🥜 | mafe, maffe, sauce arachide | | senegal
+Bœuf bourguignon 150 g
+Pâte d’arachide 40 g
+Tomates concassées 80 g
+Carottes 0.5 pce
+Patate douce 100 g
+Oignons 0.25 pce
+Riz 70 g
+Piment P
+
+# US1 | Mac and cheese | quotidien | pers | 1-12 | 🧀 | mac and cheese, macaroni cheese, mac n cheese | | usa
+Pâtes 90 g
+Cheddar 50 g
+Fromage râpé 30 g
+Lait 15 cl B
+Beurre 10 g B
+Farine P
+
+# US2 | Brownies | dessert | plat:9 | 1-12 | 🍫 | brownie, brownies | anniversaire | usa
+Chocolat pâtissier 200 g
+Beurre 150 g
+Œufs 3 pce
+Noix 60 g
+Sucre 150 g P
+Farine 80 g P
+
+# US3 | Travers de porc barbecue | weekend | pers | 5-9 | 🍖 | ribs, travers de porc, spare ribs | parents | usa
+Travers de porc 300 g
+Sauce barbecue 40 g
+Maïs 60 g
+Pommes de terre 200 g
+
+# UK1 | Fish and chips | quotidien | pers | 1-12 | 🐟 | fish and chips, fish chips, poisson frites | | uk
+Cabillaud 1 pce H
+Frites 200 g
+Bière 10 cl
+Petits pois surgelés 60 g
+Citrons 0.25 pce
+Farine P
+Huile de tournesol P
+
+# AR1 | Empanadas | entree | pers | 1-12 | 🥟 | empanada, empanadas | | argentine
+Pâte brisée 0.5 rouleau
+Viande hachée 80 g
+Oignons 0.25 pce
+Poivrons 0.25 pce
+Œufs 0.5 pce B
+Olives P
+Cumin P
+Paprika P
+
+# BR1 | Feijoada | weekend | pers | 1-12 | 🫘 | feijoada | | bresil
+Haricots noirs 80 g
+Saucisses 1 pce
+Lardons 40 g
+Rôti de porc 100 g
+Oignons 0.25 pce
+Ail 1 gousse
+Riz 70 g
+Oranges 0.25 pce
+Laurier P
+
+# MX1 | Fajitas au poulet | quotidien | pers | 1-12 | 🌮 | fajitas, fajita | | mexique
+Blanc de poulet 125 g
+Tortillas 2 pce
+Poivrons 0.5 pce
+Oignons 0.25 pce
+Avocat 0.25 pce
+Crème fraîche 3 cl
+Épices tex-mex P
+
+# VN1 | Nems au porc | entree | pers | 1-12 | 🥢 | nems, nem, pate imperial | nouvelan | vietnam
+Galettes de riz 3 pce
+Chair à saucisse 60 g
+Vermicelles de riz 10 g
+Carottes 0.25 pce
+Salade 30 g
+Œufs 0.25 pce B
+Menthe P
+Nuoc-mâm P
+Huile de tournesol P
+
+# VN2 | Bo bun | quotidien | pers | 1-12 | 🍜 | bo bun, bobun | | vietnam
+Steak 1 pce H
+Vermicelles de riz 60 g
+Salade 30 g
+Carottes 0.5 pce
+Concombre 0.25 pce
+Cacahuètes 15 g
+Citron vert 0.25 pce
+Menthe P
+Coriandre P
+Nuoc-mâm P
+
+# IN1 | Poulet tikka masala | quotidien | pers | 1-12 | 🍛 | tikka masala, poulet tikka, butter chicken | | inde
+Blanc de poulet 150 g
+Yaourts 0.5 pce
+Tomates concassées 100 g
+Crème liquide 5 cl
+Oignons 0.25 pce
+Ail 1 gousse
+Riz 70 g
+Gingembre P
+Garam masala P
+
+# TH1 | Pad thaï aux crevettes | quotidien | pers | 1-12 | 🍜 | pad thai, padthai | | thailande
+Nouilles de riz 80 g
+Crevettes 60 g
+Pousses de soja 40 g
+Cacahuètes 15 g
+Citron vert 0.25 pce
+Œufs 1 pce B
+Sauce soja P
+Nuoc-mâm P
+Coriandre P
+
+# ES1 | Tortilla espagnole | quotidien | pers | 1-12 | 🍳 | tortilla espagnole, tortilla de patatas | | espagne
+Œufs 1.5 pce
+Pommes de terre 150 g
+Oignons 0.25 pce
+Huile d’olive P
+
 # L01 | Barbecue | liste | pers | 5-9 | 🔥 | barbecue, bbq, barbec, plancha | parents
 Merguez 1 pce
 Chipolatas 1 pce
@@ -1147,6 +1507,17 @@ blinis|16 pce|paquet de 16|sec
 gnocchis|500 g|paquet de 500 g|sec
 crème de marrons|500 g|boîte de 500 g|sec
 fraises|250 g|barquette de 250 g|frais
+feuilles de brick|10 pce|paquet de 10|sec
+galettes de riz|20 pce|paquet de 20|sec
+vermicelles de riz|200 g|paquet de 200 g|sec
+nouilles de riz|250 g|paquet de 250 g|sec
+attiéké|500 g|sachet de 500 g|sec
+haricots noirs|250 g|boîte de 400 g|sec
+pâte d’arachide|350 g|pot de 350 g|sec
+pâte de noix de palme|400 g|boîte de 400 g|sec
+feuilles de manioc|500 g|sachet de 500 g|sec
+frik|500 g|sachet de 500 g|sec
+concentré de tomate|140 g|petite boîte|sec
 `
 
 /** Le poids d'une pièce, pour ce qui s'achète au poids (« 1 oignon » → 100 g). */
@@ -1165,7 +1536,9 @@ potiron|1500
 cuisses de poulet|200
 filet mignon|500
 clémentine|80
+navet|150
+bananes plantains|250
 `
 
-/** Ce que mange un enfant par rapport à un adulte (GEM-RCN, ANSES) : 3–10 ans ≈ 0,6 ; ado ≈ 0,9. Un bébé ne compte pas. */
-export const PORTIONS = { adulte: 1, ado: 0.9, enfant: 0.6, bebe: 0 }
+/** Ce que mange un enfant par rapport à un adulte (GEM-RCN, ANSES) : 3–10 ans ≈ 0,6 ; ado ≈ 0,9 ; un tout-petit, une petite part. */
+export const PORTIONS = { adulte: 1, ado: 0.9, enfant: 0.6, bebe: 0.3 }

@@ -4,7 +4,7 @@ import { rebond } from '../lib/rebond'
 import { moodOf, MOODS, THOUGHTS, thoughtOf } from '../lib/data'
 import { Smiley } from './Smiley'
 import { coeurs, confettis, humeurEnVol } from '../lib/fete'
-import { feel, select, success, tap } from '../lib/haptic'
+import { feel, select, success, tap, warn } from '../lib/haptic'
 import { useHome } from '../lib/store'
 import { partagerTexte } from '../lib/share'
 import { ouvrirLieu } from '../lib/plans'
@@ -22,7 +22,7 @@ import { estFerie, prochainsJoursSpeciaux } from '../lib/joursSpeciaux'
 import { anniversaireDe } from '../lib/naissance'
 import { IncomingDrawing, markDrawingsSeen, useUnseenDrawings } from './drawing'
 import { DrawSheet } from './planche'
-import { Art, Avatar, Btn, confirmer, Envol, Segments, Sheet, Switch, ChampRequis, CHAMP_REQUIS } from './ui'
+import { Art, Avatar, Btn, choisir, confirmer, Envol, Segments, Sheet, Switch, ChampRequis, CHAMP_REQUIS } from './ui'
 
 // ───────── Humeur du jour ─────────
 
@@ -687,14 +687,24 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
   const save = async () => {
     if (busy || !title.trim() || !date || (!birthday && journee && plusieurs && (!fin || fin < date))) return
     if (conflit) {
+      // Elisa, 21 novembre : « pas choisissez une autre heure, mais décalez le rendez-vous ou ajoutez-le quand même »
       const { qui } = sujetConflit(conflit.communs)
       const jour = conflit.quand.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
-      const ok = await confirmer({
+      warn()
+      const i = await choisir({
         title: `${qui} déjà un rendez-vous le ${jour} à ${timeLabel(conflit.quand)}`,
-        message: `« ${conflit.e.title} »${conflit.e.lieu ? ` · ${conflit.e.lieu}` : ''}. Es-tu sûr de vouloir ajouter « ${title.trim()} » à ${heure(time)} ?`,
-        confirm: event ? 'Enregistrer quand même' : 'Ajouter quand même',
+        message: `« ${conflit.e.title} »${conflit.e.lieu ? ` · ${conflit.e.lieu}` : ''}. Êtes-vous sûr de vouloir ajouter « ${title.trim()} » à ${heure(time)} ?`,
+        actions: [{ label: 'Décaler le rendez-vous' }, { label: event ? 'Enregistrer quand même' : 'Ajouter quand même' }],
       })
-      if (!ok) return
+      if (i !== 1) {
+        // décaler : on revient sur les heures, qui font signe
+        if (i === 0) window.setTimeout(() => {
+          const h = document.querySelector('[aria-label="L’heure"]')
+          h?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          rebond(h, 0.6)
+        }, 250)
+        return
+      }
     }
     const allDay = birthday || journee || !time
     const starts = new Date(`${date}T${allDay ? '09:00' : time}`)
@@ -704,8 +714,8 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
     const champs = { sticker, title: title.trim(), kind, starts_at: starts.toISOString(), all_day: allDay, yearly: r === 'annee', weekly: r === 'semaine', ...(repOk ? { repete: r } : {}), ends_on, lieu: lieu.trim() || null, description: description.trim() || null, members: who }
     setBusy(true)
     const ok = await run(
+      // pas de notification : les confettis le disent déjà (Elisa, 21 novembre)
       (api) => (event ? api.updateEvent(event.id, champs) : api.addEvent(state.family.id, state.me.id, champs)),
-      event ? 'Événement modifié' : 'Ajouté à l’agenda',
     )
     setBusy(false)
     if (ok) {
@@ -924,7 +934,7 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
           <div key={conflit.e.id + time} role="status" className="anim-entre mt-3 flex items-start gap-2.5 rounded-[14px] bg-peche-doux px-3 py-2.5">
             <CalendarClock size={17} strokeWidth={2.4} className="mt-0.5 shrink-0 text-peche-fonce" />
             <p className="text-note text-encre">
-              <span className="font-bold">{sujetConflit(conflit.communs).qui} déjà un rendez-vous à {timeLabel(conflit.quand)}</span> : « {conflit.e.title} ». Choisis une autre heure, ou ajoute-le quand même.
+              <span className="font-bold">{sujetConflit(conflit.communs).qui} déjà un rendez-vous à {timeLabel(conflit.quand)}</span> : « {conflit.e.title} ». Décalez le rendez-vous ou ajoutez-le quand même.
             </p>
           </div>
         )}
@@ -1019,7 +1029,7 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
     setAjoutLieu(false)
     setLieuArrive(true)
     window.setTimeout(() => setLieuArrive(false), 1600)
-    const ok = await run((a) => a.updateEvent(ev.id, { lieu: l }), 'Adresse ajoutée', (st) => ({ ...st, events: st.events.map((x) => (x.id === ev.id ? { ...x, lieu: l } : x)) }))
+    const ok = await run((a) => a.updateEvent(ev.id, { lieu: l }), undefined, (st) => ({ ...st, events: st.events.map((x) => (x.id === ev.id ? { ...x, lieu: l } : x)) }))
     if (ok) success()
     else {
       setLieu(l)
@@ -1065,10 +1075,8 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
   }
   const calendrier = async () => {
     const r = await ajouterAuCalendrier(ev)
-    if (r === 'ajoute') {
-      success()
-      toast('Ajouté à ton calendrier')
-    } else if (r === 'safari') toast('Le navigateur s’ouvre : touche « Ajouter » pour le mettre dans ton calendrier')
+    if (r === 'ajoute') success()
+    else if (r === 'safari') toast('Le navigateur s’ouvre : touche « Ajouter » pour le mettre dans ton calendrier')
   }
   const partager = async () => {
     const r = await partagerTexte(`${titreCalendrier(ev)} : ${quand.charAt(0).toLowerCase()}${quand.slice(1)}${ev.lieu ? `, ${ev.lieu}` : ''}${ev.description ? `\n${ev.description}` : ''}`)

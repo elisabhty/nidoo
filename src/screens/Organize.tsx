@@ -329,6 +329,8 @@ function Liste({ kind }: { kind: ListKind }) {
   // ce qu'on vient de faire, affiché sans attendre le serveur
   const [ajouts, setAjouts] = useState<(ListItem & { connus: Set<string> })[]>([])
   const [secoue, setSecoue] = useState(0)
+  const [rien, setRien] = useState(0)
+  const rienFin = useRef(0)
   const tuilesAvant = useRef<string[]>([])
   const [changes, setChanges] = useState<Record<string, { done?: boolean; parti?: boolean; titre?: string }>>({})
   const champ = useRef<HTMLInputElement>(null)
@@ -434,7 +436,6 @@ function Liste({ kind }: { kind: ListKind }) {
     for (const a of articles) ajouter(ecrireArticle(a), { exact: true, discret: true })
     success()
     confettis()
-    toast(`${articles.length} article${articles.length > 1 ? 's' : ''} pour : ${r.nom} 🛒`)
     setRecette(null)
     setToutesRecettes(false)
     setTitle('')
@@ -486,7 +487,6 @@ function Liste({ kind }: { kind: ListKind }) {
           marquerArrivee(avant.nom)
           changerQuantite(deja, somme)
           retenir(family.id, tape.nom)
-          if (!o.discret) toast(`${avant.nom} : ${somme}`)
           return
         }
       }
@@ -558,10 +558,7 @@ function Liste({ kind }: { kind: ListKind }) {
       setChanges((c) => ({ ...c, [i.id]: { ...c[i.id], done: true } }))
       setBarres((b) => b.filter((x) => x !== i.id))
       setRanges((r) => r.filter((x) => x !== i.id))
-      if (derniere) {
-        confettis()
-        toast(tache ? 'Tout est fait, bravo ! 🎉' : 'Tout est dans le panier ! 🛒')
-      } else if (tache) toast('C’est fait ✓')
+      if (derniere) confettis()
       void fond(() => api.toggleItem(i, me.id), () => oublier(i.id), () => oublier(i.id))
     }, 1350)
   }
@@ -578,36 +575,15 @@ function Liste({ kind }: { kind: ListKind }) {
   const retirerAnime = (ids: string[]) => {
     if (ids.some((id) => adieux.includes(id))) return
     choc()
-    const partis = items.filter((i) => ids.includes(i.id))
     setAdieux((a) => [...a, ...ids])
     window.setTimeout(() => setPartants((p) => [...p, ...ids]), 420)
     window.setTimeout(() => {
       retirer(ids)
       setPartants((p) => p.filter((x) => !ids.includes(x)))
       setAdieux((a) => a.filter((x) => !ids.includes(x)))
-      // une erreur de doigt : « Annuler » la remet (pas pour « Vider le panier »)
-      const aRendre = partis.filter((i) => !i.done && !i.id.startsWith('attente-'))
-      if (aRendre.length && aRendre.length === partis.length) {
-        const texte = aRendre.length === 1
-          ? `« ${tache ? aRendre[0].title : lireArticle(aRendre[0].title).nom} » retiré${tache ? 'e' : ''}`
-          : `${aRendre.length} ${tache ? 'tâches retirées' : 'articles retirés'}`
-        toast(texte, 'info', { label: 'Annuler', run: () => restaurer(aRendre) })
-      }
+      // plus de notification « retiré · Annuler » : la ligne qui rosit, frémit et part le dit déjà (Elisa, 21 novembre :
+      // « pas de notifications quand il y a une micro-interaction »)
     }, 1100)
-  }
-  /** Annuler un retrait : les lignes reviennent (avec leur quantité, pour qui, leur événement). */
-  const restaurer = (liste: ListItem[]) => {
-    success()
-    for (const i of liste) {
-      const tmp = { ...i, id: `attente-${Date.now()}-${Math.random()}`, done: false, created_at: new Date().toISOString(), connus: new Set(state.items.map((x) => x.id)) }
-      setAjouts((a) => [...a, tmp])
-      marquerArrivee(tache ? i.title : lireArticle(i.title).nom)
-      void fond(
-        () => api.addItem(family.id, me.id, kind, i.title, i.assigned_to ?? null, i.event_id ?? null),
-        () => setAjouts((a) => a.filter((x) => x.id !== tmp.id)),
-        () => setAjouts((a) => a.filter((x) => x.id !== tmp.id)),
-      )
-    }
   }
   const retirer = (ids: string[]) => {
     const vrais = ids.filter((id) => !id.startsWith('attente-'))
@@ -843,7 +819,7 @@ function Liste({ kind }: { kind: ListKind }) {
 
       {items.length > 0 && (
         <div className="mx-5 mt-3 flex min-h-11 items-center justify-between gap-3">
-          <p className="text-note font-semibold text-brume" role="status">
+          <p className={`min-w-0 flex-1 truncate text-note font-semibold text-brume transition-opacity ${rien ? 'opacity-0' : ''}`} role="status">
             {todo.length} {tache ? `chose${todo.length > 1 ? 's' : ''} à faire` : `article${todo.length > 1 ? 's' : ''} à prendre`}
             {done.length > 0 ? ` · ${done.length} ${tache ? `terminée${done.length > 1 ? 's' : ''}` : 'dans le panier'}` : ''}
           </p>
@@ -852,15 +828,17 @@ function Liste({ kind }: { kind: ListKind }) {
               // rien dans la liste à modifier : on le dit (Elisa, 21 novembre)
               if (!editing && rienAModifier) {
                 warn()
-                toast('Rien à modifier pour le moment', 'info')
+                setRien((n) => n + 1)
+                window.clearTimeout(rienFin.current)
+                rienFin.current = window.setTimeout(() => setRien(0), 1800)
                 return
               }
               tap()
               setEditing((v) => !v)
             }}
-            className="presse min-h-11 text-sous font-semibold text-teinte-fonce"
+            className={`presse min-h-11 shrink-0 whitespace-nowrap text-sous font-semibold ${rien ? 'text-brume' : 'text-teinte-fonce'}`}
           >
-            {editing ? 'Terminé' : 'Modifier'}
+            <span key={rien} className={rien ? 'adieu inline-block' : 'inline-block'}>{editing ? 'Terminé' : rien ? 'Rien à modifier pour le moment' : 'Modifier'}</span>
           </button>
         </div>
       )}

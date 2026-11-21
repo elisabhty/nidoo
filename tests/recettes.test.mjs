@@ -1,13 +1,13 @@
 import { test } from 'node:test'
 import { strict as assert } from 'node:assert'
 import { loadTs } from './loadTs.mjs'
-const { LES_RECETTES, lignesDe, occasionsAVenir, occasionProche, portionsFamille, recetteDe, recettesAvec, recettesDe, recettesDuMoment } = await loadTs('src/lib/recettes.ts')
+const { LES_RECETTES, PAYS, REGIONS, recettesDuMonde, lignesDe, occasionsAVenir, occasionProche, portionsFamille, recetteDe, recettesAvec, recettesDe, recettesDuMoment } = await loadTs('src/lib/recettes.ts')
 const { estVague, fiche, iconeDe, precisions, souvent } = await loadTs('src/lib/courses.ts')
 const r = (id) => LES_RECETTES.find((x) => x.id === id)
 const ligne = (res, nom) => res.lignes.find((l) => l.nom === nom)
 
-test('111 recettes et 6 listes, chaque ingrédient connu du référentiel, aucun nom vague', () => {
-  assert.equal(LES_RECETTES.filter((x) => x.cat !== 'liste').length, 111)
+test('148 recettes et 6 listes, chaque ingrédient connu du référentiel, aucun nom vague', () => {
+  assert.equal(LES_RECETTES.filter((x) => x.cat !== 'liste').length, 148)
   assert.equal(new Set(LES_RECETTES.map((x) => x.id)).size, LES_RECETTES.length)
   for (const x of LES_RECETTES) for (const i of x.ingredients) assert.ok(!estVague(i.nom), `${x.nom} : ${i.nom} est trop vague`)
   assert.equal(LES_RECETTES.filter((x) => x.cat === 'liste').length, 6)
@@ -82,4 +82,23 @@ test('jamais « Légumes » : on précise (de saison), et chaque suggestion a sa
   assert.equal(iconeDe('Mouchoirs'), 'mouchoirs')
   assert.equal(iconeDe('Papier toilette'), 'papier-toilette')
   assert.ok(!souvent('famille-test', [], []).some((x) => estVague(x)))
+})
+
+test('du monde : chaque région, ses pays, les plats que tout le monde connaît', () => {
+  for (const r of REGIONS) {
+    const g = recettesDuMonde(r.key)
+    assert.ok(g.length >= 2, r.key)
+    for (const x of g) assert.ok(PAYS[x.pays], x.pays)
+  }
+  const tous = REGIONS.flatMap((r) => recettesDuMonde(r.key).flatMap((g) => g.recettes.map((x) => x.id)))
+  assert.equal(new Set(tous).size, tous.length, 'une recette dans un seul pays de sa région')
+  for (const mot of ['yassa', 'mafe', 'thieboudienne', 'tchep', 'attieke', 'moambe', 'pondu', 'harira', 'pastilla', 'chorba', 'bourek', 'brick', 'carbonnade', 'waterzooi', 'currywurst', 'fish and chips', 'empanadas', 'feijoada', 'nems', 'bo bun', 'pad thai', 'couscous', 'paella', 'fajitas'])
+    assert.ok(recetteDe(mot), mot)
+  assert.equal(recetteDe('fajitas').id, 'MX1')
+  for (const x of LES_RECETTES) for (const p of x.pays) assert.ok(PAYS[p], `${x.nom} : ${p}`)
+})
+
+test('tout le monde compte, les tout-petits pour une petite part', () => {
+  assert.deepEqual(portionsFamille([0, 3]), { personnes: 2, parts: 1.3 })
+  assert.deepEqual(portionsFamille([0, 0, 0]), { personnes: 3, parts: 3 })
 })

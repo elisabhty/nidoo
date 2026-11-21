@@ -10,7 +10,7 @@ export type Unite = 'g' | 'kg' | 'cl' | 'ml' | 'l' | 'pce' | 'tranche' | 'gousse
 export type Ingredient = { nom: string; qty?: number; unit?: Unite; placard?: boolean; base?: boolean; parTete?: boolean }
 export type Categorie = 'quotidien' | 'weekend' | 'entree' | 'dessert' | 'fete' | 'liste'
 export type Occasion = 'noel' | 'nouvelan' | 'epiphanie' | 'chandeleur' | 'saintvalentin' | 'mardigras' | 'paques' | 'parents' | 'halloween' | 'anniversaire'
-export type Recette = { id: string; nom: string; cat: Categorie; parts: number | null; mois: number[]; emoji: string; mots: string[]; occasions: Occasion[]; ingredients: Ingredient[] }
+export type Recette = { id: string; nom: string; cat: Categorie; parts: number | null; mois: number[]; emoji: string; mots: string[]; occasions: Occasion[]; pays: string[]; ingredients: Ingredient[] }
 
 export const CATEGORIES: { key: Categorie; label: string }[] = [
   { key: 'quotidien', label: 'Du quotidien' },
@@ -18,8 +18,31 @@ export const CATEGORIES: { key: Categorie; label: string }[] = [
   { key: 'entree', label: 'Entrées et apéros' },
   { key: 'dessert', label: 'Desserts et goûters' },
   { key: 'fete', label: 'Plats de fête' },
-  { key: 'liste', label: 'Listes' },
 ]
+
+/** Les cuisines du monde (Elisa, 21 novembre : « marocaines, algériennes, tunisiennes, françaises, belges, allemandes,
+ *  africaines, ivoiriennes, congolaises, américaines… les gros plats que tout le monde connaît »), par grande région. */
+export const PAYS: Record<string, { label: string; drapeau: string }> = {
+  maroc: { label: 'Maroc', drapeau: '🇲🇦' }, algerie: { label: 'Algérie', drapeau: '🇩🇿' }, tunisie: { label: 'Tunisie', drapeau: '🇹🇳' },
+  senegal: { label: 'Sénégal', drapeau: '🇸🇳' }, cotedivoire: { label: 'Côte d’Ivoire', drapeau: '🇨🇮' }, congo: { label: 'Congo', drapeau: '🇨🇩' },
+  france: { label: 'France', drapeau: '🇫🇷' }, belgique: { label: 'Belgique', drapeau: '🇧🇪' }, allemagne: { label: 'Allemagne', drapeau: '🇩🇪' },
+  italie: { label: 'Italie', drapeau: '🇮🇹' }, espagne: { label: 'Espagne', drapeau: '🇪🇸' }, uk: { label: 'Royaume-Uni', drapeau: '🇬🇧' },
+  usa: { label: 'États-Unis', drapeau: '🇺🇸' }, mexique: { label: 'Mexique', drapeau: '🇲🇽' }, argentine: { label: 'Argentine', drapeau: '🇦🇷' }, bresil: { label: 'Brésil', drapeau: '🇧🇷' },
+  vietnam: { label: 'Vietnam', drapeau: '🇻🇳' }, inde: { label: 'Inde', drapeau: '🇮🇳' }, thailande: { label: 'Thaïlande', drapeau: '🇹🇭' }, chine: { label: 'Chine', drapeau: '🇨🇳' },
+}
+export const REGIONS: { key: string; label: string; emoji: string; pays: string[] }[] = [
+  { key: 'maghreb', label: 'Maghreb', emoji: '🫖', pays: ['maroc', 'algerie', 'tunisie'] },
+  { key: 'afrique', label: 'Afrique', emoji: '🌍', pays: ['senegal', 'cotedivoire', 'congo'] },
+  { key: 'europe', label: 'Europe', emoji: '🏰', pays: ['france', 'belgique', 'allemagne', 'italie', 'espagne', 'uk'] },
+  { key: 'ameriques', label: 'Amériques', emoji: '🌎', pays: ['usa', 'mexique', 'argentine', 'bresil'] },
+  { key: 'asie', label: 'Asie', emoji: '🥢', pays: ['vietnam', 'inde', 'thailande', 'chine'] },
+]
+/** Les recettes d'une région, rangées par pays (dans l'ordre de la région). */
+export function recettesDuMonde(region: string): { pays: string; recettes: Recette[] }[] {
+  const r = REGIONS.find((x) => x.key === region)
+  if (!r) return []
+  return r.pays.map((p) => ({ pays: p, recettes: LES_RECETTES.filter((x) => x.pays[0] === p || (x.pays.includes(p) && !r.pays.includes(x.pays[0]))) })).filter((g) => g.recettes.length)
+}
 
 /** Les occasions (Elisa, 21 novembre : « classer aussi par événement : Noël, Épiphanie, Nouvel An ») et les jours
  *  du calendrier qui les annoncent (joursSpeciaux). */
@@ -67,7 +90,7 @@ export const LES_RECETTES: Recette[] = RECETTES.trim()
   .split(/\n(?=# )/)
   .map((bloc) => {
     const [tete, ...lignes] = bloc.trim().split('\n')
-    const [id, nom, cat, base, m, emoji, mots, occ] = tete.replace(/^#\s*/, '').split('|').map((x) => x.trim())
+    const [id, nom, cat, base, m, emoji, mots, occ, pays] = tete.replace(/^#\s*/, '').split('|').map((x) => x.trim())
     return {
       id,
       nom,
@@ -77,6 +100,7 @@ export const LES_RECETTES: Recette[] = RECETTES.trim()
       emoji,
       mots: (mots ?? '').split(',').map((x) => x.trim()).filter(Boolean),
       occasions: (occ ?? '').split(',').map((x) => x.trim()).filter(Boolean) as Occasion[],
+      pays: (pays ?? '').split(',').map((x) => x.trim()).filter(Boolean),
       ingredients: lignes
         .map((l) => l.trim())
         .filter(Boolean)
@@ -105,11 +129,12 @@ const pieceDe = (nom: string, f: Fiche | null) => LES_PIECES.get(cle(nom)) ?? (f
 
 // ───────── Pour combien de personnes ─────────
 
-/** La famille : combien de personnes (les bébés ne comptent pas) et combien de « parts d'adulte ». */
+/** La part d'un convive selon son âge (0 adulte, 1 ado, 2 enfant, 3 tout-petit). */
+export const partDe = (a: number) => (a === 0 ? PORTIONS.adulte : a === 1 ? PORTIONS.ado : a === 2 ? PORTIONS.enfant : PORTIONS.bebe)
+/** La famille : combien de personnes (tout le monde compte, Elisa, 21 novembre : « on est deux ») et combien de
+ *  « parts d'adulte » (les enfants et les tout-petits mangent moins). */
 export function portionsFamille(ages: number[]): { personnes: number; parts: number } {
-  const coef = (a: number) => (a === 0 ? PORTIONS.adulte : a === 1 ? PORTIONS.ado : a === 2 ? PORTIONS.enfant : PORTIONS.bebe)
-  const vrais = ages.filter((a) => coef(a) > 0)
-  return { personnes: Math.max(1, vrais.length), parts: Math.max(1, vrais.reduce((s, a) => s + coef(a), 0)) }
+  return { personnes: Math.max(1, ages.length), parts: Math.max(1, ages.reduce((s, a) => s + partDe(a), 0)) }
 }
 
 // ───────── De la recette à la liste ─────────
