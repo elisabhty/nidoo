@@ -7,12 +7,11 @@
 // • Ce qu'on tape se comprend : « 2 lait », « 500g de farine », « une douzaine d'œufs », « une livre de cerises »,
 //   « jambon x4 », « 1,5 kg de pommes », « pq » (papier toilette).
 // • Les idées : ce que la famille ajoute souvent (gardé sur l'appareil), ce qui va avec ce qui est déjà dans la liste
-//   (environ 180 associations), et des repas entiers (« raclette » : tout ce qu'il faut, pour le nombre de personnes).
+//   (environ 180 associations). Les recettes, avec leurs quantités pour la famille : recettes.ts.
 
-import { ABREGES, ALIAS, ARTICLES, AVEC, THEMES, type Theme } from './coursesDonnees'
+import { ABREGES, ALIAS, ARTICLES, AVEC } from './coursesDonnees'
 
 export type Article = { nom: string; qte: string }
-export type { Theme } from './coursesDonnees'
 
 const majuscule = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s)
 
@@ -372,43 +371,6 @@ const AVEC_MAP = new Map<string, string[]>(
     }),
 )
 
-export const themeParCle = (key: string) => THEMES.find((t) => t.key === key) ?? null
-
-/** Un repas reconnu dans ce qu'on tape : « raclette », « soirée crêpes », « repas de Noël »… */
-export function themeDe(saisie: string): Theme | null {
-  const k = cle(saisie).replace(/^(?:soiree|repas|diner|dejeuner|menu|pack|idee|pour une|pour un|pour de|pour le|pour la|pour)\s+/, '')
-  if (!k) return null
-  return THEMES.find((t) => t.key === k || t.mots.some((m) => cle(m) === k)) ?? null
-}
-
-/** Les articles d'un repas, pour tant de personnes (le fromage à raclette : 200 g par personne). */
-export function articlesDuTheme(theme: Theme, personnes: number): Article[] {
-  return theme.articles.map(([nom, par, u]) => {
-    if (par === undefined) return completer({ nom, qte: '' })
-    if (u === 'g') {
-      const pas = fiche(nom)?.u === 'g' ? fiche(nom)!.p : 50
-      return { nom, qte: ecrireQte({ n: Math.max(pas, Math.round((par * personnes) / pas) * pas), u: 'g' }) }
-    }
-    if (u === 'kg') return { nom, qte: ecrireQte({ n: Math.max(0.5, Math.ceil(par * personnes * 2) / 2), u: 'kg' }) }
-    const n = Math.max(1, Math.ceil(par * personnes - 1e-9))
-    return { nom, qte: n === 1 ? '' : ecrireQte({ n, u: '' }) }
-  })
-}
-
-/** Les repas de saison (raclette en hiver, barbecue en été…), puis quelques classiques. */
-export function themesDuMoment(d = new Date(), max = 4): Theme[] {
-  const mois = d.getMonth() + 1
-  const saison = THEMES.filter((t) => t.mois?.includes(mois))
-  // les fêtes d'abord (Noël en décembre, la galette en janvier, les crêpes en février, Pâques au printemps)
-  saison.sort((a, b) => (a.mois!.length - b.mois!.length))
-  const classiques = ['pizza', 'burgers', 'tacos', 'apero', 'crepes', 'bolognaise', 'quiche', 'gouter'].map((k) => THEMES.find((t) => t.key === k)!)
-  const jour = Math.floor(d.getTime() / 86400000)
-  const tournant = classiques.map((_, i) => classiques[(i + jour) % classiques.length])
-  const out: Theme[] = []
-  for (const t of [...saison.slice(0, max - 1), ...tournant]) if (!out.includes(t) && out.length < max) out.push(t)
-  return out
-}
-
 /** Les idées « pour aller avec » ce qu'il y a déjà dans la liste (les derniers ajoutés d'abord ; pas ce qui y est déjà). */
 export function pourAllerAvec(noms: string[], max = 2): { avec: string; idees: string[] }[] {
   const presents = new Set<string>()
@@ -426,10 +388,9 @@ export function pourAllerAvec(noms: string[], max = 2): { avec: string; idees: s
   const vus = new Set<string>()
   const out: { avec: string; idees: string[] }[] = []
   for (const nom of [...noms].reverse()) {
-    const theme = themeDe(nom)
     const f = fiche(nom)
-    const idees = theme ? theme.articles.map(([x]) => x) : (AVEC_MAP.get(cle(f?.nom ?? nom)) ?? AVEC_MAP.get(cle(nom)) ?? [])
-    const reste = idees.filter((x) => !deja(x) && !vus.has(cle(x))).slice(0, theme ? 8 : 4)
+    const idees = AVEC_MAP.get(cle(f?.nom ?? nom)) ?? AVEC_MAP.get(cle(nom)) ?? []
+    const reste = idees.filter((x) => !deja(x) && !vus.has(cle(x))).slice(0, 4)
     if (!reste.length) continue
     reste.forEach((x) => vus.add(cle(x)))
     out.push({ avec: nom, idees: reste })

@@ -208,6 +208,8 @@ export type ListItem = {
   assigned_to: string | null
   created_by: string | null
   created_at: string
+  /** Une chose à faire liée à un événement de l'agenda (« Acheter le gâteau » → l'anniversaire de Léa). */
+  event_id?: string | null
 }
 
 export type Answer = { id: string; member_id: string; day: string; question_key: string; answer: string; photo_path?: string | null; photo_url?: string | null }
@@ -353,7 +355,11 @@ export interface Backend {
   addEvent(familyId: string, memberId: string, e: NewEvent): Promise<void>
   updateEvent(id: string, patch: Partial<NewEvent>): Promise<void>
   deleteEvent(id: string): Promise<void>
-  addItem(familyId: string, memberId: string, kind: ListKind, title: string, assignedTo?: string | null): Promise<void>
+  addItem(familyId: string, memberId: string, kind: ListKind, title: string, assignedTo?: string | null, eventId?: string | null): Promise<void>
+  /** Lier (ou délier) une chose à faire à un événement. */
+  linkItem(id: string, eventId: string | null): Promise<void>
+  /** Le lien tâche ↔ événement est-il possible (la base le connaît) ? */
+  lienTaches(): Promise<boolean>
   toggleItem(item: ListItem, memberId: string): Promise<void>
   /** Changer le nom d'un article (sa quantité vit dedans : « Lait · 2 »). */
   renameItem(id: string, title: string): Promise<void>

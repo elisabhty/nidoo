@@ -981,12 +981,22 @@ export function createLocalBackend(): Backend {
       for (const f of Object.values(db.families)) f.events = f.events.filter((e) => e.id !== id)
       save()
     },
-    async addItem(fid, memberId, kind, title, assignedTo) {
+    async addItem(fid, memberId, kind, title, assignedTo, eventId) {
       fam(fid).items.push({
         id: uid(), family_id: fid, kind, title: title.trim(), done: false, done_by: null,
-        assigned_to: assignedTo ?? null, created_by: memberId, created_at: new Date().toISOString(),
+        assigned_to: assignedTo ?? null, created_by: memberId, created_at: new Date().toISOString(), event_id: eventId ?? null,
       })
       save()
+    },
+    async linkItem(id, eventId) {
+      for (const f of Object.values(db.families)) {
+        const it = f.items.find((x) => x.id === id)
+        if (it) it.event_id = eventId
+      }
+      save()
+    },
+    async lienTaches() {
+      return true
     },
     async toggleItem(item, memberId) {
       const f = fam(item.family_id)

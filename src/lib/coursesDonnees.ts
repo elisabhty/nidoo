@@ -60,7 +60,7 @@ brocoli|FL||1|1
 chou-fleur|FL||1|1
 chou|FL||1|1
 haricots verts|FL|kg|0.5|0.25
-champignons de Paris|FL||1|1
+champignons de Paris|FL|g|250|250
 endive|FL|kg|1|0.5
 navet|FL|kg|0.5|0.5
 radis|FL||1|1
@@ -68,7 +68,7 @@ betterave cuite|FL||1|1
 céleri|FL||1|1
 fenouil|FL||1|1
 potimarron|FL||1|1
-potiron|FL||1|1
+potiron|FL|kg|1|0.5
 butternut|FL||1|1
 artichaut|FL||2|1
 asperges|FL||1|1
@@ -112,10 +112,11 @@ fromage blanc|CREM||1|1
 petits-suisses|CREM||1|1
 skyr|CREM||4|1
 crème dessert|CREM||1|1
+crème chantilly|CREM||1|1
 fromage|CREM||1|1
-fromage râpé|CREM||1|1
+fromage râpé|CREM|g|200|100
 mozzarella|CREM||2|1
-parmesan|CREM||1|1
+parmesan|CREM|g|100|50
 comté|CREM|g|250|50
 beaufort|CREM|g|250|50
 emmental|CREM|g|250|50
@@ -148,7 +149,7 @@ compote|CREM||1|1
 jambon|VIA|tr|4|2
 jambon cru|VIA||1|1
 blanc de poulet tranches|VIA||1|1
-lardons|VIA||1|1
+lardons|VIA|g|200|100
 dés de jambon|VIA||1|1
 charcuterie|VIA|g|400|100
 saucisson|VIA||1|1
@@ -157,6 +158,9 @@ rosette|VIA||1|1
 pâté|VIA||1|1
 rillettes|VIA||1|1
 lard|VIA||1|1
+poitrine de porc|VIA|g|300|100
+chair à saucisse|VIA|g|400|100
+bacon|VIA||1|1
 choucroute|VIA|kg|1|0.5
 saucisses de Strasbourg|VIA||1|1
 saucisses de Montbéliard|VIA||2|1
@@ -164,8 +168,8 @@ saucisses|VIA||1|1
 surimi|VIA||1|1
 poulet entier|VIA||1|1
 poulet|VIA||1|1
-blanc de poulet|VIA||1|1
-cuisses de poulet|VIA||1|1
+blanc de poulet|VIA|g|300|150
+cuisses de poulet|VIA||4|1
 escalope de dinde|VIA||1|1
 cordon bleu|VIA||1|1
 steak haché|VIA||4|2
@@ -207,6 +211,18 @@ spaghetti|EPS||1|1
 lasagnes|EPS||1|1
 riz|EPS||1|1
 riz basmati|EPS||1|1
+riz rond|EPS||1|1
+riz arborio|EPS||1|1
+haricots blancs|EPS||1|1
+citron confit|EPS||1|1
+confit de canard|EPS||1|1
+thym|EPS||1|1
+laurier|EPS||1|1
+origan|EPS||1|1
+curcuma|EPS||1|1
+piment|EPS||1|1
+baies de genièvre|EPS||1|1
+épices paella|EPS||1|1
 semoule|EPS||1|1
 quinoa|EPS||1|1
 boulgour|EPS||1|1
@@ -273,6 +289,8 @@ cassonade|EPSU||1|1
 sucre vanillé|EPSU||1|1
 levure chimique|EPSU||1|1
 chocolat pâtissier|EPSU||1|1
+pépites de chocolat|EPSU||1|1
+cannelle|EPSU||1|1
 chocolat|EPSU||2|1
 cacao|EPSU||1|1
 chocolat en poudre|EPSU||1|1
@@ -322,6 +340,7 @@ glace|SURG||1|1
 bâtonnets glacés|SURG||1|1
 bûche glacée|SURG||1|1
 glaçons|SURG||1|1
+encornets|SURG||1|1
 croissants surgelés|SURG||1|1
 eau|BOI||1|1
 eau gazeuse|BOI||1|1
@@ -416,7 +435,7 @@ pdt,patate,pommes de terres,pomme-de-terre=Pommes de terre
 alu,papier alu=Papier aluminium
 deo,déo=Déodorant
 jus d’o,jus d’orange,jus orange=Jus d’orange
-champi,champis=Champignons
+champi,champis=Champignons de Paris
 croiss=Croissants
 tradi,une tradition,baguette tradition=Baguettes
 pdc=Pain de campagne
@@ -651,42 +670,3 @@ croquettes chat=Litière,Pâtée chat,Friandises chat
 litière=Croquettes chat,Pâtée chat
 croquettes chien=Friandises chien,Pâtée chien,Sacs à crottes
 `
-
-/** Les repas et les moments (Table B) : « raclette » propose tout ce qu'il faut.
- *  Un article : son nom, et parfois une quantité par personne (« 200 g » de fromage à raclette par personne). */
-/** Un article d'un repas : son nom, et parfois une quantité par personne, dans une unité (vide : un nombre). */
-export type ArticleTheme = [string, number?, ('g' | 'kg' | '')?]
-export type Theme = { key: string; nom: string; pour: string; emoji: string; mots: string[]; articles: ArticleTheme[]; mois?: number[] }
-export const THEMES: Theme[] = [
-  { key: 'raclette', nom: 'Raclette', pour: 'une raclette', emoji: '🧀', mots: ['raclette'], mois: [11, 12, 1, 2], articles: [['Fromage à raclette', 200, 'g'], ['Pommes de terre', 0.35, 'kg'], ['Charcuterie', 175, 'g'], ['Cornichons'], ['Oignons grelots'], ['Pain'], ['Salade'], ['Vin blanc']] },
-  { key: 'fondue', nom: 'Fondue', pour: 'une fondue', emoji: '🫕', mots: ['fondue', 'fondue savoyarde'], mois: [11, 12, 1, 2], articles: [['Fromage à fondue', 200, 'g'], ['Pain de campagne'], ['Vin blanc'], ['Ail'], ['Kirsch'], ['Charcuterie', 100, 'g'], ['Salade']] },
-  { key: 'tartiflette', nom: 'Tartiflette', pour: 'une tartiflette', emoji: '🥔', mots: ['tartiflette'], mois: [11, 12, 1, 2], articles: [['Pommes de terre', 0.25, 'kg'], ['Reblochon', 1 / 3, ''], ['Lardons'], ['Oignons'], ['Crème fraîche'], ['Vin blanc'], ['Salade']] },
-  { key: 'crepes', nom: 'Crêpes', pour: 'des crêpes', emoji: '🥞', mots: ['crepe', 'crepes', 'chandeleur', 'soiree crepe'], mois: [2], articles: [['Farine'], ['Œufs', 1, ''], ['Lait'], ['Beurre'], ['Sucre'], ['Pâte à tartiner'], ['Confiture'], ['Citron']] },
-  { key: 'galettes', nom: 'Galettes bretonnes', pour: 'des galettes', emoji: '🍳', mots: ['galette bretonne', 'galettes bretonnes', 'galette de sarrasin', 'galette complete'], articles: [['Farine de sarrasin'], ['Œufs', 1, ''], ['Jambon'], ['Fromage râpé'], ['Champignons de Paris'], ['Cidre']] },
-  { key: 'galette-rois', nom: 'Galette des rois', pour: 'la galette des rois', emoji: '👑', mots: ['galette des rois', 'epiphanie'], mois: [1], articles: [['Pâte feuilletée', 0.5, ''], ['Poudre d’amande'], ['Beurre'], ['Sucre'], ['Œufs'], ['Cidre']] },
-  { key: 'petit-dej', nom: 'Petit-déjeuner', pour: 'le petit-déjeuner', emoji: '🥐', mots: ['petit dejeuner', 'petit dej', 'brunch'], articles: [['Baguette'], ['Beurre'], ['Confiture'], ['Café'], ['Thé'], ['Lait'], ['Céréales'], ['Jus d’orange'], ['Yaourts'], ['Croissants', 1, '']] },
-  { key: 'gouter', nom: 'Goûter', pour: 'le goûter', emoji: '🍪', mots: ['gouter'], articles: [['Biscuits'], ['Compote'], ['Gâteaux goûter'], ['Pain'], ['Chocolat'], ['Fruits'], ['Jus de pomme'], ['Yaourt à boire']] },
-  { key: 'apero', nom: 'Apéro', pour: 'un apéro', emoji: '🥂', mots: ['apero', 'aperitif', 'apero dinatoire'], articles: [['Chips'], ['Cacahuètes'], ['Biscuits apéritifs'], ['Olives'], ['Saucisson'], ['Tomates cerises'], ['Houmous'], ['Guacamole'], ['Crackers'], ['Soda']] },
-  { key: 'barbecue', nom: 'Barbecue', pour: 'un barbecue', emoji: '🔥', mots: ['barbecue', 'bbq', 'barbec', 'plancha'], mois: [5, 6, 7, 8, 9], articles: [['Merguez'], ['Chipolatas'], ['Brochettes'], ['Charbon de bois'], ['Allume-feu'], ['Pain'], ['Moutarde'], ['Ketchup'], ['Mayonnaise'], ['Chips'], ['Maïs'], ['Glaçons']] },
-  { key: 'pique-nique', nom: 'Pique-nique', pour: 'un pique-nique', emoji: '🧺', mots: ['pique nique', 'picnic', 'piquenique'], mois: [5, 6, 7, 8, 9], articles: [['Pain de mie'], ['Jambon'], ['Œufs'], ['Tomates cerises'], ['Concombre'], ['Chips'], ['Fromage'], ['Pommes'], ['Eau']] },
-  { key: 'pizza', nom: 'Pizzas maison', pour: 'des pizzas maison', emoji: '🍕', mots: ['pizza maison', 'pizzas maison', 'soiree pizza'], articles: [['Pâte à pizza', 0.5, ''], ['Sauce tomate'], ['Mozzarella'], ['Jambon'], ['Champignons de Paris'], ['Olives'], ['Fromage râpé']] },
-  { key: 'burgers', nom: 'Burgers', pour: 'des burgers', emoji: '🍔', mots: ['burger', 'burgers', 'burger maison', 'soiree burger'], articles: [['Pains burger'], ['Steaks hachés', 1, ''], ['Cheddar'], ['Tomates'], ['Oignons'], ['Salade'], ['Cornichons'], ['Ketchup'], ['Frites']] },
-  { key: 'tacos', nom: 'Tacos et fajitas', pour: 'des tacos', emoji: '🌮', mots: ['taco', 'tacos', 'fajita', 'fajitas', 'burrito', 'mexicain'], articles: [['Tortillas'], ['Poulet'], ['Poivrons'], ['Oignons'], ['Épices tex-mex'], ['Fromage râpé'], ['Crème fraîche'], ['Avocats'], ['Haricots rouges'], ['Citron vert']] },
-  { key: 'bolognaise', nom: 'Bolognaise', pour: 'une bolognaise', emoji: '🍝', mots: ['bolognaise', 'bolo', 'spaghetti bolognaise'], articles: [['Spaghetti'], ['Viande hachée', 125, 'g'], ['Coulis de tomate'], ['Oignons'], ['Carottes'], ['Ail'], ['Parmesan']] },
-  { key: 'carbonara', nom: 'Carbonara', pour: 'une carbonara', emoji: '🍝', mots: ['carbonara'], articles: [['Spaghetti'], ['Lardons'], ['Œufs'], ['Parmesan'], ['Poivre']] },
-  { key: 'couscous', nom: 'Couscous', pour: 'un couscous', emoji: '🍲', mots: ['couscous'], articles: [['Semoule'], ['Merguez'], ['Poulet'], ['Carottes'], ['Courgettes'], ['Navets'], ['Pois chiches'], ['Oignons'], ['Concentré de tomate'], ['Ras el hanout'], ['Harissa']] },
-  { key: 'pot-au-feu', nom: 'Pot-au-feu', pour: 'un pot-au-feu', emoji: '🍲', mots: ['pot au feu'], mois: [10, 11, 12, 1, 2, 3], articles: [['Plat de côtes', 0.35, 'kg'], ['Os à moelle'], ['Carottes'], ['Poireaux'], ['Navets'], ['Pommes de terre'], ['Oignons'], ['Bouquet garni'], ['Cornichons'], ['Moutarde']] },
-  { key: 'blanquette', nom: 'Blanquette', pour: 'une blanquette', emoji: '🍲', mots: ['blanquette', 'blanquette de veau'], articles: [['Veau blanquette', 0.25, 'kg'], ['Carottes'], ['Champignons de Paris'], ['Oignons'], ['Crème fraîche'], ['Œufs'], ['Citron'], ['Beurre'], ['Farine'], ['Riz']] },
-  { key: 'quiche', nom: 'Quiche lorraine', pour: 'une quiche', emoji: '🥧', mots: ['quiche', 'quiche lorraine'], articles: [['Pâte brisée'], ['Lardons'], ['Œufs'], ['Crème fraîche'], ['Lait'], ['Fromage râpé'], ['Muscade']] },
-  { key: 'gratin', nom: 'Gratin dauphinois', pour: 'un gratin dauphinois', emoji: '🥔', mots: ['gratin dauphinois', 'gratin'], articles: [['Pommes de terre', 0.25, 'kg'], ['Crème fraîche'], ['Lait'], ['Ail'], ['Muscade'], ['Beurre']] },
-  { key: 'soupe', nom: 'Soupe de légumes', pour: 'une soupe', emoji: '🥣', mots: ['soupe maison', 'soupe de legume', 'veloute'], mois: [10, 11, 12, 1, 2, 3], articles: [['Poireaux'], ['Carottes'], ['Pommes de terre'], ['Oignons'], ['Navets'], ['Bouillon cube'], ['Crème fraîche']] },
-  { key: 'nicoise', nom: 'Salade niçoise', pour: 'une salade niçoise', emoji: '🥗', mots: ['salade nicoise', 'nicoise'], mois: [5, 6, 7, 8, 9], articles: [['Salade'], ['Tomates'], ['Thon'], ['Œufs'], ['Olives'], ['Poivrons'], ['Haricots verts'], ['Anchois'], ['Oignon rouge']] },
-  { key: 'moules', nom: 'Moules-frites', pour: 'des moules-frites', emoji: '🦪', mots: ['moules frites', 'moule frite', 'moules marinieres'], articles: [['Moules', 0.5, 'kg'], ['Frites'], ['Échalotes'], ['Vin blanc'], ['Crème fraîche'], ['Persil'], ['Beurre']] },
-  { key: 'choucroute', nom: 'Choucroute', pour: 'une choucroute', emoji: '🌭', mots: ['choucroute garnie'], mois: [10, 11, 12, 1, 2], articles: [['Choucroute', 0.25, 'kg'], ['Saucisses de Strasbourg'], ['Saucisses de Montbéliard'], ['Lard'], ['Pommes de terre'], ['Bière']] },
-  { key: 'anniversaire', nom: 'Anniversaire', pour: 'un anniversaire', emoji: '🎂', mots: ['anniversaire', 'gouter d anniversaire', 'anniv'], articles: [['Chocolat pâtissier'], ['Beurre'], ['Sucre'], ['Œufs'], ['Farine'], ['Levure chimique'], ['Bougies d’anniversaire'], ['Bonbons'], ['Soda'], ['Jus de pomme'], ['Chips']] },
-  { key: 'tiramisu', nom: 'Tiramisu', pour: 'un tiramisu', emoji: '🍰', mots: ['tiramisu'], articles: [['Mascarpone'], ['Œufs'], ['Sucre'], ['Biscuits cuillère'], ['Café'], ['Cacao']] },
-  { key: 'smoothie', nom: 'Smoothies', pour: 'des smoothies', emoji: '🥤', mots: ['smoothie', 'smoothies'], articles: [['Bananes'], ['Fruits rouges'], ['Yaourt nature'], ['Miel'], ['Flocons d’avoine']] },
-  { key: 'noel', nom: 'Repas de Noël', pour: 'le repas de Noël', emoji: '🎄', mots: ['noel', 'repas de noel', 'reveillon', 'reveillon de noel', 'nouvel an', 'saint sylvestre'], mois: [12], articles: [['Foie gras'], ['Pain d’épices'], ['Confit d’oignons'], ['Saumon fumé'], ['Blinis'], ['Huîtres'], ['Citrons'], ['Échalotes'], ['Chapon'], ['Marrons'], ['Bûche glacée'], ['Champagne'], ['Chocolat'], ['Clémentines']] },
-  { key: 'paques', nom: 'Repas de Pâques', pour: 'Pâques', emoji: '🐣', mots: ['paques', 'repas de paques'], mois: [3, 4], articles: [['Gigot d’agneau', 0.25, 'kg'], ['Flageolets'], ['Ail'], ['Romarin'], ['Œufs en chocolat'], ['Lapins en chocolat']] },
-  { key: 'bebe', nom: 'Bébé', pour: 'bébé', emoji: '🍼', mots: ['bebe', 'naissance', 'liste bebe'], articles: [['Couches'], ['Lingettes'], ['Liniment'], ['Lait infantile'], ['Petits pots'], ['Compote bébé'], ['Sérum physiologique'], ['Cotons']] },
-]

@@ -1,7 +1,10 @@
 import { ListPages, useListPage } from '../components/listNavigation'
-import { Check, ChevronLeft, ChevronRight, MapPin, Minus, Plus, Trash2, Users } from 'lucide-react'
+import { BookOpen, Check, ChevronLeft, ChevronRight, MapPin, Minus, Plus, Trash2, Users } from 'lucide-react'
 import { useRef, useState, type ReactNode } from 'react'
-import { additionner, articlesDuTheme, AUTRES, cle, completer, comprendre, ecrireArticle, lireArticle, memeArticle, lireQte, moinsUn, plusUn, pourAllerAvec, qteCourte, RAYONS, rayonDe, retenir, souvent, themeDe, themeParCle, themesDuMoment } from '../lib/courses'
+import { additionner, AUTRES, cle, completer, comprendre, ecrireArticle, lireArticle, memeArticle, lireQte, moinsUn, plusUn, pourAllerAvec, qteCourte, RAYONS, rayonDe, retenir, souvent } from '../lib/courses'
+import { recetteDe, recettesAvec, recettesDuMoment, type Recette } from '../lib/recettes'
+import { evenementsAVenir, jourCourt, useLienTaches } from '../lib/lienTaches'
+import { RecetteSheet, RecettesSheet } from '../components/recettes'
 import { MemberStack } from '../components/folder'
 import { EventDetailSheet, EventSheet, EventIcon, TYPES_AGENDA } from '../components/sheets'
 import { Art, Avatar, Rond, Screen, Segments, Vide } from '../components/ui'
@@ -294,6 +297,8 @@ function Liste({ kind }: { kind: ListKind }) {
   const [editing, setEditing] = useState(false)
   const [to, setTo] = useState<string | null>(null)
   const tache = kind === 'tache'
+  // à faire : liée à un événement de l'agenda (facultatif)
+  const [pourEvt, setPourEvt] = useState<string | null>(null)
   const [filtre, setFiltre] = useState('toutes')
   // ce qu'on vient de faire, affiché sans attendre le serveur
   const [ajouts, setAjouts] = useState<(ListItem & { connus: Set<string> })[]>([])
@@ -301,6 +306,9 @@ function Liste({ kind }: { kind: ListKind }) {
   const champ = useRef<HTMLInputElement>(null)
 
   const reels = state.items.filter((i) => i.kind === kind)
+  const peutLier = useLienTaches(api, state.items)
+  const aVenir = tache && peutLier ? evenementsAVenir(state.events) : []
+  const evtDe = (id?: string | null) => (id ? state.events.find((e) => e.id === id) : undefined)
   const enAttente = ajouts.filter((a) => !reels.some((i) => !a.connus.has(i.id) && i.title === a.title))
   const items = [
     ...reels
@@ -330,24 +338,22 @@ function Liste({ kind }: { kind: ListKind }) {
         .map((r) => ({ r, items: todo.filter((i) => rayonDe(lireArticle(i.title).nom).key === r.key) }))
         .filter((x) => x.items.length)
   const saisie = !tache && title.trim() ? completer(comprendre(title)) : null
-  // un repas entier : tapé (« raclette ») ou touché dans les idées de saison
-  const [themeOuvert, setThemeOuvert] = useState<string | null>(null)
-  const theme = tache ? null : (title.trim() ? themeDe(title) : null) ?? (themeOuvert ? themeParCle(themeOuvert) : null)
-  const [personnes, setPersonnes] = useState(() => Math.min(12, Math.max(2, members.length)))
-  const [decoches, setDecoches] = useState<string[]>([])
-  const articlesRepas = theme ? articlesDuTheme(theme, personnes).map((a) => ({ ...a, deja: todo.some((i) => memeArticle(lireArticle(i.title).nom, a.nom)) })) : []
-  const aAjouter = articlesRepas.filter((a) => !a.deja && !decoches.includes(a.nom))
-  const ajouterRepas = (el: Element | null) => {
-    if (!theme || !aAjouter.length) return
-    for (const a of aAjouter) ajouter(ecrireArticle(a))
+  // les recettes : tapées (« bolognaise »), de saison, ou celles qu'on a presque avec ce qu'il y a dans la liste
+  const [recette, setRecette] = useState<Recette | null>(null)
+  const [toutesRecettes, setToutesRecettes] = useState(false)
+  const recetteTapee = tache || !title.trim() ? null : recetteDe(title)
+  const saisons = tache ? [] : recettesDuMoment()
+  const presque = tache ? [] : recettesAvec(nomsListe)
+  const dansLaListe = (nom: string) => todo.some((i) => memeArticle(lireArticle(i.title).nom, nom))
+  const ajouterRecette = (r: Recette, articles: { nom: string; qte: string }[]) => {
+    for (const a of articles) ajouter(ecrireArticle(a), { exact: true, discret: true })
     success()
-    petille(el)
-    toast(`${aAjouter.length} article${aAjouter.length > 1 ? 's' : ''} pour ${theme.pour} 🛒`)
+    confettis()
+    toast(`${articles.length} article${articles.length > 1 ? 's' : ''} pour : ${r.nom} 🛒`)
+    setRecette(null)
+    setToutesRecettes(false)
     setTitle('')
-    setThemeOuvert(null)
-    setDecoches([])
   }
-  const saisons = tache ? [] : themesDuMoment()
 
   /** Enregistre en arrière-plan ; en cas d'échec on remet comme avant. */
   const fond = async (op: () => Promise<unknown>, annuler: () => void, apres: () => void) => {
@@ -369,36 +375,38 @@ function Liste({ kind }: { kind: ListKind }) {
     })
 
   /** depuisLeChamp : on a écrit et validé (le clavier reste ouvert pour la suite) ; sinon, une idée touchée. */
-  const ajouter = (texte?: string) => {
+  const ajouter = (texte?: string, o: { exact?: boolean; discret?: boolean } = {}) => {
     const brut = (texte ?? title).trim()
     if (!brut) return
     // une course : sa quantité (« 2 lait » → « Lait · 2 » ; rien de tapé : la quantité habituelle, « Œufs » → 12) ;
-    // déjà dans la liste : on en reprend (la quantité tapée, sinon un pas de plus)
+    // déjà dans la liste : on en reprend (la quantité tapée, sinon un pas de plus).
+    // exact : la quantité vient d'une recette (rien = un seul paquet), on ne met pas la quantité habituelle.
     const tape = tache ? null : comprendre(brut)
-    const t = tache ? brut.slice(0, 80) : ecrireArticle(completer(tape!))
+    const t = tache ? brut.slice(0, 80) : ecrireArticle(o.exact ? tape! : completer(tape!))
     if (tape) {
       const deja = todo.find((i) => !i.id.startsWith('attente-') && memeArticle(lireArticle(i.title).nom, tape.nom))
       if (deja) {
         const avant = lireArticle(deja.title)
-        const somme = tape.qte ? additionner(avant.qte, tape.qte) : plusUn(avant.nom, avant.qte)
+        const somme = tape.qte ? additionner(avant.qte, tape.qte) : o.exact ? additionner(avant.qte, '1') : plusUn(avant.nom, avant.qte)
         if (somme) {
           if (!texte) setTitle('')
           changerQuantite(deja, somme)
           retenir(family.id, tape.nom)
-          toast(`${avant.nom} : ${somme}`)
+          if (!o.discret) toast(`${avant.nom} : ${somme}`)
           return
         }
       }
       retenir(family.id, tape.nom)
     }
-    tap()
+    if (!o.discret) tap()
     if (!texte) setTitle('')
-    const tmp = { id: `attente-${Date.now()}-${Math.random()}`, family_id: family.id, kind, title: t, done: false, done_by: null, assigned_to: tache ? to : null, created_by: me.id, created_at: new Date().toISOString(), connus: new Set(state.items.map((i) => i.id)) }
+    const evt = tache && peutLier ? pourEvt : null
+    const tmp = { id: `attente-${Date.now()}-${Math.random()}`, family_id: family.id, kind, title: t, done: false, done_by: null, assigned_to: tache ? to : null, created_by: me.id, created_at: new Date().toISOString(), event_id: evt, connus: new Set(state.items.map((i) => i.id)) }
     setAjouts((a) => [...a, tmp])
     if (tache) { setFiltre('toutes'); navigation.setPage(1) }
     const pour = tache ? to : null
     void fond(
-      () => api.addItem(family.id, me.id, kind, t, pour),
+      () => api.addItem(family.id, me.id, kind, t, pour, evt),
       () => {
         setAjouts((a) => a.filter((x) => x.id !== tmp.id))
         if (!texte) setTitle(brut)
@@ -464,7 +472,15 @@ function Liste({ kind }: { kind: ListKind }) {
           {/* le gris du toucher s'arrête avant la quantité, avec un peu d'air (Elisa, 21 novembre) */}
           <button onClick={(e) => basculer(i, e.currentTarget.firstElementChild)} className={`presse-ligne flex min-h-[54px] min-w-0 flex-1 items-center gap-3 py-2 pl-4 pr-3 text-left ${!tache && !editing ? 'rounded-r-[16px]' : ''}`} aria-label={`Cocher ${i.title}`}>
             <Coche fait={false} />
-            <span className="min-w-0 flex-1 text-corps">{tache ? i.title : art.nom}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-corps">{tache ? i.title : art.nom}</span>
+              {tache && evtDe(i.event_id) && (
+                <span className="mt-0.5 flex items-center gap-1 text-note font-semibold text-teinte-fonce">
+                  <EventIcon event={evtDe(i.event_id)!} size={15} />
+                  <span className="truncate">{evtDe(i.event_id)!.kind === 'anniversaire' ? `Anniversaire de ${evtDe(i.event_id)!.title}` : evtDe(i.event_id)!.title} · {jourCourt(nextOccurrence(evtDe(i.event_id)!))}</span>
+                </span>
+              )}
+            </span>
             {who && <Avatar m={who} size={28} />}
           </button>
           {!tache && !editing && !attente && <Quantite qte={art.qte} nom={art.nom} onChange={(q) => changerQuantite(i, q)} onRetirer={() => retirer([i.id])} />}
@@ -504,10 +520,7 @@ function Liste({ kind }: { kind: ListKind }) {
             // les courses : pas de suggestions d'iOS (parfois en anglais) au-dessus du clavier, ce sont celles de Nidoo
             {...(tache ? {} : { autoCorrect: 'off', spellCheck: false, autoComplete: 'off', name: 'nidoo-article' })}
             value={title}
-            onChange={(e) => {
-              setTitle(e.target.value)
-              setDecoches([])
-            }}
+            onChange={(e) => setTitle(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !title.trim()) {
                 e.preventDefault()
@@ -520,11 +533,7 @@ function Liste({ kind }: { kind: ListKind }) {
               Ajouter
             </button>
           )}
-          {!title.trim() && themeOuvert && (
-            <button type="button" onPointerDown={garderLeClavier} onClick={() => setThemeOuvert(null)} className="presse min-h-11 shrink-0 px-2 text-sous font-semibold text-teinte-fonce">
-              Fermer
-            </button>
-          )}
+
         </form>
         {saisie && (
           <p className="anim-entre mt-1.5 flex items-center gap-1.5 px-1 text-note font-semibold text-teinte-fonce">
@@ -534,48 +543,17 @@ function Liste({ kind }: { kind: ListKind }) {
             <span className="font-medium text-brume">· {rayonDe(saisie.nom).label}</span>
           </p>
         )}
-        {theme && (
-          <div className="anim-entre mt-3 rounded-[18px] bg-fond p-3" role="group" aria-label={`Tout pour ${theme.pour}`}>
-            <div className="flex items-center gap-2.5">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-carte text-[22px] shadow-carte" aria-hidden="true">{theme.emoji}</span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sous font-bold">Tout pour {theme.pour}</p>
-                <p className="text-note text-brume">Quantités pour {personnes} personne{personnes > 1 ? 's' : ''}</p>
-              </div>
-              <span className="flex shrink-0 items-center rounded-full bg-carte p-0.5 shadow-carte" role="group" aria-label="Nombre de personnes">
-                <button type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setPersonnes((n) => Math.max(1, n - 1)))} disabled={personnes <= 1} aria-label="Une personne de moins" className="presse flex h-8 w-8 items-center justify-center rounded-full text-teinte-fonce disabled:opacity-30"><Minus size={15} strokeWidth={3} /></button>
-                <span key={personnes} className="anim-pop flex min-w-[34px] items-center justify-center gap-0.5 text-sous font-extrabold"><Users size={13} strokeWidth={2.6} className="text-brume" />{personnes}</span>
-                <button type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setPersonnes((n) => Math.min(20, n + 1)))} aria-label="Une personne de plus" className="presse flex h-8 w-8 items-center justify-center rounded-full text-teinte-fonce"><Plus size={15} strokeWidth={3} /></button>
-              </span>
-            </div>
-            <div className="mt-2.5 flex flex-wrap gap-1.5">
-              {articlesRepas.map((a) => {
-                const on = !a.deja && !decoches.includes(a.nom)
-                return (
-                  <button
-                    key={a.nom}
-                    type="button"
-                    onPointerDown={garderLeClavier}
-                    disabled={a.deja}
-                    aria-pressed={on}
-                    aria-label={a.deja ? `${a.nom} : déjà dans la liste` : undefined}
-                    onClick={() => (select(), setDecoches((d) => (d.includes(a.nom) ? d.filter((x) => x !== a.nom) : [...d, a.nom])))}
-                    className={`presse choix-pop flex min-h-[34px] items-center gap-1 rounded-full px-2.5 text-note font-semibold ${a.deja ? 'bg-carte text-pale line-through' : on ? 'bg-teinte text-white' : 'bg-carte text-encre ring-1 ring-inset ring-trait'}`}
-                  >
-                    {on ? <Check size={13} strokeWidth={3} /> : !a.deja && <Plus size={13} strokeWidth={3} className="text-teinte" />}
-                    {a.nom}
-                    {a.qte && <span className={on ? 'text-white/80' : 'text-brume'}>· {a.qte}</span>}
-                  </button>
-                )
-              })}
-            </div>
-            {articlesRepas.some((a) => a.deja) && <p className="mt-1.5 px-1 text-mini text-brume">Barrés : déjà dans la liste.</p>}
-            <button type="button" onPointerDown={garderLeClavier} onClick={(e) => ajouterRepas(e.currentTarget)} disabled={!aAjouter.length} className="presse mt-3 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full bg-teinte text-sous font-bold text-white shadow-[0_8px_18px_-10px_rgba(112,80,213,0.9)] disabled:opacity-40">
-              <Plus size={16} strokeWidth={3} /> {aAjouter.length ? `Ajouter ${aAjouter.length} article${aAjouter.length > 1 ? 's' : ''}` : 'Tout est déjà dans la liste'}
-            </button>
-          </div>
+        {recetteTapee && (
+          <button type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setRecette(recetteTapee))} className="presse anim-entre mt-3 flex w-full items-center gap-3 rounded-[18px] bg-peche-doux p-2.5 pr-3 text-left">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-carte text-[24px] shadow-carte" aria-hidden="true">{recetteTapee.emoji}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sous font-bold text-encre">Recette : {recetteTapee.nom}</span>
+              <span className="block text-note text-peche-fonce">Tous les ingrédients, aux bonnes quantités pour la famille</span>
+            </span>
+            <ChevronRight size={18} className="shrink-0 text-peche-fonce" />
+          </button>
         )}
-        {!tache && !theme && idees.length > 0 && (
+        {!tache && !recetteTapee && idees.length > 0 && (
           <>
             <p className="mb-1.5 mt-3 px-1 text-note font-bold text-brume">Souvent dans la liste</p>
             <div className="no-bar -mx-3 flex gap-1.5 overflow-x-auto px-3 pb-0.5" aria-label="Idées à ajouter">
@@ -583,19 +561,35 @@ function Liste({ kind }: { kind: ListKind }) {
             </div>
           </>
         )}
-        {!theme && avec.map((g) => (
+        {!recetteTapee && avec.map((g) => (
           <div key={g.avec}>
             <p className="mb-1.5 mt-3 px-1 text-note font-bold text-brume">Pour aller avec {g.avec.toLowerCase()}</p>
             <div className="no-bar -mx-3 flex gap-1.5 overflow-x-auto px-3 pb-0.5">{g.idees.map((x) => idee(x, `${g.avec}-${x}`))}</div>
           </div>
         ))}
-        {!tache && !theme && !title.trim() && saisons.length > 0 && (
+        {!tache && !title.trim() && presque.length > 0 && (
           <>
-            <p className="mb-1.5 mt-3 px-1 text-note font-bold text-brume">Idées repas · tout ce qu’il faut d’un toucher</p>
+            <p className="mb-1.5 mt-3 px-1 text-note font-bold text-brume">Une recette avec ce qu’il y a dans la liste</p>
             <div className="no-bar -mx-3 flex gap-1.5 overflow-x-auto px-3 pb-0.5">
-              {saisons.map((t) => (
-                <button key={t.key} type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setDecoches([]), setThemeOuvert(t.key))} className="presse flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full bg-peche-doux px-3 text-sous font-semibold text-peche-fonce">
-                  <span aria-hidden="true">{t.emoji}</span> {t.nom}
+              {presque.map(({ recette: r, manque }) => (
+                <button key={r.id} type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setRecette(r))} className="presse flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full bg-peche-doux px-3 text-sous font-semibold text-peche-fonce">
+                  <span aria-hidden="true">{r.emoji}</span> {r.nom}
+                  <span className="font-medium opacity-75">· il manque {manque}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+        {!tache && !title.trim() && (
+          <>
+            <p className="mb-1.5 mt-3 px-1 text-note font-bold text-brume">Recettes · tout pour le repas, aux bonnes quantités</p>
+            <div className="no-bar -mx-3 flex gap-1.5 overflow-x-auto px-3 pb-0.5">
+              <button type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setToutesRecettes(true))} className="presse flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full bg-teinte px-3 text-sous font-semibold text-white">
+                <BookOpen size={15} strokeWidth={2.4} /> Toutes les recettes
+              </button>
+              {saisons.map((r) => (
+                <button key={r.id} type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setRecette(r))} className="presse flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full bg-peche-doux px-3 text-sous font-semibold text-peche-fonce">
+                  <span aria-hidden="true">{r.emoji}</span> {r.nom}
                 </button>
               ))}
             </div>
@@ -614,6 +608,20 @@ function Liste({ kind }: { kind: ListKind }) {
                 </button>
               ))}
             </div>
+            {aVenir.length > 0 && (
+              <>
+                <p className="mb-1.5 mt-3 px-1 text-note font-bold text-brume">Pour un événement ? <span className="font-medium">(facultatif)</span></p>
+                <div className="no-bar -mx-3 flex gap-1.5 overflow-x-auto px-3 pb-0.5" role="group" aria-label="Lier à un événement">
+                  {aVenir.map(({ e, at }) => (
+                    <button key={e.id} type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setPourEvt(pourEvt === e.id ? null : e.id))} aria-pressed={pourEvt === e.id} className={`presse choix-pop flex min-h-[38px] shrink-0 items-center gap-1.5 rounded-full pl-1.5 pr-3 text-sous font-semibold ${pourEvt === e.id ? 'bg-teinte text-white' : 'bg-fond text-encre'}`}>
+                      <EventIcon event={e} size={24} />
+                      <span className="max-w-[150px] truncate">{e.kind === 'anniversaire' ? `Anniv. ${e.title}` : e.title}</span>
+                      <span className={`font-medium ${pourEvt === e.id ? 'text-white/80' : 'text-brume'}`}>{jourCourt(at)}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </>
         )}
       </div>
@@ -695,6 +703,8 @@ function Liste({ kind }: { kind: ListKind }) {
         </>
       )}
       {tache && <ListPages {...navigation} label="Pages des tâches" />}
+      {recette && <RecetteSheet key={recette.id} recette={recette} onClose={() => setRecette(null)} onAjouter={(a) => ajouterRecette(recette, a)} dejaDansLaListe={dansLaListe} />}
+      {toutesRecettes && !recette && <RecettesSheet onClose={() => setToutesRecettes(false)} onChoisir={setRecette} />}
     </>
   )
 }

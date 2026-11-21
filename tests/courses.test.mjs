@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import { strict as assert } from 'node:assert'
 import { loadTs } from './loadTs.mjs'
-const { comprendre, completer, lireArticle, ecrireArticle, nombre, rayonDe, pourAllerAvec, fiche, plusUn, moinsUn, additionner, themeDe, articlesDuTheme, themesDuMoment, lireQte } = await loadTs('src/lib/courses.ts')
+const { comprendre, completer, lireArticle, ecrireArticle, nombre, rayonDe, pourAllerAvec, fiche, plusUn, moinsUn, additionner, lireQte } = await loadTs('src/lib/courses.ts')
 
 test('comprend la quantité tapée, devant ou derrière', () => {
   assert.deepEqual(comprendre('2 lait'), { nom: 'Lait', qte: '2' })
@@ -90,16 +90,4 @@ test('chaque article a sa quantité habituelle et son pas', () => {
   assert.equal(lireQte('6 × 1,5 l'), null)
   assert.equal(additionner('500 g', '1 kg'), '1500 g')
   assert.equal(additionner('2', '3'), '5')
-})
-
-test('des repas entiers, pour toute la maison', () => {
-  assert.equal(themeDe('raclette').key, 'raclette')
-  assert.equal(themeDe('Soirée crêpes').key, 'crepes')
-  assert.equal(themeDe('fromage à raclette'), null)
-  const r = articlesDuTheme(themeDe('raclette'), 4)
-  assert.deepEqual(r.slice(0, 3), [{ nom: 'Fromage à raclette', qte: '800 g' }, { nom: 'Pommes de terre', qte: '1,5 kg' }, { nom: 'Charcuterie', qte: '700 g' }])
-  assert.deepEqual(articlesDuTheme(themeDe('tartiflette'), 4)[1], { nom: 'Reblochon', qte: '2' })
-  const nov = themesDuMoment(new Date(2026, 10, 21)).map((t) => t.key)
-  assert.deepEqual(nov.slice(0, 3), ['raclette', 'fondue', 'tartiflette'])
-  assert.equal(themesDuMoment(new Date(2026, 11, 3))[0].key, 'noel')
 })

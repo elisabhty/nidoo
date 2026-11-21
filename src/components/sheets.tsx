@@ -1,4 +1,4 @@
-import { AlignLeft, Cake, CalendarDays, CalendarPlus, Camera, ChevronRight, Images, MapPin, Navigation, PenLine, Repeat, Share, Sticker as StickerIcon, Trash2, Undo2, Users } from 'lucide-react'
+import { AlignLeft, Cake, CalendarDays, CalendarPlus, Camera, Check, Plus, ChevronRight, Images, MapPin, Navigation, PenLine, Repeat, Share, Sticker as StickerIcon, Trash2, Undo2, Users } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { moodOf, MOODS, THOUGHTS, thoughtOf } from '../lib/data'
 import { Smiley } from './Smiley'
@@ -6,6 +6,8 @@ import { coeurs, confettis } from '../lib/fete'
 import { feel, select, success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
 import { partagerTexte } from '../lib/share'
+import { ouvrirLieu } from '../lib/plans'
+import { useLienTaches } from '../lib/lienTaches'
 import type { EventKind, FamEvent, Member, Sticker, ThoughtKind } from '../lib/types'
 import { chargerImage, photoFinale, vignettesFiltres, type FiltreKey } from '../lib/filtres'
 import { MAX_STICKERS } from '../lib/stickers'
@@ -506,8 +508,6 @@ export function EventIcon({event,size=34,className=''}:{event:Pick<FamEvent,'kin
 /** Ce qu'on peut mettre dans l'agenda (pour les raccourcis « Ajouter »). */
 export const TYPES_AGENDA = KINDS.map((k) => ({ key: k.key, label: k.label, art: k.art }))
 const LIEU_EXEMPLE: Record<string, string> = { evenement: 'Où ? Ex. : Chez Mamie, à Lyon', rdv: 'Où ? Ex. : Cabinet du Dr Martin', anniversaire: 'Où se fête-t-il ? (facultatif)' }
-/** Ouvre le lieu dans Plans (sur iPhone) ou dans la carte du navigateur. */
-export const lienPlans = (lieu: string) => `https://maps.apple.com/?q=${encodeURIComponent(lieu)}`
 
 /** Qui est concerné : toute la famille, ou les proches choisis (avec leur tête et leur prénom). */
 export function WhoPicker({ value, onChange }: { value: string[]; onChange: (ids: string[]) => void }) {
@@ -845,10 +845,21 @@ function ActionEvt({ icone: I, label, onClick, href }: { icone: typeof CalendarP
  *  En haut : son image, son nom, quand, et dans combien de jours. Puis les actions d'un coup d'œil
  *  (Calendrier, Itinéraire, Partager, Modifier), et une seule carte d'infos (où, avec qui, les détails). */
 export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Date; onClose: () => void }) {
-  const { state, run, toast } = useHome()
+  const { state, run, toast, api } = useHome()
   const ev = state.events.find((x) => x.id === event.id) ?? event // la version à jour, après une modification
   const [modif, setModif] = useState(false)
   const [toutLire, setToutLire] = useState(false)
+  // les choses à faire pour cet événement (Elisa, 21 novembre) : tout le monde peut en ajouter et en cocher
+  const peutLier = useLienTaches(api, state.items)
+  const taches = state.items.filter((i) => i.kind === 'tache' && i.event_id === ev.id)
+  const [nouvelle, setNouvelle] = useState('')
+  const ajouterTache = async () => {
+    const t = nouvelle.trim().slice(0, 80)
+    if (!t) return
+    setNouvelle('')
+    tap()
+    if (!(await run((a) => a.addItem(state.family.id, state.me.id, 'tache', t, null, ev.id)))) setNouvelle(t)
+  }
   const at = nextOccurrence(ev) // recalculé : la date a pu être modifiée
   const author = state.members.find((m) => m.id === ev.created_by)
   // seule la personne qui l'a ajouté peut le modifier ou le supprimer (Elisa, 21 novembre) ;
@@ -885,7 +896,7 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
   }
   const actions = [
     <ActionEvt key="cal" icone={CalendarPlus} label="Calendrier" onClick={calendrier} />,
-    ev.lieu ? <ActionEvt key="plans" icone={Navigation} label="Itinéraire" href={lienPlans(ev.lieu)} /> : null,
+    ev.lieu ? <ActionEvt key="plans" icone={Navigation} label="Itinéraire" onClick={() => void ouvrirLieu(ev.lieu!)} /> : null,
     <ActionEvt key="partage" icone={Share} label="Partager" onClick={() => void partager()} />,
     peutModifier ? <ActionEvt key="modif" icone={PenLine} label="Modifier" onClick={() => setModif(true)} /> : null,
   ].filter(Boolean)
@@ -927,12 +938,12 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
 
       <div className="groupe mt-4">
         {ev.lieu && (
-          <a href={lienPlans(ev.lieu)} target="_blank" rel="noopener noreferrer" className="presse-ligne block">
+          <button type="button" onClick={() => (tap(), void ouvrirLieu(ev.lieu!))} className="presse-ligne block w-full text-left">
             <Info icone={<MapPin size={18} strokeWidth={2.3} />} fleche>
               <span className="block break-words">{ev.lieu}</span>
-              <span className="text-note text-brume">Ouvrir dans Plans</span>
+              <span className="text-note text-brume">Plans, Google Maps, Citymapper ou Waze</span>
             </Info>
-          </a>
+          </button>
         )}
         <Info icone={<Users size={18} strokeWidth={2.3} />} dernier={!ev.description}>
           <span className="flex items-center gap-2">
@@ -956,6 +967,33 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
           </Info>
         )}
       </div>
+      {peutLier && (
+        <>
+          <p className="mb-2 mt-5 flex items-baseline justify-between px-1 text-sous font-bold">
+            À faire pour cet événement
+            {taches.length > 0 && <span className="text-note font-semibold text-brume">{taches.filter((t) => t.done).length} / {taches.length}</span>}
+          </p>
+          <div className="groupe overflow-hidden">
+            {taches.map((t) => {
+              const qui = state.members.find((m) => m.id === t.assigned_to)
+              return (
+                <button key={t.id} type="button" onClick={() => (t.done ? tap() : success(), void run((a) => a.toggleItem(t, state.me.id)))} aria-pressed={t.done} className="presse-ligne flex w-full items-center gap-3 pl-4 text-left">
+                  <span className={`flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full ${t.done ? 'bg-teinte text-white' : 'border-2 border-pale'}`}>{t.done && <Check size={14} strokeWidth={3.2} className="anim-pop" />}</span>
+                  <span className={`flex min-h-[48px] min-w-0 flex-1 items-center gap-2 border-b border-trait py-2 pr-4 text-corps ${t.done ? 'text-pale line-through' : ''}`}>
+                    <span className="min-w-0 flex-1">{t.title}</span>
+                    {qui && <Avatar m={qui} size={24} />}
+                  </span>
+                </button>
+              )
+            })}
+            <form onSubmit={(e) => (e.preventDefault(), void ajouterTache())} className="flex items-center gap-3 pl-4 pr-2">
+              <Plus size={20} strokeWidth={2.6} className="shrink-0 text-teinte" />
+              <input value={nouvelle} onChange={(e) => setNouvelle(e.target.value)} maxLength={80} enterKeyHint="done" aria-label="Ajouter une chose à faire pour cet événement" placeholder={ev.kind === 'anniversaire' ? 'Ex. : acheter le cadeau' : 'Ex. : réserver, apporter le dessert…'} className="h-12 min-w-0 flex-1 bg-transparent text-corps outline-none placeholder:text-brume" />
+              {nouvelle.trim() && <button type="submit" className="presse anim-pop min-h-9 shrink-0 rounded-full bg-teinte px-3.5 text-note font-semibold text-white">Ajouter</button>}
+            </form>
+          </div>
+        </>
+      )}
       {author && (
         <p className="mt-2.5 flex items-center justify-center gap-1.5 px-1 text-note text-brume">
           <Avatar m={author} size={20} />

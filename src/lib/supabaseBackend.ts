@@ -639,11 +639,19 @@ export function createSupabaseBackend(): Backend {
       check(await sb.from('events').delete().eq('id', id))
     },
 
-    async addItem(fid, memberId, kind, title, assignedTo) {
-      check(await sb.from('list_items').insert({ family_id: fid, created_by: memberId, kind, title: title.trim(), assigned_to: assignedTo ?? null }))
+    async addItem(fid, memberId, kind, title, assignedTo, eventId) {
+      check(await sb.from('list_items').insert({ family_id: fid, created_by: memberId, kind, title: title.trim(), assigned_to: assignedTo ?? null, ...(eventId ? { event_id: eventId } : {}) }))
     },
     async toggleItem(item, memberId) {
       check(await sb.from('list_items').update({ done: !item.done, done_by: item.done ? null : memberId }).eq('id', item.id))
+    },
+    async linkItem(id, eventId) {
+      check(await sb.from('list_items').update({ event_id: eventId }).eq('id', id))
+    },
+    async lienTaches() {
+      // la colonne event_id existe-t-elle ? (ajoutée par 20261121160000_taches_evenements.sql)
+      const { error } = await sb.from('list_items').select('event_id').limit(1)
+      return !error
     },
     async renameItem(id, title) {
       check(await sb.from('list_items').update({ title: title.trim().slice(0, 80) }).eq('id', id))
