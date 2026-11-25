@@ -134,7 +134,7 @@ export function NewPartie({ kind, onClose, onStarted, avec }: { kind: PartieKind
     tap()
     const responsable = state.me.role === 'responsable'
     const f = await codeValable(api, state.family, responsable, true)
-    if (!f) return responsable ? toast('Pas de connexion : réessaie dans un instant.', 'err') : toast('Le code d’invitation se renouvelle dès qu’un responsable ouvre l’appli.')
+    if (!f) return toast('Invitation indisponible pour l’instant : réessaie dans un instant.', 'err')
     if (f.invite_code !== state.family.invite_code) void reload().catch(() => undefined)
     if ((await shareInvite(state.family.name, f.invite_code)) === 'copie') toast('Invitation copiée')
   }

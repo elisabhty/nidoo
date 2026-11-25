@@ -158,6 +158,13 @@ export function createSupabaseBackend(): Backend {
     async renewInvite(fid) {
       check(await sb.rpc('renew_invite', { p_family: fid }))
     },
+    async renewInviteIfExpired(fid) {
+      const r = await sb.rpc('renew_invite_if_expired', { p_family: fid })
+      // la fonction n'est pas encore dans la base : l'appelant fait avec renew_invite (responsables seulement)
+      if (r.error && (r.error.code === 'PGRST202' || /could not find the function/i.test(r.error.message))) return false
+      check(r)
+      return true
+    },
     async setRole(memberId, role) {
       check(await sb.rpc('set_member_role', { p_member: memberId, p_role: role }))
     },

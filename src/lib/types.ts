@@ -325,6 +325,9 @@ export interface Backend {
   cancelRequest(id: string): Promise<void>
   answerRequest(id: string, accept: boolean): Promise<void>
   renewInvite(familyId: string): Promise<void>
+  /** Un code expiré est remplacé par un neuf, pour tout membre de la maison ; un code encore valable ne change pas.
+   *  false : la base ne connaît pas encore cette fonction (seul un responsable peut alors créer un code). */
+  renewInviteIfExpired(familyId: string): Promise<boolean>
   setRole(memberId: string, role: Member['role']): Promise<void>
   removeMember(memberId: string): Promise<void>
   /** Ajoute un enfant ou un bébé sans téléphone. */

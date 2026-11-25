@@ -188,8 +188,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
         : `${admins[0].display_name} accepte chaque nouvelle personne.`
       : `Les responsables (${admins.map((m) => (m.id === me.id ? 'toi' : m.display_name)).join(', ')}) acceptent chaque nouvelle personne.`
 
-  // le code expiré se remplace tout seul (App.tsx) : ici on ne montre jamais un code barré, juste l'attente du neuf
-  const attenteCode = admin ? 'Un nouveau code arrive…' : `Nouveau code dès que ${admins.length === 1 ? admins[0].display_name : 'un responsable'} ouvre l’appli`
+  // le code expiré se remplace tout seul (App.tsx) et s'affiche directement : ni code barré, ni message d'attente
   const invite = async () => {
     const f = await codeValable(api, family, admin, true)
     if (!f) {
@@ -368,11 +367,11 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
             disabled={expired}
             onClick={async () => (await copy(family.invite_code)) && toast('Code copié')}
             className="presse-ligne flex min-h-[64px] w-full items-center justify-between border-b border-trait px-4 py-2 text-left"
-            aria-label={expired ? attenteCode : `Copier le code ${family.invite_code}`}
+            aria-label={expired ? 'Code d’invitation' : `Copier le code ${family.invite_code}`}
           >
             <span>
-              <span className={`block font-rond text-titre2 tracking-[0.18em] ${expired ? 'text-pale' : ''}`} aria-hidden={expired}>{expired ? '••••••' : family.invite_code}</span>
-              <span className="block text-note text-brume">{expired ? attenteCode : `Valable jusqu’au ${until}`}</span>
+              <span className={`block font-rond text-titre2 tracking-[0.18em] ${expired ? 'animate-pulse text-pale' : ''}`} aria-hidden={expired}>{expired ? '••••••' : family.invite_code}</span>
+              <span className="block text-note text-brume">{expired ? '\u00a0' : `Valable jusqu’au ${until}`}</span>
             </span>
             {!expired && <Copy size={18} className="text-teinte" />}
           </button>

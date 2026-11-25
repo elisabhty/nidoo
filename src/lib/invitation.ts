@@ -1,6 +1,8 @@
-// Le code d'invitation vaut 7 jours. Quand il expire, un nouveau le remplace tout seul dès qu'un responsable ouvre
-// l'appli : on ne montre jamais un code barré (Elisa, 25 novembre : « renouvelle le code automatiquement, il faut pas
-// qu'il soit barré avec le message »). Seuls les responsables peuvent créer un code : c'est la base qui le veut.
+// Le code d'invitation vaut 7 jours. Quand il expire, un nouveau le remplace tout seul et s'affiche directement :
+// on ne montre jamais un code barré ni un message d'attente (Elisa, 25 novembre : « renouvelle le code
+// automatiquement, il faut pas qu'il soit barré avec le message », puis « tu peux le mettre directement »).
+// La base le fait pour tout membre (renew_invite_if_expired) ; tant qu'elle ne connaît pas cette fonction, seul un
+// responsable peut créer un code (renew_invite).
 import type { Backend, Family } from './types'
 
 type Code = Pick<Family, 'id' | 'invite_code' | 'invite_expires_at'>
@@ -20,21 +22,21 @@ const enCours = new Map<string, Promise<Code | null>>()
 
 /**
  * Un code valable pour cette maison : le sien, ou un neuf si le sien a expiré.
- * null : il faut attendre (on n'est pas responsable, ou le réseau manque).
+ * null : pas de code pour l'instant (le réseau manque, ou la base d'avant et on n'est pas responsable).
  * `insister` : l'utilisateur vient de toucher un bouton, on réessaie même après un échec récent.
  */
-export function codeValable(api: Pick<Backend, 'circles' | 'renewInvite'>, f: Code, responsable: boolean, insister = false): Promise<Code | null> {
+export function codeValable(api: Pick<Backend, 'circles' | 'renewInvite' | 'renewInviteIfExpired'>, f: Code, responsable: boolean, insister = false): Promise<Code | null> {
   if (!codeExpire(f)) return Promise.resolve(f)
-  if (!responsable) return Promise.resolve(null)
   const deja = enCours.get(f.id)
   if (deja) return deja
   if (!insister && Date.now() - (dernierEchec.get(f.id) ?? 0) < PAUSE) return Promise.resolve(null)
   const lire = async () => (await api.circles()).find((c) => c.family.id === f.id)?.family ?? null
   const p = (async () => {
     try {
-      // un autre responsable (ou un autre de mes appareils) l'a peut-être déjà renouvelé : on ne le change pas deux fois
+      // la base ne change le code que s'il a expiré : deux écrans, ou deux membres, n'en créent pas deux
+      const connue = await api.renewInviteIfExpired(f.id)
       let neuf = await lire()
-      if (!neuf || codeExpire(neuf)) {
+      if (!connue && responsable && (!neuf || codeExpire(neuf))) {
         await api.renewInvite(f.id)
         neuf = await lire()
       }

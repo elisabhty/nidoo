@@ -88,14 +88,15 @@ export default function App() {
     document.addEventListener('visibilitychange', voir)
     return () => document.removeEventListener('visibilitychange', voir)
   }, [state?.events, state?.members, state?.me.id]) // eslint-disable-line react-hooks/exhaustive-deps
-  // le code d'invitation expiré se remplace tout seul (responsables) : à l'ouverture, au retour dans l'appli,
-  // au retour du réseau, et à l'heure où il expire si l'appli est restée ouverte (Elisa, 25 novembre)
+  // le code d'invitation expiré se remplace tout seul : à l'ouverture, au retour dans l'appli, au retour du réseau,
+  // et à l'heure où il expire si l'appli est restée ouverte (Elisa, 25 novembre)
   useEffect(() => {
-    if (!state || state.me.role !== 'responsable') return
+    if (!state) return
     const f = state.family
+    const responsable = state.me.role === 'responsable'
     const voir = () => {
       if (document.visibilityState !== 'visible' || !codeExpire(f)) return
-      void codeValable(api, f, true).then((neuf) => {
+      void codeValable(api, f, responsable).then((neuf) => {
         if (neuf && neuf.invite_code !== f.invite_code) void reload().catch(() => undefined)
       })
     }

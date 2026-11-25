@@ -677,6 +677,15 @@ export function createLocalBackend(): Backend {
       f.family.invite_expires_at = inWeek()
       save()
     },
+    async renewInviteIfExpired(fid) {
+      const f = fam(fid)
+      if (!(new Date(f.family.invite_expires_at).getTime() > Date.now())) {
+        f.family.invite_code = newCode()
+        f.family.invite_expires_at = inWeek()
+        save()
+      }
+      return true
+    },
     async setRole(memberId, role) {
       const f = famOfMember(memberId)
       const m = f.members.find((x) => x.id === memberId)!
