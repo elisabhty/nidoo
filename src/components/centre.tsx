@@ -294,9 +294,12 @@ function Boutique() {
           Sa hauteur ne change jamais (rien ne saute quand on met ou enlève quelque chose). */}
       <div className="sticky top-0 z-10 -mx-1 mt-2 px-1 pb-2 pt-2" style={{ background: 'linear-gradient(to bottom, #F2F1F8 86%, rgba(242, 241, 248, 0))' }}>
         <div className="flex h-[176px] items-stretch gap-3 overflow-hidden rounded-[24px] px-3 shadow-carte" style={{ background: 'linear-gradient(160deg, #EFE9FF 0%, #FFF4EC 100%)' }}>
-          <span className="relative block w-[108px] shrink-0 self-end" aria-label={essaye ? `Vous essayez : ${essaye.name}` : 'Votre tenue'}>
-            <span className="absolute inset-x-2 bottom-1.5 block h-3 rounded-[50%] bg-black/10 blur-[3px]" />
-            <Character look={vu} className="relative block w-full" />
+          {/* la figurine fait 142 px de haut dans une carte de 176 : il reste la place d'un chapeau au-dessus (il ne
+              dépasse jamais de plus de 0,11 de sa hauteur, voir accPlace) et un peu d'air sous ses pieds — rien ne sort
+              plus du cadre, et sa taille ne change pas quand on met ou enlève quelque chose */}
+          <span className="relative block w-[108px] shrink-0 self-end pb-2.5" aria-label={essaye ? `Vous essayez : ${essaye.name}` : 'Votre tenue'}>
+            <span className="absolute inset-x-3 bottom-2 block h-3 rounded-[50%] bg-black/10 blur-[3px]" />
+            <Character look={vu} className="relative mx-auto block w-[97px]" />
           </span>
           <div className="flex min-w-0 flex-1 flex-col justify-center py-3">
             <p className="text-legende font-semibold uppercase tracking-wide text-brume">Cabine d’essayage</p>

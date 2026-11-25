@@ -13,6 +13,76 @@ import { persoOf, type Perso } from './persos'
 import { CORPS } from './corps'
 import { PEAUX, type Peau } from './peaux'
 import { VISAGES } from './visages'
+import { TENUES } from './tenues'
+import { lab2rgb, rgb2lab, teindreCheveux } from './teinture'
+
+// ───────── les zones du masque ─────────
+// Le masque d'une figurine (public/art/persos/<id>-m.webp, écrit par scripts/banc/masques_ecrire.py) dit, pixel par
+// pixel, ce qu'on regarde : rouge = sa peau, vert = ses cheveux (barbe, voile) ; bleu = 255 l'iris, 170 la bouche,
+// 85 les sourcils, et ses habits d'origine — 10 son haut, 20 son bas, 30 ses jambes couvertes (collants, chaussettes),
+// 38 ses chaussures. Jusqu'au 25 novembre 2026 les habits n'y étaient pas : on les devinait à la couleur (« ni peau ni
+// cheveux »), et un pull de la couleur des cheveux, une jupe sous un gilet suffisaient à tout fausser.
+export const Z_HAUT = 1, Z_BAS = 2, Z_JAMBES = 3, Z_CHAUSSURES = 4
+/** L'habit d'origine auquel appartient un pixel, d'après le bleu du masque (0 : aucun). */
+export const zoneHabit = (bleu: number) => (bleu > 40 || bleu < 5 ? 0 : bleu < 15 ? Z_HAUT : bleu < 25 ? Z_BAS : bleu < 35 ? Z_JAMBES : Z_CHAUSSURES)
+
+/** Autour de ce qu'on vient de retirer (`retire`), le fin liseré à demi transparent du contour — qui n'est dans aucune
+ *  zone du masque — s'en va aussi : sinon l'ancien habit laisserait son fantôme autour du nouveau. */
+function sansLisere(d: Uint8ClampedArray, m: Uint8ClampedArray, retire: Uint8Array, W: number, H: number) {
+  for (let tour = 0; tour < 2; tour++) {
+    const plus: number[] = []
+    for (let y = 1; y < H - 1; y++)
+      for (let x = 1; x < W - 1; x++) {
+        const k = y * W + x, i = k * 4
+        if (!d[i + 3] || d[i + 3] >= 160 || retire[k] || m[i] > 128 || m[i + 1] > 128 || m[i + 2] > 4) continue
+        if (retire[k - 1] || retire[k + 1] || retire[k - W] || retire[k + W]) plus.push(k)
+      }
+    for (const k of plus) {
+      d[k * 4 + 3] = 0
+      retire[k] = 1
+    }
+  }
+}
+
+/** La couleur des jambes à dessiner sous une jupe ou au-dessus d'une chaussure basse : celle de son collant si elle
+ *  en porte un, sinon celle de sa peau, prise sur ses mains (à hauteur des hanches). */
+function couleurJambes(p: Perso, d: Uint8ClampedArray, m: Uint8ClampedArray, W: number, H: number, hy: number, bras = false): [number, number, number] {
+  const jl = TENUES[p.id]?.jl
+  if (jl && !bras) return jl
+  let sL = 0, sA = 0, sB = 0, n = 0
+  for (let y = Math.round((hy - 0.14) * H); y < Math.min(H, Math.round((hy + 0.12) * H)); y++)
+    for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4
+      if (m[i] < 160 || d[i + 3] < 220) continue
+      const [L, A, B] = rgb2lab(d[i], d[i + 1], d[i + 2])
+      sL += L
+      sA += A
+      sB += B
+      n++
+    }
+  return n > 20 ? [sL / n, sA / n, sB / n] : VISAGES[p.id]?.sk ?? [75, 12, 28]
+}
+
+/** Une jambe nue (public/art/persos/jambe.webp) teintée à cette couleur. */
+function jambeTeintee(jambe: HTMLImageElement, peau: [number, number, number]): HTMLCanvasElement {
+  const tc = document.createElement('canvas')
+  tc.width = jambe.naturalWidth
+  tc.height = jambe.naturalHeight
+  const tctx = tc.getContext('2d', { willReadFrequently: true })!
+  tctx.drawImage(jambe, 0, 0)
+  const jd = tctx.getImageData(0, 0, tc.width, tc.height)
+  for (let i = 0; i < jd.data.length; i += 4) {
+    if (!jd.data[i + 3]) continue
+    const [L, A, B] = rgb2lab(jd.data[i], jd.data[i + 1], jd.data[i + 2])
+    const [r, g, b] = lab2rgb(peau[0] + (L - JAMBE_LAB[0]) * 0.9, peau[1] + (A - JAMBE_LAB[1]) * 0.6, peau[2] + (B - JAMBE_LAB[2]) * 0.6)
+    jd.data[i] = r
+    jd.data[i + 1] = g
+    jd.data[i + 2] = b
+  }
+  tctx.putImageData(jd, 0, 0)
+  return tc
+}
+const JAMBE_LAB: [number, number, number] = [79.1, 10, 26.1]
 
 export type Teinte = { label: string; lab: [number, number, number] }
 
@@ -101,27 +171,7 @@ export const BLUSH = ['Sans', 'Léger', 'Bien rose']
 
 // ───────── couleurs ─────────
 
-const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
-const gam = (c: number) => (c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055)
-const fl = (t: number) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116)
-const fi = (t: number) => (t ** 3 > 0.008856 ? t ** 3 : (t - 16 / 116) / 7.787)
-
-export function rgb2lab(r: number, g: number, b: number): [number, number, number] {
-  const R = lin(r / 255), G = lin(g / 255), B = lin(b / 255)
-  const x = fl((R * 0.4124 + G * 0.3576 + B * 0.1805) / 0.95047)
-  const y = fl(R * 0.2126 + G * 0.7152 + B * 0.0722)
-  const z = fl((R * 0.0193 + G * 0.1192 + B * 0.9505) / 1.08883)
-  return [116 * y - 16, 500 * (x - y), 200 * (y - z)]
-}
-export function lab2rgb(L: number, a: number, b: number): [number, number, number] {
-  const y = (L + 16) / 116, x = a / 500 + y, z = y - b / 200
-  const X = fi(x) * 0.95047, Y = fi(y), Z = fi(z) * 1.08883
-  const R = gam(X * 3.2406 + Y * -1.5372 + Z * -0.4986)
-  const G = gam(X * -0.9689 + Y * 1.8758 + Z * 0.0415)
-  const B = gam(X * 0.0557 + Y * -0.204 + Z * 1.057)
-  const c = (v: number) => Math.max(0, Math.min(255, Math.round(v * 255)))
-  return [c(R), c(G), c(B)]
-}
+export { rgb2lab, lab2rgb }
 export const labHex = (lab: [number, number, number]) => `#${lab2rgb(...lab).map((v) => v.toString(16).padStart(2, '0')).join('')}`
 
 // ───────── le rendu ─────────
@@ -230,18 +280,17 @@ export function renderPerso(p: Perso, look: Look): Promise<string> {
     const hT = x ? (p.c === 'voile' ? VOILES : CHEVEUX)[x - 1]?.lab : null
     const eT = y ? YEUX[y - 1]?.lab : null
     const ha = v.ha, ir = v.ir
-    // les cheveux sombres qui deviennent clairs gagnent du relief, et inversement
-    const hs = hT && ha ? Math.max(0.55, Math.min(2.4, (hT[0] + 10) / (ha[0] + 10))) : 1
     // sur une autre peau, les sourcils ne sont pas tout à fait là où le masque (fait sur la figurine de départ) les place :
     // on les cherche autour, à leur couleur (celle des cheveux, pas celle de la peau) — sinon un sourcil restait blond
     const autour = t && hT && ha ? autourDesSourcils(m, W, H) : null
     const sk = autour ? skinLab(p, look) : null
+    // les cheveux (ou le voile), la barbe : leur relief, leur bord et leur rencontre avec la peau (voir teinture.ts)
+    if (hT && ha) teindreCheveux(d, m, W, H, { vers: hT, cheveux: ha, peau: skinLab(p, look), ySep: Math.round(((v.e[1] + v.e[3]) / 2 + ((v.e[2] - v.e[0]) * W * 0.25) / H) * H), barbe: !!p.b })
     for (let i = 0; i < d.length; i += 4) {
       if (d[i + 3] < 8) continue
       const wh = m[i + 1] / 255, cls = m[i + 2]
       const iris = cls > 230
       const brow = cls > 60 && cls < 110
-      const wHair = hT ? wh : 0
       let wBrow = hT && brow ? 0.85 : 0
       if (autour && sk && ha && autour[i >> 2] && wh < 0.5) {
         const [L, A, B] = rgb2lab(d[i], d[i + 1], d[i + 2])
@@ -251,16 +300,9 @@ export function renderPerso(p: Perso, look: Look): Promise<string> {
         wBrow = 0.85 * garde * Math.max(0, Math.min(1, (dS - dH) / 6 + 0.5)) * (1 - wh)
       }
       const wEye = eT && iris ? 1 : 0
-      if (!wHair && !wEye && !wBrow) continue
+      if (!wEye && !wBrow) continue
       const [L, A, B] = rgb2lab(d[i], d[i + 1], d[i + 2])
       let nL = L, nA = A, nB = B
-      // garde-fou : la raie, un bout de peau, un bijou classés « cheveux » gardent leur couleur
-      const wH = wHair && ha ? wHair * Math.max(0, Math.min(1, (26 - Math.hypot(A - ha[1], B - ha[2])) / 9)) : 0
-      if (wH && ha) {
-        nL += wH * (hT![0] + (L - ha[0]) * hs - nL)
-        nA += wH * (hT![1] + (A - ha[1]) * 0.6 - nA)
-        nB += wH * (hT![2] + (B - ha[2]) * 0.6 - nB)
-      }
       // les sourcils prennent la couleur des cheveux
       // (un peu plus foncés que les cheveux, comme de vrais sourcils)
       if (wBrow) {
@@ -396,7 +438,6 @@ export function renderDessus(p: Perso, src: string, cut: number, mains?: Mains |
  *  la figurine est retiré jusqu'aux chaussures, et des jambes nues en feutrine sont redessinées derrière
  *  (public/art/persos/jambe.webp, prise sur une figurine en short, teintée de la couleur de ses mains).
  *  Le nouvel habit remplace ainsi son bas au lieu de se poser par-dessus. */
-const JAMBE_LAB: [number, number, number] = [79.1, 10, 26.1]
 const jambes = new Map<string, Promise<string>>()
 const jambesFait = new Map<string, string>()
 /** `haut` (une robe) : le haut de la figurine est retiré aussi, du menton à l'ourlet, et on redessine ses épaules,
@@ -423,87 +464,29 @@ export function renderJambes(p: Perso, src: string, ourlet: number, haut?: HautN
     ctx.drawImage(im, 0, 0)
     const img = ctx.getImageData(0, 0, W, H)
     const d = img.data
-    const [pl, wl, pr, wr, yb, bx, bw, hy] = corps
-    // la couleur de sa peau, prise sur ses mains (peau, à hauteur des hanches)
-    let sL = 0, sA = 0, sB = 0, n = 0
-    for (let y = Math.round((hy - 0.14) * H); y < Math.min(H, Math.round((hy + 0.12) * H)); y++)
-      for (let x = 0; x < W; x++) {
-        const i = (y * W + x) * 4
-        if (m[i] < 160 || d[i + 3] < 220) continue
-        const [L, A, B] = rgb2lab(d[i], d[i + 1], d[i + 2])
-        sL += L
-        sA += A
-        sB += B
-        n++
-      }
-    const peau: [number, number, number] = n > 20 ? [sL / n, sA / n, sB / n] : VISAGES[p.id]?.sk ?? [75, 12, 28]
+    const [pl, wl, pr, wr, , bx, bw, hy] = corps
+    const peau = couleurJambes(p, d, m, W, H, hy)
     const y0 = Math.max(0, Math.round((ourlet - 0.025) * H))
-    const ybas = Math.round(yb * H)
-    const pieds = [[pl, wl], [pr, wr]].map(([cx, fw]) => {
-      const x0 = Math.round((cx - fw * 0.36) * W), x1 = Math.round((cx + fw * 0.36) * W)
-      const ligne = (y: number) => {
-        let r = 0, g = 0, b = 0, k = 0
-        for (let x = x0; x <= x1; x++) {
-          const i = (y * W + x) * 4
-          if (d[i + 3] < 200) continue
-          r += d[i]
-          g += d[i + 1]
-          b += d[i + 2]
-          k++
-        }
-        return k ? [r / k, g / k, b / k] : null
+    // le haut de ses chaussures (d'après le masque) : les jambes nues s'arrêtent là
+    const hautCh = Math.round((TENUES[p.id]?.ct ?? corps[4] - 0.06) * H)
+    const pieds = [[pl, wl], [pr, wr]].map(([cx, fw]) => ({ cx, fw, haut: hautCh }))
+    // son ancien bas s'en va tout entier (avec ses collants, ses chaussettes) — pas seulement sous l'ourlet : sa
+    // ceinture dépassait au-dessus du nouveau, ses côtés autour ; pour une robe, son haut s'en va aussi
+    const retire = new Uint8Array(W * H)
+    for (let k = 0; k < W * H; k++) {
+      const i = k * 4
+      if (!d[i + 3]) continue
+      const z = zoneHabit(m[i + 2])
+      if (z === Z_BAS || z === Z_JAMBES || (haut && z === Z_HAUT)) {
+        d[i + 3] = 0
+        retire[k] = 1
       }
-      // le haut de la chaussure : en remontant depuis la semelle, la première ligne qui n'a plus sa couleur
-      const ref = [0, 0, 0]
-      let kr = 0
-      for (let y = ybas - Math.round(0.03 * H); y < ybas - Math.round(0.012 * H); y++) {
-        const c = ligne(y)
-        if (!c) continue
-        ref[0] += c[0]
-        ref[1] += c[1]
-        ref[2] += c[2]
-        kr++
-      }
-      if (kr) ref.forEach((_, j) => (ref[j] /= kr))
-      let haut = ybas - Math.round(0.06 * H)
-      let ecart = 0
-      for (let y = ybas - Math.round(0.03 * H); y > ybas - Math.round(0.14 * H); y--) {
-        const c = ligne(y)
-        const diff = c ? Math.hypot(c[0] - ref[0], c[1] - ref[1], c[2] - ref[2]) : 999
-        ecart = diff > 55 ? ecart + 1 : 0
-        if (ecart >= 2) {
-          haut = y + 2
-          break
-        }
-      }
-      return { cx, fw, haut }
-    })
-    // on retire l'ancien bas, entre l'ourlet et les chaussures
-    for (const { cx, fw, haut } of pieds) {
-      const x0 = Math.max(0, Math.round((cx - fw * 0.8) * W)), x1 = Math.min(W - 1, Math.round((cx + fw * 0.8) * W))
-      for (let y = y0; y < haut; y++)
-        for (let x = x0; x <= x1; x++) {
-          const i = (y * W + x) * 4
-          // les cheveux qui descendraient jusque-là restent
-          if (m[i + 1] > 128) continue
-          d[i + 3] = 0
-        }
     }
-    // une robe : le haut aussi s'en va (tout ce qui n'est ni peau ni cheveux, du menton à l'ourlet)
-    let mainsTrouvees: { x: number; y: number }[] = []
+    sansLisere(d, m, retire, W, H)
+    // une robe : ses mains (la peau la plus haute de chaque côté, à hauteur des hanches : le poignet), où finiront ses bras nus
+    const mainsTrouvees: { x: number; y: number }[] = []
     if (haut) {
-      const ya = Math.max(0, Math.round((haut.menton - 0.035) * H)), yz = Math.round(ourlet * H)
-      // les cheveux à protéger, élargis de quelques pixels (les perles des tresses ne sont pas dans le masque)
-      const cheveux = new Uint8Array(W * H)
-      const r = 3
-      for (let y = 0; y < H; y++)
-        for (let x = 0; x < W; x++) {
-          if (m[(y * W + x) * 4 + 1] < 128) continue
-          for (let yy = Math.max(0, y - r); yy <= Math.min(H - 1, y + r); yy++)
-            for (let xx = Math.max(0, x - r); xx <= Math.min(W - 1, x + r); xx++) cheveux[yy * W + xx] = 1
-        }
       const xa = Math.max(0, Math.round((bx - bw * 0.64) * W)), xz = Math.min(W - 1, Math.round((bx + bw * 0.64) * W))
-      // ses mains : la peau la plus haute de chaque côté, à hauteur des hanches (le poignet)
       for (const side of [-1, 1]) {
         let top = -1, sx = 0, k = 0
         for (let y = Math.round((hy - 0.2) * H); y < Math.round((hy + 0.12) * H) && top < 0; y++)
@@ -527,67 +510,10 @@ export function renderJambes(p: Perso, src: string, ourlet: number, haut?: HautN
             }
         mainsTrouvees.push(k ? { x: sx / k, y: top } : { x: (bx + side * bw * 0.42) * W, y: (hy - 0.02) * H })
       }
-      // la couleur de son haut, au milieu de la poitrine : ce qui a cette couleur part, même collé aux cheveux
-      let hL = 0, hA = 0, hB = 0, hk = 0
-      const yc = Math.round((haut.menton + (hy - haut.menton) * 0.4) * H)
-      for (let y = yc - 3; y <= yc + 3; y++)
-        for (let x = Math.round((bx - bw * 0.08) * W); x <= Math.round((bx + bw * 0.08) * W); x++) {
-          const i = (y * W + x) * 4
-          if (d[i + 3] < 200 || m[i] > 128 || m[i + 1] > 128) continue
-          const [L, A, B] = rgb2lab(d[i], d[i + 1], d[i + 2])
-          hL += L
-          hA += A
-          hB += B
-          hk++
-        }
-      const hautLab = hk ? [hL / hk, hA / hk, hB / hk] : null
-      for (let y = ya; y < yz; y++)
-        for (let x = xa; x <= xz; x++) {
-          const i = (y * W + x) * 4
-          if (hautLab && !(m[i + 1] > 128) && d[i + 3] > 0) {
-            const [L, A, B] = rgb2lab(d[i], d[i + 1], d[i + 2])
-            if (Math.hypot(L - hautLab[0], A - hautLab[1], B - hautLab[2]) < 16 && Math.hypot(L - peau[0], A - peau[1], B - peau[2]) > 20) {
-              d[i + 3] = 0
-              continue
-            }
-          }
-          // autour du cou, sous le menton : tout part (col, ombre du cou) sauf les cheveux et la barbe exacts ;
-          // le cou et les épaules sont redessinés derrière
-          const cou = Math.abs(x - bx * W) < bw * 0.45 * W && y < (haut.menton + 0.06) * H
-          if (cou) {
-            // au-dessus du menton, le visage (masque peau) reste ; le col qui monte jusque-là part
-            if (m[i + 1] > 128 || (y < haut.menton * H && m[i] > 128)) continue
-            d[i + 3] = 0
-            continue
-          }
-          if (cheveux[y * W + x]) continue
-          if (m[i] > 128) {
-            // « peau » d'après le masque : on vérifie la couleur (un col collé au cou y est parfois classé)
-            if (y < haut.menton * H) continue
-            const [L, A, B] = rgb2lab(d[i], d[i + 1], d[i + 2])
-            if (Math.hypot(L - peau[0], A - peau[1], B - peau[2]) < 28) continue
-          }
-          d[i + 3] = 0
-        }
     }
     ctx.putImageData(img, 0, 0)
-    // une jambe teintée à la couleur de sa peau
-    const jw = jambe.naturalWidth, jh = jambe.naturalHeight
-    const tc = document.createElement('canvas')
-    tc.width = jw
-    tc.height = jh
-    const tctx = tc.getContext('2d', { willReadFrequently: true })!
-    tctx.drawImage(jambe, 0, 0)
-    const jd = tctx.getImageData(0, 0, jw, jh)
-    for (let i = 0; i < jd.data.length; i += 4) {
-      if (!jd.data[i + 3]) continue
-      const [L, A, B] = rgb2lab(jd.data[i], jd.data[i + 1], jd.data[i + 2])
-      const [r, g, b] = lab2rgb(peau[0] + (L - JAMBE_LAB[0]) * 0.9, peau[1] + (A - JAMBE_LAB[1]) * 0.6, peau[2] + (B - JAMBE_LAB[2]) * 0.6)
-      jd.data[i] = r
-      jd.data[i + 1] = g
-      jd.data[i + 2] = b
-    }
-    tctx.putImageData(jd, 0, 0)
+    // une jambe teintée à la couleur de sa peau (ou de son collant)
+    const tc = jambeTeintee(jambe, peau)
     // derrière ce qui reste (les chaussures passent devant)
     ctx.globalCompositeOperation = 'destination-over'
     for (const { cx, fw, haut } of pieds) {
@@ -595,7 +521,9 @@ export function renderJambes(p: Perso, src: string, ourlet: number, haut?: HautN
       ctx.drawImage(tc, cx * W - lw / 2, y0 - 0.01 * H, lw, haut - y0 + 0.02 * H)
     }
     if (haut) {
-      // les bras nus, de l'épaule au poignet, puis les épaules et le haut de la poitrine
+      // les bras nus, de l'épaule au poignet, puis les épaules et le haut de la poitrine : de la couleur de sa peau
+      // (ses mains), même si ses jambes portent un collant
+      const tc = jambeTeintee(jambe, couleurJambes(p, d, m, W, H, hy, true))
       const ys = (haut.menton + (hy - haut.menton) * 0.1) * H
       const aw = bw * 0.17 * W
       mainsTrouvees.forEach((mn, j) => {
@@ -644,11 +572,11 @@ export function renderJambes(p: Perso, src: string, ourlet: number, haut?: HautN
  *  - `forme` : on garde seulement ce qu'il couvre (deux chaussures, et rien entre elles).
  *  `jambes` : les trous laissés (un pantalon raccourci au-dessus de chaussures plus basses) montrent des jambes nues. */
 export type PieceHabit = { art: string; l: number; t: number; w: number; h: number; flip?: boolean }
-export type Remplacement = { pieces: PieceHabit[]; y0: number; y1: number; regle: 'etendue' | 'forme'; jambes?: boolean }
+export type Remplacement = { pieces: PieceHabit[]; y0: number; y1: number; regle: 'etendue' | 'forme'; jambes?: boolean; zones?: number[] }
 const sans = new Map<string, Promise<string>>()
 const sansFait = new Map<string, string>()
 const cleSans = (src: string, r: Remplacement) =>
-  `${src}|${r.regle}|${r.y0.toFixed(3)},${r.y1.toFixed(3)}|${r.jambes ? 1 : 0}|${r.pieces.map((q) => `${q.art},${q.l.toFixed(3)},${q.t.toFixed(3)},${q.w.toFixed(3)},${q.h.toFixed(3)},${q.flip ? 1 : 0}`).join(';')}`
+  `${src}|${r.regle}|${r.y0.toFixed(3)},${r.y1.toFixed(3)}|${r.jambes ? 1 : 0}|${r.zones?.join('') ?? ''}|${r.pieces.map((q) => `${q.art},${q.l.toFixed(3)},${q.t.toFixed(3)},${q.w.toFixed(3)},${q.h.toFixed(3)},${q.flip ? 1 : 0}`).join(';')}`
 export const sansPret = (src: string, r: Remplacement) => sansFait.get(cleSans(src, r))
 export function renderSans(p: Perso, src: string, r: Remplacement): Promise<string> {
   const key = cleSans(src, r)
@@ -690,6 +618,20 @@ export function renderSans(p: Perso, src: string, r: Remplacement): Promise<stri
           for (let xx = Math.max(0, x - 3); xx <= Math.min(W - 1, x + 3); xx++) cheveux[yy * W + xx] = 1
       }
     let troue = false
+    if (r.zones) {
+      // l'habit d'origine que le nouveau remplace (son bas, ses chaussures…) s'en va tout entier, d'après le masque :
+      // rien de lui ne dépasse plus autour du nouveau, ni au-dessus
+      const retire = new Uint8Array(W * H)
+      for (let k = 0; k < W * H; k++) {
+        const i = k * 4
+        if (!d[i + 3] || !r.zones.includes(zoneHabit(m[i + 2]))) continue
+        d[i + 3] = 0
+        retire[k] = 1
+        // un trou à combler seulement là où le nouvel habit ne couvre pas
+        if (n[i + 3] <= 60) troue = true
+      }
+      sansLisere(d, m, retire, W, H)
+    } else
     for (let y = ya; y < yz; y++) {
       let x0 = W, x1 = -1
       if (r.regle === 'etendue')
@@ -709,35 +651,9 @@ export function renderSans(p: Perso, src: string, r: Remplacement): Promise<stri
     ctx.putImageData(img, 0, 0)
     const corps = CORPS[p.id]
     if (r.jambes && troue && corps) {
-      // des jambes nues derrière, teintées comme ses mains, là où l'ancien bas a été raccourci
+      // des jambes nues derrière (de la couleur de sa peau, ou de son collant), là où l'ancien a laissé un jour
       const [pl, wl, pr, wr, , , , hy] = corps
-      let sL = 0, sA = 0, sB = 0, k = 0
-      for (let y = Math.round((hy - 0.14) * H); y < Math.min(H, Math.round((hy + 0.12) * H)); y++)
-        for (let x = 0; x < W; x++) {
-          const i = (y * W + x) * 4
-          if (m[i] < 160 || d[i + 3] < 220) continue
-          const [L, A, B] = rgb2lab(d[i], d[i + 1], d[i + 2])
-          sL += L
-          sA += A
-          sB += B
-          k++
-        }
-      const peau: [number, number, number] = k > 20 ? [sL / k, sA / k, sB / k] : VISAGES[p.id]?.sk ?? [75, 12, 28]
-      const tc = document.createElement('canvas')
-      tc.width = jambe.naturalWidth
-      tc.height = jambe.naturalHeight
-      const tctx = tc.getContext('2d', { willReadFrequently: true })!
-      tctx.drawImage(jambe, 0, 0)
-      const jd = tctx.getImageData(0, 0, tc.width, tc.height)
-      for (let i = 0; i < jd.data.length; i += 4) {
-        if (!jd.data[i + 3]) continue
-        const [L, A, B] = rgb2lab(jd.data[i], jd.data[i + 1], jd.data[i + 2])
-        const [rr, gg, bb] = lab2rgb(peau[0] + (L - JAMBE_LAB[0]) * 0.9, peau[1] + (A - JAMBE_LAB[1]) * 0.6, peau[2] + (B - JAMBE_LAB[2]) * 0.6)
-        jd.data[i] = rr
-        jd.data[i + 1] = gg
-        jd.data[i + 2] = bb
-      }
-      tctx.putImageData(jd, 0, 0)
+      const tc = jambeTeintee(jambe, couleurJambes(p, d, m, W, H, hy))
       ctx.globalCompositeOperation = 'destination-over'
       for (const [cx, fw] of [[pl, wl], [pr, wr]]) {
         const lw = fw * 0.82 * W
@@ -818,7 +734,7 @@ export function renderEnfile(p: Perso, src: string, e: Enfile): Promise<string> 
         if (x < 0 || x >= W || y < 0 || y >= H) return false
         if (rogne[y * W + x]) return true
         const i = (y * W + x) * 4
-        return d[i + 3] > 200 && m[i] <= 128 && m[i + 2] <= 40 && m[i + 1] < 128 && !cheveux[y * W + x]
+        return d[i + 3] > 200 && zoneHabit(m[i + 2]) === Z_HAUT && !cheveux[y * W + x]
       }
       const bord: number[] = []
       for (let y = ya; y < yz; y++)
@@ -831,10 +747,10 @@ export function renderEnfile(p: Perso, src: string, e: Enfile): Promise<string> 
         if (n[k * 4 + 3] > 215) d[k * 4 + 3] = 0
       }
     }
-    /** un pixel de l'ancien habit : opaque, ni peau, ni cheveux, ni trait du visage */
+    /** un pixel de son haut d'origine (d'après le masque — plus « ni peau ni cheveux » : son bas, ses bijoux n'en sont pas) */
     const ancien = (x: number, y: number) => {
       const i = (y * W + x) * 4
-      return d[i + 3] > 0 && m[i] <= 128 && !cheveux[y * W + x] && m[i + 2] <= 40
+      return d[i + 3] > 0 && zoneHabit(m[i + 2]) === Z_HAUT && !cheveux[y * W + x]
     }
     // par colonne : où le nouvel habit commence et où il finit
     const debut = new Int32Array(W).fill(-1), fin = new Int32Array(W).fill(-1)
@@ -1019,6 +935,7 @@ export function renderEnfile(p: Perso, src: string, e: Enfile): Promise<string> 
         d[i + 2] = d[j + 2] * 0.91
         d[i + 3] = 255
       }
+    sansLisere(d, m, vide, W, H)
     ctx.putImageData(img, 0, 0)
     const url = await new Promise<string>((ok) => cv.toBlob((bl) => ok(bl ? URL.createObjectURL(bl) : cv.toDataURL()), 'image/png'))
     enfileFait.set(key, url)
@@ -1026,5 +943,56 @@ export function renderEnfile(p: Perso, src: string, e: Enfile): Promise<string> 
   })()
   enfile.set(key, job)
   job.catch(() => enfile.delete(key))
+  return job
+}
+
+/** Le haut d'origine de la figurine, seul (d'après le masque) : il repasse devant un bas de la boutique — le jean,
+ *  la jupe se glissent sous son pull au lieu de se poser dessus comme un bloc. */
+const hautSeul = new Map<string, Promise<string>>()
+const hautSeulFait = new Map<string, string>()
+export const hautSeulPret = (src: string) => hautSeulFait.get(src)
+export function renderHautSeul(p: Perso, src: string): Promise<string> {
+  const hit = hautSeul.get(src)
+  if (hit) return hit
+  const job = (async () => {
+    const [im, mask] = await Promise.all([load(src), load(`./art/persos/${p.id}-m.webp`)])
+    const W = im.naturalWidth, H = im.naturalHeight
+    const cv = document.createElement('canvas')
+    cv.width = W
+    cv.height = H
+    const ctx = cv.getContext('2d', { willReadFrequently: true })!
+    ctx.drawImage(mask, 0, 0, W, H)
+    const m = ctx.getImageData(0, 0, W, H).data
+    ctx.clearRect(0, 0, W, H)
+    ctx.drawImage(im, 0, 0)
+    const img = ctx.getImageData(0, 0, W, H)
+    const d = img.data
+    const a = new Uint8Array(W * H)
+    for (let k = 0; k < W * H; k++) a[k] = zoneHabit(m[k * 4 + 2]) === Z_HAUT ? 1 : 0
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        const k = y * W + x
+        if (!a[k]) {
+          d[k * 4 + 3] = 0
+          continue
+        }
+        // son bord, adouci : un pixel du haut qui touche autre chose n'est qu'à moitié là
+        let dedans = 0, tout = 0
+        for (let dy = -1; dy <= 1; dy++)
+          for (let dx = -1; dx <= 1; dx++) {
+            const yy = y + dy, xx = x + dx
+            if (yy < 0 || yy >= H || xx < 0 || xx >= W) continue
+            tout++
+            dedans += a[yy * W + xx]
+          }
+        if (dedans < tout) d[k * 4 + 3] = Math.round(d[k * 4 + 3] * Math.min(1, (dedans + 2) / tout))
+      }
+    ctx.putImageData(img, 0, 0)
+    const url = await new Promise<string>((ok) => cv.toBlob((bl) => ok(bl ? URL.createObjectURL(bl) : cv.toDataURL()), 'image/png'))
+    hautSeulFait.set(src, url)
+    return url
+  })()
+  hautSeul.set(src, job)
+  job.catch(() => hautSeul.delete(src))
   return job
 }

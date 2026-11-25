@@ -7,3 +7,6 @@ ios/App/App/public
 
 # archives de scripts/testflight.sh
 ios/build
+
+# outils Python
+__pycache__

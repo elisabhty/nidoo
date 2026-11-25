@@ -1,7 +1,8 @@
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
 import { ACCESSORIES, echelleCarrure, encodeLook, EYES, HAIR_COLORS, HAIRSTYLES, porteA, SKINS, TOPS, type Look } from '../lib/look'
 import { COULEURS_MONTURE, FORMES_LUNETTES, LUNETTES_IMG } from '../lib/lunettes'
-import { cachedSrc, dessusPret, enfilePret, jambesPret, labHex, peauOf, persoImg, pixelKey, renderDessus, renderEnfile, renderJambes, renderPerso, renderSans, sansPret, skinLab, type Cou, type Enfile, type HautNu, type Mains, type Remplacement } from '../lib/personnalise'
+import { cachedSrc, dessusPret, enfilePret, hautSeulPret, jambesPret, labHex, peauOf, persoImg, pixelKey, renderDessus, renderEnfile, renderHautSeul, renderJambes, renderPerso, renderSans, sansPret, skinLab, Z_BAS, Z_CHAUSSURES, Z_JAMBES, type Cou, type Enfile, type HautNu, type Mains, type Remplacement } from '../lib/personnalise'
+import { TENUES } from '../lib/tenues'
 import { CORPS } from '../lib/corps'
 import { accPieces, accPlace, accTop, CH, CW, HABITS, headCut, menton, persoOf, PIECE_AR, type AccPiece, type Perso } from '../lib/persos'
 import { MAINS } from '../lib/mains'
@@ -417,10 +418,14 @@ function Figurine({ look, mood = null, bust = false, extras = false, className =
   const b0 = mn ? mn[0] + mn[4] * 0.55 : 0, b1 = mn ? mn[2] - mn[4] * 0.55 : 1
   const srcB1 = useEnfile(p, srcB0, useMemo(() => (hautPose ? { piece: pHaut[0], mode: 'peau' as const, menton: ment, buste: [b0, b1] as [number, number], poignets: mn ? (mn[1] + mn[3]) / 2 : undefined } : null), [hautPose, b0, b1, pHaut[0]?.art, pHaut[0]?.l, pHaut[0]?.t, pHaut[0]?.w, pHaut[0]?.h, ment])) // eslint-disable-line react-hooks/exhaustive-deps
   const srcB = useEnfile(p, srcB1, useMemo(() => (vestePose ? { piece: pVeste[0], mode: 'garde' as const, menton: ment, buste: [b0, b1] as [number, number] } : null), [vestePose, b0, b1, pVeste[0]?.art, pVeste[0]?.l, pVeste[0]?.t, pVeste[0]?.w, pVeste[0]?.h, ment])) // eslint-disable-line react-hooks/exhaustive-deps
-  // un jean remplace le pantalon : ce qui dépasse de ses jambes s'en va
-  const srcC = useSans(p, srcB, bas === 'jean' && pBas[0] ? { pieces: pBas, y0: pBas[0].t + pBas[0].h * 0.12, y1: pBas[0].t + pBas[0].h, regle: 'etendue' } : null)
+  // un jean remplace son bas d'origine, qui s'en va tout entier (d'après le masque : plus de bande de l'ancienne jupe au-dessus)
+  const srcC = useSans(p, srcB, bas === 'jean' && pBas[0] ? { pieces: pBas, y0: 0, y1: 1, regle: 'etendue', zones: [Z_BAS, Z_JAMBES] } : null)
   // des chaussures remplacent les siennes ; s'il le faut, des chevilles nues entre le bas et les nouvelles
-  const src = useSans(p, srcC, pieds && corps && pPieds.length ? { pieces: pPieds, y0: corps[4] - 0.075, y1: corps[4] + 0.01, regle: 'forme', jambes: true } : null)
+  const hautCh = TENUES[p.id]?.ct ?? (corps ? corps[4] - 0.075 : 0.9)
+  const src = useSans(p, srcC, pieds && corps && pPieds.length ? { pieces: pPieds, y0: hautCh - 0.01, y1: corps[4] + 0.01, regle: 'forme', jambes: true, zones: [Z_CHAUSSURES] } : null)
+  // sans nouveau haut, son haut d'origine repasse devant le bas de la boutique : le jean se glisse sous son pull
+  const hautDevant = !!bas && !haut && !robe
+  const calqueHaut = useCalcul(p.id, hautDevant ? src : null, () => hautSeulPret(src), () => renderHautSeul(p, src), '')
   const cut = `linear-gradient(to bottom, #000 ${(headCut(p) - 0.02) * 100}%, transparent ${(headCut(p) + 0.006) * 100}%)`
   const [t, h, x, c, , bx0, by0, bs0] = p.m
   const R = CH / CW
@@ -481,6 +486,7 @@ function Figurine({ look, mood = null, bust = false, extras = false, className =
       {pieds && pPieds.map((q, i) => <Piece key={i} pc={q} />)}
       <span className="absolute inset-0 block" style={vetements}>
         {habit(bas, pBas)}
+        {hautDevant && calqueHaut && <img src={calqueHaut} alt="" draggable={false} className="absolute inset-0 h-full w-full select-none" />}
         {habit(haut, pHaut, sousVeste)}
         {habit(robe, pRobe)}
         {habit(veste, pVeste)}
@@ -521,7 +527,7 @@ function Figurine({ look, mood = null, bust = false, extras = false, className =
       {pl && (
         <>
           {ombre(tete, [boite(tete, pl, at)], pl.ar)}
-          <img src={`./art/persos/acc-${tete}.webp`} alt="" draggable={false} className="absolute max-w-none select-none" style={{ width: `${pl.w * 100}%`, left: `${(pl.x - pl.w / 2) * 100}%`, top: `${at * 100}%` }} />
+          <img src={`./art/persos/acc-${tete}.webp`} alt="" draggable={false} className="absolute max-w-none select-none" style={{ width: `${pl.w * 100}%`, height: `${((pl.w * pl.ar) / R) * 100}%`, left: `${(pl.x - pl.w / 2) * 100}%`, top: `${at * 100}%` }} />
         </>
       )}
       {extras && mood === 'triste' && (

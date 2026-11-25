@@ -5,6 +5,7 @@
 
 import { CORPS } from './corps'
 import { MAINS } from './mains'
+import { TENUES } from './tenues'
 import { VISAGES } from './visages'
 import { ACCESSORIES, HAIR_COLORS, HAIRSTYLES, type Look } from './look'
 
@@ -171,6 +172,15 @@ export function nearest(look: Look): Perso {
 export type AccPlace = { w: number; x: number; y: number; anchor: 'bottom' | 'center' | 'top'; ar: number }
 const AR: Record<string, number> = { bonnet: 1.062, casquette: 0.802, paille: 0.7, fleurs: 0.361, echarpe: 0.842, couronne: 1.017, noeud: 0.604 }
 
+/** Un chapeau ne monte jamais à plus de 0,11 de toile au-dessus du crâne : les figurines ont la tête large et
+ *  basse, un chapeau à ses vraies proportions dépassait de moitié (et sortait du cadre de la cabine d'essayage).
+ *  On le tasse donc un peu (jamais sous 72 % de sa hauteur). */
+function tasse(pl: AccPlace, crane: number): AccPlace {
+  const hgt = (pl.w * pl.ar) / R
+  const k = Math.max(0.72, Math.min(1, (pl.y - (crane - 0.11)) / hgt))
+  return k < 1 ? { ...pl, ar: pl.ar * k } : pl
+}
+
 export function accPlace(p: Perso, acc: string): AccPlace | null {
   const [t, h, x, c] = p.m
   const hw = h * R
@@ -185,11 +195,11 @@ export function accPlace(p: Perso, acc: string): AccPlace | null {
   switch (acc) {
     // les chapeaux se posent sur le front, juste au-dessus des sourcils, et couvrent tout le crâne
     case 'bonnet':
-      return { w: Math.max(c * 1.06, d * 2.75), x: ex, y: ey - dy * 0.36, anchor: 'bottom', ar }
+      return tasse({ w: Math.min(Math.max(c * 1.06, d * 2.75), d * 3.1), x: ex, y: ey - dy * 0.36, anchor: 'bottom', ar }, t)
     case 'casquette':
-      return { w: Math.max(c * 1.22, d * 3.1), x: ex + d * 0.12, y: ey - dy * 0.42, anchor: 'bottom', ar }
+      return tasse({ w: Math.min(Math.max(c * 1.22, d * 3.1), d * 3.5), x: ex + d * 0.12, y: ey - dy * 0.42, anchor: 'bottom', ar }, t)
     case 'paille':
-      return { w: Math.max(c * 1.42, d * 3.6), x: ex, y: ey - dy * 0.3, anchor: 'bottom', ar }
+      return tasse({ w: Math.min(Math.max(c * 1.42, d * 3.6), d * 4), x: ex, y: ey - dy * 0.3, anchor: 'bottom', ar }, t)
     // la couronne de fleurs : un arc de fleurs posé à la racine des cheveux, comme un serre-tête
     case 'fleurs':
       return { w: Math.max(c * 0.92, d * 2.4), x: ex, y: ey - dy * 0.42, anchor: 'bottom', ar }
@@ -272,8 +282,27 @@ function habitPose(p: Perso, acc: string): AccPiece | null {
   // le haut du col : juste sous le menton (un col roulé monte un peu plus), le bas des manches : sur les poignets
   const col = menton(p) - (acc === 'colroule' ? 0.016 : VESTES.includes(acc) ? 0.012 : 0.006)
   const bas = (ly + ry) / 2 + 0.012
-  const h = (bas - col) / (g.my - g.ny)
+  let h = (bas - col) / (g.my - g.ny)
+  // l'ourlet d'un haut descend au moins jusqu'à celui du haut d'origine de la figurine : plus court, l'ancien dépassait
+  // dessous ou laissait un jour aux hanches (les « encoches blanches » de la cabine d'essayage). Un haut d'origine
+  // vraiment plus long (tunique, robe) reste visible dessous, comme une superposition.
+  const tn = TENUES[p.id]
+  if (tn && !VESTES.includes(acc)) {
+    const manque = tn.oh + 0.008 - (col - g.ny * h + h)
+    if (manque > 0 && manque <= 0.09) h += manque / (1 - g.ny)
+  }
   return { art: `hab-${acc}`, l: lx - g.gx * w, t: col - g.ny * h, w, h, flip: false }
+}
+
+/** D'un bord à l'autre de ses pieds (fraction de la toile) : la largeur de ses jambes. */
+const jambesLarges = (pl: number, wl: number, pr: number, wr: number) => pr + wr / 2 - (pl - wl / 2)
+
+/** Où commence un bas de la boutique : à la taille, et toujours un peu au-dessus de l'ourlet du haut d'origine
+ *  (qui repasse devant lui) — sinon un jour s'ouvrirait entre les deux. */
+function hautDuBas(p: Perso, hy: number) {
+  const taille = hy - (hy - menton(p)) * 0.31
+  const om = TENUES[p.id]?.om
+  return om ? Math.min(taille, om - 0.02) : taille
 }
 
 export function accPieces(p: Perso, acc: string): AccPiece[] | null {
@@ -323,14 +352,15 @@ export function accPieces(p: Perso, acc: string): AccPiece[] | null {
   }
   if (acc === 'jupe' || acc === 'short') {
     // de la taille (bien au-dessus des hanches, pour cacher la ceinture de son propre bas) au milieu des cuisses
-    const w = bw * (acc === 'jupe' ? 1.08 : 1)
-    const top = hy - (hy - menton(p)) * 0.31
+    // à la largeur de ses jambes (d'un pied à l'autre), pas de ses bras : la jupe s'évase, le short reste près du corps
+    const w = Math.min(bw * (acc === 'jupe' ? 1.08 : 1), jambesLarges(pl, wl, pr, wr) * (acc === 'jupe' ? 1.5 : 1.32))
+    const top = hautDuBas(p, hy)
     return [{ art: `acc-${acc}`, l: bx - w / 2, t: top, w, h: hy + (yb - hy) * (acc === 'jupe' ? 0.42 : 0.36) - top, flip: false }]
   }
   if (acc === 'jean') {
     // de la taille aux chevilles, sur les chaussures
-    const w = bw * 1.02
-    const top = hy - (hy - menton(p)) * 0.31
+    const w = Math.min(bw * 1.02, jambesLarges(pl, wl, pr, wr) * 1.24)
+    const top = hautDuBas(p, hy)
     return [{ art: 'acc-jean', l: bx - w / 2, t: top, w, h: yb - 0.045 - top, flip: false }]
   }
   if (acc === 'montre') {
@@ -338,7 +368,7 @@ export function accPieces(p: Perso, acc: string): AccPiece[] | null {
     const mn = MAINS[p.id]
     const [mx, my, , , mw] = mn ?? [bx - bw * 0.42, hy - 0.03, 0, 0, bw * 0.16]
     // petite : le cadran sur le poignet, le bracelet autour
-    const w = mw * 0.95
+    const w = mw * 1.3
     const hgt = (w * PIECE_AR.montre) / R
     return [{ art: 'acc-montre', l: mx - w * 0.55, t: my - hgt * 0.5, w, h: hgt, flip: false }]
   }
