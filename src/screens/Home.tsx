@@ -20,6 +20,7 @@ import type { AventAction } from '../lib/avent'
 import { challengeOfDay, moodOf } from '../lib/data'
 import { feel, tap } from '../lib/haptic'
 import { shareInvite } from '../lib/share'
+import { codeValable } from '../lib/invitation'
 import { homeStories, type HomeStory } from '../lib/homeStories'
 import { useHome } from '../lib/store'
 import type { Drawing, FamEvent, Member } from '../lib/types'
@@ -54,7 +55,7 @@ export function upcoming(events: ReturnType<typeof useHome>['state']['events'], 
 const PLAYED = 'nidoo.scenes.jouees'
 
 export default function Home({ go, active = true }: { go: (t: Go) => void; active?: boolean }) {
-  const { state, toast, run } = useHome()
+  const { state, toast, run, api, reload } = useHome()
   const [sheet, setSheet] = useState<Open>(null)
   const [explorerVu, setExplorerVu] = useState(() => {
     try {
@@ -73,8 +74,11 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
   const others = members.filter((m) => m.id !== me.id)
   const inviter = async () => {
     tap()
-    if (!family.invite_code || new Date(family.invite_expires_at).getTime() < Date.now()) return go('famille')
-    if ((await shareInvite(family.name, family.invite_code)) === 'copie') toast('Invitation copiée')
+    // un code expiré se remplace tout seul avant le partage ; sinon (pas responsable, pas de réseau) : la page Famille
+    const f = await codeValable(api, family, me.role === 'responsable', true)
+    if (!f) return go('famille')
+    if (f.invite_code !== family.invite_code) void reload().catch(() => undefined)
+    if ((await shareInvite(family.name, f.invite_code)) === 'copie') toast('Invitation copiée')
   }
   // les places de la corde : une photo, ou une place libre là où on en a décroché une
   const places = housePhotoSlots(housePhotoSources(state), family.house_photo_ids)

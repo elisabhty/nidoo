@@ -11,6 +11,7 @@ import { CARE, DECOS, moodOf, PLAN_LIMITS } from '../lib/data'
 import { select } from '../lib/haptic'
 import { activerSons, jouer, sonsActives } from '../lib/sons'
 import { copy, shareInvite } from '../lib/share'
+import { codeExpire, codeValable } from '../lib/invitation'
 import { useHome } from '../lib/store'
 import { WIDGETS } from '../lib/widgets'
 import type { Drawing, HouseType, Member } from '../lib/types'
@@ -178,7 +179,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
 
   const admin = me.role === 'responsable'
   const admins = members.filter((m) => m.role === 'responsable')
-  const expired = new Date(family.invite_expires_at).getTime() < Date.now()
+  const expired = codeExpire(family)
   const until = new Date(family.invite_expires_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
   const whoAccepts =
     admins.length === 1
@@ -187,24 +188,16 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
         : `${admins[0].display_name} accepte chaque nouvelle personne.`
       : `Les responsables (${admins.map((m) => (m.id === me.id ? 'toi' : m.display_name)).join(', ')}) acceptent chaque nouvelle personne.`
 
+  // le code expiré se remplace tout seul (App.tsx) : ici on ne montre jamais un code barré, juste l'attente du neuf
+  const attenteCode = admin ? 'Un nouveau code arrive…' : `Nouveau code dès que ${admins.length === 1 ? admins[0].display_name : 'un responsable'} ouvre l’appli`
   const invite = async () => {
-    let code = family.invite_code
-    if (expired) {
-      if (!admin) {
-        toast('Le code a expiré : demande à un responsable d’en créer un nouveau.', 'err')
-        return
-      }
-      // Code expiré : on en crée un neuf avant de le partager.
-      try {
-        await api.renewInvite(family.id)
-        code = (await api.circles()).find((c) => c.family.id === family.id)?.family.invite_code ?? code
-        await reload()
-      } catch (e) {
-        toast(errorText(e), 'err')
-        return
-      }
+    const f = await codeValable(api, family, admin, true)
+    if (!f) {
+      if (admin) toast('Pas de connexion : réessaie dans un instant.', 'err')
+      return
     }
-    const r = await shareInvite(family.name, code)
+    if (f.invite_code !== family.invite_code) void reload().catch(() => undefined)
+    const r = await shareInvite(family.name, f.invite_code)
     if (r === 'copie') toast('Invitation copiée')
   }
 
@@ -375,16 +368,16 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
             disabled={expired}
             onClick={async () => (await copy(family.invite_code)) && toast('Code copié')}
             className="presse-ligne flex min-h-[64px] w-full items-center justify-between border-b border-trait px-4 py-2 text-left"
-            aria-label={`Copier le code ${family.invite_code}`}
+            aria-label={expired ? attenteCode : `Copier le code ${family.invite_code}`}
           >
             <span>
-              <span className={`block font-rond text-titre2 tracking-[0.18em] ${expired ? 'text-pale line-through' : ''}`}>{family.invite_code}</span>
-              <span className={`block text-note ${expired ? 'font-semibold text-rouge' : 'text-brume'}`}>{expired ? 'Code expiré' : `Valable jusqu’au ${until}`}</span>
+              <span className={`block font-rond text-titre2 tracking-[0.18em] ${expired ? 'text-pale' : ''}`} aria-hidden={expired}>{expired ? '••••••' : family.invite_code}</span>
+              <span className="block text-note text-brume">{expired ? attenteCode : `Valable jusqu’au ${until}`}</span>
             </span>
             {!expired && <Copy size={18} className="text-teinte" />}
           </button>
-          <button onClick={invite} className={`presse-ligne flex h-[50px] w-full items-center px-4 text-corps text-teinte ${admin ? 'border-b border-trait' : ''}`}>
-            {expired && admin ? 'Créer un code et partager' : 'Partager le lien d’invitation'}
+          <button onClick={invite} disabled={expired && !admin} className={`presse-ligne flex h-[50px] w-full items-center px-4 text-corps ${expired && !admin ? 'text-pale' : 'text-teinte'} ${admin ? 'border-b border-trait' : ''}`}>
+            Partager le lien d’invitation
           </button>
           {admin && (
             <button onClick={renew} className="presse-ligne flex h-[50px] w-full items-center gap-2 px-4 text-corps text-encre">

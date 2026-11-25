@@ -13,6 +13,7 @@ import { useStore } from './lib/store'
 import { ecouterWidgets, oublierWidgets, synchroniserWidgets } from './lib/widgets'
 import { demanderOrganiser, demanderOuEst, demandeDuChemin } from './lib/demandes'
 import { suivreProchain } from './lib/direct'
+import { codeExpire, codeValable, resteAvantExpiration } from './lib/invitation'
 import { NATIF_IOS } from './lib/pont'
 import Family from './screens/Family'
 import Home from './screens/Home'
@@ -87,6 +88,28 @@ export default function App() {
     document.addEventListener('visibilitychange', voir)
     return () => document.removeEventListener('visibilitychange', voir)
   }, [state?.events, state?.members, state?.me.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  // le code d'invitation expiré se remplace tout seul (responsables) : à l'ouverture, au retour dans l'appli,
+  // au retour du réseau, et à l'heure où il expire si l'appli est restée ouverte (Elisa, 25 novembre)
+  useEffect(() => {
+    if (!state || state.me.role !== 'responsable') return
+    const f = state.family
+    const voir = () => {
+      if (document.visibilityState !== 'visible' || !codeExpire(f)) return
+      void codeValable(api, f, true).then((neuf) => {
+        if (neuf && neuf.invite_code !== f.invite_code) void reload().catch(() => undefined)
+      })
+    }
+    voir()
+    const reste = resteAvantExpiration(f)
+    const minuterie = reste > 0 ? window.setTimeout(voir, Math.min(reste + 1000, 2 ** 31 - 1)) : 0
+    document.addEventListener('visibilitychange', voir)
+    window.addEventListener('online', voir)
+    return () => {
+      window.clearTimeout(minuterie)
+      document.removeEventListener('visibilitychange', voir)
+      window.removeEventListener('online', voir)
+    }
+  }, [api, state?.family.id, state?.family.invite_code, state?.family.invite_expires_at, state?.me.role]) // eslint-disable-line react-hooks/exhaustive-deps
   // l'anniversaire donné à l'accueil rejoint l'agenda dès qu'on est dans la maison
   useEffect(() => {
     if (state) void ajouterNaissance(api, state.family.id, state.me, state.events).then((ok) => { if (ok) void reload().catch(() => undefined) })

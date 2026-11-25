@@ -25,6 +25,7 @@ import {
 } from '../lib/parties'
 import { jouer } from '../lib/sons'
 import { shareInvite } from '../lib/share'
+import { codeValable } from '../lib/invitation'
 import { useHome } from '../lib/store'
 import type { Member, Partie } from '../lib/types'
 import { errorText } from '../lib/util'
@@ -131,9 +132,11 @@ export function NewPartie({ kind, onClose, onStarted, avec }: { kind: PartieKind
   const pasAssez = !tour && proches.length < meta.min - 1
   const inviter = async () => {
     tap()
-    const f = state.family
-    if (!f.invite_code || new Date(f.invite_expires_at).getTime() < Date.now()) return toast('Le code a expiré : crée-en un nouveau dans Famille.')
-    if ((await shareInvite(f.name, f.invite_code)) === 'copie') toast('Invitation copiée')
+    const responsable = state.me.role === 'responsable'
+    const f = await codeValable(api, state.family, responsable, true)
+    if (!f) return responsable ? toast('Pas de connexion : réessaie dans un instant.', 'err') : toast('Le code d’invitation se renouvelle dès qu’un responsable ouvre l’appli.')
+    if (f.invite_code !== state.family.invite_code) void reload().catch(() => undefined)
+    if ((await shareInvite(state.family.name, f.invite_code)) === 'copie') toast('Invitation copiée')
   }
   return (
     <Sheet
