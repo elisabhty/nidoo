@@ -204,7 +204,7 @@ button:focus-visible, a:focus-visible { outline: 3px solid #6646CC; outline-offs
   -webkit-backdrop-filter: blur(16px) saturate(150%);
 }
 .ios-toolbar-active {
-  background: linear-gradient(180deg, rgba(248,247,252,.92), rgba(248,247,252,.72));
+  background: linear-gradient(180deg, rgba(242,241,248,.92), rgba(242,241,248,.72));
   border-bottom: 1px solid rgba(103,83,139,.10);
   box-shadow: 0 4px 16px -12px rgba(43,30,70,.16);
   backdrop-filter: blur(22px) saturate(150%);
@@ -213,7 +213,7 @@ button:focus-visible, a:focus-visible { outline: 3px solid #6646CC; outline-offs
 .ios-sheet {
   /* opaque, sans flou derrière : le flou recalculé à chaque image rendait les micro-animations saccadées
      (Elisa, 21 novembre : « les micro animations ne sont pas fluides ») ; à 95 % d'opacité, on ne le voyait pas */
-  background: linear-gradient(165deg, #FFFFFF, #F8F7FC);
+  background: linear-gradient(165deg, #F6F5FB, #F2F1F8);
   border: 1px solid rgba(255,255,255,.82);
   box-shadow: 0 -16px 64px -20px rgba(29,26,43,.22), inset 0 1px 1px #fff;
 }
@@ -223,7 +223,7 @@ button:focus-visible, a:focus-visible { outline: 3px solid #6646CC; outline-offs
 input, textarea { caret-color: #7050D5; }
 ::selection { background: #DDD2FA; color: #28174C; }
 @media (prefers-reduced-transparency: reduce) {
-  .ios-tabbar, .verre, .glass-control, .ios-sheet, .ios-toolbar-active { background: #F8F7FC; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .ios-tabbar, .verre, .glass-control, .ios-sheet, .ios-toolbar-active { background: #F2F1F8; backdrop-filter: none; -webkit-backdrop-filter: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .ios-tab-selection { transition: none; }
@@ -241,20 +241,20 @@ input, textarea { caret-color: #7050D5; }
   .ios-tab-selection { background: #EAE2F9; }
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .ios-tabbar, .glass-control, .verre, .ios-sheet, .ios-toolbar-active { background: #FAF9FD; }
+  .ios-tabbar, .glass-control, .verre, .ios-sheet, .ios-toolbar-active { background: #F4F3F9; }
   .glass-tinted { background: #6948CF; }
 }
 
 .sheet-header { border-bottom: 1px solid transparent; transition: border-color 180ms ease, background-color 180ms ease; }
-.sheet-header-scrolled { border-bottom-color: rgba(103,83,139,.12); background: rgba(255,255,255,.55); }
+.sheet-header-scrolled { border-bottom-color: rgba(103,83,139,.12); background: rgba(255,255,255,.3); }
 /* le bas des fenêtres : ni trait ni brume au-dessus du bouton (Elisa, 21 novembre) */
-.sheet-footer { position: relative; background: #F8F7FC; }
+.sheet-footer { position: relative; background: #F2F1F8; }
 @media (hover: hover) and (pointer: fine) {
   .glass-control:hover, .verre:hover { background-color: rgba(255,255,255,.95); }
 }
 .glass-control:active, .glass-tinted:active, .ios-primary:active { filter: brightness(.96); }
 @media (prefers-reduced-transparency: reduce) {
-  .sheet-header-scrolled, .sheet-footer { background: #F8F7FC; }
+  .sheet-header-scrolled, .sheet-footer { background: #F2F1F8; }
 }
 
 .ios-search input::-webkit-search-cancel-button { -webkit-appearance: none; }
@@ -264,7 +264,7 @@ html, body { overflow: hidden; width: 100%; }
 /* Sur téléphone, derrière les barres de Safari au-dessus du clavier, on voit le fond de la page :
    il doit être celui de l'appli (pas le mauve du cadre pour ordinateur), sinon une bande grise apparaît. */
 @media (max-width: 639px) {
-  html, body { background: #F8F7FC; }
+  html, body { background: #F2F1F8; }
 }
 #root { position: fixed; inset: 0; overflow: hidden; }
 
@@ -276,7 +276,7 @@ html, body { overflow: hidden; width: 100%; }
 @media (prefers-reduced-motion: no-preference) {
   html.natif .app-clavier { transition: height 0.26s cubic-bezier(0.38, 0.7, 0.125, 1); }
 }
-html.natif.kb-ouvert, html.natif.kb-ouvert body { background: var(--fond-clavier, #F8F7FC) !important; }
+html.natif.kb-ouvert, html.natif.kb-ouvert body { background: var(--fond-clavier, #F2F1F8) !important; }
 
 /* la flèche d'« Explorer » fait signe tant qu'on n'y est jamais allé */
 @keyframes faitSigne {
@@ -293,10 +293,10 @@ html.natif.kb-ouvert, html.natif.kb-ouvert body { background: var(--fond-clavier
 
 /* Fil familial : un fond sous la barre d'envoi pour que les messages ne dépassent pas entre elle et les onglets,
    et la barre colle au clavier quand il est ouvert (les onglets sont cachés). */
-.fil-saisie { background: linear-gradient(to bottom, rgba(248, 247, 252, 0), #F8F7FC 12px); }
+.fil-saisie { background: linear-gradient(to bottom, rgba(242, 241, 248, 0), #F2F1F8 12px); }
 /* Le fond descend exactement jusqu'au bas de la zone qui défile : plus long, il allongerait le défilement
    et la barre remonterait au-dessus d'un grand vide (surtout clavier ouvert). */
-.fil-saisie::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: calc(80px + var(--sab)); background: #F8F7FC; pointer-events: none; }
+.fil-saisie::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: calc(80px + var(--sab)); background: #F2F1F8; pointer-events: none; }
 [data-keyboard] .fil-saisie { bottom: -112px !important; margin-bottom: -112px !important; }
 /* La colonne du fil remplit exactement l'écran : même avec deux messages, la barre d'envoi est posée juste au-dessus
    des onglets (elle flottait 110 px plus haut), et juste au-dessus du clavier quand il est ouvert. */
@@ -738,3 +738,8 @@ html.kb-visible .ios-sheet.h-\[92\%\] { height: calc(100% - var(--sat) - 8px); }
    restent à un toucher, et sont écrits sous la page). La feuille de MapLibre arrive après celle-ci : d'où la classe. */
 .carte-famille .maplibregl-ctrl-attrib.maplibregl-compact { margin: 0 8px 8px 0; background-color: rgba(255,255,255,.86); box-shadow: 0 1px 4px rgba(29,26,43,.12); }
 .carte-famille .maplibregl-ctrl-attrib.maplibregl-compact:not(.maplibregl-compact-show) .maplibregl-ctrl-attrib-button { opacity: .5; }
+
+/* le calendrier de l'appli : le mois arrive du côté où l'on va */
+.mois-glisse { animation: moisGlisse 0.26s cubic-bezier(0.22, 0.8, 0.3, 1) both; }
+@keyframes moisGlisse { from { opacity: 0; transform: translateX(calc(var(--sens, 0) * 26px)); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .mois-glisse { animation: none; } }

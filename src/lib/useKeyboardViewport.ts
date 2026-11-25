@@ -55,7 +55,7 @@ function fondDuBas(): string {
     const c = getComputedStyle(n).backgroundColor
     if (c && c !== 'transparent' && !/rgba\(.*,\s*0\)$/.test(c)) return c
   }
-  return '#F8F7FC'
+  return '#F2F1F8'
 }
 
 /** La zone qui défile autour d'un élément (pas la page entière). */

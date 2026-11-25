@@ -25,6 +25,7 @@ import { anniversaireDe } from '../lib/naissance'
 import { IncomingDrawing, markDrawingsSeen, useUnseenDrawings } from './drawing'
 import { DrawSheet } from './planche'
 import { Art, Avatar, Btn, choisir, confirmer, Envol, Segments, Sheet, Switch, ChampRequis, CHAMP_REQUIS } from './ui'
+import { ChoixDate } from './choixDate'
 
 // ───────── Humeur du jour ─────────
 
@@ -517,16 +518,23 @@ const LIEU_EXEMPLE: Record<string, string> = { evenement: 'Ex. : Chez Mamie, à 
 
 /** Qui est concerné (Elisa, 21 novembre : « les personnes concernées, de manière UI UX ») : une rangée de têtes,
  *  comme pour partager à quelqu'un sur iPhone. « Toute la famille » d'abord ; toucher une tête la coche. */
-export const WhoPicker = memo(function WhoPicker({ value, onChange }: { value: string[]; onChange: (ids: string[]) => void }) {
+export const WhoPicker = memo(function WhoPicker({ value, onChange, sansFamille = false }: {
+  value: string[]
+  onChange: (ids: string[]) => void
+  /** Un anniversaire ne concerne qu'une ou deux personnes : pas de « Toute la famille », et personne de coché d'avance. */
+  sansFamille?: boolean
+}) {
   const { state } = useHome()
   const all = value.length === 0
   return (
     <div className="no-bar -mx-4 flex gap-1 overflow-x-auto px-3 pb-0.5 pt-1" role="group" aria-label="Les personnes concernées">
-      <Bulle on={all} nom="Toute la famille" onClick={() => (select(), onChange([]))}>
-        <span className="flex h-full w-full items-center justify-center rounded-full bg-teinte-doux text-teinte-fonce">
-          <Users size={22} strokeWidth={2.3} />
-        </span>
-      </Bulle>
+      {!sansFamille && (
+        <Bulle on={all} nom="Toute la famille" onClick={() => (select(), onChange([]))}>
+          <span className="flex h-full w-full items-center justify-center rounded-full bg-teinte-doux text-teinte-fonce">
+            <Users size={22} strokeWidth={2.3} />
+          </span>
+        </Bulle>
+      )}
       {state.members.map((m) => {
         const on = value.includes(m.id)
         return (
@@ -627,6 +635,8 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
   const [lieu, setLieu] = useState(event?.lieu ?? '')
   const [who, setWho] = useState<string[]>(event?.members ?? [])
   const birthday = kind === 'anniversaire'
+  // le calendrier de l'appli (plus celui de l'iPhone) : pour le jour, ou pour la fin
+  const [calendrier, setCalendrier] = useState<null | 'date' | 'fin'>(null)
   const nom = useRef<HTMLInputElement>(null)
   const imageEvt = useRef<HTMLSpanElement>(null)
   useEffect(() => rebond(imageEvt.current), [kind, sticker])
@@ -867,29 +877,26 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
       <CarteEvt>
         <TitreCarte icone={CalendarDays} titre={birthday ? 'Date' : 'Date et horaire'} extra={birthday ? undefined : (
           // « Autre date » en haut, avec une petite flèche qui fait signe (Elisa, 21 novembre)
-          <label className="presse relative -my-1 flex min-h-9 items-center gap-0.5 rounded-full bg-teinte-doux py-1 pl-3 pr-2 text-note font-bold text-teinte-fonce">
+          <button type="button" onClick={() => (tap(), setCalendrier('date'))} className="presse -my-1 flex min-h-9 items-center gap-0.5 rounded-full bg-teinte-doux py-1 pl-3 pr-2 text-note font-bold text-teinte-fonce">
             Autre date
             <ChevronRight size={16} strokeWidth={2.8} className="fleche-signe" />
-            <input aria-label="Choisir une autre date" type="date" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={date} onChange={e => e.target.value && (select(), setDate(e.target.value))} />
-          </label>
+          </button>
         )} />
         {birthday ? (
-          <label className="champ-evt presse relative flex h-12 items-center gap-2.5 rounded-[14px] bg-doux px-3.5 text-corps font-semibold">
+          <button type="button" onClick={() => (tap(), setCalendrier('date'))} aria-label={`Le jour de l’anniversaire : ${dateDe(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}`} className="champ-evt presse flex h-12 w-full items-center gap-2.5 rounded-[14px] bg-doux px-3.5 text-left text-corps font-semibold">
             <CalendarDays size={18} className="shrink-0 text-teinte" />
             <span key={date} className="anim-entre flex-1">Le {dateDe(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</span>
             <ChevronDown size={17} className="shrink-0 text-teinte" />
-            <input aria-label="Le jour de l’anniversaire" type="date" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={date} onChange={e => e.target.value && (select(), setDate(e.target.value))} />
-          </label>
+          </button>
         ) : (
           // tous les raccourcis se voient en entier (Noël, le réveillon…), sur deux lignes s'il le faut ;
           // une autre date choisie vient en tête, en violet
           <div className="flex flex-wrap gap-2" role="group" aria-label="Raccourcis de date">
             {!surRaccourci && (
-              <label key={date} className={`${puce(true)} relative flex items-center gap-1.5`} data-on="true">
+              <button key={date} type="button" onClick={() => (tap(), setCalendrier('date'))} aria-label={`Changer la date : ${dateCourte(date)}`} className={`${puce(true)} flex items-center gap-1.5`} data-on="true">
                 <CalendarDays size={15} strokeWidth={2.4} />
                 {dateCourte(date)}
-                <input aria-label="Changer la date" type="date" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={date} onChange={e => e.target.value && (select(), setDate(e.target.value))} />
-              </label>
+              </button>
             )}
             {jours.map((j) => (
               <button key={j.v} type="button" aria-pressed={date === j.v} onClick={() => choisirJour(j)} className={puce(date === j.v)}>
@@ -922,11 +929,10 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
             {journee && plusieurs && (
               <div className={`${ligne} anim-entre mt-1`}>
                 Jusqu’au
-                <label className="champ-evt presse relative flex items-center gap-1 rounded-full bg-teinte-doux px-3 py-1.5 text-sous font-semibold text-teinte-fonce">
+                <button id="event-fin" type="button" onClick={() => (tap(), setCalendrier('fin'))} aria-label={`Date de fin : ${fin ? dateCourte(fin) : 'à choisir'}`} className="champ-evt presse flex items-center gap-1 rounded-full bg-teinte-doux px-3 py-1.5 text-sous font-semibold text-teinte-fonce">
                   <span key={fin}>{fin ? dateCourte(fin) : 'Choisir'}</span>
                   <ChevronDown size={15} className="opacity-70" />
-                  <input id="event-fin" aria-label="Date de fin" type="date" min={date} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={fin} onChange={e => setFin(e.target.value)} />
-                </label>
+                </button>
               </div>
             )}
           </>
@@ -969,8 +975,8 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
 
       {/* Les personnes concernées */}
       <CarteEvt>
-        <TitreCarte icone={Users} titre="Personnes concernées" extra={<span key={who.length} className="anim-entre text-note text-brume">{who.length ? `${who.length} personne${who.length > 1 ? 's' : ''}` : 'Toute la famille'}</span>} />
-        <WhoPicker value={who} onChange={setWho} />
+        <TitreCarte icone={Users} titre="Personnes concernées" extra={<span key={who.length} className="anim-entre text-note text-brume">{who.length ? `${who.length} personne${who.length > 1 ? 's' : ''}` : birthday ? 'Facultatif' : 'Toute la famille'}</span>} />
+        <WhoPicker value={who} onChange={setWho} sansFamille={birthday} />
       </CarteEvt>
 
       {/* Notes */}
@@ -978,6 +984,16 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
         <TitreCarte icone={AlignLeft} titre="Notes" extra={FACULTATIF} />
         <textarea id="event-details" className="block min-h-[84px] w-full resize-none rounded-[14px] bg-doux px-3.5 py-3 text-corps outline-none transition-shadow placeholder:text-pale focus:shadow-[0_0_0_2px_rgba(112,80,213,0.35)]" placeholder={NOTES_EXEMPLE[kind]} maxLength={500} value={description} onChange={e => setDescription(e.target.value)} aria-label="Notes" />
       </CarteEvt>
+      {calendrier && (
+        <ChoixDate
+          titre={calendrier === 'fin' ? 'Jusqu’au' : birthday ? 'Le jour de l’anniversaire' : 'Choisir une date'}
+          value={calendrier === 'fin' ? fin || date : date}
+          min={calendrier === 'fin' ? date : undefined}
+          sansAnnee={birthday && calendrier === 'date'}
+          onChoisir={(v) => (calendrier === 'fin' ? setFin(v) : setDate(v))}
+          onClose={() => setCalendrier(null)}
+        />
+      )}
     </Sheet>
   )
 }

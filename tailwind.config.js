@@ -5,7 +5,7 @@ export default {
     extend: {
       colors: {
         // Couleurs système façon iOS, teintées aux couleurs de NIDOO
-        fond: '#F8F7FC', // fond groupé
+        fond: '#F2F1F8', // fond groupé : un rien plus gris que le blanc des cartes, pour qu'elles se détachent (Elisa, 25 novembre)
         carte: '#FFFFFF',
         encre: '#1D1A2B', // label
         brume: 'rgba(60, 56, 82, 0.76)', // label secondaire

@@ -36,7 +36,7 @@ export function surveillerMiseAJour() {
       // pas de page blanche : l'écran d'attente (le même que celui d'index.html) recouvre l'appli en fondu,
       // puis la nouvelle version démarre dessus
       const voile = document.createElement('div')
-      voile.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:#f8f7fc;opacity:0;transition:opacity .18s ease-out'
+      voile.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:#f2f1f8;opacity:0;transition:opacity .18s ease-out'
       voile.innerHTML = '<img src="./panda.webp" alt="" width="120" height="120" style="border-radius:28px;box-shadow:0 24px 50px -18px rgba(102,70,204,.55)">'
       document.body.appendChild(voile)
       requestAnimationFrame(() => (voile.style.opacity = '1'))

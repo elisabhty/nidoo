@@ -292,7 +292,7 @@ function Boutique() {
     <>
       {/* La cabine d'essayage : sa figurine en pied, bien visible, qui reste en haut pendant qu'on parcourt les rayons.
           Sa hauteur ne change jamais (rien ne saute quand on met ou enlève quelque chose). */}
-      <div className="sticky top-0 z-10 -mx-1 mt-2 px-1 pb-2 pt-2" style={{ background: 'linear-gradient(to bottom, #F8F7FC 86%, rgba(248, 247, 252, 0))' }}>
+      <div className="sticky top-0 z-10 -mx-1 mt-2 px-1 pb-2 pt-2" style={{ background: 'linear-gradient(to bottom, #F2F1F8 86%, rgba(242, 241, 248, 0))' }}>
         <div className="flex h-[176px] items-stretch gap-3 overflow-hidden rounded-[24px] px-3 shadow-carte" style={{ background: 'linear-gradient(160deg, #EFE9FF 0%, #FFF4EC 100%)' }}>
           <span className="relative block w-[108px] shrink-0 self-end" aria-label={essaye ? `Vous essayez : ${essaye.name}` : 'Votre tenue'}>
             <span className="absolute inset-x-2 bottom-1.5 block h-3 rounded-[50%] bg-black/10 blur-[3px]" />
