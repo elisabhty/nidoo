@@ -733,3 +733,8 @@ html.kb-visible .ios-sheet.h-\[92\%\] { height: calc(100% - var(--sat) - 8px); }
 }
 @keyframes arriveOmbre { 0%, 60% { opacity: 0; transform: translateX(-50%) scale(0.5); } 100% { opacity: 1; transform: translateX(-50%) scale(1); } }
 @media (prefers-reduced-motion: reduce) { [style*='arriveCompagnon'] { animation: none !important; } }
+
+/* « Où est la famille » : le « i » des crédits de la carte, discret et à l'écart du coin arrondi (les crédits
+   restent à un toucher, et sont écrits sous la page). La feuille de MapLibre arrive après celle-ci : d'où la classe. */
+.carte-famille .maplibregl-ctrl-attrib.maplibregl-compact { margin: 0 8px 8px 0; background-color: rgba(255,255,255,.86); box-shadow: 0 1px 4px rgba(29,26,43,.12); }
+.carte-famille .maplibregl-ctrl-attrib.maplibregl-compact:not(.maplibregl-compact-show) .maplibregl-ctrl-attrib-button { opacity: .5; }

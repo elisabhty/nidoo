@@ -125,13 +125,35 @@ export function OuEstPage({ onClose }: { onClose: () => void }) {
     void autorisation().then((a) => (a === 'active' || a === 'toujours') && partager(false))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ce que fait vraiment le suivi : « même appli fermée » seulement si l'iPhone l'autorise (« Toujours »)
+  const suivi = !NATIF_IOS
+    ? 'Elle change quand tu ouvres la carte'
+    : auto === 'toujours'
+      ? 'Suivi actif, même appli fermée'
+      : auto === 'active'
+        ? 'Suivi quand l’appli est ouverte'
+        : 'Suivi actif'
   const versDe = (p: Position) => (NATIF_IOS ? `maps://?daddr=${p.lat},${p.lon}` : `https://maps.apple.com/?daddr=${p.lat},${p.lon}`)
 
   return (
     <Page title="Où est la famille" onClose={onClose}>
       <p className="-mt-1 px-5 pb-3 text-sous text-brume">Chacun choisit de partager sa position, et peut arrêter quand il veut. Seule la dernière est gardée.</p>
-      <div className="mx-4 overflow-hidden rounded-groupe shadow-carte">
-        <CarteFamille points={points} moi={state.me.id} focus={focus} hauteur={300} />
+      {/* le cadre de la carte (Elisa, 25 novembre : « améliore le cadre ») : un passe-partout blanc comme les autres
+          cartes de la page, un liseré, et le bouton pour revenir sur soi */}
+      <div className="mx-4 rounded-[26px] bg-carte p-1.5 shadow-carte">
+        <div className="relative overflow-hidden rounded-[20px]">
+          <CarteFamille points={points} moi={state.me.id} focus={focus} hauteur={300} />
+          <span className="pointer-events-none absolute inset-0 rounded-[20px] ring-1 ring-inset ring-encre/[0.06]" aria-hidden="true" />
+          {moi && (
+            <button
+              onClick={() => (select(), setFocus((f) => ({ id: state.me.id, n: (f?.n ?? 0) + 1 })))}
+              aria-label="Revenir sur ma position"
+              className="presse verre absolute right-2.5 top-2.5 flex h-10 w-10 items-center justify-center rounded-full text-teinte-fonce"
+            >
+              <LocateFixed size={19} strokeWidth={2.4} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ma position */}
@@ -139,39 +161,52 @@ export function OuEstPage({ onClose }: { onClose: () => void }) {
         {moi ? (
           <>
             <div className="flex items-center gap-3 p-3.5">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#E3F1FD] text-[#2F7FD0]">
-                <LocateFixed size={20} strokeWidth={2.4} />
+              <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#E3F1FD] text-[#2F7FD0]">
+                <LocateFixed size={21} strokeWidth={2.4} />
+                {/* le point vert : ma position est à jour (gris au-delà de 12 h) */}
+                <span className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full ring-2 ring-carte ${ancienne(moi, maintenant) ? 'bg-pale' : 'bg-[#34C759]'}`} aria-hidden="true" />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-corps font-semibold">Je partage ma position</p>
-                <p className="truncate text-note text-brume">
-                  {libelle(moi)} · {ilYA(moi.updated_at, maintenant)}
-                </p>
+                <p className="truncate text-note text-brume">{libelle(moi)}</p>
               </div>
               <Switch on label="Partager ma position" onChange={() => void arreter()} />
             </div>
-            <div className="flex items-center gap-2 border-t border-trait px-3.5 py-2">
-              <button onClick={() => (tap(), void partager(false))} disabled={occupe} className="presse flex min-h-10 items-center gap-1.5 rounded-full bg-teinte-doux px-3.5 text-note font-bold text-teinte-fonce disabled:opacity-50">
+            <div className="flex items-center gap-3 border-t border-trait py-2.5 pl-3.5 pr-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-note font-semibold text-encre">Mise à jour {ilYA(moi.updated_at, maintenant)}</p>
+                <p className="text-mini text-brume">{suivi}</p>
+              </div>
+              <button onClick={() => (tap(), void partager(false))} disabled={occupe} className="presse flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-teinte-doux px-3.5 text-note font-bold text-teinte-fonce disabled:opacity-50">
                 <RefreshCw size={14} strokeWidth={2.8} className={occupe ? 'animate-spin' : ''} /> Actualiser
               </button>
-              <p className="min-w-0 flex-1 text-mini text-brume">{NATIF_IOS ? 'Elle suit tes déplacements, même appli fermée.' : 'Sur ce navigateur, elle change quand tu ouvres la carte.'}</p>
             </div>
             {NATIF_IOS && auto === 'active' && (
-              <a href="app-settings:" onClick={() => tap()} className="presse flex items-center gap-2.5 border-t border-trait px-3.5 py-2.5 text-note">
-                <Settings size={16} className="shrink-0 text-peche-fonce" />
-                <span className="min-w-0 flex-1 text-encre">
-                  Pour qu’elle suive appli fermée : <span className="font-semibold">Position › Toujours</span>
+              <a href="app-settings:" onClick={() => tap()} className="presse flex items-center gap-3 border-t border-trait bg-peche-doux/45 py-3 pl-3.5 pr-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-peche-doux text-peche-fonce">
+                  <Settings size={18} strokeWidth={2.3} />
                 </span>
-                <ChevronRight size={16} className="shrink-0 text-pale" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sous font-semibold text-encre">Suivre aussi appli fermée</span>
+                  <span className="block text-note text-brume">Réglages › Position › Toujours</span>
+                </span>
+                <ChevronRight size={18} className="shrink-0 text-pale" />
               </a>
             )}
           </>
         ) : (
           <div className="p-4">
-            <p className="text-corps font-semibold">Partager ma position</p>
-            <p className="mt-1 text-sous text-brume">
-              Ta famille te voit sur la carte{NATIF_IOS ? ', et ta position suit quand tu bouges, même appli fermée' : ''}. Tu peux arrêter quand tu veux.
-            </p>
+            <div className="flex items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#E3F1FD] text-[#2F7FD0]">
+                <LocateFixed size={21} strokeWidth={2.4} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-corps font-semibold">Partager ma position</p>
+                <p className="mt-0.5 text-sous text-brume">
+                  Ta famille te voit sur la carte{NATIF_IOS ? ', et ta position suit quand tu bouges, même appli fermée' : ''}. Tu peux arrêter quand tu veux.
+                </p>
+              </div>
+            </div>
             {auto === 'refusee' && (
               <p className="mt-2 text-note font-semibold text-peche-fonce">
                 {NATIF_IOS ? (
@@ -335,7 +370,7 @@ export function CarteFamille({ points, moi, focus, hauteur }: { points: Point[];
   }, [focus]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="relative bg-[#EEF1F4]" style={{ height: hauteur }}>
+    <div className="carte-famille relative bg-[#EEF1F4]" style={{ height: hauteur }}>
       {/* en style (MapLibre met « position: relative » sur la carte : la classe seule ne suffit pas) */}
       <div ref={boite} style={{ position: 'absolute', inset: 0 }} />
       {Object.entries(marques).map(([id, el]) => {
@@ -343,11 +378,13 @@ export function CarteFamille({ points, moi, focus, hauteur }: { points: Point[];
         if (!x) return null
         const pale = ancienne(x.p)
         return createPortal(
-          <div className={`flex flex-col items-center ${pale ? 'opacity-60' : ''}`} style={{ filter: 'drop-shadow(0 3px 6px rgba(29,26,43,0.25))' }}>
-            <span className={`rounded-full p-[2.5px] ${id === moi ? 'bg-teinte' : 'bg-white'}`}>
-              <Avatar m={x.m} size={40} />
+          <div className={`flex flex-col items-center ${pale ? 'opacity-60' : ''}`} style={{ filter: 'drop-shadow(0 4px 7px rgba(29,26,43,0.28))' }}>
+            <span className={`rounded-full p-[3px] ${id === moi ? 'bg-teinte' : 'bg-white'}`}>
+              <span className="block rounded-full bg-white p-[1.5px]">
+                <Avatar m={x.m} size={40} />
+              </span>
             </span>
-            <span className={`-mt-[3px] h-2.5 w-2.5 rotate-45 ${id === moi ? 'bg-teinte' : 'bg-white'}`} />
+            <span className={`-mt-[5px] h-3 w-3 rotate-45 rounded-[2.5px] ${id === moi ? 'bg-teinte' : 'bg-white'}`} />
           </div>,
           el,
           id,
