@@ -518,23 +518,24 @@ const LIEU_EXEMPLE: Record<string, string> = { evenement: 'Ex. : Chez Mamie, à 
 
 /** Qui est concerné (Elisa, 21 novembre : « les personnes concernées, de manière UI UX ») : une rangée de têtes,
  *  comme pour partager à quelqu'un sur iPhone. « Toute la famille » d'abord ; toucher une tête la coche. */
-export const WhoPicker = memo(function WhoPicker({ value, onChange, sansFamille = false }: {
+export const WhoPicker = memo(function WhoPicker({ value, onChange, famille, onFamille }: {
   value: string[]
   onChange: (ids: string[]) => void
-  /** Un anniversaire ne concerne qu'une ou deux personnes : pas de « Toute la famille », et personne de coché d'avance. */
-  sansFamille?: boolean
+  /** « Toute la famille » cochée ou non. Sans rien dire : cochée tant que personne n'est choisi (un événement concerne
+   *  tout le monde par défaut). Un anniversaire la donne lui-même : elle est là, mais pas cochée d'avance. */
+  famille?: boolean
+  /** Toucher « Toute la famille » (sinon : on décoche tout le monde, ce qui revient au même). */
+  onFamille?: () => void
 }) {
   const { state } = useHome()
-  const all = value.length === 0
+  const all = famille ?? value.length === 0
   return (
     <div className="no-bar -mx-4 flex gap-1 overflow-x-auto px-3 pb-0.5 pt-1" role="group" aria-label="Les personnes concernées">
-      {!sansFamille && (
-        <Bulle on={all} nom="Toute la famille" onClick={() => (select(), onChange([]))}>
-          <span className="flex h-full w-full items-center justify-center rounded-full bg-teinte-doux text-teinte-fonce">
-            <Users size={22} strokeWidth={2.3} />
-          </span>
-        </Bulle>
-      )}
+      <Bulle on={all} nom="Toute la famille" onClick={() => (select(), onFamille ? onFamille() : onChange([]))}>
+        <span className="flex h-full w-full items-center justify-center rounded-full bg-teinte-doux text-teinte-fonce">
+          <Users size={22} strokeWidth={2.3} />
+        </span>
+      </Bulle>
       {state.members.map((m) => {
         const on = value.includes(m.id)
         return (
@@ -635,6 +636,10 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
   const [lieu, setLieu] = useState(event?.lieu ?? '')
   const [who, setWho] = useState<string[]>(event?.members ?? [])
   const birthday = kind === 'anniversaire'
+  // un anniversaire : « Toute la famille » est proposée mais pas cochée d'avance (Elisa, 25 novembre) ; cochée seulement
+  // si on la touche, ou si l'anniversaire déjà enregistré concernait tout le monde
+  const [familleChoisie, setFamilleChoisie] = useState(!!event && !(event.members ?? []).length)
+  const pourTous = who.length === 0 && (!birthday || familleChoisie)
   // le calendrier de l'appli (plus celui de l'iPhone) : pour le jour, ou pour la fin
   const [calendrier, setCalendrier] = useState<null | 'date' | 'fin'>(null)
   const nom = useRef<HTMLInputElement>(null)
@@ -975,8 +980,17 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
 
       {/* Les personnes concernées */}
       <CarteEvt>
-        <TitreCarte icone={Users} titre="Personnes concernées" extra={<span key={who.length} className="anim-entre text-note text-brume">{who.length ? `${who.length} personne${who.length > 1 ? 's' : ''}` : birthday ? 'Facultatif' : 'Toute la famille'}</span>} />
-        <WhoPicker value={who} onChange={setWho} sansFamille={birthday} />
+        <TitreCarte icone={Users} titre="Personnes concernées" extra={<span key={`${who.length}${pourTous}`} className="anim-entre text-note text-brume">{who.length ? `${who.length} personne${who.length > 1 ? 's' : ''}` : pourTous ? 'Toute la famille' : 'Facultatif'}</span>} />
+        {birthday ? (
+          <WhoPicker
+            value={who}
+            onChange={(ids) => (setWho(ids), setFamilleChoisie(false))}
+            famille={pourTous}
+            onFamille={() => (setWho([]), setFamilleChoisie((x) => who.length > 0 || !x))}
+          />
+        ) : (
+          <WhoPicker value={who} onChange={setWho} />
+        )}
       </CarteEvt>
 
       {/* Notes */}
