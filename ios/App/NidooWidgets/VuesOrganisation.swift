@@ -451,6 +451,7 @@ enum Rdv {
 }
 
 /// Le temps qu'il reste : iOS le fait défiler tout seul. L'heure venue : « C'est l'heure ».
+/// (Un texte qui compte prend toute la largeur qu'on lui laisse : on lui donne juste celle de ses chiffres.)
 struct RdvCompte: View {
     let debut: Date
     var taille: CGFloat = 30
@@ -459,14 +460,15 @@ struct RdvCompte: View {
     var body: some View {
         let maintenant = Date()
         if passe || debut <= maintenant {
-            Text("C’est l’heure").font(rond(taille * 0.56)).lineLimit(1).minimumScaleFactor(0.7)
+            Text("C’est l’heure").font(rond(max(11, taille * 0.56))).lineLimit(1).fixedSize()
         } else {
             Text(timerInterval: maintenant...debut, countsDown: true)
                 .font(.system(size: taille, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .multilineTextAlignment(.trailing)
                 .lineLimit(1)
-                .minimumScaleFactor(0.6)
+                .minimumScaleFactor(0.7)
+                .frame(width: taille * (debut.timeIntervalSince(maintenant) < 3600 ? 3.0 : 3.95), alignment: .trailing)
         }
     }
 }
@@ -478,29 +480,28 @@ struct VueRdvVerrou: View {
     var passe = false
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 11) {
             Art(Rdv.art(genre))
-                .frame(width: 44, height: 44)
-                .padding(6)
-                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white.opacity(0.12)))
+                .frame(width: 40, height: 40)
+                .padding(5)
+                .background(RoundedRectangle(cornerRadius: 15, style: .continuous).fill(Color.white.opacity(0.12)))
             VStack(alignment: .leading, spacing: 2) {
-                Text(s.titre).font(rond(16)).foregroundStyle(.white).lineLimit(1)
+                Text(s.titre).font(rond(16)).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.85)
                 Text(Rdv.details(s)).font(rond(12.5, .medium)).foregroundStyle(Color.white.opacity(0.78)).lineLimit(1)
                 if let avec = s.avec, !avec.isEmpty {
                     Text(avec).font(rond(11.5, .semibold)).foregroundStyle(Rdv.lilas).lineLimit(1)
                 }
             }
-            Spacer(minLength: 6)
+            .frame(maxWidth: .infinity, alignment: .leading)
             VStack(alignment: .trailing, spacing: 0) {
                 if !passe, s.debut > Date() {
                     Text("dans").font(rond(10.5, .semibold)).foregroundStyle(Color.white.opacity(0.6))
                 }
-                RdvCompte(debut: s.debut, taille: 26, passe: passe).foregroundStyle(Rdv.lilas)
+                RdvCompte(debut: s.debut, taille: 24, passe: passe).foregroundStyle(Rdv.lilas)
             }
-            .frame(maxWidth: 104, alignment: .trailing)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 13)
     }
 }
 

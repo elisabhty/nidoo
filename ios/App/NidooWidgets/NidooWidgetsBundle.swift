@@ -33,9 +33,8 @@ struct RendezVousDirect: Widget {
                     IleRdvIllustration(genre: c.attributes.genre).padding(.leading, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    RdvCompte(debut: c.state.debut, taille: 24, passe: c.isStale)
+                    RdvCompte(debut: c.state.debut, taille: 22, passe: c.isStale)
                         .foregroundStyle(Rdv.lilas)
-                        .frame(maxWidth: 96, alignment: .trailing)
                         .padding(.trailing, 4)
                 }
                 DynamicIslandExpandedRegion(.center) {
@@ -49,7 +48,6 @@ struct RendezVousDirect: Widget {
             } compactTrailing: {
                 RdvCompte(debut: c.state.debut, taille: 14, passe: c.isStale)
                     .foregroundStyle(Rdv.lilas)
-                    .frame(maxWidth: 58)
             } minimal: {
                 IleRdvIllustration(genre: c.attributes.genre, taille: 20)
             }

@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import { strict as assert } from 'node:assert'
 import { loadTs } from './loadTs.mjs'
-const { comprendre, completer, lireArticle, ecrireArticle, nombre, rayonDe, pourAllerAvec, fiche, plusUn, moinsUn, additionner, lireQte } = await loadTs('src/lib/courses.ts')
+const { comprendre, completer, lireArticle, ecrireArticle, nombre, rayonDe, pourAllerAvec, fiche, plusUn, moinsUn, additionner, lireQte, qteLisible, qteCourte } = await loadTs('src/lib/courses.ts')
 
 test('comprend la quantité tapée, devant ou derrière', () => {
   assert.deepEqual(comprendre('2 lait'), { nom: 'Lait', qte: '2' })
@@ -90,4 +90,15 @@ test('chaque article a sa quantité habituelle et son pas', () => {
   assert.equal(lireQte('6 × 1,5 l'), null)
   assert.equal(additionner('500 g', '1 kg'), '1500 g')
   assert.equal(additionner('2', '3'), '5')
+})
+
+test('à l’œil, 1000 g se lit 1 kg, sans toucher à ce qui est rangé', () => {
+  assert.equal(qteLisible('1000 g'), '1 kg')
+  assert.equal(qteLisible('1500 g'), '1,5 kg')
+  assert.equal(qteLisible('800 g'), '800 g')
+  assert.equal(qteLisible('150 cl'), '1,5 l')
+  assert.equal(qteLisible('4 tranches'), '4 tranches')
+  assert.equal(qteLisible(''), '')
+  assert.equal(qteCourte(lireQte('1000 g')), '1 kg')
+  assert.equal(plusUn('Fromage à raclette', '800 g'), '1000 g')
 })

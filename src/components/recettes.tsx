@@ -2,6 +2,7 @@ import { Check, CheckCheck, ChevronRight, Minus, Plus, Search, UserPlus, Users, 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { choc, select, success, tap } from '../lib/haptic'
 import { lookOf } from '../lib/look'
+import { qteLisible } from '../lib/courses'
 import { CATEGORIES, chercherRecettes, OCCASIONS, LES_RECETTES, PAYS, recettesDuMonde, REGIONS, lignesDe, occasionsAVenir, portionsFamille, recettesDe, recettesDuMoment, service, type Categorie, type Ligne, type Occasion, type Recette } from '../lib/recettes'
 import { useHome } from '../lib/store'
 import { Avatar, Btn, Sheet } from './ui'
@@ -80,7 +81,7 @@ export function RecetteSheet({ recette, onClose, onAjouter, dejaDansLaListe }: {
               </span>
             )}
           </span>
-          {l.achat && <span key={l.achat} className={`anim-pop shrink-0 rounded-full px-2.5 py-1 text-note font-bold transition-colors ${on ? 'bg-teinte-doux text-teinte-fonce' : 'bg-remplissage text-brume'}`}>{l.achat}</span>}
+          {l.achat && <span key={l.achat} className={`anim-pop shrink-0 rounded-full px-2.5 py-1 text-note font-bold transition-colors ${on ? 'bg-teinte-doux text-teinte-fonce' : 'bg-remplissage text-brume'}`}>{qteLisible(l.achat)}</span>}
         </span>
       </button>
     )

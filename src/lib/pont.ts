@@ -17,6 +17,11 @@ export type Pont = {
   positionAutorisation(): Promise<{ etat: Autorisation }>
   positionMaintenant(): Promise<PositionLue>
   positionSuivre(o: { oui: boolean }): Promise<{ etat: Autorisation }>
+  /** L'activité en direct « prochain rendez-vous » (écran verrouillé, île dynamique) : la lancer ou la mettre à jour,
+   *  la retirer, savoir lesquelles sont à l'écran. */
+  activite(o: { id: string; genre: string; titre: string; debut: number; lieu?: string; avec?: string }): Promise<{ etat: 'lancee' | 'refusee' | 'indisponible' }>
+  activiteFin(o: { id?: string }): Promise<void>
+  activites(): Promise<{ possible: boolean; ids: string[] }>
   addListener(nom: 'ouvrir', f: (e: { chemin: string }) => void): Promise<PluginListenerHandle>
 }
 

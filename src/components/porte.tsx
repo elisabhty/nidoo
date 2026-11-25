@@ -17,6 +17,7 @@ import { jouer, precharger, type Son } from '../lib/sons'
 import { EN_LIGNE, useHome } from '../lib/store'
 import type { LiveEvent, LiveRoom, Member } from '../lib/types'
 import { Character } from './Character'
+import { GameTile } from './gamePresentation'
 import { Avatar, Btn, Confettis, Page } from './ui'
 
 // ───────── Les records : sur le compte (la base), avec une copie sur l'appareil ─────────
@@ -890,18 +891,5 @@ export function PortePage({ onClose }: { onClose: () => void }) {
 
 /** La tuile du jeu, dans « Jouer ensemble ». */
 export function PorteTuile({ onOpen }: { onOpen: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        tap()
-        onOpen()
-      }}
-      className="presse groupe flex flex-col items-center px-1.5 pb-3 pt-3 text-center shadow-carte"
-    >
-      <img src="./art/jeu-porte.webp" alt="" className="h-[64px] w-[64px] object-contain" />
-      <span className="mt-1.5 w-full truncate text-legende font-semibold">On porte !</span>
-      <span className="w-full truncate text-mini text-brume">Marcher ensemble</span>
-    </button>
-  )
+  return <GameTile kind="porte" art="jeu-porte" name="On porte !" hint="Marcher ensemble" onClick={() => (tap(), onOpen())} />
 }

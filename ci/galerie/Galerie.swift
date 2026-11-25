@@ -95,6 +95,9 @@ struct Planche: View {
     private var rdv: RendezVous.ContentState {
         RendezVous.ContentState(titre: "Dentiste de Léa", debut: Date().addingTimeInterval(42 * 60 + 10), lieu: "Cabinet du Dr Martin", avec: "Avec Léa")
     }
+    private var diner: RendezVous.ContentState {
+        RendezVous.ContentState(titre: "Dîner tous ensemble chez Papa", debut: Date().addingTimeInterval(3 * 3600 + 12 * 60), lieu: "3 rue des Lilas", avec: "Toute la famille")
+    }
     private var anniv: RendezVous.ContentState {
         RendezVous.ContentState(titre: "Anniversaire de Mamie Jo", debut: Date().addingTimeInterval(-60), lieu: "Chez Mamie", avec: "Toute la famille")
     }
@@ -206,13 +209,16 @@ struct Planche: View {
             VueRdvVerrou(genre: "rdv", s: rdv)
                 .frame(width: 364)
                 .background(RoundedRectangle(cornerRadius: 26, style: .continuous).fill(Rdv.nuit))
+            VueRdvVerrou(genre: "evenement", s: diner)
+                .frame(width: 364)
+                .background(RoundedRectangle(cornerRadius: 26, style: .continuous).fill(Rdv.nuit))
             VueRdvVerrou(genre: "anniversaire", s: anniv, passe: true)
                 .frame(width: 364)
                 .background(RoundedRectangle(cornerRadius: 26, style: .continuous).fill(Rdv.nuit))
             HStack(spacing: 0) {
                 IleRdvIllustration(genre: "rdv", taille: 22)
                 Spacer().frame(width: 132)
-                RdvCompte(debut: rdv.debut, taille: 14).foregroundStyle(Rdv.lilas).frame(maxWidth: 58)
+                RdvCompte(debut: rdv.debut, taille: 14).foregroundStyle(Rdv.lilas)
             }
             .padding(.horizontal, 12)
             .frame(height: 37)
@@ -223,7 +229,7 @@ struct Planche: View {
                     Spacer()
                     Text(rdv.titre).font(rond(16)).foregroundStyle(.white).lineLimit(1)
                     Spacer()
-                    RdvCompte(debut: rdv.debut, taille: 24).foregroundStyle(Rdv.lilas).frame(maxWidth: 96, alignment: .trailing)
+                    RdvCompte(debut: rdv.debut, taille: 22).foregroundStyle(Rdv.lilas)
                 }
                 IleRdvBas(s: rdv)
             }

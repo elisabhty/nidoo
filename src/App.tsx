@@ -12,6 +12,8 @@ import { select } from './lib/haptic'
 import { useStore } from './lib/store'
 import { ecouterWidgets, oublierWidgets, synchroniserWidgets } from './lib/widgets'
 import { demanderOrganiser, demanderOuEst, demandeDuChemin } from './lib/demandes'
+import { suivreProchain } from './lib/direct'
+import { NATIF_IOS } from './lib/pont'
 import Family from './screens/Family'
 import Home from './screens/Home'
 import Dossiers from './screens/Folders'
@@ -74,6 +76,17 @@ export default function App() {
     if (state) synchroniserWidgets(api, state)
     else if (status === 'ready') oublierWidgets()
   }, [api, state, status])
+  // L'activité en direct (appli iPhone) : à l'ouverture et à chaque retour dans l'appli, le rendez-vous qui me
+  // concerne et commence dans moins de deux heures s'affiche sur l'écran verrouillé et dans l'île dynamique.
+  useEffect(() => {
+    if (!state || !NATIF_IOS) return
+    const voir = () => {
+      if (document.visibilityState === 'visible') void suivreProchain(state.events, state.members, state.me.id)
+    }
+    voir()
+    document.addEventListener('visibilitychange', voir)
+    return () => document.removeEventListener('visibilitychange', voir)
+  }, [state?.events, state?.members, state?.me.id]) // eslint-disable-line react-hooks/exhaustive-deps
   // l'anniversaire donné à l'accueil rejoint l'agenda dès qu'on est dans la maison
   useEffect(() => {
     if (state) void ajouterNaissance(api, state.family.id, state.me, state.events).then((ok) => { if (ok) void reload().catch(() => undefined) })

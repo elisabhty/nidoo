@@ -1,4 +1,4 @@
-import { AlignLeft, Cake, CalendarClock, CalendarDays, CalendarPlus, Camera, Check, Plus, ChevronDown, ChevronRight, Clock, X, Images, MapPin, Navigation, PenLine, Repeat, Share, Sticker as StickerIcon, Trash2, Undo2, Users } from 'lucide-react'
+import { AlignLeft, Cake, CalendarClock, CalendarDays, CalendarPlus, Camera, Check, Plus, ChevronDown, ChevronRight, Clock, X, Images, MapPin, Navigation, PenLine, Repeat, Share, Sticker as StickerIcon, Timer, Trash2, Undo2, Users } from 'lucide-react'
 import { forwardRef, memo, useEffect, useMemo, useRef, useState } from 'react'
 import { rebond } from '../lib/rebond'
 import { moodOf, MOODS, THOUGHTS, thoughtOf } from '../lib/data'
@@ -18,6 +18,8 @@ import { vignettesCadres } from '../lib/cadres'
 import { compressImage, errorText, finDe, isToday, joursEnPlus, nextOccurrence, occursOn, repeteDe, REPETITIONS, rythme, timeLabel } from '../lib/util'
 import { useRepetitions } from '../lib/repeter'
 import { ajouterAuCalendrier, titreCalendrier } from '../lib/calendrier'
+import { etatDirect, retirerRendezVous, suivreRendezVous } from '../lib/direct'
+import { suivable } from '../lib/directRegles'
 import { estFerie, prochainsJoursSpeciaux } from '../lib/joursSpeciaux'
 import { anniversaireDe } from '../lib/naissance'
 import { IncomingDrawing, markDrawingsSeen, useUnseenDrawings } from './drawing'
@@ -1047,6 +1049,29 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
     if (!(await run((a) => a.addItem(state.family.id, state.me.id, 'tache', t, null, ev.id)))) setNouvelle(t)
   }
   const at = nextOccurrence(ev) // recalculé : la date a pu être modifiée
+  // l'activité en direct (appli iPhone) : ce rendez-vous sur l'écran verrouillé et dans l'île dynamique,
+  // proposé quand il commence dans la journée (iOS la garde 8 heures au plus)
+  const [direct, setDirect] = useState<{ possible: boolean; suivi: boolean } | null>(null)
+  const bientot = !!suivable(ev)
+  useEffect(() => {
+    if (!bientot) return
+    let fini = false
+    void etatDirect().then((d) => !fini && setDirect({ possible: d.possible, suivi: d.ids.includes(ev.id) }))
+    return () => {
+      fini = true
+    }
+  }, [bientot, ev.id])
+  const basculerDirect = async (oui: boolean) => {
+    if (!oui) {
+      setDirect((d) => d && { ...d, suivi: false })
+      return void retirerRendezVous(ev)
+    }
+    setDirect((d) => d && { ...d, suivi: true })
+    const r = await suivreRendezVous(ev, state.members, state.me.id)
+    if (r === 'lancee') return success()
+    setDirect((d) => d && { ...d, suivi: false })
+    toast(r === 'refusee' ? 'Les activités en direct sont coupées pour NIDOO : Réglages › NIDOO › Activités en direct.' : 'Impossible de l’afficher sur l’écran verrouillé pour le moment.', 'err')
+  }
   const author = state.members.find((m) => m.id === ev.created_by)
   // seule la personne qui l'a ajouté peut le modifier ou le supprimer (Elisa, 21 novembre) ;
   // un événement dont l'auteur n'est plus dans la maison reste modifiable par tous
@@ -1125,6 +1150,19 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
       <div className="mt-5 grid gap-2" style={{ gridTemplateColumns: `repeat(${actions.length}, minmax(0, 1fr))` }}>
         {actions}
       </div>
+
+      {bientot && direct?.possible && (
+        <div className="anim-entre mt-3 flex items-center gap-3 rounded-groupe bg-carte py-2.5 pl-3.5 pr-3 shadow-carte">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] bg-[#241B4D] text-[#CFC1FF]">
+            <Timer size={20} strokeWidth={2.3} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-appel font-semibold">Sur l’écran verrouillé</span>
+            <span className="block text-note text-brume">Le compte à rebours, aussi dans l’île dynamique</span>
+          </span>
+          <Switch on={direct.suivi} label="Suivre ce rendez-vous sur l’écran verrouillé" onChange={(v) => void basculerDirect(v)} />
+        </div>
+      )}
 
       <div className="groupe mt-4">
         {!ev.lieu && peutModifier && (ajoutLieu ? (

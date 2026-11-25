@@ -210,8 +210,22 @@ export function ecrireQte(q: Quantite): string {
   return `${nb} ${q.n > 1 ? pluriel(q.u) : q.u}`
 }
 
+/** Pour l'œil seulement : « 1000 g » se lit « 1 kg », « 150 cl » « 1,5 l ». Ce qui est rangé ne change pas (le − / + garde son pas). */
+function grande(q: Quantite): string | null {
+  if (q.u === 'g' && q.n >= 1000) return `${nombreTexte(q.n / 1000)} kg`
+  if (q.u === 'ml' && q.n >= 1000) return `${nombreTexte(q.n / 1000)} l`
+  if (q.u === 'cl' && q.n >= 100) return `${nombreTexte(q.n / 100)} l`
+  return null
+}
+export function qteLisible(qte: string): string {
+  const q = lireQte(qte)
+  return (q && grande(q)) ?? qte
+}
+
 /** La quantité en court, pour le − / + : « 1,5 kg », « 4 tr. », « 12 ». */
 export function qteCourte(q: Quantite): string {
+  const g = grande(q)
+  if (g) return g
   const nb = nombreTexte(q.n)
   if (!q.u) return nb
   if (MESURES.includes(q.u)) return `${nb} ${q.u}`

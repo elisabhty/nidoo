@@ -55,7 +55,7 @@ export const PARTIES: Record<PartieKind, { name: string; hint: string; art: stri
   quidenous: { name: 'Qui de nous ?', hint: 'Votez en secret', art: 'jeu-quidenous', min: 2, max: 8 },
   annee: { name: 'Devine l’année', hint: 'Dater une photo', art: 'jeu-annee', min: 2, max: 8 },
   telephone: { name: 'Téléphone', hint: 'Phrase, dessin…', art: 'jeu-telephone', min: 3, max: 8 },
-  tour: { name: 'La tour', hint: 'Ne la fais pas tomber', art: 'jeu-tour', min: 2, max: 15 },
+  tour: { name: 'La tour', hint: 'Ne tremble pas', art: 'jeu-tour', min: 2, max: 15 },
 }
 
 export const ANNEE_MIN = 1850

@@ -1,5 +1,5 @@
 import { GamePresentation, GameStatus } from './gamePresentation'
-import { Check, ImagePlus, Lightbulb, RotateCcw } from 'lucide-react'
+import { Check, Crown, ImagePlus, Lightbulb, RotateCcw } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { select, success, tap } from '../lib/haptic'
 import {
@@ -145,7 +145,7 @@ export function NewPartie({ kind, onClose, onStarted, avec }: { kind: PartieKind
           <Btn onClick={() => void inviter()}>Inviter mes proches</Btn>
         ) : (
         <Btn onClick={() => void start()} disabled={!ready || busy}>
-          {busy ? 'Un instant…' : manque > 0 ? `Choisis encore ${manque} proche${manque > 1 ? 's' : ''}` : annee && !picks.length ? 'Choisis au moins une photo' : 'Lancer la partie'}
+          {busy ? 'Un instant…' : manque > 0 ? (nbJoueurs <= 1 && manque === 1 ? 'Choisis un proche' : `Choisis encore ${manque} proche${manque > 1 ? 's' : ''}`) : annee && !picks.length ? 'Choisis au moins une photo' : 'Lancer la partie'}
         </Btn>
         )
       }
@@ -345,14 +345,18 @@ export function PartieView({ partie: p, onClose, onOpen, onNouvelle }: { partie:
           {p.players.map((x) => {
             const m = members.find((y) => y.id === x)
             const doit = p.status === 'en_cours' && att.includes(x)
+            const fini = p.status === 'fini'
+            const abandon = !!(p.state as { abandon?: boolean }).abandon
+            const gagne = fini && !abandon && (p.kind === 'tour' ? (p.state as TourState).perdant !== x : p.winner === x)
             return (
-              <div key={x} className="game-player" data-active={doit}>
+              <div key={x} className="game-player" data-active={doit} data-fini={fini} data-winner={gagne}>
                 {m && <Avatar m={m} size={34} />}
                 {x === PANDA && <img src="./art/stickers/panda-heureux.webp" alt="" className="h-[34px] w-[34px]" />}
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sous font-semibold">{nom(members, x, me.id)}</span>
-                  <span className="block text-mini text-brume">{p.status === 'fini' ? 'Partie terminée' : doit ? 'À son tour' : 'A joué'}</span>
+                  <span className="block text-mini text-brume">{fini ? (gagne ? (p.kind === 'tour' ? 'A tenu bon' : 'Victoire') : abandon ? 'Partie arrêtée' : 'Bien joué') : doit ? 'À son tour' : 'A joué'}</span>
                 </span>
+                {gagne && p.kind !== 'tour' && <Crown size={16} className="shrink-0 text-[#D99A16]" fill="currentColor" aria-hidden />}
                 {p.status === 'en_cours' && !doit && (
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-teinte text-white" aria-label="a joué">
                     <Check size={12} strokeWidth={3.2} />

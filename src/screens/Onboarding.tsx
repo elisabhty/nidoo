@@ -336,7 +336,6 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
     if (onCancel) void create()
     else suivant()
   }
-  // Se connecter : Apple, Google et l'e-mail arrivent bientôt ; en attendant, n'importe quel bouton fait entrer.
   const entrer = () => {
     if (path === 'rejoindre') void join()
     else void create()
@@ -437,22 +436,17 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
                 <p className="ob-sous mt-3 max-w-[320px] text-center">Une maison pour discuter, jouer et garder vos souvenirs en famille.</p>
                 {invite && <p className="mt-4 rounded-full bg-white/15 px-4 py-2 text-sous font-semibold">Ton invitation est prête · {urlCode}</p>}
               </div>
+              {/* Pas de faux boutons « Apple, Google, E-mail : bientôt » (25 novembre, avant la mise en ligne) :
+                  on entre d'un toucher, sans compte à créer. */}
               <div className="rounded-[28px] bg-white p-5 text-encre shadow-xl">
-                <h2 className="text-center font-rond text-titre2">Connexion</h2>
-                <p className="mt-1 text-center text-note text-brume">Entre librement pour découvrir Nidoo.</p>
+                <h2 className="text-center font-rond text-titre2">{invite ? 'Tes proches t’attendent' : 'On s’installe ?'}</h2>
+                <p className="mt-1 text-center text-note text-brume [text-wrap:pretty]">
+                  {invite ? 'Deux minutes pour créer ton personnage et entrer dans leur maison.' : 'Deux minutes pour créer votre maison, ou rejoindre celle de tes proches.'}
+                </p>
                 <button className="ob-cta violet mt-5" onClick={() => { tap(); aller('panda') }}>
                   Commencer <ChevronRight size={20} strokeWidth={2.8} />
                 </button>
-                <p className="my-3 text-center text-mini text-brume">Les connexions arrivent bientôt</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {['Apple', 'Google', 'E-mail'].map((service) => (
-                    <button key={service} type="button" className="presse flex min-h-[52px] items-center justify-center gap-1.5 rounded-[16px] border border-[#E4DFF3] px-2 text-note font-semibold"
-                      onClick={() => { tap(); toast(`La connexion avec ${service} arrive bientôt. Tu peux déjà découvrir Nidoo.`); aller('panda') }}>
-                      {service === 'E-mail' && <Mail size={16} />} {service}
-                    </button>
-                  ))}
-                </div>
-                <p className="mt-4 text-center text-mini leading-relaxed text-brume">Aucun mot de passe demandé pour le moment.</p>
+                <p className="mt-4 text-center text-mini leading-relaxed text-brume">Sans compte à créer ni mot de passe à retenir.</p>
               </div>
             </div>
           )}
@@ -880,7 +874,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
                   <button className="ob-cta violet mt-5" onClick={() => (tap(), entrer())} disabled={busy}>
                     {busy ? (path === 'rejoindre' ? 'Un instant…' : T.create.loading) : path === 'rejoindre' ? 'Demander à entrer' : 'Créer ma maison'} {!busy && <ChevronRight size={20} strokeWidth={2.8} />}
                   </button>
-                  <p className="mt-3 text-center text-note text-[#8C86A3] [text-wrap:pretty]">En attendant la connexion, ta maison est gardée sur cet appareil.</p>
+                  <p className="mt-3 text-center text-note text-[#8C86A3] [text-wrap:pretty]">Pas de mot de passe à retenir : ta maison reste liée à ce téléphone.</p>
                 </div>
               </div>
             </div>

@@ -13,7 +13,7 @@ import { useHome } from '../lib/store'
 import type { Folder, FolderItem } from '../lib/types'
 import { ago, compressImage, errorText } from '../lib/util'
 
-// Souvenirs : les albums (dossiers de photos et notes). Le fil familial a son propre onglet.
+// Souvenirs : les dossiers (photos, notes, vocaux). Le fil familial a son propre onglet.
 
 // ═════════════════════════ L'onglet ═════════════════════════
 
@@ -45,7 +45,7 @@ function Accueil({ onOpen }: { onOpen: (id: string) => void }) {
     <>
       <Screen
         title="Souvenirs"
-        trailing={<Rond label="Nouvel album" tint onClick={() => setCreating(true)}><FolderPlus size={19} /></Rond>}
+        trailing={<Rond label="Nouveau dossier" tint onClick={() => setCreating(true)}><FolderPlus size={19} /></Rond>}
       >
         <p className="-mt-1 mb-4 px-5 text-sous text-brume">Photos, notes, dessins, voix et vidéos, avec les proches de votre choix.</p>
 
@@ -55,7 +55,7 @@ function Accueil({ onOpen }: { onOpen: (id: string) => void }) {
           </Vide>
         ) : (
           <>
-            <SearchField value={query} onChange={setQuery} placeholder="Rechercher un album" label="Rechercher un dossier" />
+            <SearchField value={query} onChange={setQuery} placeholder="Rechercher un dossier" label="Rechercher un dossier" />
             <div className="mx-5 mb-4 flex items-center justify-between"><h2 className="font-rond text-titre2">{query ? 'Résultats' : 'Votre collection'}</h2><span className="text-note text-brume">{roots.length} dossier{roots.length > 1 ? 's' : ''}</span></div>
             {roots.length === 0 ? (
               <p className="px-8 py-10 text-center text-sous text-brume">Aucun dossier ne correspond à « {query.trim()} ».</p>
@@ -513,7 +513,7 @@ function NoteSheet({ folder, note, admin, onClose, onSaved }: { folder: Folder; 
       {note && (note.author_id === state.me.id || admin) && (
         <Btn
           kind="gris"
-          className="mt-2 !text-rouge"
+          className="mt-2 [&>button]:!text-rouge"
           onClick={async () => {
             if (!(await confirmer({ title: 'Supprimer cette note ?', message: 'Elle disparaîtra pour tous les membres.', confirm: 'Supprimer', destructive: true }))) return
             if (await run((api) => api.deleteFolderItem(note), 'Note supprimée')) onClose()
@@ -712,7 +712,7 @@ function MembersSheet({ root, onClose, onLeft }: { root: Folder; onClose: () => 
           <p className="px-2 pt-2.5 text-note text-brume">Seul{owner ? ` ${owner.display_name}` : ' le créateur'} peut ajouter ou retirer des membres.</p>
           <Btn
             kind="gris"
-            className="mt-4 !text-rouge"
+            className="mt-4 [&>button]:!text-rouge"
             onClick={async () => {
               if (!(await confirmer({ title: `Quitter « ${root.name} » ?`, message: 'Tu ne le verras plus. Son créateur pourra te réinviter.', confirm: 'Quitter le dossier', destructive: true }))) return
               if (await run((api) => api.leaveFolder(root.id, me.id), 'Tu as quitté le dossier')) {

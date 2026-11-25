@@ -1,7 +1,7 @@
 import { ListPages, useListPage } from '../components/listNavigation'
 import { BookOpen, Check, ChevronLeft, ChevronRight, MapPin, Minus, Plus, Trash2, Users } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { additionner, AUTRES, cle, completer, comprendre, ecrireArticle, estVague, iconeDe, precisions, lireArticle, memeArticle, lireQte, moinsUn, plusUn, pourAllerAvec, qteCourte, RAYONS, rayonDe, retenir, souvent } from '../lib/courses'
+import { additionner, AUTRES, cle, completer, comprendre, ecrireArticle, estVague, iconeDe, precisions, lireArticle, memeArticle, lireQte, moinsUn, plusUn, pourAllerAvec, qteCourte, qteLisible, RAYONS, rayonDe, retenir, souvent } from '../lib/courses'
 import { occasionProche, recetteDe, recettesAvec, recettesDe, recettesDuMoment, type Recette } from '../lib/recettes'
 import { evenementsAVenir, jourCourt, useLienTaches } from '../lib/lienTaches'
 import { RecetteSheet, RecettesSheet } from '../components/recettes'
@@ -13,6 +13,7 @@ import { choc, select, success, tap, warn } from '../lib/haptic'
 import { bravo, confettis } from '../lib/fete'
 import { useHome } from '../lib/store'
 import { useDemandeOrganiser } from '../lib/demandes'
+import { titreCalendrier } from '../lib/calendrier'
 import type { EventKind, FamEvent, ListItem, ListKind } from '../lib/types'
 import { dayLabel, errorText, finDe, nextOccurrence, occursOn, repeteDe, rythme, timeLabel, todayKey } from '../lib/util'
 
@@ -160,7 +161,7 @@ function Semaine({ onOpen, onAdd }: { onOpen: (o: Ouvert) => void; onAdd: (day: 
                       <EventIcon event={e} size={34} className="shrink-0" />
                       <span className={`flex min-w-0 flex-1 items-center gap-2 py-2.5 pr-3.5 ${n < list.length - 1 ? 'border-b border-trait' : ''}`}>
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-corps">{e.title}</span>
+                          <span className="block truncate text-corps">{titreCalendrier(e)}</span>
                           <span className="block truncate text-note text-brume">
                             {e.all_day ? (rythme(e, at) && !repeteDe(e) ? rythme(e, at) : 'Toute la journée') : timeLabel(at)}
                             {repeteDe(e) && repeteDe(e) !== 'annee' ? ` · ${rythme(e, at)?.toLowerCase()}` : repeteDe(e) === 'annee' && e.kind !== 'anniversaire' ? ' · chaque année' : ''}
@@ -582,7 +583,7 @@ function Liste({ kind }: { kind: ListKind }) {
           </button>
           {/* « Légumes » n'a pas de quantité : on le décompose */}
           {!tache && !editing && !attente && !estVague(art.nom) && <Quantite qte={art.qte} nom={art.nom} onChange={(q) => changerQuantite(i, q)} onRetirer={() => retirerAnime([i.id])} />}
-          {!tache && attente && art.qte && <span className="ml-2.5 mr-3 shrink-0 text-note font-bold text-brume">{art.qte}</span>}
+          {!tache && attente && art.qte && <span className="ml-2.5 mr-3 shrink-0 text-note font-bold text-brume">{qteLisible(art.qte)}</span>}
           {editing && (
             <button onClick={() => retirerAnime([i.id])} className="presse mr-2 flex min-h-11 items-center rounded-full bg-rouge/10 px-3 text-note font-semibold text-rouge" aria-label={`Retirer ${i.title}`}>
               Retirer
@@ -823,7 +824,7 @@ function Liste({ kind }: { kind: ListKind }) {
                     <Coche fait />
                     <span className={`flex min-h-[50px] min-w-0 flex-1 items-center gap-2 py-2 pr-3 ${k < doneVisible.length - 1 ? 'border-b border-trait' : ''}`}>
                       <span className="min-w-0 flex-1 text-corps text-pale line-through">{tache ? i.title : lireArticle(i.title).nom}</span>
-                      {!tache && lireArticle(i.title).qte && <span className="text-note font-semibold text-pale">{lireArticle(i.title).qte}</span>}
+                      {!tache && lireArticle(i.title).qte && <span className="text-note font-semibold text-pale">{qteLisible(lireArticle(i.title).qte)}</span>}
                       {who && (
                         <span className="opacity-70">
                           <Avatar m={who} size={26} />
@@ -981,7 +982,7 @@ export default function Organize() {
                         )}
                         <span className={`flex min-w-0 flex-1 items-center gap-2 py-2.5 pr-3.5 ${k < list.length - 1 && !finDuJour ? 'border-b border-trait/60' : ''}`}>
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate text-corps">{e.title}</span>
+                            <span className="block truncate text-corps">{titreCalendrier(e)}</span>
                             <span className={`block text-note ${today ? 'font-semibold text-peche-fonce' : 'text-brume'}`}>
                               {(() => {
                                 // « Demain · 10h00 · Tous les jeudis », « Du 28 au 29 novembre », « Samedi · chaque année » ;

@@ -1,5 +1,5 @@
-import { GamePresentation, GameStatus } from './gamePresentation'
-import { ChevronLeft, ChevronRight, Check, Heart, ImagePlus, Star, X } from 'lucide-react'
+import { GamePresentation, GameStatus, GameTile } from './gamePresentation'
+import { ChevronLeft, ChevronRight, Check, Crown, Heart, ImagePlus, Star, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { select, success, tap } from '../lib/haptic'
 import { COLS, dropCell, GAMES, isMemory, MEMORY_MAX, MEMORY_MIN, ROWS, type GameKind, type GridState, type MemoryState } from '../lib/jeux'
@@ -12,7 +12,7 @@ import { MotCarte, MotPage } from './motmystere'
 import { NewPartie, PartieView, statutPartie } from './parties'
 import { ago, errorText } from '../lib/util'
 import { EMOJIS, stickerImgUrl } from '../lib/stickers'
-import { Avatar, Btn, confirmer, Confettis, LigneSous, Page, Sheet } from './ui'
+import { Avatar, Btn, confirmer, Confettis, LigneSous, Page, Segments, Sheet } from './ui'
 
 // Jouer ensemble : Puissance 4, morpion et memory photos, contre un proche de la famille.
 // On joue chacun son tour, quand on veut (la partie attend) ; si l'autre est là, ses coups arrivent en direct.
@@ -57,8 +57,8 @@ const PARTIES_PAR_PAGE = 5
 
 type FiltreParties = 'jouer' | 'attente' | 'terminees'
 const FILTRES_PARTIES: { id: FiltreParties; label: string; vide: string }[] = [
-  { id: 'jouer', label: 'À toi de jouer', vide: 'Tu as joué tous tes tours pour le moment.' },
-  { id: 'attente', label: 'À leur tour', vide: 'Aucune partie en attente.' },
+  { id: 'jouer', label: 'À toi', vide: 'Tu as joué tous tes tours pour le moment.' },
+  { id: 'attente', label: 'À eux', vide: 'Aucune partie en attente.' },
   { id: 'terminees', label: 'Terminées', vide: 'Aucune partie terminée dans ton historique récent.' },
 ]
 
@@ -78,18 +78,12 @@ function MesParties({ listes, ligne }: {
     <section aria-label="Mes parties" className="mt-6">
       <h2 className="entete mb-2">Mes parties</h2>
       <div className="groupe mx-4 shadow-carte">
-        <div role="group" aria-label="Filtrer les parties" className="flex gap-1 border-b border-trait p-2">
-          {FILTRES_PARTIES.map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              aria-pressed={filtre === f.id}
-              onClick={() => { setFiltre(f.id); setSelection(1) }}
-              className={`presse min-h-11 min-w-0 flex-1 rounded-full px-1 text-mini font-semibold transition-colors ${filtre === f.id ? 'bg-teinte text-white shadow-sm' : 'text-brume'}`}
-            >
-              {f.label}
-            </button>
-          ))}
+        <div className="border-b border-trait p-2">
+          <Segments
+            value={filtre}
+            onChange={(f) => { setFiltre(f); setSelection(1) }}
+            options={FILTRES_PARTIES.map((f) => ({ key: f.id, label: listes[f.id].length ? `${f.label} · ${listes[f.id].length}` : f.label }))}
+          />
         </div>
         <div>
           {parties.length > 0
@@ -215,19 +209,18 @@ export function JeuxPage({ onClose, start }: { onClose: () => void; start?: stri
       </>
     )
   const tuile = (k: GameKind | PartieKind) => (
-    <button
+    <GameTile
       key={k}
+      kind={k}
+      art={meta(k).art}
+      name={meta(k).name}
+      hint={meta(k).hint}
       onClick={() => {
         tap()
         if (k in GAMES) setNouveau({ k: k as GameKind })
         else setNouvelle({ k: k as PartieKind })
       }}
-      className="presse groupe flex flex-col items-center px-1.5 pb-3 pt-3 text-center shadow-carte"
-    >
-      <img src={`./art/${meta(k).art}.webp`} alt="" className="h-[64px] w-[64px] object-contain" />
-      <span className="mt-1.5 w-full truncate text-legende font-semibold">{meta(k).name}</span>
-      <span className="w-full truncate text-mini text-brume">{meta(k).hint}</span>
-    </button>
+    />
   )
 
   return (
@@ -449,6 +442,7 @@ function NewGame({ kind, onClose, onStarted, against }: { kind: GameKind; onClos
 const CSS = `
 @keyframes p4tombe { from { transform: translateY(var(--de)); } 70% { transform: translateY(4%); } to { transform: translateY(0); } }
 @keyframes jeupop { from { transform: scale(0.3); opacity: 0; } 70% { transform: scale(1.12); } to { transform: scale(1); opacity: 1; } }
+@keyframes jeugagne { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12) rotate(-4deg); } }
 @keyframes jeubrille { 0%, 100% { box-shadow: 0 0 0 3px #fff, 0 0 0 6px rgba(255,255,255,0); } 50% { box-shadow: 0 0 0 3px #fff, 0 0 14px 6px rgba(255,255,255,0.9); } }
 `
 
@@ -505,16 +499,19 @@ function GameView({ game: g, onClose, onRematch, onOpen }: { game: Game; onClose
   const chip = (m: Member | undefined, side: 1 | 2) => {
     const turn = g.status === 'en_cours' && g.turn === m?.id
     const score = mem ? mem.score[side - 1] : null
+    const fini = g.status === 'fini'
+    const gagne = fini && !!m && g.winner === m.id
     return (
-      <div className="game-player" data-active={turn} style={{ '--player-accent': color(side) } as CSSProperties}>
+      <div className="game-player" data-active={turn} data-fini={fini} data-winner={gagne} style={{ '--player-accent': color(side) } as CSSProperties}>
         {m && <Avatar m={m} size={36} />}
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sous font-semibold">{m ? (m.id === me.id ? 'Toi' : m.display_name) : 'Un proche'}</span>
           <span className="flex items-center gap-1 text-mini text-brume">
             {g.kind === 'morpion' ? (side === 1 ? <Heart size={11} fill={P1} color={P1} /> : <Star size={11} fill={P2} color={P2} />) : <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: color(side) }} />}
-            {score != null ? `${score} paire${score > 1 ? 's' : ''}` : turn ? (m?.id === me.id ? 'À toi de jouer' : 'À son tour') : g.status === 'fini' ? 'Partie terminée' : 'En attente'}
+            {score != null ? `${score} paire${score > 1 ? 's' : ''}` : turn ? (m?.id === me.id ? 'À toi de jouer' : 'À son tour') : fini ? (gagne ? 'Victoire' : g.winner ? 'Bien joué' : 'Égalité') : 'En attente'}
           </span>
         </span>
+        {gagne && <Crown size={18} strokeWidth={2.4} className="shrink-0 text-[#E6A800]" fill="#FFD766" aria-hidden="true" />}
       </div>
     )
   }
@@ -589,6 +586,8 @@ function Puissance4({ st, canPlay, onPlay }: { st: GridState; canPlay: boolean; 
             ? {
                 background: `radial-gradient(circle at 35% 30%, #fff8 0, transparent 38%), ${color(v)}`,
                 boxShadow: win ? undefined : 'inset 0 -3px 0 rgba(0,0,0,0.12)',
+                opacity: st.line && !win ? 0.42 : 1,
+                transition: 'opacity 0.4s',
                 animation: [last ? 'p4tombe 0.45s cubic-bezier(.3,.6,.4,1)' : '', win ? 'jeubrille 1.4s ease-in-out infinite' : ''].filter(Boolean).join(', ') || undefined,
                 ['--de' as string]: `-${(row + 1) * 115}%`,
               }
@@ -626,11 +625,11 @@ function Morpion({ st, canPlay, onPlay }: { st: GridState; canPlay: boolean; onP
             disabled={!canPlay || v !== 0}
             onClick={() => onPlay(i)}
             aria-label={v ? (v === 1 ? 'Cœur' : 'Étoile') : `Case ${i + 1}`}
-            className="presse flex aspect-square items-center justify-center rounded-[18px] bg-[#FFF8EC] disabled:cursor-default"
-            style={{ boxShadow: win ? '0 0 0 3px #fff, 0 0 18px rgba(255,255,255,0.9)' : 'inset 0 -3px 0 rgba(0,0,0,0.06)' }}
+            className="presse flex aspect-square items-center justify-center rounded-[18px] disabled:cursor-default"
+            style={{ background: win ? 'linear-gradient(150deg, #FFF3C4, #FFE08A)' : '#FFF8EC', boxShadow: win ? '0 0 0 3px #fff, 0 0 18px rgba(255,255,255,0.9)' : 'inset 0 -3px 0 rgba(0,0,0,0.06)', transition: 'background 0.4s' }}
           >
             {v !== 0 && (
-              <span className="block" style={{ animation: st.last === i ? 'jeupop 0.35s ease-out' : undefined }}>
+              <span className="block" style={{ animation: win ? 'jeugagne 1.3s ease-in-out infinite' : st.last === i ? 'jeupop 0.35s ease-out' : undefined, opacity: st.line && !win ? 0.38 : 1, transition: 'opacity 0.4s' }}>
                 {v === 1 ? <Heart size={54} fill={P1} color="#E8695A" strokeWidth={1.5} /> : <Star size={56} fill={P2} color="#E6A800" strokeWidth={1.5} />}
               </span>
             )}

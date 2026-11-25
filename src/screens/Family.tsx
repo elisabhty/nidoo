@@ -1,4 +1,4 @@
-import { Baby, Check, CircleHelp, Clock, Copy, Crown, House as HouseIcon, LayoutGrid, LogOut, Mail, Pencil, Plus, RefreshCw, Share, ShieldCheck, Trash2, UserRound, Volume2 } from 'lucide-react'
+import { Baby, Check, CircleHelp, Clock, Copy, Crown, House as HouseIcon, LayoutGrid, LogOut, Mail, Pencil, Plus, RefreshCw, Share, ShieldCheck, Timer, Trash2, UserRound, Volume2 } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import House from '../components/House'
 import { careFor, careTodo, gardenKeys } from '../components/care'
@@ -22,6 +22,7 @@ import { dateVersion, etatMaj, verifier } from '../lib/majDistance'
 import Onboarding from './Onboarding'
 import { OuEstApercu, OuEstPage } from '../components/ouEst'
 import { useDemandeOuEst } from '../lib/demandes'
+import { autoActif, etatDirect, reglerAuto, retirerRendezVous } from '../lib/direct'
 
 type Open = null | 'profil' | 'maison' | 'plus' | 'compte' | 'ajouter' | 'widgets'
 
@@ -457,6 +458,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
           <Row icon={<CircleHelp size={17} strokeWidth={2.4} />} tint="#F58B5C" label="Comment ça marche" onClick={onGuide} />
           {WIDGETS && <Row icon={<LayoutGrid size={16} strokeWidth={2.4} />} tint="#8E6FF0" label="Widgets de l’écran d’accueil" onClick={() => setSheet('widgets')} />}
           <SonsRow />
+          <DirectRow />
           <Row icon={<UserRound size={17} strokeWidth={2.4} />} label="Mon personnage" value={me.display_name} onClick={() => setSheet('profil')} last={api.mode !== 'supabase'} />
           {api.mode === 'supabase' && <Row icon={<Mail size={16} strokeWidth={2.4} />} tint="#5AA3E0" label="Sauvegarder mon compte" value={linked ? 'Activé' : undefined} onClick={() => setSheet('compte')} last />}
         </div>
@@ -657,6 +659,41 @@ function SonsRow() {
             activerSons(v)
             setOn(v)
             if (v) jouer('geste-coeur')
+          }}
+        />
+      }
+    />
+  )
+}
+
+/** L'activité en direct (appli iPhone, si iOS le permet) : le prochain rendez-vous s'affiche tout seul sur l'écran
+ *  verrouillé et dans l'île dynamique, deux heures avant. On peut le couper ; depuis la fiche d'un événement,
+ *  on peut toujours l'afficher à la main. */
+function DirectRow() {
+  const [possible, setPossible] = useState(false)
+  const [on, setOn] = useState(autoActif)
+  useEffect(() => {
+    let fini = false
+    void etatDirect().then((d) => !fini && setPossible(d.possible))
+    return () => {
+      fini = true
+    }
+  }, [])
+  if (!possible) return null
+  return (
+    <Row
+      icon={<Timer size={17} strokeWidth={2.4} />}
+      tint="#241B4D"
+      label="Écran verrouillé"
+      hint="Le prochain rendez-vous, 2 h avant"
+      value={
+        <Switch
+          on={on}
+          label="Afficher le prochain rendez-vous sur l’écran verrouillé"
+          onChange={(v) => {
+            reglerAuto(v)
+            setOn(v)
+            if (!v) void retirerRendezVous()
           }}
         />
       }
