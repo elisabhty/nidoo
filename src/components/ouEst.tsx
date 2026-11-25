@@ -276,6 +276,31 @@ export function OuEstPage({ onClose }: { onClose: () => void }) {
   )
 }
 
+/**
+ * Le repère d'un proche sur la carte : une goutte d'un seul tenant (le rond et sa pointe dans le même tracé), la tête
+ * dedans. Avant, c'était un rond et un petit carré tourné posé dessous : on voyait le raccord (Elisa, 25 novembre :
+ * « le rond autour de la personne, ça fait bizarre, c'est mal fait »). Le mien est violet avec un filet blanc.
+ * 50 × 58 : la pointe, en bas au milieu, est exactement sur la position (le repère est accroché par le bas).
+ */
+function Repere({ m, moi, pale }: { m: Member; moi: boolean; pale: boolean }) {
+  return (
+    <div className={`relative h-[58px] w-[50px] ${pale ? 'opacity-60' : ''}`}>
+      <svg viewBox="0 0 50 58" className="absolute inset-0 h-full w-full overflow-visible" style={{ filter: 'drop-shadow(0 3px 5px rgba(29,26,43,0.3))' }} aria-hidden="true">
+        <path
+          d="M25 57.2 Q22.2 50.6 16.45 48.49 A25 25 0 1 1 33.55 48.49 Q27.8 50.6 25 57.2 Z"
+          className={moi ? 'fill-teinte stroke-teinte' : 'fill-white stroke-white'}
+          strokeWidth="1.2"
+          strokeLinejoin="round"
+        />
+      </svg>
+      {/* en flex et à sa taille : la tête est « inline-block », une boîte ordinaire lui ajouterait quelques pixels dessous */}
+      <span className={`absolute left-1 top-1 flex h-[42px] w-[42px] rounded-full ${moi ? 'ring-[1.5px] ring-white' : ''}`}>
+        <Avatar m={m} size={42} />
+      </span>
+    </div>
+  )
+}
+
 /** La carte : chacun avec sa tête, tout le monde dans le cadre ; touché dans la liste, on va vers lui. */
 export function CarteFamille({ points, moi, focus, hauteur }: { points: Point[]; moi: string; focus: { id: string; n: number } | null; hauteur: number }) {
   const boite = useRef<HTMLDivElement>(null)
@@ -378,14 +403,7 @@ export function CarteFamille({ points, moi, focus, hauteur }: { points: Point[];
         if (!x) return null
         const pale = ancienne(x.p)
         return createPortal(
-          <div className={`flex flex-col items-center ${pale ? 'opacity-60' : ''}`} style={{ filter: 'drop-shadow(0 4px 7px rgba(29,26,43,0.28))' }}>
-            <span className={`rounded-full p-[3px] ${id === moi ? 'bg-teinte' : 'bg-white'}`}>
-              <span className="block rounded-full bg-white p-[1.5px]">
-                <Avatar m={x.m} size={40} />
-              </span>
-            </span>
-            <span className={`-mt-[5px] h-3 w-3 rotate-45 rounded-[2.5px] ${id === moi ? 'bg-teinte' : 'bg-white'}`} />
-          </div>,
+          <Repere m={x.m} moi={id === moi} pale={pale} />,
           el,
           id,
         )
