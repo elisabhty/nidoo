@@ -181,12 +181,16 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
   const admins = members.filter((m) => m.role === 'responsable')
   const expired = codeExpire(family)
   const until = new Date(family.invite_expires_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
+  // les textes de l'invitation (Elisa, 25 novembre : « plus naturel, chaleureux et rassurant »)
+  const autresResponsables = admins.filter((m) => m.id !== me.id).map((m) => m.display_name)
+  // à qui demander le code : « Papa », « Papa ou Mamie Jo », sinon « un responsable »
+  const aQuiDemander = autresResponsables.length === 1 ? autresResponsables[0] : autresResponsables.length === 2 ? autresResponsables.join(' ou ') : 'un responsable'
   const whoAccepts =
     admins.length === 1
       ? admins[0].id === me.id
-        ? 'C’est toi qui acceptes chaque nouvelle personne.'
-        : `${admins[0].display_name} accepte chaque nouvelle personne.`
-      : `Les responsables (${admins.map((m) => (m.id === me.id ? 'toi' : m.display_name)).join(', ')}) acceptent chaque nouvelle personne.`
+        ? 'Pour protéger votre espace familial, c’est toi qui approuves chaque nouvelle demande d’accès.'
+        : `Pour protéger votre espace familial, ${admins[0].display_name} doit approuver chaque nouvelle demande d’accès.`
+      : `Pour protéger votre espace familial, un responsable (${admins.map((m) => (m.id === me.id ? 'toi' : m.display_name)).join(', ')}) doit approuver chaque nouvelle demande d’accès.`
 
   // le code expiré se remplace tout seul (App.tsx) et s'affiche directement : ni code barré, ni message d'attente
   const invite = async () => {
@@ -361,7 +365,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
         {/* où est la famille (Elisa, 21 novembre) : la carte s'ouvre en page */}
         <OuEstApercu onOuvrir={() => setOuEst(true)} />
 
-        <p className="entete mt-6">Inviter un proche</p>
+        <p className="entete mt-6">{admin ? 'Inviter un proche' : 'Rejoindre la famille'}</p>
         <div className="groupe mx-4 shadow-carte">
           {admin ? (
             <>
@@ -382,10 +386,12 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
               </button>
             </>
           ) : (
-            // les autres membres ne voient pas le code : des points à sa place (Elisa, 25 novembre)
-            <div className="flex min-h-[64px] w-full flex-col justify-center px-4 py-2">
-              <span className="block font-rond text-titre2 tracking-[0.18em] text-encre" aria-hidden="true">••••••</span>
-              <span className="block text-note text-brume">{admins.length === 1 ? `${admins[0].display_name} peut te le donner` : 'Les responsables peuvent te le donner'}</span>
+            // les autres membres ne voient pas le code : six points noirs à sa place (Elisa, 25 novembre)
+            <div className="flex min-h-[76px] w-full flex-col justify-center gap-2.5 px-4 py-3.5">
+              <span className="flex gap-2" aria-hidden="true">
+                {[0, 1, 2, 3, 4, 5].map((i) => <span key={i} className="h-3.5 w-3.5 rounded-full bg-encre" />)}
+              </span>
+              <span className="block text-sous text-brume">Demande le code d’invitation à {aQuiDemander}.</span>
             </div>
           )}
           {admin && (
@@ -396,7 +402,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
         </div>
         <p className="flex gap-1.5 px-8 pt-2 text-note text-brume">
           <ShieldCheck size={15} strokeWidth={2.4} className="mt-[1px] shrink-0 text-teinte" />
-          <span>Le code permet seulement de demander à entrer. {whoAccepts}{admin ? ' Touche un membre pour nommer un autre responsable ou le retirer.' : ''}</span>
+          <span>{whoAccepts}{admin ? ' Touche un membre pour nommer un autre responsable ou le retirer.' : ''}</span>
         </p>
 
         </>}
