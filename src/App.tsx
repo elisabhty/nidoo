@@ -13,7 +13,7 @@ import { useStore } from './lib/store'
 import { ecouterWidgets, oublierWidgets, synchroniserWidgets } from './lib/widgets'
 import { demanderOrganiser, demanderOuEst, demandeDuChemin } from './lib/demandes'
 import { suivreProchain } from './lib/direct'
-import { codeExpire, codeValable, resteAvantExpiration } from './lib/invitation'
+import { codeExpire, codeValable, resteAvantExpiration, voitLeCode } from './lib/invitation'
 import { NATIF_IOS } from './lib/pont'
 import Family from './screens/Family'
 import Home from './screens/Home'
@@ -88,15 +88,14 @@ export default function App() {
     document.addEventListener('visibilitychange', voir)
     return () => document.removeEventListener('visibilitychange', voir)
   }, [state?.events, state?.members, state?.me.id]) // eslint-disable-line react-hooks/exhaustive-deps
-  // le code d'invitation expiré se remplace tout seul : à l'ouverture, au retour dans l'appli, au retour du réseau,
-  // et à l'heure où il expire si l'appli est restée ouverte (Elisa, 25 novembre)
+  // le code d'invitation expiré se remplace tout seul (responsables : les seuls à le voir) : à l'ouverture, au retour
+  // dans l'appli, au retour du réseau, et à l'heure où il expire si l'appli est restée ouverte (Elisa, 25 novembre)
   useEffect(() => {
-    if (!state) return
+    if (!state || !voitLeCode(state.me)) return
     const f = state.family
-    const responsable = state.me.role === 'responsable'
     const voir = () => {
       if (document.visibilityState !== 'visible' || !codeExpire(f)) return
-      void codeValable(api, f, responsable).then((neuf) => {
+      void codeValable(api, f, true).then((neuf) => {
         if (neuf && neuf.invite_code !== f.invite_code) void reload().catch(() => undefined)
       })
     }

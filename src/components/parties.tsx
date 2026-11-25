@@ -25,7 +25,7 @@ import {
 } from '../lib/parties'
 import { jouer } from '../lib/sons'
 import { shareInvite } from '../lib/share'
-import { codeValable } from '../lib/invitation'
+import { codeValable, voitLeCode } from '../lib/invitation'
 import { useHome } from '../lib/store'
 import type { Member, Partie } from '../lib/types'
 import { errorText } from '../lib/util'
@@ -132,9 +132,8 @@ export function NewPartie({ kind, onClose, onStarted, avec }: { kind: PartieKind
   const pasAssez = !tour && proches.length < meta.min - 1
   const inviter = async () => {
     tap()
-    const responsable = state.me.role === 'responsable'
-    const f = await codeValable(api, state.family, responsable, true)
-    if (!f) return toast('Invitation indisponible pour l’instant : réessaie dans un instant.', 'err')
+    const f = await codeValable(api, state.family, voitLeCode(state.me), true)
+    if (!f) return toast('Pas de connexion : réessaie dans un instant.', 'err')
     if (f.invite_code !== state.family.invite_code) void reload().catch(() => undefined)
     if ((await shareInvite(state.family.name, f.invite_code)) === 'copie') toast('Invitation copiée')
   }
@@ -145,7 +144,8 @@ export function NewPartie({ kind, onClose, onStarted, avec }: { kind: PartieKind
       tall={annee}
       footer={
         pasAssez ? (
-          <Btn onClick={() => void inviter()}>Inviter mes proches</Btn>
+          // inviter : pour les responsables, les seuls à voir le code de la maison
+          voitLeCode(state.me) ? <Btn onClick={() => void inviter()}>Inviter mes proches</Btn> : <Btn kind="gris" onClick={onClose}>Fermer</Btn>
         ) : (
         <Btn onClick={() => void start()} disabled={!ready || busy}>
           {busy ? 'Un instant…' : manque > 0 ? (nbJoueurs <= 1 && manque === 1 ? 'Choisis un proche' : `Choisis encore ${manque} proche${manque > 1 ? 's' : ''}`) : annee && !picks.length ? 'Choisis au moins une photo' : 'Lancer la partie'}
@@ -155,7 +155,7 @@ export function NewPartie({ kind, onClose, onStarted, avec }: { kind: PartieKind
     >
       {pasAssez && proches.length > 0 && (
         <p className="mb-4 rounded-[18px] bg-teinte-doux px-4 py-3 text-center text-sous text-teinte-fonce">
-          Ce jeu se joue à {meta.min} ou plus, toi compris. Il manque encore {meta.min - 1 - proches.length} proche{meta.min - 1 - proches.length > 1 ? 's' : ''} dans la maison : invite-les, puis revenez jouer !
+          Ce jeu se joue à {meta.min} ou plus, toi compris. Il manque encore {meta.min - 1 - proches.length} proche{meta.min - 1 - proches.length > 1 ? 's' : ''} dans la maison : {voitLeCode(state.me) ? 'invite-les' : 'demande à un responsable de les inviter'}, puis revenez jouer !
         </p>
       )}
       <p className="text-center text-sous text-brume">{seul ? 'Avec qui ?' : `Qui joue ? (${meta.min} joueurs ou plus, toi compris)`}</p>

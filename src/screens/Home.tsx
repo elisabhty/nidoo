@@ -20,7 +20,7 @@ import type { AventAction } from '../lib/avent'
 import { challengeOfDay, moodOf } from '../lib/data'
 import { feel, tap } from '../lib/haptic'
 import { shareInvite } from '../lib/share'
-import { codeValable } from '../lib/invitation'
+import { codeValable, voitLeCode } from '../lib/invitation'
 import { homeStories, type HomeStory } from '../lib/homeStories'
 import { useHome } from '../lib/store'
 import type { Drawing, FamEvent, Member } from '../lib/types'
@@ -75,7 +75,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
   const inviter = async () => {
     tap()
     // un code expiré se remplace tout seul avant le partage ; sinon (pas responsable, pas de réseau) : la page Famille
-    const f = await codeValable(api, family, me.role === 'responsable', true)
+    const f = await codeValable(api, family, voitLeCode(me), true)
     if (!f) return go('famille')
     if (f.invite_code !== family.invite_code) void reload().catch(() => undefined)
     if ((await shareInvite(family.name, f.invite_code)) === 'copie') toast('Invitation copiée')

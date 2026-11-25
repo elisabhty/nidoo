@@ -262,7 +262,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
 
   return (
     <>
-      <Screen title="Notre famille" trailing={<Rond label="Inviter un proche" tint onClick={invite}><Share size={18} strokeWidth={2.4} /></Rond>}>
+      <Screen title="Notre famille" trailing={admin ? <Rond label="Inviter un proche" tint onClick={invite}><Share size={18} strokeWidth={2.4} /></Rond> : undefined}>
         <p className="px-5 pb-5 text-sous text-brume">Votre cercle, votre maison, vos habitudes.</p>
 
         <div className="mx-5 mb-5"><Segments value={section} onChange={setSection} options={[{key:'proches',label:'Mes proches'},{key:'maison',label:'La maison'},{key:'reglages',label:'Réglages'}]} /></div>
@@ -363,21 +363,31 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
 
         <p className="entete mt-6">Inviter un proche</p>
         <div className="groupe mx-4 shadow-carte">
-          <button
-            disabled={expired}
-            onClick={async () => (await copy(family.invite_code)) && toast('Code copié')}
-            className="presse-ligne flex min-h-[64px] w-full items-center justify-between border-b border-trait px-4 py-2 text-left"
-            aria-label={expired ? 'Code d’invitation' : `Copier le code ${family.invite_code}`}
-          >
-            <span>
-              <span className={`block font-rond text-titre2 tracking-[0.18em] ${expired ? 'animate-pulse text-pale' : ''}`} aria-hidden={expired}>{expired ? '••••••' : family.invite_code}</span>
-              <span className="block text-note text-brume">{expired ? '\u00a0' : `Valable jusqu’au ${until}`}</span>
-            </span>
-            {!expired && <Copy size={18} className="text-teinte" />}
-          </button>
-          <button onClick={invite} disabled={expired && !admin} className={`presse-ligne flex h-[50px] w-full items-center px-4 text-corps ${expired && !admin ? 'text-pale' : 'text-teinte'} ${admin ? 'border-b border-trait' : ''}`}>
-            Partager le lien d’invitation
-          </button>
+          {admin ? (
+            <>
+              <button
+                disabled={expired}
+                onClick={async () => (await copy(family.invite_code)) && toast('Code copié')}
+                className="presse-ligne flex min-h-[64px] w-full items-center justify-between border-b border-trait px-4 py-2 text-left"
+                aria-label={expired ? 'Code d’invitation' : `Copier le code ${family.invite_code}`}
+              >
+                <span>
+                  <span className={`block font-rond text-titre2 tracking-[0.18em] ${expired ? 'animate-pulse text-pale' : ''}`} aria-hidden={expired}>{expired ? '••••••' : family.invite_code}</span>
+                  <span className="block text-note text-brume">{expired ? '\u00a0' : `Valable jusqu’au ${until}`}</span>
+                </span>
+                {!expired && <Copy size={18} className="text-teinte" />}
+              </button>
+              <button onClick={invite} className="presse-ligne flex h-[50px] w-full items-center border-b border-trait px-4 text-corps text-teinte">
+                Partager le lien d’invitation
+              </button>
+            </>
+          ) : (
+            // les autres membres ne voient pas le code : des points à sa place (Elisa, 25 novembre)
+            <div className="flex min-h-[64px] w-full flex-col justify-center px-4 py-2">
+              <span className="block font-rond text-titre2 tracking-[0.18em] text-encre" aria-hidden="true">••••••</span>
+              <span className="block text-note text-brume">{admins.length === 1 ? `${admins[0].display_name} peut te le donner` : 'Les responsables peuvent te le donner'}</span>
+            </div>
+          )}
           {admin && (
             <button onClick={renew} className="presse-ligne flex h-[50px] w-full items-center gap-2 px-4 text-corps text-encre">
               <RefreshCw size={16} strokeWidth={2.4} className="text-brume" /> Changer le code
