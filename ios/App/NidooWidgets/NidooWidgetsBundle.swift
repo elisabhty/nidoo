@@ -1,3 +1,4 @@
+import ActivityKit
 import SwiftUI
 import WidgetKit
 
@@ -10,8 +11,50 @@ struct LotNidoo: WidgetBundle {
         Tendresse().body
         Organisation().body
         Jeux().body
+        RendezVousDirect()
         if #available(iOS 18.0, *) {
             BisouControle()
+        }
+    }
+}
+
+/// L'activité en direct : le prochain rendez-vous sur l'écran verrouillé et dans l'île dynamique.
+/// Toucher : la fiche de l'événement dans l'agenda.
+struct RendezVousDirect: Widget {
+    var body: some WidgetConfiguration {
+        ActivityConfiguration(for: RendezVous.self) { c in
+            VueRdvVerrou(genre: c.attributes.genre, s: c.state, passe: c.isStale)
+                .activityBackgroundTint(Rdv.nuit.opacity(0.92))
+                .activitySystemActionForegroundColor(.white)
+                .widgetURL(Partage.lien("agenda/\(c.attributes.id)"))
+        } dynamicIsland: { c in
+            DynamicIsland {
+                DynamicIslandExpandedRegion(.leading) {
+                    IleRdvIllustration(genre: c.attributes.genre).padding(.leading, 4)
+                }
+                DynamicIslandExpandedRegion(.trailing) {
+                    RdvCompte(debut: c.state.debut, taille: 24, passe: c.isStale)
+                        .foregroundStyle(Rdv.lilas)
+                        .frame(maxWidth: 96, alignment: .trailing)
+                        .padding(.trailing, 4)
+                }
+                DynamicIslandExpandedRegion(.center) {
+                    Text(c.state.titre).font(rond(16)).foregroundStyle(.white).lineLimit(1)
+                }
+                DynamicIslandExpandedRegion(.bottom) {
+                    IleRdvBas(s: c.state).padding(.horizontal, 6).padding(.top, 2)
+                }
+            } compactLeading: {
+                IleRdvIllustration(genre: c.attributes.genre, taille: 22)
+            } compactTrailing: {
+                RdvCompte(debut: c.state.debut, taille: 14, passe: c.isStale)
+                    .foregroundStyle(Rdv.lilas)
+                    .frame(maxWidth: 58)
+            } minimal: {
+                IleRdvIllustration(genre: c.attributes.genre, taille: 20)
+            }
+            .keylineTint(Rdv.lilas)
+            .widgetURL(Partage.lien("agenda/\(c.attributes.id)"))
         }
     }
 }

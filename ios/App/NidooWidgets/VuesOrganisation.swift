@@ -425,3 +425,102 @@ struct VueMur: View {
         .background(RoundedRectangle(cornerRadius: large ? 18 : 16, style: .continuous).fill(Color.white.opacity(0.88)))
     }
 }
+
+// ───────── L'activité en direct : le prochain rendez-vous (écran verrouillé et île dynamique) ─────────
+
+enum Rdv {
+    static let nuit = Color(hex: 0x241B4D)
+    static let lilas = Color(hex: 0xCFC1FF)
+
+    static func art(_ genre: String) -> String {
+        genre == "anniversaire" ? "picto-gateau" : genre == "rdv" ? "picto-lieu" : "picto-fete"
+    }
+
+    /// « 14 h 00 »
+    static func heure(_ d: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Temps.fr
+        f.dateFormat = "H 'h' mm"
+        return f.string(from: d)
+    }
+
+    /// « 14 h 00 · Cabinet du Dr Martin »
+    static func details(_ s: RendezVous.ContentState) -> String {
+        [heure(s.debut), s.lieu].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+}
+
+/// Le temps qu'il reste : iOS le fait défiler tout seul. L'heure venue : « C'est l'heure ».
+struct RdvCompte: View {
+    let debut: Date
+    var taille: CGFloat = 30
+    var passe = false
+
+    var body: some View {
+        let maintenant = Date()
+        if passe || debut <= maintenant {
+            Text("C’est l’heure").font(rond(taille * 0.56)).lineLimit(1).minimumScaleFactor(0.7)
+        } else {
+            Text(timerInterval: maintenant...debut, countsDown: true)
+                .font(.system(size: taille, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .multilineTextAlignment(.trailing)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+        }
+    }
+}
+
+/// Sur l'écran verrouillé : le rendez-vous, où, avec qui, et le compte à rebours.
+struct VueRdvVerrou: View {
+    let genre: String
+    let s: RendezVous.ContentState
+    var passe = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Art(Rdv.art(genre))
+                .frame(width: 44, height: 44)
+                .padding(6)
+                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white.opacity(0.12)))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(s.titre).font(rond(16)).foregroundStyle(.white).lineLimit(1)
+                Text(Rdv.details(s)).font(rond(12.5, .medium)).foregroundStyle(Color.white.opacity(0.78)).lineLimit(1)
+                if let avec = s.avec, !avec.isEmpty {
+                    Text(avec).font(rond(11.5, .semibold)).foregroundStyle(Rdv.lilas).lineLimit(1)
+                }
+            }
+            Spacer(minLength: 6)
+            VStack(alignment: .trailing, spacing: 0) {
+                if !passe, s.debut > Date() {
+                    Text("dans").font(rond(10.5, .semibold)).foregroundStyle(Color.white.opacity(0.6))
+                }
+                RdvCompte(debut: s.debut, taille: 26, passe: passe).foregroundStyle(Rdv.lilas)
+            }
+            .frame(maxWidth: 104, alignment: .trailing)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+    }
+}
+
+/// L'île dynamique, ouverte (appui long) : l'illustration, le titre, le compte, puis où et avec qui.
+struct IleRdvIllustration: View {
+    let genre: String
+    var taille: CGFloat = 40
+    var body: some View { Art(Rdv.art(genre)).frame(width: taille, height: taille) }
+}
+
+struct IleRdvBas: View {
+    let s: RendezVous.ContentState
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "clock.fill").font(.system(size: 11, weight: .bold)).foregroundStyle(Rdv.lilas)
+            Text(Rdv.details(s)).font(rond(13, .medium)).foregroundStyle(Color.white.opacity(0.85)).lineLimit(1)
+            Spacer(minLength: 4)
+            if let avec = s.avec, !avec.isEmpty {
+                Text(avec).font(rond(12, .semibold)).foregroundStyle(Rdv.lilas).lineLimit(1)
+            }
+        }
+    }
+}

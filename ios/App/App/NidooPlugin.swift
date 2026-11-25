@@ -5,6 +5,7 @@ import WidgetKit
 import EventKit
 import EventKitUI
 import CoreLocation
+import ActivityKit
 
 /// Le pont entre l'appli (web) et les widgets : l'appli y dépose la clé widget et les images des personnages,
 /// et apprend à quel endroit un widget veut l'ouvrir.
@@ -22,6 +23,9 @@ public class NidooPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "positionAutorisation", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "positionMaintenant", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "positionSuivre", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "activite", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "activiteFin", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "activites", returnType: CAPPluginReturnPromise),
     ]
 
     private static weak var actif: NidooPlugin?
@@ -33,6 +37,9 @@ public class NidooPlugin: CAPPlugin, CAPBridgedPlugin {
 
     override public func load() {
         NidooPlugin.actif = self
+        NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { _ in
+            if #available(iOS 16.2, *) { Direct.nettoyer() }
+        }
         // l'appli passe derrière : les widgets reprennent la main, avec des données fraîches
         NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { _ in
             guard Partage.branche else { return }
@@ -112,6 +119,7 @@ public class NidooPlugin: CAPPlugin, CAPBridgedPlugin {
         try? FileManager.default.removeItem(at: Partage.dossierPersos)
         // plus de maison : la position ne suit plus personne
         Suivi.partage.arreter()
+        if #available(iOS 16.2, *) { Direct.finir(nil) }
         WidgetCenter.shared.reloadAllTimelines()
         call.resolve()
     }
@@ -166,6 +174,34 @@ public class NidooPlugin: CAPPlugin, CAPBridgedPlugin {
 }
 
 extension NidooPlugin {
+    /// L'activité en direct du prochain rendez-vous : la lancer, ou la mettre à jour si elle est déjà à l'écran.
+    /// { id, genre, titre, debut (millisecondes), lieu?, avec? } → { etat: lancee | refusee | indisponible }
+    @objc func activite(_ call: CAPPluginCall) {
+        guard #available(iOS 16.2, *) else { return call.resolve(["etat": "indisponible"]) }
+        guard let id = call.getString("id"), let titre = call.getString("titre"), let ms = call.getDouble("debut") else {
+            return call.reject("ACTIVITE_INCOMPLETE")
+        }
+        let etat = RendezVous.ContentState(
+            titre: String(titre.prefix(80)), debut: Date(timeIntervalSince1970: ms / 1000),
+            lieu: call.getString("lieu").map { String($0.prefix(80)) }, avec: call.getString("avec").map { String($0.prefix(60)) }
+        )
+        let genre = call.getString("genre") ?? "evenement"
+        DispatchQueue.main.async { call.resolve(["etat": Direct.lancer(id: id, genre: genre, etat: etat)]) }
+    }
+
+    /// La retirer de l'écran verrouillé et de l'île dynamique ({ id } : celle-là ; sans id : toutes).
+    @objc func activiteFin(_ call: CAPPluginCall) {
+        if #available(iOS 16.2, *) { Direct.finir(call.getString("id")) }
+        call.resolve()
+    }
+
+    /// { possible, ids } : les activités en direct sont-elles permises sur cet iPhone, et lesquelles sont à l'écran.
+    @objc func activites(_ call: CAPPluginCall) {
+        guard #available(iOS 16.2, *) else { return call.resolve(["possible": false, "ids": [String]()]) }
+        Direct.nettoyer()
+        call.resolve(["possible": Direct.possible, "ids": Direct.enCours])
+    }
+
     /// « Où est la famille » : l'autorisation de l'iPhone (inconnue, refusee, active, toujours).
     @objc func positionAutorisation(_ call: CAPPluginCall) {
         DispatchQueue.main.async { call.resolve(["etat": Suivi.partage.etat]) }
@@ -408,6 +444,53 @@ final class Suivi: NSObject, CLLocationManagerDelegate {
             guard let data, let http = rep as? HTTPURLResponse, http.statusCode < 300 else { return fini(nil) }
             fini((try? JSONSerialization.jsonObject(with: data, options: .fragmentsAllowed)) as? Int)
         }.resume()
+    }
+}
+
+/// L'activité en direct « prochain rendez-vous » (voir Partage.swift) : une seule à la fois, sans serveur.
+/// iOS la garde 8 heures au plus ; passée l'heure du rendez-vous, elle affiche « C'est l'heure », puis s'efface
+/// au retour dans l'appli (un quart d'heure après).
+@available(iOS 16.2, *)
+enum Direct {
+    static var possible: Bool { ActivityAuthorizationInfo().areActivitiesEnabled }
+
+    private static func vivante(_ a: Activity<RendezVous>) -> Bool { a.activityState == .active || a.activityState == .stale }
+
+    static var enCours: [String] { Activity<RendezVous>.activities.filter(vivante).map { $0.attributes.id } }
+
+    static func lancer(id: String, genre: String, etat: RendezVous.ContentState) -> String {
+        guard possible else { return "refusee" }
+        let contenu = ActivityContent(state: etat, staleDate: etat.debut)
+        var dejaLa = false
+        for a in Activity<RendezVous>.activities {
+            if a.attributes.id == id, vivante(a), !dejaLa {
+                dejaLa = true
+                Task { await a.update(contenu) }
+            } else {
+                // un seul rendez-vous à la fois
+                Task { await a.end(nil, dismissalPolicy: .immediate) }
+            }
+        }
+        if dejaLa { return "lancee" }
+        do {
+            _ = try Activity.request(attributes: RendezVous(id: id, genre: genre), content: contenu, pushType: nil)
+            return "lancee"
+        } catch {
+            return "indisponible"
+        }
+    }
+
+    static func finir(_ id: String?) {
+        for a in Activity<RendezVous>.activities where id == nil || a.attributes.id == id {
+            Task { await a.end(nil, dismissalPolicy: .immediate) }
+        }
+    }
+
+    /// Les rendez-vous commencés depuis plus d'un quart d'heure s'effacent.
+    static func nettoyer() {
+        for a in Activity<RendezVous>.activities where a.content.state.debut.addingTimeInterval(900) < Date() {
+            Task { await a.end(nil, dismissalPolicy: .immediate) }
+        }
     }
 }
 

@@ -91,6 +91,14 @@ struct Planche: View {
 
     private var pasBranche: Entree { Entree(date: Date(), etat: nil, branche: false) }
 
+    /// Le rendez-vous d'exemple de l'activité en direct : dans 42 minutes.
+    private var rdv: RendezVous.ContentState {
+        RendezVous.ContentState(titre: "Dentiste de Léa", debut: Date().addingTimeInterval(42 * 60 + 10), lieu: "Cabinet du Dr Martin", avec: "Avec Léa")
+    }
+    private var anniv: RendezVous.ContentState {
+        RendezVous.ContentState(titre: "Anniversaire de Mamie Jo", debut: Date().addingTimeInterval(-60), lieu: "Chez Mamie", avec: "Toute la famille")
+    }
+
     private var sixChoix: Entree {
         var x = Entree.exemple()
         x.etat?.sondage = Etat.Sondage(id: "s2", q: "On part où cet été ?", de: "lea", choix: ["La mer", "La montagne", "Chez Mamie", "L’Italie", "On reste là"], voix: [2, 1, 0, 1, 0], moi: nil)
@@ -193,6 +201,36 @@ struct Planche: View {
             }
             Cadre(f: .systemMedium) { VueOu(e: e, f: .systemMedium) }
             Cadre(f: .systemLarge) { VueOu(e: e, f: .systemLarge) }
+        case 11:
+            // L'activité en direct du prochain rendez-vous : écran verrouillé, île dynamique réduite puis ouverte
+            VueRdvVerrou(genre: "rdv", s: rdv)
+                .frame(width: 364)
+                .background(RoundedRectangle(cornerRadius: 26, style: .continuous).fill(Rdv.nuit))
+            VueRdvVerrou(genre: "anniversaire", s: anniv, passe: true)
+                .frame(width: 364)
+                .background(RoundedRectangle(cornerRadius: 26, style: .continuous).fill(Rdv.nuit))
+            HStack(spacing: 0) {
+                IleRdvIllustration(genre: "rdv", taille: 22)
+                Spacer().frame(width: 132)
+                RdvCompte(debut: rdv.debut, taille: 14).foregroundStyle(Rdv.lilas).frame(maxWidth: 58)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 37)
+            .background(Capsule().fill(Color.black))
+            VStack(spacing: 8) {
+                HStack {
+                    IleRdvIllustration(genre: "rdv")
+                    Spacer()
+                    Text(rdv.titre).font(rond(16)).foregroundStyle(.white).lineLimit(1)
+                    Spacer()
+                    RdvCompte(debut: rdv.debut, taille: 24).foregroundStyle(Rdv.lilas).frame(maxWidth: 96, alignment: .trailing)
+                }
+                IleRdvBas(s: rdv)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .frame(width: 370)
+            .background(RoundedRectangle(cornerRadius: 42, style: .continuous).fill(Color.black))
         default:
             Cadre(f: .systemMedium) { VueSondage(e: sixChoix, f: .systemMedium) }
             Cadre(f: .systemLarge) { VueMur(e: toutCalme, f: .systemLarge) }

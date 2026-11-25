@@ -1,3 +1,4 @@
+import ActivityKit
 import Foundation
 
 /// Ce que l'appli et ses widgets se partagent, dans le groupe d'apps : la clé widget que l'appli a reçue du serveur,
@@ -32,4 +33,22 @@ enum Partage {
     static var branche: Bool { !(cle ?? "").isEmpty && !(url ?? "").isEmpty && !(apikey ?? "").isEmpty }
 
     static func lien(_ ou: String) -> URL { URL(string: "\(schema)://ouvrir/\(ou)")! }
+}
+
+/// L'activité en direct « prochain rendez-vous » (Elisa, 25 novembre : « l'île dynamique, l'activité de l'écran ») :
+/// l'écran verrouillé et l'île dynamique comptent le temps qu'il reste, sans serveur — c'est iOS qui fait défiler
+/// le compte à rebours. L'appli la lance (NidooPlugin), l'extension des widgets la dessine (VuesOrganisation).
+@available(iOS 16.2, *)
+struct RendezVous: ActivityAttributes {
+    struct ContentState: Codable, Hashable {
+        var titre: String
+        var debut: Date
+        /// « Cabinet du Dr Martin, Annecy », « Avec Léa » : facultatifs
+        var lieu: String?
+        var avec: String?
+    }
+
+    /// l'événement de l'agenda, et son genre (evenement, rdv, anniversaire) pour l'illustration
+    var id: String
+    var genre: String
 }
