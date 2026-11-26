@@ -474,7 +474,7 @@ function Action({ icon, title, sub, onClick, done, muted, urgent }: { icon: Reac
       <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] ${done ? 'bg-white/70' : 'bg-teinte-doux'} ${muted ? 'opacity-60' : ''}`}>{icon}</span>
       <span className="min-w-0">
         <span className="flex items-center gap-1 text-corps font-semibold">
-          {title} {done && <Check size={15} strokeWidth={3} className="text-vert" />}
+          {title} {done && <Check size={15} strokeWidth={3} className="text-vert-fonce" />}
         </span>
         <span className="block truncate text-note text-brume">{sub}</span>
       </span>

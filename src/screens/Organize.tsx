@@ -245,12 +245,12 @@ function Quantite({ qte, nom, onChange, onRetirer }: { qte: string; nom: string;
         onPointerDown={garderLeClavier}
         onClick={() => (select(), moins === null ? onRetirer() : onChange(moins))}
         aria-label={moins === null ? `Retirer ${nom} de la liste` : `Moins de ${nom}`}
-        className={`presse flex h-8 w-8 items-center justify-center rounded-full ${moins === null ? 'text-rouge' : 'text-teinte-fonce'}`}
+        className={`presse cible flex h-8 w-8 items-center justify-center rounded-full ${moins === null ? 'text-rouge' : 'text-teinte-fonce'}`}
       >
         {moins === null ? <Trash2 key="poubelle" size={15} strokeWidth={2.4} className="anim-pop" /> : <Minus size={16} strokeWidth={3} />}
       </button>
       <span key={qte} className="anim-pop min-w-[24px] whitespace-nowrap px-0.5 text-center text-sous font-extrabold text-encre" aria-live="polite">{qteCourte(q)}</span>
-      <button type="button" onPointerDown={garderLeClavier} onClick={() => plus && (select(), onChange(plus))} aria-label={`Plus de ${nom}`} className="presse flex h-8 w-8 items-center justify-center rounded-full bg-carte text-teinte-fonce shadow-[0_1px_2px_rgba(29,26,43,0.08)]">
+      <button type="button" onPointerDown={garderLeClavier} onClick={() => plus && (select(), onChange(plus))} aria-label={`Plus de ${nom}`} className="presse cible flex h-8 w-8 items-center justify-center rounded-full bg-carte text-teinte-fonce shadow-[0_1px_2px_rgba(29,26,43,0.08)]">
         <Plus size={16} strokeWidth={3} />
       </button>
     </span>
@@ -685,7 +685,7 @@ function Liste({ kind }: { kind: ListKind }) {
           <div className="mt-3">
             <div className="mb-2 flex items-center justify-between gap-2 px-1">
               <p className="text-note font-bold text-brume">{tuiles.length ? 'Suggestions' : 'Envie d’un bon repas ?'}</p>
-              <button type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setToutesRecettes(true))} className="presse -my-1 flex min-h-9 items-center gap-1 rounded-full bg-peche-doux pl-3 pr-2 text-note font-bold text-peche-fonce">
+              <button type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setToutesRecettes(true))} className="presse cible -my-1 flex min-h-9 items-center gap-1 rounded-full bg-peche-doux pl-3 pr-2 text-note font-bold text-peche-fonce">
                 <BookOpen size={14} strokeWidth={2.5} /> Recettes <ChevronRight size={15} strokeWidth={2.8} className="fleche-signe" />
               </button>
             </div>
@@ -716,12 +716,12 @@ function Liste({ kind }: { kind: ListKind }) {
         {tache && (
           <>
             <p className="mb-1.5 mt-3 px-1 text-note font-bold text-brume">Pour qui ?</p>
-            <div className="no-bar -mx-3 flex gap-1.5 overflow-x-auto px-3 pb-0.5" role="group" aria-label="Pour qui">
-              <button type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setTo(null))} aria-pressed={to === null} className={`presse flex min-h-[38px] shrink-0 items-center gap-1.5 rounded-full px-3 text-sous font-semibold ${to === null ? 'bg-teinte text-white' : 'bg-fond text-encre'}`}>
+            <div className="no-bar -mx-3 -my-[3px] flex gap-1.5 overflow-x-auto px-3 pb-[5px] pt-[3px]" role="group" aria-label="Pour qui">
+              <button type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setTo(null))} aria-pressed={to === null} className={`presse cible flex min-h-[38px] shrink-0 items-center gap-1.5 rounded-full px-3 text-sous font-semibold ${to === null ? 'bg-teinte text-white' : 'bg-fond text-encre'}`}>
                 <Users size={15} strokeWidth={2.4} /> Tout le monde
               </button>
               {members.map((m) => (
-                <button key={m.id} type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setTo(m.id))} aria-pressed={to === m.id} className={`presse flex min-h-[38px] shrink-0 items-center gap-1.5 rounded-full pl-1 pr-3 text-sous font-semibold ${to === m.id ? 'bg-teinte text-white' : 'bg-fond text-encre'}`}>
+                <button key={m.id} type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setTo(m.id))} aria-pressed={to === m.id} className={`presse cible flex min-h-[38px] shrink-0 items-center gap-1.5 rounded-full pl-1 pr-3 text-sous font-semibold ${to === m.id ? 'bg-teinte text-white' : 'bg-fond text-encre'}`}>
                   <Avatar m={m} size={28} /> {m.id === me.id ? 'Moi' : m.display_name}
                 </button>
               ))}
@@ -729,9 +729,9 @@ function Liste({ kind }: { kind: ListKind }) {
             {aVenir.length > 0 && (
               <>
                 <p className="mb-1.5 mt-3 px-1 text-note font-bold text-brume">Pour un événement ? <span className="font-medium">(facultatif)</span></p>
-                <div className="no-bar -mx-3 flex gap-1.5 overflow-x-auto px-3 pb-0.5" role="group" aria-label="Lier à un événement">
+                <div className="no-bar -mx-3 -my-[3px] flex gap-1.5 overflow-x-auto px-3 pb-[5px] pt-[3px]" role="group" aria-label="Lier à un événement">
                   {aVenir.map(({ e, at }) => (
-                    <button key={e.id} type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setPourEvt(pourEvt === e.id ? null : e.id))} aria-pressed={pourEvt === e.id} className={`presse choix-pop flex min-h-[38px] shrink-0 items-center gap-1.5 rounded-full pl-1.5 pr-3 text-sous font-semibold ${pourEvt === e.id ? 'bg-teinte text-white' : 'bg-fond text-encre'}`}>
+                    <button key={e.id} type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setPourEvt(pourEvt === e.id ? null : e.id))} aria-pressed={pourEvt === e.id} className={`presse cible choix-pop flex min-h-[38px] shrink-0 items-center gap-1.5 rounded-full pl-1.5 pr-3 text-sous font-semibold ${pourEvt === e.id ? 'bg-teinte text-white' : 'bg-fond text-encre'}`}>
                       <EventIcon event={e} size={24} />
                       <span className="max-w-[150px] truncate">{e.kind === 'anniversaire' ? `Anniv. ${e.title}` : e.title}</span>
                       <span className={`font-medium ${pourEvt === e.id ? 'text-white/80' : 'text-brume'}`}>{jourCourt(at)}</span>
@@ -746,10 +746,10 @@ function Liste({ kind }: { kind: ListKind }) {
 
       {/* à faire : les filtres, sur une ligne, au-dessus de la liste */}
       {tache && items.length > 0 && (
-        <div role="group" aria-label="Filtrer les tâches" className="no-bar mt-4 flex gap-1.5 overflow-x-auto px-4 pb-1">
+        <div role="group" aria-label="Filtrer les tâches" className="no-bar mt-[13px] flex gap-1.5 overflow-x-auto px-4 pb-1 pt-[3px]">
           {/* trois filtres, pas plus (Elisa, 21 novembre) */}
           {[['toutes', 'À faire', todo.length], ['terminees', 'Terminées', done.length], ['moi', 'Pour moi', todo.filter((i) => i.assigned_to === me.id).length]].map(([id, label, n]) => (
-            <button key={id} type="button" aria-pressed={filtre === id} onClick={() => (select(), setFiltre(id as string))} className={`presse flex min-h-[38px] shrink-0 items-center gap-1.5 rounded-full px-3.5 text-note font-bold ${filtre === id ? 'bg-teinte text-white' : 'bg-carte text-encre ring-1 ring-inset ring-trait'}`}>
+            <button key={id} type="button" aria-pressed={filtre === id} onClick={() => (select(), setFiltre(id as string))} className={`presse cible flex min-h-[38px] shrink-0 items-center gap-1.5 rounded-full px-3.5 text-note font-bold ${filtre === id ? 'bg-teinte text-white' : 'bg-carte text-encre ring-1 ring-inset ring-trait'}`}>
               {label}
               {n !== undefined && Number(n) > 0 && <span className={`rounded-full px-1.5 text-[11px] ${filtre === id ? 'bg-white/25' : 'bg-teinte-doux text-teinte-fonce'}`}>{n}</span>}
             </button>
@@ -887,9 +887,9 @@ export default function Organize() {
   return (
     <>
       <Screen title="Organiser" trailing={seg === 'agenda' ? <Rond label="Nouvel événement" tint onClick={() => setAdding({})}><Plus size={21} strokeWidth={2.4} /></Rond> : undefined}>
-        <p className="-mt-1 px-5 text-sous text-brume">
-          {seg === 'agenda' ? 'Moins de choses à retenir, plus de temps ensemble.' : seg === 'course' ? 'Une liste commune : chacun ajoute et coche en direct.' : 'La liste des choses à faire : ajoute, coche et avance à ton rythme.'}
-        </p>
+        {/* une phrase pour tout l'onglet : changer d'Agenda à Courses ne fait plus sauter les boutons (revue façon Apple,
+            27 novembre — avant, la phrase changeait de longueur et le sélecteur bougeait) */}
+        <p className="-mt-1 px-5 text-sous text-brume">Moins de choses à retenir, plus de temps ensemble.</p>
         <div className="mx-4 mb-4 mt-3">
           <Segments value={seg} onChange={setSeg} options={[{ key: 'agenda', label: 'Agenda' }, { key: 'tache', label: 'À faire' }, { key: 'course', label: 'Courses' }]} />
         </div>
@@ -909,7 +909,7 @@ export default function Organize() {
                   setVue(k)
                 }}
                 aria-pressed={vue === k}
-                className={`min-h-11 rounded-full px-4 text-sous font-medium ${vue === k ? 'bg-encre text-white' : 'bg-carte text-encre shadow-carte'}`}
+                className={`presse min-h-11 rounded-full px-4 text-sous font-semibold transition-colors ${vue === k ? 'bg-teinte text-white' : 'bg-carte text-encre shadow-carte'}`}
               >
                 {label}
               </button>
@@ -950,7 +950,7 @@ export default function Organize() {
                         {/* le jour une seule fois : les suivants du même jour se rangent dessous */}
                         {suite ? <span className="w-[44px] shrink-0" aria-hidden="true" /> : (
                         <span className="flex h-[44px] w-[44px] shrink-0 flex-col items-center justify-center overflow-hidden rounded-[12px] bg-fond leading-none">
-                          <span className={`text-[10px] font-semibold uppercase ${today ? 'text-peche-fonce' : 'text-rouge'}`}>{at.toLocaleDateString('fr-FR', { weekday: 'short' }).replace('.', '')}</span>
+                          <span className={`text-[11px] font-semibold uppercase ${today ? 'text-peche-fonce' : 'text-rouge'}`}>{at.toLocaleDateString('fr-FR', { weekday: 'short' }).replace('.', '')}</span>
                           <span className="mt-0.5 font-rond text-[19px] font-semibold">{at.getDate()}</span>
                         </span>
                         )}

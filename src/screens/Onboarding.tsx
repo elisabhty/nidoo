@@ -31,7 +31,7 @@ type Step = 'bonjour' | 'panda' | 'prenom' | 'qui' | 'allure' | 'naissance' | 'r
 const RAISONS = [
   { key: 'lien', label: 'Garder le lien avec mes proches éloignés', Icon: Heart, fond: '#FFE6EE', encre: '#D23F72' },
   { key: 'photos', label: 'Partager nos photos et nos souvenirs', Icon: Images, fond: '#E3F0FF', encre: '#2F6FD6' },
-  { key: 'quotidien', label: 'Organiser le quotidien de la famille', Icon: CalendarDays, fond: '#E3F6EC', encre: '#14955A' },
+  { key: 'quotidien', label: 'Organiser le quotidien de la famille', Icon: CalendarDays, fond: '#E3F6EC', encre: '#15803D' },
   { key: 'nouvelles', label: 'Prendre des nouvelles d’un proche âgé', Icon: MessageCircleHeart, fond: '#FFEDE2', encre: '#E26F3C' },
   { key: 'jouer', label: 'Jouer et rire ensemble', Icon: Smile, fond: '#FFF4D6', encre: '#B07A00' },
 ] as const
@@ -967,7 +967,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
                   <KeyRound size={19} strokeWidth={2.4} />
                 </span>
                 <LettresCode code={created.code} vague={vague} className="font-rond text-[30px] font-extrabold tracking-[0.2em] text-encre" />
-                {copie ? <Check size={20} strokeWidth={3} className="anim-pop text-[#14955A]" /> : <Copy size={18} className="text-teinte" />}
+                {copie ? <Check size={20} strokeWidth={3} className="anim-pop text-[#15803D]" /> : <Copy size={18} className="text-teinte" />}
                 <BulleCopie vague={vague} />
               </button>
               <p className="mx-auto mt-3 max-w-[310px] text-note font-semibold text-white/85 [text-wrap:pretty]">{T.invite.code_hint}</p>

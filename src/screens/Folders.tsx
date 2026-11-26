@@ -103,7 +103,7 @@ function FolderCard({ folder, cover, line, last, onOpen }: { folder: Folder; cov
       <span className={`absolute left-4 right-[40%] bottom-4 ${cover ? 'text-white' : 'text-encre'}`}>
         <span className="line-clamp-2 font-rond text-titre2" style={cover ? { textShadow: '0 1px 8px rgba(0,0,0,0.25)' } : undefined}>{folder.name}</span>
         <span className={`block truncate text-legende ${cover ? 'text-white/85' : 'text-encre/65'}`}>{line}</span>
-        <span className={`block truncate text-mini ${cover ? 'text-white/70' : 'text-encre/50'}`}>{ago(new Date(last).toISOString())}</span>
+        <span className={`block truncate text-mini ${cover ? 'text-white/80' : 'text-encre/65'}`}>{ago(new Date(last).toISOString())}</span>
       </span>
     </button>
   )

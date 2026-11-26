@@ -379,7 +379,7 @@ function Bulle({ mo, auteur, mine, premier, dernier, ouvert, onOuvrir, onPhoto, 
         )}
         </div>
         {envoi ? (
-          <span className={`flex items-center gap-0.5 text-mini text-pale ${mine ? 'mr-1.5' : 'ml-3'} mt-1`}>
+          <span className={`flex items-center gap-0.5 text-mini text-brume ${mine ? 'mr-1.5' : 'ml-3'} mt-1`}>
             Envoi
             {[0, 1, 2].map((k) => (
               <span key={k} className="h-1 w-1 rounded-full bg-pale" style={{ animation: `points 1.2s ${k * 0.18}s ease-in-out infinite` }} />
@@ -387,7 +387,7 @@ function Bulle({ mo, auteur, mine, premier, dernier, ouvert, onOuvrir, onPhoto, 
           </span>
         ) : (
           dernier && (
-            <span className={`text-mini text-pale ${mine ? 'mr-1.5' : 'ml-3'} ${groupes.length ? 'mt-5' : 'mt-1'}`}>
+            <span className={`text-mini text-brume ${mine ? 'mr-1.5' : 'ml-3'} ${groupes.length ? 'mt-5' : 'mt-1'}`}>
               {heure(mo.created_at)}
               {envoye && <span className="anim-fondu font-semibold text-teinte"> · Envoyé ✓</span>}
             </span>
@@ -507,7 +507,7 @@ function Saisie({ onPhoto, envoyer }: { onPhoto: (f: File) => void; envoyer: (m:
     const z = zone.current
     if (!z) return
     z.style.height = 'auto'
-    z.style.height = `${Math.min(z.scrollHeight, 22 * 5 + 16)}px`
+    z.style.height = `${Math.min(z.scrollHeight, 22 * 5 + 22)}px`
   }, [texte])
 
   const envoyerTexte = async () => {
@@ -633,7 +633,7 @@ function Saisie({ onPhoto, envoyer }: { onPhoto: (f: File) => void; envoyer: (m:
               signal('photo')
               fichier.current?.click()
             }}
-            className="presse flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-teinte-doux text-teinte-fonce"
+            className="presse flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-teinte-doux text-teinte-fonce"
             aria-label="Envoyer une photo"
           >
             <ImagePlus size={20} />
@@ -647,7 +647,7 @@ function Saisie({ onPhoto, envoyer }: { onPhoto: (f: File) => void; envoyer: (m:
                 signal(null)
                 setSondage(true)
               }}
-              className="presse flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-teinte-doux text-teinte-fonce"
+              className="presse flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-teinte-doux text-teinte-fonce"
               aria-label="Créer un sondage"
               title="Créer un sondage"
             >
@@ -673,7 +673,7 @@ function Saisie({ onPhoto, envoyer }: { onPhoto: (f: File) => void; envoyer: (m:
             }}
             placeholder="Écris un message…"
             aria-label="Ton message"
-            className="min-h-[42px] min-w-0 flex-1 resize-none bg-transparent px-1.5 py-[10px] text-corps leading-[22px] outline-none placeholder:text-pale"
+            className="min-h-11 min-w-0 flex-1 resize-none bg-transparent px-1.5 py-[11px] text-corps leading-[22px] outline-none placeholder:text-pale"
           />
           {!texte.trim() && (
             <button
@@ -683,7 +683,7 @@ function Saisie({ onPhoto, envoyer }: { onPhoto: (f: File) => void; envoyer: (m:
                 setTiroir(ouvrir)
                 signal(ouvrir ? 'sticker' : null)
               }}
-              className={`presse flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full ${tiroir ? 'bg-teinte text-white' : 'text-brume'}`}
+              className={`presse flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${tiroir ? 'bg-teinte text-white' : 'text-brume'}`}
               aria-pressed={tiroir}
               aria-label="Envoyer un sticker"
             >
@@ -691,11 +691,11 @@ function Saisie({ onPhoto, envoyer }: { onPhoto: (f: File) => void; envoyer: (m:
             </button>
           )}
           {texte.trim() ? (
-            <button onClick={() => void envoyerTexte()} className="presse ios-primary anim-pop flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full text-white" aria-label="Envoyer">
+            <button onClick={() => void envoyerTexte()} className="presse ios-primary anim-pop flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white" aria-label="Envoyer">
               <ArrowUp size={22} strokeWidth={2.6} />
             </button>
           ) : (
-            <button onClick={() => void demarrer()} className="presse flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-remplissage text-encre" aria-label="Enregistrer un vocal">
+            <button onClick={() => void demarrer()} className="presse flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-remplissage text-encre" aria-label="Enregistrer un vocal">
               <Mic size={20} />
             </button>
           )}
@@ -899,14 +899,14 @@ export default function Fil(_: { onCompose?: () => void }) {
     <div ref={racine} className="fil-colonne flex flex-col px-3" onClick={() => ouvert && setOuvert(null)}>
       <div className="sticky top-0 z-10 -mx-3 mb-2 bg-fond/95 px-3 py-1 backdrop-blur-xl">
         <div className="flex h-11 items-center rounded-full border border-white/80 bg-carte p-1 shadow-[0_2px_12px_rgba(40,26,90,0.045)]">
-          <div role="group" aria-label="Filtrer le fil" className="no-bar flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
+          <div role="group" aria-label="Filtrer le fil" className="no-bar -my-1 flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto py-1">
             {[['tout', 'Tout'], ['photos', 'Photos'], ['vocaux', 'Vocaux'], ['sondages', 'Sondages']].map(([id, label]) => (
               <button
                 key={id}
                 type="button"
                 aria-pressed={filtre === id}
                 onClick={() => { select(); colle.current = false; setFiltre(id); setOuvert(null) }}
-                className={`presse h-9 shrink-0 whitespace-nowrap rounded-full px-2.5 text-[12.5px] font-bold leading-none transition-colors ${filtre === id ? 'bg-teinte text-white' : 'text-brume hover:bg-remplissage'}`}
+                className={`presse cible h-9 shrink-0 whitespace-nowrap rounded-full px-2.5 text-[13px] font-bold leading-none transition-colors ${filtre === id ? 'bg-teinte text-white' : 'text-brume hover:bg-remplissage'}`}
               >
                 {label}
               </button>
@@ -918,7 +918,7 @@ export default function Fil(_: { onCompose?: () => void }) {
             aria-label={chercher ? 'Fermer la recherche' : 'Rechercher dans le fil'}
             aria-expanded={chercher}
             onClick={() => { tap(); setChercher(!chercher); setRecherche('') }}
-            className={`presse grid h-9 w-9 shrink-0 place-items-center rounded-full transition-colors ${chercher ? 'bg-teinte text-white' : 'text-teinte-fonce hover:bg-remplissage'}`}
+            className={`presse cible grid h-9 w-9 shrink-0 place-items-center rounded-full transition-colors ${chercher ? 'bg-teinte text-white' : 'text-teinte-fonce hover:bg-remplissage'}`}
           >
             {chercher ? <X size={18} strokeWidth={2.2} /> : <Search size={18} strokeWidth={2.2} />}
           </button>

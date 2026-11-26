@@ -1,4 +1,4 @@
-import { Baby, Check, CircleHelp, Clock, Copy, Crown, House as HouseIcon, LayoutGrid, LogOut, Mail, Pencil, Plus, RefreshCw, ShieldCheck, Timer, Trash2, UserRound, Volume2 } from 'lucide-react'
+import { Baby, Check, CircleHelp, Clock, Copy, Crown, House as HouseIcon, LayoutGrid, LogOut, Mail, Pencil, Plus, RefreshCw, Share, ShieldCheck, Timer, Trash2, UserRound, Volume2 } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import House from '../components/House'
 import { careFor, careTodo, gardenKeys } from '../components/care'
@@ -135,7 +135,7 @@ function Widgets({ onDraw, onOpen }: { onDraw: () => void; onOpen: (d: Drawing) 
             <p className="truncate text-note text-brume">
               {shared === members.length ? 'Tout le monde a partagé son humeur' : `${shared} sur ${members.length} ont partagé leur humeur`}
             </p>
-            <p className={`truncate text-note font-semibold ${garden.length ? 'text-peche-fonce' : 'text-vert'}`}>
+            <p className={`truncate text-note font-semibold ${garden.length ? 'text-peche-fonce' : 'text-vert-fonce'}`}>
               {garden.length ? garden.map((k) => careFor(k, state.pet).need).join(' · ') : state.pet || state.houseItems.some((k) => CARE[k]) ? 'Tout le jardin est nourri et arrosé' : next[0] ? `${next[0].e.title} · ${dayLabel(next[0].at).toLowerCase()}` : 'Une belle journée à la maison'}
             </p>
           </div>
@@ -308,8 +308,11 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate font-rond text-titre3">{familyLabel(family.name)}</p>
+              {/* deux lignes courtes plutôt qu'une phrase de trois lignes : qui est là, puis l'offre */}
+              <p className="text-note text-brume">{avecAppli} sur {limit} avec l’appli</p>
               <p className="text-note text-brume">
-                {avecAppli} {avecAppli > 1 ? 'membres' : 'membre'} avec l’appli (jusqu’à {limit}){sansTelephone ? `, ${sansTelephone} sans téléphone` : ''} · offre {family.plan === 'plus' ? 'Famille+' : 'gratuite'}
+                {sansTelephone ? `${sansTelephone} sans téléphone · ` : ''}
+                {family.plan === 'plus' ? 'Famille+' : 'Offre gratuite'}
               </p>
             </div>
             <button onClick={() => setSheet('maison')} className="presse flex h-11 w-11 items-center justify-center rounded-full bg-remplissage text-teinte" aria-label="Modifier la maison">
@@ -393,15 +396,16 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
                 </span>
                 {!expired &&
                   (codeCopie ? (
-                    <span key="ok" className="anim-pop flex items-center gap-1 rounded-full bg-[#E3F5EC] py-1 pl-2 pr-2.5 text-note font-extrabold text-[#14955A]">
+                    <span key="ok" className="anim-pop flex items-center gap-1 rounded-full bg-[#E3F5EC] py-1 pl-2 pr-2.5 text-note font-extrabold text-[#15803D]">
                       <Check size={14} strokeWidth={3.2} /> Copié
                     </span>
                   ) : (
                     <Copy size={18} className="text-teinte" />
                   ))}
               </button>
-              <button onClick={invite} className="presse-ligne flex h-[50px] w-full items-center border-b border-trait px-4 text-corps text-teinte">
-                Partager le lien d’invitation
+              {/* deux actions, une seule allure : l'icône et le texte dans la teinte de l'appli (revue façon Apple, 27 novembre) */}
+              <button onClick={invite} className="presse-ligne flex h-[50px] w-full items-center gap-2.5 border-b border-trait px-4 text-corps text-teinte">
+                <Share size={18} strokeWidth={2.3} aria-hidden="true" /> Partager le lien d’invitation
               </button>
             </>
           ) : (
@@ -414,8 +418,8 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
             </div>
           )}
           {admin && (
-            <button onClick={renew} className="presse-ligne flex h-[50px] w-full items-center gap-2 px-4 text-corps text-encre">
-              <RefreshCw size={16} strokeWidth={2.4} className="text-brume" /> Changer le code
+            <button onClick={renew} className="presse-ligne flex h-[50px] w-full items-center gap-2.5 px-4 text-corps text-teinte">
+              <RefreshCw size={18} strokeWidth={2.3} aria-hidden="true" /> Changer le code
             </button>
           )}
         </div>
@@ -716,7 +720,7 @@ function VersionNidoo() {
     'hors ligne': 'Pas de réseau pour l’instant.',
   }
   return (
-    <div className="mt-6 pb-2 text-center text-legende text-pale">
+    <div className="mt-6 pb-2 text-center text-legende text-brume">
       <p>NIDOO · sans publicité, sans revente de données</p>
       <p className="mt-1">
         Version du {dateVersion(e.version)} · {e.commit}

@@ -43,14 +43,14 @@ export function InvitationAccueil({ me, code, onInviter, onPetit }: { me: Member
           <span className="grid text-note" aria-hidden="true">
             <span className={`col-start-1 row-start-1 text-brume transition-opacity duration-200 ${copie ? 'opacity-0' : ''}`}>Ou donne le code</span>
             {copie && (
-              <span key={vague} className="anim-pop col-start-1 row-start-1 text-center font-extrabold text-[#14955A]">
+              <span key={vague} className="anim-pop col-start-1 row-start-1 text-center font-extrabold text-[#15803D]">
                 Code copié !
               </span>
             )}
           </span>
           <LettresCode code={code} vague={vague} className="font-rond text-[15px] tracking-[0.16em] text-encre" />
           {copie ? (
-            <span key="ok" className="anim-pop flex items-center text-[#14955A]">
+            <span key="ok" className="anim-pop flex items-center text-[#15803D]">
               <Check size={15} strokeWidth={3} />
             </span>
           ) : (

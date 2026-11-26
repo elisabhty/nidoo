@@ -607,7 +607,7 @@ function TitreCarte({ icone: I, titre, extra }: { icone: typeof CalendarDays; ti
     </div>
   )
 }
-const FACULTATIF = <span className="text-note text-pale">Facultatif</span>
+const FACULTATIF = <span className="text-note text-brume">Facultatif</span>
 const NOTES_EXEMPLE: Record<string, string> = { evenement: 'Ajouter un détail (menu, qui apporte quoi…)', rdv: 'Ajouter un détail (papiers à apporter…)', anniversaire: 'Ajouter un détail (idée de cadeau…)' }
 
 /** Nouvel événement ; « day » : le jour touché dans la vue de la semaine. */
@@ -807,7 +807,7 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
     }
     if (!title.trim()) window.setTimeout(() => (el as HTMLInputElement | null)?.focus({ preventScroll: true }), 350)
   }
-  const puce = (on: boolean) => `presse choix-pop shrink-0 rounded-full px-3 py-[7px] text-[14.5px] font-semibold transition-colors duration-200 ${on ? 'bg-teinte text-white' : 'bg-doux text-encre'}`
+  const puce = (on: boolean) => `presse cible choix-pop shrink-0 rounded-full px-3 py-[7px] text-[14.5px] font-semibold transition-colors duration-200 ${on ? 'bg-teinte text-white' : 'bg-doux text-encre'}`
   const repetitions = REPETITIONS.filter((o) => repOk || o.v === null || o.v === 'semaine' || o.v === 'annee')
   const repLabel = (r: Repete | null) => (r === 'annee' ? 'Chaque année' : r ? rythme({ starts_at: dateDe(date).toISOString(), yearly: false, repete: r }, dateDe(date)) ?? '' : 'Jamais')
   const ligne = 'flex min-h-[48px] items-center justify-between gap-3 text-corps'
@@ -839,7 +839,7 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
         <div className="flex items-center gap-3.5">
           <button type="button" onClick={() => (tap(), setStickersOpen((v) => !v))} aria-label="Changer l’image de l’événement" aria-expanded={stickersOpen} className="presse relative flex h-[66px] w-[66px] shrink-0 items-center justify-center rounded-[18px] bg-teinte-doux pb-1.5">
             <span ref={imageEvt} className="inline-flex"><EventIcon event={{ kind, sticker }} size={40} /></span>
-            <span className="absolute -bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-white px-2 py-[2px] text-[10.5px] font-bold text-teinte-fonce shadow-[0_2px_6px_rgba(29,26,43,0.12)]">Changer</span>
+            <span className="absolute -bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-white px-2 py-[2px] text-[11px] font-bold text-teinte-fonce shadow-[0_2px_6px_rgba(29,26,43,0.12)]">Changer</span>
           </button>
           <div className="min-w-0 flex-1">
             <label htmlFor="event-name" className="mb-1.5 block px-0.5 text-note font-semibold text-brume">{birthday ? 'Anniversaire de…' : 'Nom de l’événement'} <span className="text-teinte" aria-hidden="true">*</span></label>
@@ -898,7 +898,7 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
       <CarteEvt>
         <TitreCarte icone={CalendarDays} titre={birthday ? 'Date' : 'Date et horaire'} extra={birthday ? undefined : (
           // « Autre date » en haut, avec une petite flèche qui fait signe (Elisa, 21 novembre)
-          <button type="button" onClick={() => (tap(), setCalendrier('date'))} className="presse -my-1 flex min-h-9 items-center gap-0.5 rounded-full bg-teinte-doux py-1 pl-3 pr-2 text-note font-bold text-teinte-fonce">
+          <button type="button" onClick={() => (tap(), setCalendrier('date'))} className="presse cible -my-1 flex min-h-9 items-center gap-0.5 rounded-full bg-teinte-doux py-1 pl-3 pr-2 text-note font-bold text-teinte-fonce">
             Autre date
             <ChevronRight size={16} strokeWidth={2.8} className="fleche-signe" />
           </button>

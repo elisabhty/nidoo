@@ -330,7 +330,7 @@ function PersoOptions({ ed, color, setColor, owned = [], pres }: { ed: Perso_; c
             role="tab"
             aria-selected={tab === k}
             onClick={() => (select(), setTab(k), ed.setZoom(true))}
-            className={`presse min-h-11 rounded-full px-1 text-note font-semibold transition-colors ${tab === k ? 'bg-encre text-white' : 'bg-carte text-encre'}`}
+            className={`presse min-h-11 rounded-full px-1 text-note font-semibold transition-colors ${tab === k ? 'bg-teinte text-white' : 'bg-carte text-encre'}`}
           >
             {label}
           </button>

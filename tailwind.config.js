@@ -9,14 +9,16 @@ export default {
         carte: '#FFFFFF',
         encre: '#1D1A2B', // label
         brume: 'rgba(60, 56, 82, 0.76)', // label secondaire
-        pale: 'rgba(60, 56, 82, 0.56)', // label tertiaire (assez foncé pour se lire : heures, indications)
+        pale: 'rgba(60, 56, 82, 0.56)', // label tertiaire : chevrons, textes indicatifs des champs, ce qui est fait ou passé
+        // (un texte à lire — heures, « Facultatif », mentions — prend « brume » : 4,5:1 au moins, revue façon Apple, 27 novembre)
         trait: 'rgba(60, 56, 82, 0.14)', // séparateur
         remplissage: 'rgba(118, 112, 148, 0.12)', // fill
         doux: '#F4F2F9', // le fond d'un champ ou d'une puce posés sur une carte blanche (sans trait)
         teinte: { DEFAULT: '#7050D5', doux: '#EEE8FC', fonce: '#6646CC' },
-        peche: { DEFAULT: '#F58B5C', doux: '#FFEDE2', fonce: '#E26F3C' },
-        rouge: '#FF453A',
-        vert: '#34C759',
+        // « fonce » sert surtout au texte et aux icônes : assez sombre pour 4,5:1 sur blanc, sur le fond et sur « doux »
+        peche: { DEFAULT: '#F58B5C', doux: '#FFEDE2', fonce: '#C2410C' },
+        rouge: '#D70015', // le rouge « contraste élevé » d'Apple : lisible en texte, même sur le fond gris (4,8:1), et sous un texte blanc
+        vert: { DEFAULT: '#34C759', fonce: '#15803D' }, // le vert vif pour les interrupteurs ; « fonce » pour le texte
         or: '#F5B63B',
       },
       fontFamily: {
@@ -35,7 +37,7 @@ export default {
         sous: ['15px', { lineHeight: '20px', letterSpacing: '-0.1px' }],
         note: ['13px', { lineHeight: '18px' }],
         legende: ['12px', { lineHeight: '16px' }],
-        mini: ['11px', { lineHeight: '13px', letterSpacing: '0.06px' }],
+        mini: ['12px', { lineHeight: '15px', letterSpacing: '0.02px' }], // 11 px, trop petit pour les grands-parents
       },
       borderRadius: { groupe: '22px', feuille: '34px' },
       boxShadow: {

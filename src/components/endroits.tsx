@@ -185,7 +185,7 @@ export function EndroitSheet({ endroit, onClose, onFait }: { endroit?: Endroit; 
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-teinte-doux text-teinte"><MapPin size={17} strokeWidth={2.3} /></span>
           <h3 className="min-w-0 flex-1 text-corps font-bold">Adresse</h3>
           {de === 'liste' || de === 'garde' ? (
-            <span key="ok" className="anim-pop flex items-center gap-1 text-note font-semibold text-vert"><Check size={14} strokeWidth={3} /> Trouvée</span>
+            <span key="ok" className="anim-pop flex items-center gap-1 text-note font-semibold text-vert-fonce"><Check size={14} strokeWidth={3} /> Trouvée</span>
           ) : null}
         </div>
         <ChampLieu

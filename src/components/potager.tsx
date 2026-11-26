@@ -70,7 +70,7 @@ export function PotagerPage({ onClose, onShop }: { onClose: () => void; onShop: 
             </span>
             <span className="min-w-0">
               <span className="flex items-center gap-1 text-corps font-semibold">
-                {watered ? 'Arrosé' : 'Arroser'} {watered && <Check size={15} strokeWidth={3} className="text-vert" />}
+                {watered ? 'Arrosé' : 'Arroser'} {watered && <Check size={15} strokeWidth={3} className="text-vert-fonce" />}
               </span>
               <span className="block truncate text-note text-brume">{watered ? 'Ça pousse !' : '+1 ★ · tout pousse'}</span>
             </span>
@@ -120,7 +120,7 @@ export function PotagerPage({ onClose, onShop }: { onClose: () => void; onShop: 
                   {p && info ? (
                     <>
                       <p className="text-corps font-semibold">{info.name}</p>
-                      <p className={`text-note ${ripe ? 'font-semibold text-vert' : 'text-brume'}`}>
+                      <p className={`text-note ${ripe ? 'font-semibold text-vert-fonce' : 'text-brume'}`}>
                         {STAGE_LABEL[stage!]}
                         {!ripe && ` · encore ${info.ripe - p.growth} arrosage${info.ripe - p.growth > 1 ? 's' : ''}`}
                       </p>
@@ -208,7 +208,7 @@ function SowSheet({ plot, onClose, onShop }: { plot: number; onClose: () => void
                   </span>
                 </span>
                 {have ? (
-                  <span className="shrink-0 rounded-full bg-[#E6F4DF] px-2.5 py-1 text-legende font-semibold text-vert">{have} sachet{have > 1 ? 's' : ''}</span>
+                  <span className="shrink-0 rounded-full bg-[#E6F4DF] px-2.5 py-1 text-legende font-semibold text-vert-fonce">{have} sachet{have > 1 ? 's' : ''}</span>
                 ) : (
                   <span className="flex shrink-0 items-center gap-1 rounded-full bg-teinte-doux px-2.5 py-1 text-legende font-semibold text-teinte-fonce">
                     <Art name="picto-etoile" size={14} /> {cost}

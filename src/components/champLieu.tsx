@@ -207,7 +207,7 @@ export const ChampLieu = memo(function ChampLieu({ value, onChange, placeholder,
       {/* le code postal trouvé tout seul */}
       {!focus && ajoutCp && ajoutCp.apres === value && (
         <p className="anim-entre mt-1.5 flex items-center gap-1.5 px-1 text-note text-brume">
-          <Check size={14} strokeWidth={2.8} className="text-vert" />
+          <Check size={14} strokeWidth={2.8} className="text-vert-fonce" />
           <span className="min-w-0 flex-1 truncate">Code postal ajouté : <span className="font-semibold text-encre">{ajoutCp.ville}</span></span>
           <button type="button" onClick={() => { tap(); verifie.current = ajoutCp.avant.trim(); onChange(ajoutCp.avant); setAjoutCp(null) }} className="presse min-h-8 shrink-0 px-1 font-semibold text-teinte">Annuler</button>
         </p>
@@ -259,7 +259,7 @@ export const ChampLieu = memo(function ChampLieu({ value, onChange, placeholder,
               <span className="points-attente" aria-hidden="true"><i /><i /><i /></span> Je cherche…
             </p>
           )}
-          {suggestions.length > 0 && <p className="border-t border-trait px-4 py-1.5 text-mini text-pale">Adresses : Géoplateforme (IGN) · Lieux : © OpenStreetMap</p>}
+          {suggestions.length > 0 && <p className="border-t border-trait px-4 py-1.5 text-mini text-brume">Adresses : Géoplateforme (IGN) · Lieux : © OpenStreetMap</p>}
         </div>
       )}
     </div>

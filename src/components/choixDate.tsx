@@ -76,7 +76,7 @@ export function ChoixDate({ titre, value, min, sansAnnee = false, onChoisir, onC
               <button type="button" onClick={() => bouger(1)} className={rond} aria-label="Mois suivant"><ChevronRight size={20} strokeWidth={2.6} /></button>
             </div>
           </div>
-          <div className="mt-3 grid grid-cols-7 text-center text-[11px] font-bold uppercase tracking-wide text-pale" aria-hidden="true">
+          <div className="mt-3 grid grid-cols-7 text-center text-[11px] font-bold uppercase tracking-wide text-brume" aria-hidden="true">
             {JOURS.map((j) => <span key={j}>{j}</span>)}
           </div>
           <div

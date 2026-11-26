@@ -130,7 +130,7 @@ function Line({ art, name, text, have, price, last }: { art: React.ReactNode; na
         <div className="min-w-0 flex-1">
           <p className="truncate text-corps font-semibold">{name}</p>
           <p className="truncate text-note text-brume">{text}</p>
-          {have && <p className="text-legende font-semibold text-vert">{have}</p>}
+          {have && <p className="text-legende font-semibold text-vert-fonce">{have}</p>}
         </div>
         {price}
       </div>

@@ -506,7 +506,7 @@ export function OuEstPage({ onClose }: { onClose: () => void }) {
         <Lock size={14} strokeWidth={2.4} className="mt-[3px] shrink-0" aria-hidden="true" />
         <span>Chacun choisit de partager sa position et peut arrêter quand il veut. Seule la dernière est gardée, et seule la famille la voit.</span>
       </p>
-      <p className="mt-2 px-5 text-mini text-pale">Carte : © OpenStreetMap · OpenFreeMap</p>
+      <p className="mt-2 px-5 text-mini text-brume">Carte : © OpenStreetMap · OpenFreeMap</p>
     </Page>
     {/* à côté de la page (pas dedans : elle défile), pour couvrir tout l'écran */}
     {fiche && (

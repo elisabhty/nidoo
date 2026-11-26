@@ -39,6 +39,11 @@ input[type='date'], input[type='time'] { -webkit-appearance: none; appearance: n
   .presse-ligne { transition: background-color 0.22s ease; }
   .presse-ligne:active { background-color: rgba(112, 80, 213, 0.05); transition-duration: 0s; }
   .entete { @apply px-5 pb-1.5 text-note font-semibold uppercase tracking-[0.02em] text-brume; }
+  /* La zone qu'on touche fait au moins 44 × 44 pt (Apple, Human Interface Guidelines ; revue du 27 novembre), même quand
+     le dessin est plus petit : une pastille, le + d'une quantité, la goutte d'eau du jardin. Le dessin ne bouge pas ;
+     un élément déjà placé (absolute) le reste. */
+  .cible { position: relative; }
+  .cible::before { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); }
 }
 
 @keyframes monte { from { transform: translateY(100%); } to { transform: translateY(0); } }
@@ -46,7 +51,7 @@ input[type='date'], input[type='time'] { -webkit-appearance: none; appearance: n
 @keyframes entre { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes pop { 0% { transform: scale(0.82); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
 /* le code qu'on vient de copier : chaque lettre saute et passe au vert, l'une après l'autre */
-@keyframes vagueCode { 0%, 100% { transform: translateY(0); } 35% { transform: translateY(-6px); color: #14955A; } 70% { color: #14955A; } }
+@keyframes vagueCode { 0%, 100% { transform: translateY(0); } 35% { transform: translateY(-6px); color: #15803D; } 70% { color: #15803D; } }
 @keyframes hud { 0% { transform: translateY(-140%) scale(0.9); opacity: 0; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
 @keyframes flotte { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
 @keyframes envol {

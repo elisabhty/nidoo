@@ -345,7 +345,7 @@ export default function House({
                 touch(key)
                 onCare(key)
               }}
-              className={`pointer-events-auto absolute bottom-[88%] left-1/2 flex rounded-full bg-white p-[3px] shadow-[0_3px_10px_rgba(29,26,43,0.25)] ${mood !== 'bien' ? 'ring-2 ring-rouge/70' : ''}`}
+              className={`cible pointer-events-auto absolute bottom-[88%] left-1/2 flex rounded-full bg-white p-[3px] shadow-[0_3px_10px_rgba(29,26,43,0.25)] ${mood !== 'bien' ? 'ring-2 ring-rouge/70' : ''}`}
               style={{ animation: `appelle ${mood === 'bien' ? 2.2 : 1.1}s ease-in-out infinite` }}
               aria-label={`${sadLabel || `${c.need}. `}${c.verb} : +${c.stars} étoile${c.stars > 1 ? 's' : ''}`}
             >
@@ -363,7 +363,7 @@ export default function House({
               touch(key)
               stroke(key)
             }}
-            className="pointer-events-auto absolute bottom-[88%] left-1/2 flex rounded-full bg-[#FFE4EC] p-[3px] shadow-[0_3px_10px_rgba(29,26,43,0.22)]"
+            className="cible pointer-events-auto absolute bottom-[88%] left-1/2 flex rounded-full bg-[#FFE4EC] p-[3px] shadow-[0_3px_10px_rgba(29,26,43,0.22)]"
             style={{ animation: 'appelle 2.6s ease-in-out infinite' }}
             aria-label={`Caresser ${c.who} : +1 étoile`}
           >
@@ -632,7 +632,7 @@ export default function House({
                           e.stopPropagation()
                           touche()
                         }}
-                        className="presse pointer-events-auto block w-full"
+                        className="presse cible pointer-events-auto block w-full"
                         aria-label={src ? `Photo ${i + 1} accrochée : la remplacer ou la décrocher` : 'Place libre : accrocher une photo'}
                       >
                         {cadre}
@@ -734,7 +734,7 @@ function BulleSeul({ m, x }: { m: Member; x: number }) {
   }, [])
   return (
     <span className={`relative mb-[3px] ${x < 24 ? 'self-start' : x > 76 ? 'self-end' : ''}`} style={{ animation: 'flotte 3.6s ease-in-out infinite' }}>
-      <span key={i} className="anim-pop block w-max max-w-[128px] rounded-[11px] bg-teinte px-[8px] py-[3px] text-center text-[10px] font-bold leading-[13px] text-white shadow-[0_3px_8px_rgba(102,70,204,0.35)]">
+      <span key={i} className="anim-pop block w-max max-w-[136px] rounded-[11px] bg-teinte px-[8px] py-[3px] text-center text-[11px] font-bold leading-[14px] text-white shadow-[0_3px_8px_rgba(102,70,204,0.35)]">
         {phrases[i]}
       </span>
       <span className={`absolute -bottom-[3px] h-[7px] w-[7px] rotate-45 bg-teinte ${x < 24 ? 'left-[22%]' : x > 76 ? 'right-[22%]' : 'left-1/2 -translate-x-1/2'}`} aria-hidden="true" />
@@ -799,7 +799,7 @@ function Jardin({
           <BulleSeul m={p.m} x={at.x} />
         ) : p.me ? (
           // près d'un bord du décor, la bulle se cale du côté intérieur pour rester entière
-          <span className={`relative mb-[3px] whitespace-nowrap rounded-full bg-teinte px-[7px] py-[2px] text-[10px] font-bold leading-[14px] text-white shadow-[0_3px_8px_rgba(102,70,204,0.35)] ${at.x < 24 ? 'self-start' : at.x > 76 ? 'self-end' : ''}`} style={{ animation: 'flotte 3.6s ease-in-out infinite' }}>
+          <span className={`relative mb-[3px] whitespace-nowrap rounded-full bg-teinte px-[7px] py-[2px] text-[11px] font-bold leading-[15px] text-white shadow-[0_3px_8px_rgba(102,70,204,0.35)] ${at.x < 24 ? 'self-start' : at.x > 76 ? 'self-end' : ''}`} style={{ animation: 'flotte 3.6s ease-in-out infinite' }}>
             Comment vas-tu ?
             <span className={`absolute -bottom-[3px] h-[7px] w-[7px] rotate-45 bg-teinte ${at.x < 24 ? 'left-[22%]' : at.x > 76 ? 'right-[22%]' : 'left-1/2 -translate-x-1/2'}`} />
           </span>
@@ -813,7 +813,7 @@ function Jardin({
         if (at.where === 'fenetre') {
           const busy = (isFrom || isTo) && doing
           return (
-            <button key={p.m.id} onClick={click} className="absolute flex -translate-x-1/2 flex-col items-center" style={{ left: `${at.x}%`, bottom: `${at.y}%`, width: `${at.w}%`, zIndex: 5 }} aria-label={label}>
+            <button key={p.m.id} onClick={click} className="cible absolute flex -translate-x-1/2 flex-col items-center" style={{ left: `${at.x}%`, bottom: `${at.y}%`, width: `${at.w}%`, zIndex: 5 }} aria-label={label}>
               {bubble}
               <span className="relative block w-full overflow-hidden" style={{ aspectRatio: '1 / 1.08', borderRadius: '44% 44% 9% 9% / 36% 36% 7% 7%', background: 'radial-gradient(circle at 50% 30%, #FFF4D2 0%, #FFDB8F 52%, #F0B661 100%)' }}>
                 <span key={hop ? poke!.n : 0} className="absolute -bottom-[16%] left-[-5%] block w-[110%]" style={{ animation: hop || (isTo && doing) ? 'rebond 0.7s var(--ressort)' : undefined, transformOrigin: '50% 100%' }}>

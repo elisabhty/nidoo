@@ -43,9 +43,9 @@ export function BulleCopie({ vague, texte = 'Code copié !' }: { vague: number; 
   return (
     // la place (centrée au-dessus), puis la bulle qui jaillit : le saut ne doit pas écraser le centrage
     <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2" role="status">
-      <span key={vague} className="anim-pop relative block whitespace-nowrap rounded-full bg-[#14955A] px-3 py-1 text-[13px] font-extrabold text-white shadow-[0_4px_10px_rgba(20,149,90,0.4)]">
+      <span key={vague} className="anim-pop relative block whitespace-nowrap rounded-full bg-[#15803D] px-3 py-1 text-[13px] font-extrabold text-white shadow-[0_4px_10px_rgba(20,149,90,0.4)]">
         {texte}
-        <span className="absolute -bottom-[3px] left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 rounded-[2px] bg-[#14955A]" aria-hidden="true" />
+        <span className="absolute -bottom-[3px] left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 rounded-[2px] bg-[#15803D]" aria-hidden="true" />
       </span>
     </span>
   )

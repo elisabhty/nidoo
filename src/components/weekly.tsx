@@ -40,7 +40,7 @@ export function WeeklyChallenge({ className = '' }: { className?: string }) {
             <div key={g.key}>
               <div className="flex items-baseline justify-between gap-2">
                 <span className={`text-corps ${ok ? 'text-brume line-through decoration-pale' : ''}`}>{g.label}</span>
-                <span className={`flex items-center gap-1 text-sous font-semibold ${ok ? 'text-vert' : 'text-brume'}`}>
+                <span className={`flex items-center gap-1 text-sous font-semibold ${ok ? 'text-vert-fonce' : 'text-brume'}`}>
                   {ok && <Check size={14} strokeWidth={3} />}
                   {g.done}/{g.n}
                 </span>

@@ -19,7 +19,7 @@ export function GameTile({ kind, art, name, hint, onClick }: { kind: string; art
     <button type="button" onClick={onClick} className="game-tile presse" style={{ '--game-accent': accent, '--game-tint': fond } as CSSProperties}>
       <span className="game-tile-art"><img src={`./art/${art}.webp`} alt="" /></span>
       <span className={`mt-2 block w-full truncate px-0.5 font-bold text-encre ${name.length > 15 ? 'text-[11.5px] leading-4 tracking-[-0.02em]' : 'text-legende'}`}>{name}</span>
-      <span className="block w-full truncate px-0.5 pb-2.5 text-mini text-brume">{hint}</span>
+      <span className={`block w-full truncate px-0.5 pb-2.5 text-brume ${hint.length > 15 ? 'text-[11.5px] leading-[15px] tracking-[-0.02em]' : 'text-mini'}`}>{hint}</span>
     </button>
   )
 }

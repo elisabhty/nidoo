@@ -168,7 +168,7 @@ function AFaire() {
   const taches = ['Acheter le gâteau', 'Appeler Mamie', 'Réserver le resto']
   return (
     <div className={`${carte} col-span-2 p-3`}>
-      <p className="text-[10px] font-extrabold uppercase tracking-[0.04em] text-[#14955A]">À faire · {fait.filter((f) => !f).length || 'plus rien'}</p>
+      <p className="text-[10px] font-extrabold uppercase tracking-[0.04em] text-[#15803D]">À faire · {fait.filter((f) => !f).length || 'plus rien'}</p>
       <div className="mt-1.5 grid gap-1">
         {taches.map((t, i) => (
           <button
@@ -184,7 +184,7 @@ function AFaire() {
               if (n.every(Boolean)) (success(), confettis())
             }}
           >
-            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors ${fait[i] ? 'bg-[#14955A] text-white' : 'ring-2 ring-inset ring-[#C9C2DD]'}`}>{fait[i] && <Check size={12} strokeWidth={3.6} className="anim-pop" />}</span>
+            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors ${fait[i] ? 'bg-[#15803D] text-white' : 'ring-2 ring-inset ring-[#C9C2DD]'}`}>{fait[i] && <Check size={12} strokeWidth={3.6} className="anim-pop" />}</span>
             <span className={`transition-colors ${fait[i] ? 'text-brume line-through' : ''}`}>{t}</span>
           </button>
         ))}

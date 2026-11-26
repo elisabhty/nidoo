@@ -181,7 +181,7 @@ export function RecetteSheet({ recette, onClose, onAjouter, dejaDansLaListe }: {
           <div className="groupe overflow-hidden shadow-carte">{placard.map((l, i) => ligne(l, i === placard.length - 1, achats.length + i))}</div>
         </>
       )}
-      <p className="mt-3 px-1 text-mini text-pale">Quantités arrondies aux formats du magasin (paquets, pots, barquettes).</p>
+      <p className="mt-3 px-1 text-mini text-brume">Quantités arrondies aux formats du magasin (paquets, pots, barquettes).</p>
     </Sheet>
   )
 }

@@ -120,7 +120,7 @@ export function QuestionSheet({ onClose }: { onClose: () => void }) {
                       {a.answer && <p className="text-appel">{a.answer}</p>}
                     </>
                   ) : (
-                    <p className="pt-1 text-sous text-pale">{m.display_name} pourra répondre à son rythme</p>
+                    <p className="pt-1 text-sous text-brume">{m.display_name} pourra répondre à son rythme</p>
                   )}
                 </div>
               </div>

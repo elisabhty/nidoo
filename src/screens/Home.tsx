@@ -189,7 +189,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
           style={{ paddingTop: 'var(--sat)' }}
         >
           <div className="relative flex h-[52px] items-center justify-between px-4">
-            <button onClick={() => setSheet({ k: 'humeur' })} className="presse pointer-events-auto" aria-label="Mon humeur du jour">
+            <button onClick={() => setSheet({ k: 'humeur' })} className="presse pointer-events-auto -ml-[3px] flex h-11 w-11 items-center justify-center" aria-label="Mon humeur du jour">
               <Avatar m={me} size={38} mood />
             </button>
             <p className={`absolute inset-x-24 truncate text-center text-corps font-semibold transition-opacity duration-200 ${scrolled ? 'opacity-100' : 'opacity-0'}`}>{familyLabel(family.name)}</p>
@@ -198,7 +198,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
                 tap()
                 setSheet({ k: 'etoiles' })
               }}
-              className="presse verre pointer-events-auto flex h-10 items-center gap-1.5 rounded-full pl-2 pr-3.5 text-appel font-semibold"
+              className="presse verre cible pointer-events-auto flex h-10 items-center gap-1.5 rounded-full pl-2 pr-3.5 text-appel font-semibold"
               aria-label={`${family.stars} étoiles : comment en gagner`}
             >
               <Art name="picto-etoile" size={24} /> {family.stars}
@@ -216,9 +216,10 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
           }}
         >
           <div className="px-5">
+            {/* le grand titre, c'est le nom de la maison (comme dans l'appli Maison d'Apple) : le même qui reste en haut
+                quand on fait défiler — plus de « Notre maison » au-dessus d'un sous-titre qui le répétait */}
             <p className="text-sous font-medium text-brume">{greeting()} {me.display_name}</p>
-            <h1 className="break-words font-rond text-grand">Notre maison</h1>
-            {familyLabel(family.name).toLowerCase() !== 'notre maison' && <p className="mt-1 text-sous text-brume">{familyLabel(family.name)}</p>}
+            <h1 className="break-words font-rond text-grand">{familyLabel(family.name)}</h1>
           </div>
 
 
@@ -339,7 +340,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
                   tap()
                   go('fil')
                 }}
-                className="presse -mr-1 px-1 py-1 text-note font-semibold text-teinte-fonce"
+                className="presse cible -mr-1 px-1 py-1 text-note font-semibold text-teinte-fonce"
               >
                 Ouvrir le fil
               </button>
@@ -485,7 +486,7 @@ function Vignette({ h }: { h: HomeStory }) {
     const mois = h.at.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '')
     return (
       <span className="flex h-11 w-11 shrink-0 flex-col overflow-hidden rounded-[13px] bg-[#FFF3F1] text-center" aria-hidden>
-        <span className="block bg-[#FF7A6B] py-[1px] text-[9.5px] font-bold uppercase leading-[13px] tracking-[0.04em] text-white">{mois}</span>
+        <span className="block bg-rouge py-[1px] text-[10px] font-bold uppercase leading-[13px] tracking-[0.04em] text-white">{mois}</span>
         <span className="flex flex-1 items-center justify-center font-rond text-[19px] font-bold leading-none text-encre">{h.at.getDate()}</span>
       </span>
     )
