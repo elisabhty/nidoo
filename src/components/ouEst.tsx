@@ -16,7 +16,10 @@ import { EndroitSheet } from './endroits'
 import { IconeEndroit, PastilleEndroit } from './iconeEndroit'
 import { Avatar, Btn, Page, Switch } from './ui'
 
-const STYLE = 'https://tiles.openfreemap.org/styles/positron'
+/** Le fond de carte (Elisa, 26 novembre : « il y a pas une autre carte ? j'aime pas celle-là ») : le nôtre, dans des
+ *  couleurs proches de Plans (scripts/carte/style_nidoo.py), rangé avec l'appli ; les tuiles, les noms et les icônes
+ *  viennent toujours d'OpenFreeMap. */
+const STYLE = 'carte/nidoo.json'
 /** De la place en haut pour les têtes (le repère est accroché par sa pointe, en bas). */
 const MARGES = { top: 84, bottom: 28, left: 44, right: 44 }
 
@@ -515,7 +518,7 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN, on
         const c = cadre(points.length ? points.map((x) => x.p) : [...endroits])
         const nouvelle = new maplibre.Map({
           container: boite.current,
-          style: STYLE,
+          style: new URL(STYLE, window.location.href).href,
           ...(c ? { bounds: c, fitBoundsOptions: { padding: MARGES, maxZoom: 15 } } : { center: [2.4, 46.6], zoom: 4.6 }),
           pitch: reliefVu.current ? PENTE : 0,
           maxPitch: 60,
@@ -561,6 +564,10 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN, on
         nouvelle.once('load', () => {
           window.clearTimeout(t)
           setPanne(false)
+          // les crédits (© OpenStreetMap…) bien lisibles à l'ouverture, puis rangés sous le « i » au bout de 5 s
+          // (les règles d'OpenStreetMap le permettent : osmfoundation.org/wiki/Attribution) ; le bas de la carte se
+          // dégage. MapLibre fait déjà pareil dès qu'on la bouge.
+          window.setTimeout(() => boite.current?.querySelector('.maplibregl-ctrl-attrib.maplibregl-compact-show')?.classList.remove('maplibregl-compact-show'), 5000)
           // les bâtiments en relief (sous les noms de rues), et une lumière douce
           try {
             const style = nouvelle.getStyle()
@@ -700,7 +707,7 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN, on
   }
 
   return (
-    <div className="carte-famille relative bg-[#EEF1F4]" style={{ height: hauteur }}>
+    <div className="carte-famille relative bg-[#F2EFE9]" style={{ height: hauteur }}>
       {/* en style (MapLibre met « position: relative » sur la carte : la classe seule ne suffit pas) */}
       <div ref={boite} style={{ position: 'absolute', inset: 0 }} />
       {Object.entries(lieux).map(([id, el]) => {

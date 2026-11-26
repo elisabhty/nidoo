@@ -10,8 +10,8 @@ export const PENTE = 55
 export const SEUIL_3D = 10
 export const COUCHE_BATIMENTS = 'nidoo-batiments-3d'
 
-/** Les bâtiments en relief : leur vraie hauteur (5 m quand OpenStreetMap ne la connaît pas), un blanc lavande un peu
- *  plus soutenu pour les tours. Les tuiles ne donnent la hauteur qu'à partir du zoom 14 : les bâtiments y poussent
+/** Les bâtiments en relief : leur vraie hauteur (5 m quand OpenStreetMap ne la connaît pas), un blanc chaud comme
+ *  dans Plans, un peu plus soutenu pour les tours. Les tuiles ne donnent la hauteur qu'à partir du zoom 14 : les bâtiments y poussent
  *  en douceur au lieu d'apparaître d'un coup. Les parties d'un bâtiment déjà dessinées à part (hide_3d) sont sautées. */
 export function coucheBatiments(source: string): FillExtrusionLayerSpecification {
   const haut: ExpressionSpecification = ['coalesce', ['get', 'render_height'], 5]
@@ -24,7 +24,7 @@ export function coucheBatiments(source: string): FillExtrusionLayerSpecification
     minzoom: 14,
     filter: ['!', ['has', 'hide_3d']],
     paint: {
-      'fill-extrusion-color': ['interpolate', ['linear'], haut, 0, '#EFEEF4', 25, '#E8E5F0', 60, '#DCD8EA'],
+      'fill-extrusion-color': ['interpolate', ['linear'], haut, 0, '#F2EFEA', 30, '#E9E5DF', 80, '#DFD9D1'],
       'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 14, 0, 14.8, haut],
       'fill-extrusion-base': ['interpolate', ['linear'], ['zoom'], 14, 0, 14.8, bas],
       'fill-extrusion-opacity': ['interpolate', ['linear'], ['zoom'], 14, 0, 14.5, 0.95],
