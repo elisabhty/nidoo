@@ -74,8 +74,12 @@ const SLOTS = [
   { x: 50, y: 0, k: 1 },
   { x: 36, y: 1, k: 0.95 },
   { x: 64, y: 1, k: 0.95 },
+  // un peu plus loin, à droite, sans passer devant la maison (à gauche, sa bulle mordrait sur celle de devant)
+  { x: 76, y: 9, k: 0.88 },
 ]
-const ORDERS: Record<number, number[]> = { 1: [4], 2: [0, 1], 3: [0, 4, 1], 4: [0, 2, 3, 1], 5: [0, 2, 4, 3, 1], 6: [0, 2, 5, 6, 3, 1], 7: [0, 2, 5, 4, 6, 3, 1] }
+// Jusqu'à 3 au jardin : toujours sur les côtés, personne devant la porte (Elisa, 26 novembre : « on ne voit pas la
+// maison » — seule, on se tenait devant la porte, et la bulle « Comment vas-tu ? » cachait le milieu de la maison).
+const ORDERS: Record<number, number[]> = { 1: [0], 2: [0, 1], 3: [0, 1, 7] }
 
 /** Un geste envoyé à un proche, joué pour de vrai dans le jardin : on va le voir et on le fait. */
 export type HouseScene = { id: string; from: string; to: string; kind: string }
