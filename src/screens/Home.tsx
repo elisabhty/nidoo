@@ -8,6 +8,7 @@ import { DecorPage, GoneSheet, useGone } from '../components/decor'
 import { DrawingsSheet, useUnseenDrawings } from '../components/drawing'
 import { DrawSheet } from '../components/planche'
 import { HousePhotosSheet } from '../components/housePhotos'
+import { InvitationAccueil } from '../components/invitationAccueil'
 import { housePhotoSlots, housePhotoSources } from '../lib/housePhotos'
 import House, { type HouseScene } from '../components/House'
 import { myTurns } from '../components/jeux'
@@ -20,7 +21,7 @@ import type { AventAction } from '../lib/avent'
 import { challengeOfDay, moodOf } from '../lib/data'
 import { feel, tap } from '../lib/haptic'
 import { shareInvite } from '../lib/share'
-import { codeValable, voitLeCode } from '../lib/invitation'
+import { codeExpire, codeValable, voitLeCode } from '../lib/invitation'
 import { homeStories, type HomeStory } from '../lib/homeStories'
 import { useHome } from '../lib/store'
 import type { Drawing, FamEvent, Member } from '../lib/types'
@@ -316,8 +317,10 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
               {!explorerVu && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 animate-pulse rounded-full bg-[#FF8A7A] ring-2 ring-fond" />}
             </button>
           </div>
+          {/* seul dans la maison : l'invitation d'abord, c'est la prochaine chose à faire */}
+          {!others.length && <InvitationAccueil me={me} code={voitLeCode(me) && !codeExpire(family) ? family.invite_code : null} onInviter={() => void inviter()} />}
           {/* Une chronique vivante, alimentée uniquement par les vrais moments de cette maison (seul et sans rien encore :
-              pas de chronique, l'invitation juste en dessous suffit). */}
+              pas de chronique, l'invitation juste au-dessus suffit). */}
           {histoires.length > 0 && <section className="mx-5 mt-3 rounded-[22px] bg-carte pb-1 pt-3.5 shadow-carte" aria-label="La vie de notre maison">
             <div className="mb-1 flex items-baseline justify-between px-4">
               <h2 className="font-rond text-titre3">La vie de notre maison</h2>
@@ -387,18 +390,13 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
               <img src="./art/stickers/gateau.webp" alt="" className="h-12 w-12 shrink-0 rotate-6 object-contain" />
             </button>
           )}
-          {others.length ? (
+          {others.length > 0 && (
             <>
               <div className="mx-5 mt-4">
                 <button onClick={() => setSheet({ k: 'dessin' })} className="presse ios-primary flex min-h-[54px] w-full items-center justify-center rounded-full text-corps font-bold text-white">Créer une attention</button>
               </div>
               <p className="mx-5 mt-2 text-center text-note text-brume">Un dessin, une photo ou une carte, pour un proche ou pour tous.</p>
             </>
-          ) : (
-            <div className="mx-5 mt-4 text-center">
-              <p className="font-rond text-titre3">Tout commence avec un proche</p>
-              <button onClick={() => void inviter()} className="presse ios-primary mt-3 flex min-h-[54px] w-full items-center justify-center rounded-full text-corps font-bold text-white">Inviter mes proches</button>
-            </div>
           )}
           <DefisDuJour
             avent={av.visible ? { aOuvrir: caseDuJour, etoiles: av.today === 24 ? 3 : 1 } : null}
