@@ -2,22 +2,13 @@
 // une seule invitation, et qui donne envie. Moi, et trois places qui attendent mes proches ; ce que la maison devient
 // quand ils arrivent ; le bouton pour les inviter ; et le code, pour le donner de vive voix.
 import { Check, Copy, Plus, Send } from 'lucide-react'
-import { useState } from 'react'
-import { tap } from '../lib/haptic'
-import { copy } from '../lib/share'
 import type { Member } from '../lib/types'
+import { LettresCode, useCopie } from './copie'
 import { Avatar } from './ui'
 
 export function InvitationAccueil({ me, code, onInviter }: { me: Member; code: string | null; onInviter: () => void }) {
-  // le code copié : il le dit lui-même un instant (pas de bandeau)
-  const [copie, setCopie] = useState(false)
-  const copier = async () => {
-    if (!code) return
-    tap()
-    if (!(await copy(code))) return
-    setCopie(true)
-    window.setTimeout(() => setCopie(false), 1600)
-  }
+  // le code copié : il le dit lui-même (la vague, « Code copié ! », des étincelles), pas de bandeau
+  const { copie, vague, copier } = useCopie()
   return (
     <section className="mx-5 mt-3 rounded-[22px] bg-carte px-5 pb-5 pt-5 text-center shadow-carte" aria-label="Inviter mes proches">
       {/* moi, et les places qui attendent (elles flottent doucement, comme les bulles de la maison) */}
@@ -42,11 +33,23 @@ export function InvitationAccueil({ me, code, onInviter }: { me: Member; code: s
       </button>
       {/* le code, pour le donner de vive voix ou par message (le responsable seulement) */}
       {code && (
-        <button onClick={() => void copier()} className="presse mt-3 inline-flex min-h-9 items-center gap-2 rounded-full bg-doux py-1.5 pl-3.5 pr-3" aria-label={copie ? 'Code copié' : `Copier le code d’invitation ${code}`}>
-          <span className="text-note text-brume">Ou donne le code</span>
-          <span className="font-rond text-[15px] tracking-[0.16em] text-encre">{code}</span>
+        <button
+          onClick={(e) => void copier(code, e.currentTarget)}
+          className={`presse relative mt-3 inline-flex min-h-9 items-center gap-2 rounded-full py-1.5 pl-3.5 pr-3 transition-colors duration-300 ${copie ? 'bg-[#E3F5EC]' : 'bg-doux'}`}
+          aria-label={copie ? 'Code copié' : `Copier le code d’invitation ${code}`}
+        >
+          {/* copié : le bouton le dit lui-même, à la place de « Ou donne le code » (la même place : rien ne bouge) */}
+          <span className="grid text-note" aria-hidden="true">
+            <span className={`col-start-1 row-start-1 text-brume transition-opacity duration-200 ${copie ? 'opacity-0' : ''}`}>Ou donne le code</span>
+            {copie && (
+              <span key={vague} className="anim-pop col-start-1 row-start-1 text-center font-extrabold text-[#14955A]">
+                Code copié !
+              </span>
+            )}
+          </span>
+          <LettresCode code={code} vague={vague} className="font-rond text-[15px] tracking-[0.16em] text-encre" />
           {copie ? (
-            <span key="ok" className="anim-pop flex items-center text-vert">
+            <span key="ok" className="anim-pop flex items-center text-[#14955A]">
               <Check size={15} strokeWidth={3} />
             </span>
           ) : (

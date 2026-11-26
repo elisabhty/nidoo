@@ -115,14 +115,16 @@ function Portrait({ ed, color, size = 206 }: { ed: Perso_; color: string; size?:
   )
 }
 
-/** Un réglage au curseur (1 à 9, milieu à 5), avec des mots plutôt que des chiffres. */
-function Curseur({ label, gauche, droite, valeur, noms, onChange }: { label: string; gauche: string; droite: string; valeur: number; noms: string[]; onChange: (v: number) => void }) {
+/** Un réglage au curseur (1 à 9, milieu à 5), avec des mots plutôt que des chiffres. Sans `noms` (la silhouette),
+ *  aucun mot : on voit le personnage changer, on ne range personne dans une case (Elisa, 26 novembre : « Équilibrée »
+ *  laissait entendre que les autres silhouettes ne le sont pas). */
+function Curseur({ label, gauche, droite, valeur, noms, onChange }: { label: string; gauche: string; droite: string; valeur: number; noms?: string[]; onChange: (v: number) => void }) {
   const id = useId()
   return (
     <div>
       <div className="mb-1 flex items-baseline justify-between">
         <label htmlFor={id} className="text-sous font-semibold text-encre">{label}</label>
-        <span className="text-note font-semibold text-teinte-fonce">{noms[valeur - 1]}</span>
+        {noms && <span className="text-note font-semibold text-teinte-fonce">{noms[valeur - 1]}</span>}
       </div>
       <input
         id={id}
@@ -131,11 +133,8 @@ function Curseur({ label, gauche, droite, valeur, noms, onChange }: { label: str
         max={9}
         step={1}
         value={valeur}
-        aria-valuetext={noms[valeur - 1]}
-        onChange={(e) => {
-          select()
-          onChange(Number(e.target.value))
-        }}
+        aria-valuetext={noms ? noms[valeur - 1] : `${valeur} sur 9`}
+        onChange={(e) => onChange(Number(e.target.value))}
         className="curseur w-full"
         style={{ ['--plein' as string]: `${((valeur - 1) / 8) * 100}%` }}
       />
@@ -295,7 +294,7 @@ function PersoOptions({ ed, color, setColor, owned = [], pres }: { ed: Perso_; c
       </button>
       </div>
 
-      {titre('Taille et silhouette')}
+      {titre('Taille et morphologie')}
       <div className="groupe space-y-4 px-4 pb-4 pt-3.5">
         <Curseur
           label="Taille"
@@ -307,13 +306,13 @@ function PersoOptions({ ed, color, setColor, owned = [], pres }: { ed: Perso_; c
         />
         <Curseur
           label="Silhouette"
-          gauche="Fine"
-          droite="Tout en rondeur"
+          gauche="Plus fine"
+          droite="Plus ronde"
           valeur={look.L || 5}
-          noms={['Très fine', 'Fine', 'Élancée', 'Un peu élancée', 'Équilibrée', 'Un peu ronde', 'Joliment ronde', 'Tout en rondeur', 'Bien en chair']}
           onChange={(v) => ed.corps({ L: v === 5 ? 0 : v })}
         />
       </div>
+      <p className="mt-2 px-1 text-note text-brume">Comme tu en as envie : ton personnage change en direct.</p>
 
       </>}
       {section === 'details' && <>

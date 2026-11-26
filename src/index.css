@@ -45,6 +45,8 @@ input[type='date'], input[type='time'] { -webkit-appearance: none; appearance: n
 @keyframes fondu { from { opacity: 0; } to { opacity: 1; } }
 @keyframes entre { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes pop { 0% { transform: scale(0.82); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+/* le code qu'on vient de copier : chaque lettre saute et passe au vert, l'une après l'autre */
+@keyframes vagueCode { 0%, 100% { transform: translateY(0); } 35% { transform: translateY(-6px); color: #14955A; } 70% { color: #14955A; } }
 @keyframes hud { 0% { transform: translateY(-140%) scale(0.9); opacity: 0; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
 @keyframes flotte { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
 @keyframes envol {
@@ -257,8 +259,10 @@ input, textarea { caret-color: #7050D5; }
   .sheet-header-scrolled, .sheet-footer { background: #F2F1F8; }
 }
 
-.ios-search input::-webkit-search-cancel-button { -webkit-appearance: none; }
-.ios-search input::-webkit-search-decoration { -webkit-appearance: none; }
+/* la petite croix du navigateur dans les champs de recherche : jamais (Elisa, 26 novembre : « trop de croix ») ;
+   chaque champ a son « Effacer », ou rien */
+input[type='search']::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; display: none; }
+input[type='search']::-webkit-search-decoration { -webkit-appearance: none; }
 /* Only the app's own scroll views move; keyboard focus must not pan the document. */
 html, body { overflow: hidden; width: 100%; }
 /* Sur téléphone, derrière les barres de Safari au-dessus du clavier, on voit le fond de la page :
@@ -736,8 +740,8 @@ html.kb-visible .ios-sheet.h-\[92\%\] { height: calc(100% - var(--sat) - 8px); }
 
 /* « Où est la famille » : le « i » des crédits de la carte, discret et à l'écart du coin arrondi (les crédits
    restent à un toucher, et sont écrits sous la page). La feuille de MapLibre arrive après celle-ci : d'où la classe. */
-.carte-famille .maplibregl-ctrl-attrib.maplibregl-compact { margin: 0 8px 8px 0; background-color: rgba(255,255,255,.86); box-shadow: 0 1px 4px rgba(29,26,43,.12); }
-.carte-famille .maplibregl-ctrl-attrib.maplibregl-compact:not(.maplibregl-compact-show) .maplibregl-ctrl-attrib-button { opacity: .5; }
+.carte-famille .maplibregl-ctrl-attrib.maplibregl-compact, .carte-apercu .maplibregl-ctrl-attrib.maplibregl-compact { margin: 0 8px 8px 0; background-color: rgba(255,255,255,.86); box-shadow: 0 1px 4px rgba(29,26,43,.12); }
+.carte-famille .maplibregl-ctrl-attrib.maplibregl-compact:not(.maplibregl-compact-show) .maplibregl-ctrl-attrib-button, .carte-apercu .maplibregl-ctrl-attrib.maplibregl-compact:not(.maplibregl-compact-show) .maplibregl-ctrl-attrib-button { opacity: .5; }
 /* en plein écran : au-dessus de la barre d'accueil, et des puces du bas quand il y en a */
 .carte-famille.plein .maplibregl-ctrl-bottom-right { bottom: var(--sab); }
 .carte-famille.plein.avec-bandeau .maplibregl-ctrl-bottom-right { bottom: calc(var(--sab) + 76px); }

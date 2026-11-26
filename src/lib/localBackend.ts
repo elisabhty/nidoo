@@ -1,5 +1,5 @@
 import { folderAsset } from './folderMedia'
-import { ANIMALS, CARE, DECOS, FOOD, GONE_AFTER, PET_COST, PLAN_LIMITS, plantOf, shopItem, THOUGHTS } from './data'
+import { ANIMALS, avecSonPrenom, CARE, DECOS, FOOD, GONE_AFTER, PET_COST, PLAN_LIMITS, plantOf, shopItem, THOUGHTS } from './data'
 import { demoDrawing, type DemoArt } from './drawing'
 import { DEMO_LOOKS } from './look'
 import { applyMove, botMemory, botMorpion, botPuissance4, isMemory, MEMORY_MAX, MEMORY_MIN, newState, shuffledDeck, type Side } from './jeux'
@@ -208,7 +208,7 @@ function migrate(f: Raw, userId: string) {
   if (f.pet === undefined) f.pet = null
   // Le chat du jardin devient le compagnon de la famille.
   if (f.houseItems.includes('chat')) {
-    f.pet ??= { species: 'chat', name: 'Minou', love: 0, outfit: null, bed: null, adopted_at: f.houseSince.chat ?? new Date().toISOString() }
+    f.pet ??= { species: 'chat', name: 'Moka', love: 0, outfit: null, bed: null, adopted_at: f.houseSince.chat ?? new Date().toISOString() }
     f.houseItems = f.houseItems.filter((k) => k !== 'chat')
   }
   for (const c of f.cares) if (c.item_key === 'chat') c.item_key = 'compagnon'
@@ -742,6 +742,7 @@ export function createLocalBackend(): Backend {
         answers: f.answers.filter((a) => a.day === day).map((a) => ({ ...a, photo_url: a.photo_path ?? null })),
         cares: f.cares.filter((c) => c.day >= daysAgoKey(6)),
         houseSince: { ...f.houseSince, ...(f.pet ? { compagnon: f.pet.adopted_at } : {}) },
+        pet: f.pet ? avecSonPrenom(f.pet) : null,
         moments: f.moments.map((m) => ({ ...m, image_url: m.image_path, audio_url: m.audio_path ?? null })),
         drawings: f.drawings.filter((d) => !d.to_member || d.to_member === me.id || d.from_member === me.id).slice(0, 30).map((d) => ({ ...d, photo_url: d.photo_path ?? null })),
         folders: f.folders.filter((d) => mine.has(d.root_id)).map((d) => ({ ...d, cover_url: d.cover_path })),

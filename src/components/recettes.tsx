@@ -206,6 +206,7 @@ export function RecettesSheet({ onClose, onChoisir, occasion: occasionDepart }: 
   // La liste reste ouverte (cachée) sous la recette qu'on regarde : en revenant, elle est exactement là où on l'avait
   // laissée, sans rien recharger ni remettre en place (Elisa, 21 novembre : « on retourne en arrière, la liste saute »).
   const haut = useRef<HTMLDivElement>(null)
+  const recherche = useRef<HTMLInputElement>(null)
   const changerOnglet = (o: Onglet) => {
     select()
     setCat(o)
@@ -246,10 +247,17 @@ export function RecettesSheet({ onClose, onChoisir, occasion: occasionDepart }: 
   return (
     <Sheet title="Recettes" tall onClose={onClose}>
       <div ref={haut} />
-      <label className="flex h-11 items-center gap-2 rounded-[14px] bg-carte px-3.5 shadow-carte">
-        <Search size={17} className="shrink-0 text-brume" />
-        <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Une recette ou un ingrédient" aria-label="Chercher une recette" enterKeyHint="search" autoCorrect="off" spellCheck={false} className="h-full min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-brume" />
-      </label>
+      {/* une seule croix sur la fiche, celle qui la ferme (Elisa, 26 novembre : « trop de croix ») : on vide la
+          recherche d'un mot, « Effacer » */}
+      <div className="flex h-11 items-center gap-2 rounded-[14px] bg-carte pl-3.5 pr-1 shadow-carte">
+        <Search size={17} className="shrink-0 text-brume" aria-hidden="true" />
+        <input ref={recherche} type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Une recette ou un ingrédient" aria-label="Chercher une recette" enterKeyHint="search" autoCorrect="off" spellCheck={false} className="h-full min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-brume" />
+        {q && (
+          <button type="button" onPointerDown={(e) => e.preventDefault()} onClick={() => (tap(), setQ(''), recherche.current?.focus())} className="presse anim-pop h-9 shrink-0 rounded-full px-2.5 text-note font-bold text-teinte-fonce">
+            Effacer
+          </button>
+        )}
+      </div>
       {!q.trim() && (
         <div className="no-bar -mx-5 mt-3 flex gap-1.5 overflow-x-auto px-5 pb-1" role="group" aria-label="Genres de recettes">
           {onglets.map((o) => (

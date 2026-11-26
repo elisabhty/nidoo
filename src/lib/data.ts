@@ -180,16 +180,23 @@ export const PLAN_LIMITS = { free: 5, plus: 15 }
 
 // ───────── Le compagnon ─────────
 
-export const SPECIES: { key: string; name: string; names: string[] }[] = [
-  { key: 'chat', name: 'Chaton', names: ['Caramel', 'Moka', 'Pistache'] },
-  { key: 'chien', name: 'Chiot', names: ['Biscuit', 'Gaufre', 'Praline'] },
-  { key: 'lapin', name: 'Lapin', names: ['Flocon', 'Guimauve', 'Pompon'] },
-  { key: 'renard', name: 'Renardeau', names: ['Roux', 'Cannelle', 'Paprika'] },
-  { key: 'panda', name: 'Panda', names: ['Bambou', 'Oréo', 'Mochi'] },
-  { key: 'koala', name: 'Koala', names: ['Eucalyptus', 'Nuage', 'Kiwi'] },
-  { key: 'pingouin', name: 'Pingouin', names: ['Glaçon', 'Pingu', 'Esquimau'] },
-  { key: 'hibou', name: 'Hibou', names: ['Plume', 'Noisette', 'Hulotte'] },
+/** Les huit compagnons, chacun avec son prénom (Elisa, 26 novembre : « le nom est déjà donné ») : on choisit Moka,
+ *  Biscuit ou Glaçon, on ne baptise personne. */
+export const SPECIES: { key: string; name: string; prenom: string }[] = [
+  { key: 'chat', name: 'Chaton', prenom: 'Moka' },
+  { key: 'chien', name: 'Chiot', prenom: 'Biscuit' },
+  { key: 'lapin', name: 'Lapin', prenom: 'Flocon' },
+  { key: 'renard', name: 'Renardeau', prenom: 'Paprika' },
+  { key: 'panda', name: 'Panda', prenom: 'Mochi' },
+  { key: 'koala', name: 'Koala', prenom: 'Kiwi' },
+  { key: 'pingouin', name: 'Pingouin', prenom: 'Glaçon' },
+  { key: 'hibou', name: 'Hibou', prenom: 'Plume' },
 ]
+/** Le compagnon avec son prénom à lui (un compagnon adopté avant, baptisé autrement, le reprend aussi). */
+export function avecSonPrenom<T extends { species: string; name: string }>(pet: T): T {
+  const prenom = SPECIES.find((x) => x.key === pet.species)?.prenom
+  return prenom && prenom !== pet.name ? { ...pet, name: prenom } : pet
+}
 /** Le caractère de chaque compagnon (Elisa, 21 novembre : « un cadre au début avec son caractère »). */
 export type Caractere = { titre: string; adjectif: string; texte: string; traits: [string, string, string]; fond: string; encre: string }
 export const CARACTERES: Record<string, Caractere> = {
@@ -203,7 +210,6 @@ export const CARACTERES: Record<string, Caractere> = {
   hibou: { titre: 'Le sage', adjectif: 'sage', texte: 'Observateur et réfléchi, il adore apprendre de nouvelles choses !', traits: ['Intelligent', 'Curieux', 'Conseiller'], fond: '#EEE6FA', encre: '#7A4FC2' },
 }
 /** Des prénoms rigolos pour le bouton « Surprise ». */
-export const PRENOMS_SURPRISE = ['Pépite', 'Biscotte', 'Patapouf', 'Chouquette', 'Grignote', 'Câlinou', 'Fripouille', 'Gribouille', 'Filou', 'Galipette', 'Réglisse', 'Chamallow', 'Cachou', 'Mirabelle', 'Clafoutis', 'Zigzag', 'Myrtille', 'Papillote', 'Cookie', 'Brioche', 'Noisette', 'Tagada', 'Pistou', 'Bidule', 'Pompon', 'Caramel', 'Moustache', 'Plumetis', 'Gaufrette', 'Choupinou']
 export const PET_COST = 30
 /** Il grandit avec l'amour : bébé, puis jeune (20 ♥), puis adulte (60 ♥). */
 export const PET_STAGES = [

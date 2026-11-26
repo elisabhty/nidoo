@@ -1,5 +1,6 @@
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Copy, Heart, House as HouseIcon, Images, KeyRound, Mail, MessageCircleHeart, Share, Smile } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { BulleCopie, LettresCode, useCopie } from '../components/copie'
 import House from '../components/House'
 import { CommentAjouter, EcranNotifications, EcranWidgets } from '../components/accueilApercus'
 import { Avatar } from '../components/ui'
@@ -8,7 +9,7 @@ import { demanderNotifications, noterNotifications, premiereNotification } from 
 import { WIDGETS } from '../lib/widgets'
 import { HousePicker, ProfileStep } from '../components/pickers'
 import { select, success, tap, warn } from '../lib/haptic'
-import { copy, shareInvite } from '../lib/share'
+import { shareInvite } from '../lib/share'
 import { useStore } from '../lib/store'
 import type { HouseType } from '../lib/types'
 import { encodeLook, lookOf, randomLook } from '../lib/look'
@@ -158,7 +159,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
   }, [pres]) // eslint-disable-line react-hooks/exhaustive-deps
   const [notifs, setNotifs] = useState<'oui' | 'non' | null>(null)
   const [bulle, setBulle] = useState(0)
-  const [copie, setCopie] = useState(false)
+  const { copie, vague, copier } = useCopie(2200)
   const [busy, setBusy] = useState(false)
   const [created, setCreated] = useState<{ id: string; code: string } | null>(null)
   const container = useRef<HTMLDivElement>(null)
@@ -891,27 +892,16 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
               </h1>
               <p className="ob-sous mx-auto mt-2 max-w-[300px]">{T.invite.description}</p>
               <button
-                onClick={async (e) => {
-                  const el = e.currentTarget
-                  if (!(await copy(created.code))) return
-                  success()
-                  petille(el)
-                  setCopie(true)
-                  window.setTimeout(() => setCopie(false), 2200)
-                }}
+                onClick={(e) => void copier(created.code, e.currentTarget)}
                 className="ob-choix relative mx-auto mt-5 !w-auto !justify-center !gap-3 !px-5 !py-3"
-                aria-label={`Copier le code ${created.code}`}
+                aria-label={copie ? 'Code copié' : `Copier le code ${created.code}`}
               >
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-[#FFF4D6] text-[#B07A00]" aria-hidden="true">
                   <KeyRound size={19} strokeWidth={2.4} />
                 </span>
-                <span className="font-rond text-[30px] font-extrabold tracking-[0.2em] text-encre">{created.code}</span>
+                <LettresCode code={created.code} vague={vague} className="font-rond text-[30px] font-extrabold tracking-[0.2em] text-encre" />
                 {copie ? <Check size={20} strokeWidth={3} className="anim-pop text-[#14955A]" /> : <Copy size={18} className="text-teinte" />}
-                {copie && (
-                  <span role="status" className="anim-pop absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#14955A] px-3 py-1 text-[13px] font-extrabold text-white shadow-[0_4px_10px_rgba(20,149,90,0.4)]">
-                    Code copié !
-                  </span>
-                )}
+                <BulleCopie vague={vague} />
               </button>
               <p className="mx-auto mt-3 max-w-[310px] text-note font-semibold text-white/85 [text-wrap:pretty]">{T.invite.code_hint}</p>
               <p className="mt-1 text-note font-semibold text-white/65">{T.invite.code_validite}</p>

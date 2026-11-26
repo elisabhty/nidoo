@@ -1,7 +1,7 @@
-import { BedDouble, BookOpen, Carrot, Check, ChevronRight, Compass, Dices, Drama, Feather, Flower2, Frown, Heart, HeartHandshake, Leaf, Lightbulb, Lock, Moon, Mountain, PawPrint, PenLine, Search, Shield, Snowflake, Sprout, Star, Users, Volume2, Zap, type LucideIcon } from 'lucide-react'
+import { BedDouble, BookOpen, Carrot, Check, ChevronRight, Compass, Drama, Feather, Flower2, Frown, Heart, HeartHandshake, Leaf, Lightbulb, Lock, Moon, Mountain, PawPrint, Search, Shield, Snowflake, Sprout, Star, Users, Volume2, Zap, type LucideIcon } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { CARACTERES, FOOD, LOVE, nextStage, PET_COST, petStage, PRENOMS_SURPRISE, SHOP, shopItem, SPECIES, type Shop } from '../lib/data'
-import { select, success, tap, warn } from '../lib/haptic'
+import { CARACTERES, FOOD, LOVE, nextStage, PET_COST, petStage, SHOP, shopItem, SPECIES, type Shop } from '../lib/data'
+import { success, tap, warn } from '../lib/haptic'
 import { confettis } from '../lib/fete'
 import { rebond } from '../lib/rebond'
 import { jouer, precharger, sonCompagnon } from '../lib/sons'
@@ -12,7 +12,7 @@ import { animalMood, BagIcon, CareIcon, HandIcon, hungerOf, pettedToday, useCare
 import { PetFigure } from './pet'
 import { Art, Btn, Page } from './ui'
 
-// Le compagnon de la famille : on le choisit parmi huit animaux, on lui donne un prénom,
+// Le compagnon de la famille : on le choisit parmi huit animaux, qui ont chacun leur prénom (Moka, Biscuit, Glaçon…),
 // et il grandit avec l'amour qu'on lui donne (bébé, puis jeune, puis adulte).
 
 type Effect = { id: number; kind: 'repas' | 'caresse' | 'friandise' | 'jeu'; love: number; stars: number; toy?: string }
@@ -68,11 +68,11 @@ function sautille(el: Element | null | undefined) {
 function Adopt({ onAdopte }: { onAdopte: (x: { species: string; name: string }) => void }) {
   const { state, run } = useHome()
   const [species, setSpecies] = useState('chat')
-  const [name, setName] = useState('')
   const sp = SPECIES.find((x) => x.key === species)!
   const c = CARACTERES[species]
   const missing = PET_COST - state.family.stars
-  const shown = name.trim() || sp.names[0]
+  // son prénom vient avec lui (Elisa, 26 novembre : « le nom est déjà donné »)
+  const shown = sp.prenom
   const figure = useRef<HTMLSpanElement>(null)
   const TitreIcone = ICONES_TITRES[species] ?? Heart
   // leurs petits cris, prêts à partir dès le premier toucher
@@ -84,12 +84,6 @@ function Adopt({ onAdopte }: { onAdopte: (x: { species: string; name: string }) 
     rebond(el.querySelector('[data-figure]'), 1)
     setSpecies(key)
     window.requestAnimationFrame(() => sautille(figure.current))
-  }
-  const surprise = () => {
-    select()
-    const pris = new Set([shown, ...sp.names])
-    const libres = PRENOMS_SURPRISE.filter((n) => !pris.has(n))
-    setName(libres[Math.floor(Math.random() * libres.length)])
   }
 
   return (
@@ -145,35 +139,17 @@ function Adopt({ onAdopte }: { onAdopte: (x: { species: string; name: string }) 
               key={x.key}
               onClick={(e) => choisir(x.key, e.currentTarget)}
               aria-pressed={on}
+              aria-label={`${x.prenom}, le ${x.name.toLowerCase()}`}
               className={`presse flex flex-col items-center rounded-[20px] px-1 pb-2 pt-2.5 transition-shadow ${on ? 'bg-teinte-doux ring-[2.5px] ring-teinte' : 'bg-carte shadow-carte'}`}
             >
               <span data-figure className="block w-[60px]">
                 <PetFigure pet={{ species: x.key, outfit: null }} className="w-full" />
               </span>
-              <span className={`mt-1 text-legende ${on ? 'font-semibold text-teinte-fonce' : 'text-brume'}`}>{x.name}</span>
+              {/* son prénom, pas son espèce : on voit bien que c'est un pingouin */}
+              <span className={`mt-1 text-legende ${on ? 'font-bold text-teinte-fonce' : 'font-semibold text-encre/80'}`}>{x.prenom}</span>
             </button>
           )
         })}
-      </div>
-
-      <p className="entete mt-5 !px-1">Son prénom</p>
-      <input className="champ" placeholder={sp.names[0]} maxLength={24} value={name} onChange={(e) => setName(e.target.value)} aria-label="Son prénom" />
-      <div className="mt-2 flex flex-wrap gap-2">
-        {sp.names.map((n) => (
-          <button
-            key={n}
-            onClick={() => {
-              tap()
-              setName(n)
-            }}
-            className={`presse h-8 rounded-full px-3 text-sous font-medium ${shown === n ? 'bg-encre text-white' : 'bg-carte text-encre shadow-carte'}`}
-          >
-            {n}
-          </button>
-        ))}
-        <button onClick={surprise} className="presse flex h-8 items-center gap-1.5 rounded-full bg-teinte-doux px-3 text-sous font-semibold text-teinte-fonce">
-          <Dices size={16} strokeWidth={2.4} /> Surprise
-        </button>
       </div>
 
       <div className="groupe mt-5">
@@ -273,8 +249,6 @@ function PetView({ pet, onShop }: { pet: Pet; onShop: (shop: Shop) => void }) {
   const { state, api, run, reload, toast } = useHome()
   const { family, cares, stock, owned, starLog, me } = state
   const [fx, setFx] = useState<Effect[]>([])
-  const [renaming, setRenaming] = useState(false)
-  const [newName, setNewName] = useState(pet.name)
   const care = useCare(() => onShop('superette'))
   const stroke = usePet()
   const stage = petStage(pet.love)
@@ -403,38 +377,10 @@ function PetView({ pet, onShop }: { pet: Pet; onShop: (shop: Shop) => void }) {
         )}
       </div>
 
-      {/* son prénom, son âge, son amour */}
+      {/* son prénom (il vient avec lui : on ne le change pas), son âge, son amour */}
       <div className="mt-4 flex items-center gap-2 px-1">
-        {renaming ? (
-          <form
-            className="flex flex-1 gap-2"
-            onSubmit={(e) => {
-              e.preventDefault()
-              if (newName.trim()) dress({ name: newName.trim() })
-              setRenaming(false)
-            }}
-          >
-            <input className="champ flex-1" value={newName} maxLength={24} onChange={(e) => setNewName(e.target.value)} autoFocus aria-label="Nouveau prénom" />
-            <button type="submit" className="presse rounded-full bg-teinte px-4 text-sous font-semibold text-white">
-              OK
-            </button>
-          </form>
-        ) : (
-          <>
-            <p className="min-w-0 flex-1 truncate font-rond text-titre1">{pet.name}</p>
-            <span className="shrink-0 rounded-full bg-teinte-doux px-3 py-1 text-legende font-semibold text-teinte-fonce">{stage.label}</span>
-            <button
-              onClick={() => {
-                tap()
-                setRenaming(true)
-              }}
-              className="presse flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-carte text-brume shadow-carte"
-              aria-label="Changer son prénom"
-            >
-              <PenLine size={16} strokeWidth={2.3} />
-            </button>
-          </>
-        )}
+        <p className="min-w-0 flex-1 truncate font-rond text-titre1">{pet.name}</p>
+        <span className="shrink-0 rounded-full bg-teinte-doux px-3 py-1 text-legende font-semibold text-teinte-fonce">{stage.label}</span>
       </div>
       <div className="mt-2 px-1">
         <div className="flex items-baseline justify-between text-note text-brume">

@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { SUPABASE_KEY, SUPABASE_URL } from '../config'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { isMemory } from './jeux'
+import { avecSonPrenom } from './data'
 import { jourParis, type AnneeState, type MotLigne, type MotMoi, type Secret } from './parties'
 import { ENDROITS_MAX, nomPris, nomPropre, RAYON } from './endroits'
 import type { AdventDoor, AppFlag, Answer, Backend, Game, Partie, HouseCare, Pet, Plot, Circle, Drawing, DrawingData, Endroit, FamEvent, Family, FamilyState, Folder, JoinRequest, LiveEvent, LiveInvite, MyRequest, FolderItem, FolderMember, ListItem, Member, Moment, PollVote, Position, Reaction, StarEntry, Thought, Ecrit } from './types'
@@ -321,7 +322,8 @@ export function createSupabaseBackend(): Backend {
           ? Promise.resolve({ data: null, error: { message: PAS_DEMANDE } })
           : sb.from('endroits').select(COLONNES_ENDROIT).eq('family_id', fid).order('created_at'),
       ])
-      const pet = ((check(pets) ?? []) as Pet[])[0] ?? null
+      const lePet = ((check(pets) ?? []) as Pet[])[0]
+      const pet = lePet ? avecSonPrenom(lePet) : null
       const mem = check(members) as Member[]
       const me = mem.find((m) => m.user_id === userId)
       if (!me) throw new Error('PAS_MEMBRE')

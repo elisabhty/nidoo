@@ -1,9 +1,13 @@
 // « Nos lieux » (Elisa, 26 novembre ; « Nos adresses » au début) : la fiche pour en ajouter un ou le modifier. Un nom (École, Travail…),
-// une adresse (cherchée dans la liste, déjà utilisée dans l'agenda, ou la position de quelqu'un), la taille de la zone.
-import { Check, LocateFixed, MapPin, Trash2 } from 'lucide-react'
-import { useId, useMemo, useRef, useState } from 'react'
+// une adresse (cherchée dans la liste, déjà utilisée dans l'agenda, ma position ou celle d'un proche), la taille de la zone.
+// En haut, le lieu lui-même (Elisa, 26 novembre : « améliore l'UI UX de cette page ») : son image et son nom, puis, dès que
+// l'adresse est trouvée, la carte avec sa zone, qui suit la taille choisie.
+import { Check, LocateFixed, MapPin, Radius, Trash2 } from 'lucide-react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import type { GeoJSONSource, Map as CarteML } from 'maplibre-gl'
 import { trouverPoint, type Suggestion } from '../lib/adresses'
-import { cle, ENDROITS_MAX, lieuComplet, memeAdresse, nomPris, nomPropre, nomsLibres, NOMS_COURANTS, RAYON, TAILLES } from '../lib/endroits'
+import { cercle, cle, ENDROITS_MAX, lieuComplet, memeAdresse, nomPris, nomPropre, nomsLibres, NOMS_COURANTS, RAYON, TAILLES } from '../lib/endroits'
+import { chargerMapLibre, urlStyleCarte, zoomPourRayon } from '../lib/fondCarte'
 import { select, success, tap } from '../lib/haptic'
 import { lirePosition, messagePosition, POSITION_DEMO, libelle, ancienne } from '../lib/localisation'
 import { useHome } from '../lib/store'
@@ -143,14 +147,11 @@ export function EndroitSheet({ endroit, onClose, onFait }: { endroit?: Endroit; 
         </Btn>
       }
     >
-      {/* l'image suit le nom : un cartable pour l'école, une mallette pour le travail */}
-      <div className="flex flex-col items-center pb-4 pt-1">
-        <PastilleEndroit nom={propre || 'autre'} size={64} vivante />
-        <p className="mt-2 max-w-full truncate text-titre3 text-encre">{propre || 'Un lieu à nommer'}</p>
-        <p className="text-note text-brume">On lira ce nom à la place de l’adresse</p>
-      </div>
+      {/* le lieu lui-même : son image (elle suit le nom : un cartable pour l'école), et sur la carte dès que l'adresse
+          est trouvée, avec sa zone */}
+      <ApercuLieu nom={propre} point={pointValable ? point : null} rayon={rayon} />
 
-      <ChampRequis id={nomId} label="Nom" aide="Dans « Où sont mes proches ? » et dans l’agenda." erreur={doublon ? `Un de vos lieux s’appelle déjà « ${doublon.nom} ».` : null}>
+      <ChampRequis id={nomId} className="mt-5" label="Nom" aide="Il remplacera l’adresse dans « Où sont mes proches ? » et dans l’agenda." erreur={doublon ? `Un de vos lieux s’appelle déjà « ${doublon.nom} ».` : null}>
         <input
           ref={champNom}
           id={nomId}
@@ -178,7 +179,7 @@ export function EndroitSheet({ endroit, onClose, onFait }: { endroit?: Endroit; 
         </div>
       )}
 
-      {/* l'adresse */}
+      {/* l'adresse : à taper (la liste propose), ou là où je suis, ou là où est un proche */}
       <section className="carte-evt mt-5 rounded-[20px] bg-carte p-4">
         <div className="mb-3 flex items-center gap-2.5">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-teinte-doux text-teinte"><MapPin size={17} strokeWidth={2.3} /></span>
@@ -202,28 +203,40 @@ export function EndroitSheet({ endroit, onClose, onFait }: { endroit?: Endroit; 
         />
         {introuvable && (
           <p role="alert" className="anim-entre mt-2 px-1 text-note font-semibold text-peche-fonce">
-            Je ne trouve pas cette adresse. Choisis-la dans la liste en tapant, ou prends une position ci-dessous.
+            Je ne trouve pas cette adresse. Choisis-la dans la liste en tapant, ou prends ta position juste en dessous.
           </p>
         )}
 
-        {/* ou une position : la mienne, ou celle d'un proche qui y est en ce moment */}
-        <p className="mb-2 mt-4 px-1 text-note font-semibold text-brume">Ou là où se trouve…</p>
-        <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-0.5 no-bar">
-          <button type="button" onClick={() => void maPosition()} disabled={!!cherche} aria-pressed={de === 'moi'} className={`${puce(de === 'moi')} pl-2.5 pr-3 disabled:opacity-60`}>
-            {de === 'moi' ? <Check size={16} strokeWidth={3} /> : <LocateFixed size={16} strokeWidth={2.4} className={cherche === 'moi' ? 'animate-pulse' : ''} />}
-            {cherche === 'moi' ? 'Je cherche…' : 'Moi, ici'}
-          </button>
-          {gens.map(({ m, p }) => (
-            <PuceProche key={m.id} m={m} on={de === m.id} pale={ancienne(p)} classe={puce(de === m.id)} onClick={() => prendre({ lat: p.lat, lon: p.lon, de: m.id }, libelle(p))} />
-          ))}
-        </div>
+        {/* on y est : l'adresse d'un toucher */}
+        <button
+          type="button"
+          onClick={() => void maPosition()}
+          disabled={!!cherche}
+          aria-pressed={de === 'moi'}
+          className={`presse mt-2.5 flex min-h-11 w-full items-center gap-2.5 rounded-[14px] px-3 text-left text-sous font-semibold transition-colors duration-200 disabled:opacity-60 ${de === 'moi' ? 'bg-teinte-doux text-teinte-fonce' : 'text-teinte-fonce'}`}
+        >
+          {de === 'moi' ? <Check size={18} strokeWidth={3} className="shrink-0" /> : <LocateFixed size={18} strokeWidth={2.4} className={`shrink-0 ${cherche === 'moi' ? 'animate-pulse' : ''}`} />}
+          <span className="min-w-0 flex-1">{cherche === 'moi' ? 'Je cherche ta position…' : de === 'moi' ? 'Là où tu es en ce moment' : 'Utiliser ma position actuelle'}</span>
+        </button>
+        {/* ou là où est un proche qui partage sa position (Papa à son bureau) */}
+        {gens.length > 0 && (
+          <>
+            <p className="mb-2 mt-2.5 px-1 text-note font-semibold text-brume">Ou là où est…</p>
+            <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-0.5 no-bar">
+              {gens.map(({ m, p }) => (
+                <PuceProche key={m.id} m={m} on={de === m.id} pale={ancienne(p)} classe={puce(de === m.id)} onClick={() => prendre({ lat: p.lat, lon: p.lon, de: m.id }, libelle(p))} />
+              ))}
+            </div>
+          </>
+        )}
       </section>
 
-      {/* la taille de la zone */}
+      {/* la taille de la zone : elle se voit sur la carte, en haut */}
       <section className="carte-evt mt-3 rounded-[20px] bg-carte p-4">
-        <div className="flex items-baseline justify-between gap-3">
-          <h3 className="text-corps font-bold">Taille de la zone</h3>
-          <span key={rayon} className="anim-entre text-note text-brume">Jusqu’à {rayon} m autour</span>
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-teinte-doux text-teinte"><Radius size={17} strokeWidth={2.3} /></span>
+          <h3 className="min-w-0 flex-1 text-corps font-bold">Taille de la zone</h3>
+          <span key={rayon} className="anim-entre text-note font-semibold text-teinte-fonce">{rayon} m autour</span>
         </div>
         <div className="mt-3 flex gap-1.5" role="group" aria-label="Taille de la zone">
           {TAILLES.map((t) => (
@@ -257,5 +270,104 @@ function PuceProche({ m, on, pale, classe, onClick }: { m: Member; on: boolean; 
       </span>
       {m.display_name}
     </button>
+  )
+}
+
+/** La hauteur de l'aperçu, en pixels (la carte et l'image avant elle : rien ne saute quand l'adresse arrive). */
+const HAUT_APERCU = 172
+const zoneDe = (p: { lat: number; lon: number }, rayon: number) => ({
+  type: 'FeatureCollection' as const,
+  features: [{ type: 'Feature' as const, properties: {}, geometry: { type: 'Polygon' as const, coordinates: [cercle(p, rayon)] } }],
+})
+
+/** Le lieu en haut de sa fiche. Sans adresse : son image, grande, et son nom. L'adresse trouvée : la carte, centrée sur
+ *  lui, avec sa zone (le disque suit la taille choisie) ; son image et son nom au milieu, comme sur la carte de
+ *  « Où sont mes proches ? ». La carte ne se touche pas : c'est un aperçu (MapLibre n'est chargé qu'à la première adresse). */
+function ApercuLieu({ nom, point, rayon }: { nom: string; point: { lat: number; lon: number } | null; rayon: number }) {
+  const boite = useRef<HTMLDivElement>(null)
+  const carte = useRef<CarteML | null>(null)
+  const [chargee, setChargee] = useState(false)
+  // les dernières valeurs, pour la carte qui arrive après coup
+  const vu = useRef({ point, rayon })
+  vu.current = { point, rayon }
+  const trouve = !!point
+
+  useEffect(() => {
+    if (!trouve || carte.current) return
+    let fini = false
+    void (async () => {
+      try {
+        const maplibre = await chargerMapLibre()
+        const p = vu.current.point
+        if (fini || !boite.current || !p) return
+        const c = new maplibre.Map({
+          container: boite.current,
+          style: urlStyleCarte(),
+          center: [p.lon, p.lat],
+          zoom: zoomPourRayon(vu.current.rayon, p.lat, HAUT_APERCU),
+          interactive: false,
+          attributionControl: { compact: true },
+        })
+        c.on('error', () => undefined)
+        c.once('load', () => {
+          if (fini) return
+          // les crédits sous leur « i » tout de suite : l'aperçu est petit
+          boite.current?.querySelector('.maplibregl-ctrl-attrib.maplibregl-compact-show')?.classList.remove('maplibregl-compact-show')
+          try {
+            const q = vu.current.point ?? p
+            c.addSource('zone', { type: 'geojson', data: zoneDe(q, vu.current.rayon) })
+            c.addLayer({ id: 'zone-fond', type: 'fill', source: 'zone', paint: { 'fill-color': '#7050D5', 'fill-opacity': 0.12 } })
+            c.addLayer({ id: 'zone-bord', type: 'line', source: 'zone', paint: { 'line-color': '#7050D5', 'line-opacity': 0.55, 'line-width': 1.6 } })
+          } catch {
+            /* sans zone : l'image du lieu suffit */
+          }
+          setChargee(true)
+        })
+        carte.current = c
+      } catch {
+        /* pas de carte (hors ligne) : l'image et le nom restent */
+      }
+    })()
+    return () => {
+      fini = true
+    }
+  }, [trouve])
+  useEffect(
+    () => () => {
+      carte.current?.remove()
+      carte.current = null
+    },
+    [],
+  )
+  // une autre adresse, une autre taille : la carte y glisse, la zone suit
+  useEffect(() => {
+    const c = carte.current
+    if (!c || !point) return
+    c.easeTo({ center: [point.lon, point.lat], zoom: zoomPourRayon(rayon, point.lat, HAUT_APERCU), duration: 650 })
+    ;(c.getSource('zone') as GeoJSONSource | undefined)?.setData(zoneDe(point, rayon))
+  }, [point?.lat, point?.lon, rayon, chargee]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const montre = trouve && chargee
+  return (
+    <div className="carte-apercu relative overflow-hidden rounded-[22px] bg-[#F4F0EA] ring-1 ring-inset ring-encre/[0.06]" style={{ height: HAUT_APERCU }}>
+      {/* sans carte encore : un papier pointillé, comme une carte à venir */}
+      <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(rgba(112, 80, 213, 0.16) 1.2px, transparent 1.4px)', backgroundSize: '15px 15px' }} aria-hidden="true" />
+      <div ref={boite} className={`absolute inset-0 transition-opacity duration-500 ${montre ? 'opacity-100' : 'opacity-0'}`} aria-hidden="true" />
+      {trouve ? (
+        // le lieu, au milieu de sa zone : son image et son nom
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+          <span className="rounded-full bg-white p-[3px] shadow-[0_4px_14px_rgba(29,26,43,0.28)]">
+            <PastilleEndroit nom={nom || 'autre'} size={38} vivante />
+          </span>
+          <span className="mt-1.5 max-w-[220px] truncate rounded-full bg-white/95 px-2.5 py-[3px] text-note font-bold text-encre shadow-[0_2px_8px_-1px_rgba(29,26,43,0.22)]">{nom || 'Nouveau lieu'}</span>
+        </div>
+      ) : (
+        <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
+          <PastilleEndroit nom={nom || 'autre'} size={60} vivante />
+          <p className="mt-2 max-w-full truncate text-titre3 text-encre">{nom || 'Un lieu à nommer'}</p>
+          <p className="text-note text-brume">Choisis son adresse pour le voir sur la carte</p>
+        </div>
+      )}
+    </div>
   )
 }

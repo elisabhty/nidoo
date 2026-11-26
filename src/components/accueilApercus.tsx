@@ -245,7 +245,7 @@ function Compagnon() {
       <img src={art(content ? 'emo-amoureux' : 'chat')} alt="" className={`h-[74px] w-[74px] shrink-0 ${content ? 'widget-boing' : ''}`} key={String(content)} />
       <div className="min-w-0 flex-1">
         <p className="text-[10px] font-extrabold uppercase tracking-[0.04em] text-[#B07A00]">Notre compagnon</p>
-        <p className="mt-0.5 text-[13px] font-extrabold">{content ? 'Minou ronronne 💛' : 'Minou a un petit creux'}</p>
+        <p className="mt-0.5 text-[13px] font-extrabold">{content ? 'Moka ronronne 💛' : 'Moka a un petit creux'}</p>
         <span className="mt-1.5 block h-2 overflow-hidden rounded-full bg-[#F3EEE0]"><span className="block h-full rounded-full bg-[#FFC94D] transition-[width] duration-500" style={{ width: `${faim}%` }} /></span>
         <button
           type="button"

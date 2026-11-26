@@ -638,10 +638,8 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
   const [lieu, setLieu] = useState(event?.lieu ?? '')
   const [who, setWho] = useState<string[]>(event?.members ?? [])
   const birthday = kind === 'anniversaire'
-  // un anniversaire : « Toute la famille » est proposée mais pas cochée d'avance (Elisa, 25 novembre) ; cochée seulement
-  // si on la touche, ou si l'anniversaire déjà enregistré concernait tout le monde
-  const [familleChoisie, setFamilleChoisie] = useState(!!event && !(event.members ?? []).length)
-  const pourTous = who.length === 0 && (!birthday || familleChoisie)
+  // personne de choisi : toute la famille (un anniversaire, lui, choisit sa personne tout en haut)
+  const pourTous = who.length === 0
   // le calendrier de l'appli (plus celui de l'iPhone) : pour le jour, ou pour la fin
   const [calendrier, setCalendrier] = useState<null | 'date' | 'fin'>(null)
   const nom = useRef<HTMLInputElement>(null)
@@ -860,15 +858,35 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
           </div>
         </div>
         {stickersOpen && <div className="anim-entre mt-4"><StickerTray start="fete" onClose={() => setStickersOpen(false)} onPick={key => {setSticker(key);setStickersOpen(false)}} /><button onClick={() => {setSticker(null);setStickersOpen(false)}} className="mt-1 min-h-11 px-1 text-sous font-semibold text-teinte-fonce">Revenir à l’image initiale</button></div>}
-        {birthday && sansAnniv.length > 0 && (
-          <div className="mt-4">
-            <p className="mb-0.5 px-0.5 text-note font-semibold text-brume">Dans la famille</p>
-            <div className="no-bar -mx-4 flex gap-1 overflow-x-auto px-3" role="group" aria-label="C’est l’anniversaire de…">
-              {sansAnniv.map((m) => (
-                <Bulle key={m.id} taille={44} on={title.trim() === m.display_name} nom={m.id === state.me.id ? 'Moi' : m.display_name} onClick={() => (select(), setTitle(m.display_name), setWho([m.id]))}>
-                  <Avatar m={m} size={44} />
-                </Bulle>
-              ))}
+        {/* la personne concernée, tout de suite sous son prénom et sur une seule ligne (Elisa, 26 novembre : elle était
+            en double, « Dans la famille » ici et « Personnes concernées » en bas) ; la toucher écrit aussi son prénom */}
+        {birthday && (
+          <div className="mt-3.5 flex items-center gap-2.5">
+            <p className="shrink-0 text-note font-semibold text-brume">Personne concernée</p>
+            <div className="no-bar -mr-4 flex min-w-0 flex-1 gap-1.5 overflow-x-auto py-0.5 pr-4" role="group" aria-label="Personne concernée">
+              {[...sansAnniv, ...avecAnniv.map((x) => x.m)].map((m) => {
+                const on = who.includes(m.id)
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => {
+                      select()
+                      if (on) return setWho(who.filter((x) => x !== m.id))
+                      // son prénom s'écrit tout seul, sauf si on a déjà écrit autre chose qu'un prénom de la famille
+                      if (!who.length && (!title.trim() || state.members.some((x) => x.display_name === title.trim()))) setTitle(m.display_name)
+                      setWho([...who, m.id])
+                    }}
+                    className={`presse choix-pop flex h-9 shrink-0 items-center gap-1.5 rounded-full py-1 pl-1 pr-3 text-[14px] font-semibold transition-colors duration-200 ${on ? 'bg-teinte text-white' : 'bg-doux text-encre'}`}
+                  >
+                    <span className={`flex rounded-full ${on ? 'ring-2 ring-white' : ''}`}>
+                      <Avatar m={m} size={26} />
+                    </span>
+                    {m.id === state.me.id ? 'Moi' : m.display_name}
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}
@@ -980,20 +998,13 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
         <ChampLieu value={lieu} onChange={setLieu} placeholder={LIEU_EXEMPLE[kind] ?? 'Où ?'} recents={lieuxConnus} endroits={state.endroits} />
       </CarteEvt>
 
-      {/* Les personnes concernées */}
-      <CarteEvt>
-        <TitreCarte icone={Users} titre="Personnes concernées" extra={<span key={`${who.length}${pourTous}`} className="anim-entre text-note text-brume">{who.length ? `${who.length} personne${who.length > 1 ? 's' : ''}` : pourTous ? 'Toute la famille' : 'Facultatif'}</span>} />
-        {birthday ? (
-          <WhoPicker
-            value={who}
-            onChange={(ids) => (setWho(ids), setFamilleChoisie(false))}
-            famille={pourTous}
-            onFamille={() => (setWho([]), setFamilleChoisie((x) => who.length > 0 || !x))}
-          />
-        ) : (
+      {/* Les personnes concernées (un anniversaire : tout en haut, sous son prénom) */}
+      {!birthday && (
+        <CarteEvt>
+          <TitreCarte icone={Users} titre="Personnes concernées" extra={<span key={`${who.length}${pourTous}`} className="anim-entre text-note text-brume">{who.length ? `${who.length} personne${who.length > 1 ? 's' : ''}` : pourTous ? 'Toute la famille' : 'Facultatif'}</span>} />
           <WhoPicker value={who} onChange={setWho} />
-        )}
-      </CarteEvt>
+        </CarteEvt>
+      )}
 
       {/* Notes */}
       <CarteEvt>

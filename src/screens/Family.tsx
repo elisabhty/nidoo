@@ -10,7 +10,7 @@ import { Art, Avatar, Btn, choisir, confirmer, Rond, Row, Screen, Section, Segme
 import { CARE, DECOS, moodOf, PLAN_LIMITS } from '../lib/data'
 import { select } from '../lib/haptic'
 import { activerSons, jouer, sonsActives } from '../lib/sons'
-import { copy, shareInvite } from '../lib/share'
+import { shareInvite } from '../lib/share'
 import { codeExpire, codeValable } from '../lib/invitation'
 import { useHome } from '../lib/store'
 import { WIDGETS } from '../lib/widgets'
@@ -22,6 +22,7 @@ import { HousePicker, ProfilePicker } from '../components/pickers'
 import { dateVersion, etatMaj, verifier } from '../lib/majDistance'
 import Onboarding from './Onboarding'
 import { OuEstApercu, OuEstPage } from '../components/ouEst'
+import { LettresCode, useCopie } from '../components/copie'
 import { useDemandeOuEst } from '../lib/demandes'
 import { autoActif, etatDirect, reglerAuto, retirerRendezVous } from '../lib/direct'
 
@@ -149,6 +150,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
   const { family, me, members } = state
   const [sheet, setSheet] = useState<Open>(null)
   const [ouEst, setOuEst] = useState(false)
+  const { copie: codeCopie, vague: vagueCode, copier: copierCode } = useCopie()
   useDemandeOuEst(() => {
     setSection('proches')
     setOuEst(true)
@@ -369,17 +371,29 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
         <div className="groupe mx-4 shadow-carte">
           {admin ? (
             <>
+              {/* copié : il le montre là où on a touché (la vague, une coche, des étincelles), plus de bandeau en haut */}
               <button
                 disabled={expired}
-                onClick={async () => (await copy(family.invite_code)) && toast('Code copié')}
+                onClick={(e) => void copierCode(family.invite_code, e.currentTarget)}
                 className="presse-ligne flex min-h-[64px] w-full items-center justify-between border-b border-trait px-4 py-2 text-left"
-                aria-label={expired ? 'Code d’invitation' : `Copier le code ${family.invite_code}`}
+                aria-label={expired ? 'Code d’invitation' : codeCopie ? 'Code copié' : `Copier le code ${family.invite_code}`}
               >
                 <span>
-                  <span className={`block font-rond text-titre2 tracking-[0.18em] ${expired ? 'animate-pulse text-pale' : ''}`} aria-hidden={expired}>{expired ? '••••••' : family.invite_code}</span>
+                  {expired ? (
+                    <span className="block animate-pulse font-rond text-titre2 tracking-[0.18em] text-pale" aria-hidden="true">••••••</span>
+                  ) : (
+                    <LettresCode code={family.invite_code} vague={vagueCode} className="block font-rond text-titre2 tracking-[0.18em]" />
+                  )}
                   <span className="block text-note text-brume">{expired ? '\u00a0' : `Valable jusqu’au ${until}`}</span>
                 </span>
-                {!expired && <Copy size={18} className="text-teinte" />}
+                {!expired &&
+                  (codeCopie ? (
+                    <span key="ok" className="anim-pop flex items-center gap-1 rounded-full bg-[#E3F5EC] py-1 pl-2 pr-2.5 text-note font-extrabold text-[#14955A]">
+                      <Check size={14} strokeWidth={3.2} /> Copié
+                    </span>
+                  ) : (
+                    <Copy size={18} className="text-teinte" />
+                  ))}
               </button>
               <button onClick={invite} className="presse-ligne flex h-[50px] w-full items-center border-b border-trait px-4 text-corps text-teinte">
                 Partager le lien d’invitation

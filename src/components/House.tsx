@@ -4,6 +4,7 @@ import { jouer, sonCompagnon } from '../lib/sons'
 import { ANIMALS, CARE, moodOf, petStage, plantArt } from '../lib/data'
 import type { HouseCare, HouseType, Member, Pet, Plot } from '../lib/types'
 import { AGE_SCALE, lookOf, echelleTaille } from '../lib/look'
+import { persoOf } from '../lib/persos'
 import { Character } from './Character'
 import { Smiley } from './Smiley'
 import { dayPhase, season as seasonOf, todayKey, type Season } from '../lib/util'
@@ -720,6 +721,27 @@ function arrange(people: HousePerson[], op: Openings): { placed: Placed[]; extra
   return { placed, extra: people.length - shown.length }
 }
 
+/** Seul dans la maison (Elisa, 26 novembre : « s'il est seul, dire : moi je me sens un peu seul… ») : mon personnage
+ *  le dit, puis propose d'appuyer sur lui pour l'humeur du jour, ou d'inviter ses proches (le bouton est juste sous la
+ *  maison). Une phrase après l'autre, sur deux lignes au plus : la maison reste visible. */
+function BulleSeul({ m, x }: { m: Member; x: number }) {
+  const feminin = ['femme', 'fille'].includes(persoOf(lookOf(m.avatar, m.user_id ?? m.id)).g)
+  const phrases = [`Je me sens un peu ${feminin ? 'seule' : 'seul'}…`, 'Appuie sur moi pour ton humeur', 'Ou invite tes proches !']
+  const [i, setI] = useState(0)
+  useEffect(() => {
+    const t = window.setInterval(() => setI((n) => (n + 1) % 3), 3400)
+    return () => window.clearInterval(t)
+  }, [])
+  return (
+    <span className={`relative mb-[3px] ${x < 24 ? 'self-start' : x > 76 ? 'self-end' : ''}`} style={{ animation: 'flotte 3.6s ease-in-out infinite' }}>
+      <span key={i} className="anim-pop block w-max max-w-[128px] rounded-[11px] bg-teinte px-[8px] py-[3px] text-center text-[10px] font-bold leading-[13px] text-white shadow-[0_3px_8px_rgba(102,70,204,0.35)]">
+        {phrases[i]}
+      </span>
+      <span className={`absolute -bottom-[3px] h-[7px] w-[7px] rotate-45 bg-teinte ${x < 24 ? 'left-[22%]' : x > 76 ? 'right-[22%]' : 'left-1/2 -translate-x-1/2'}`} aria-hidden="true" />
+    </span>
+  )
+}
+
 function Jardin({
   people, onTouch, onPerson, poke, scene, act, s = 1, op,
 }: {
@@ -733,6 +755,8 @@ function Jardin({
   op: Openings
 }) {
   const { placed, extra } = arrange(people, op)
+  // seul dans la maison : mon personnage le dit (et ce qu'on peut y faire)
+  const seul = people.length === 1 && people[0].me
   const from = scene && placed.find((x) => x.p.m.id === scene.from)
   const to = scene && placed.find((x) => x.p.m.id === scene.to)
   const live = from && to && from !== to ? { from, to, side: from.at.x <= to.at.x ? -1 : 1 } : null
@@ -771,6 +795,8 @@ function Jardin({
             <Smiley mood={md.key} size={Math.round(20 * Math.max(0.8, s))} />
             <span className="absolute -bottom-[3px] left-1/2 -z-10 h-[7px] w-[7px] -translate-x-1/2 rotate-45 bg-white" />
           </span>
+        ) : p.me && seul ? (
+          <BulleSeul m={p.m} x={at.x} />
         ) : p.me ? (
           // près d'un bord du décor, la bulle se cale du côté intérieur pour rester entière
           <span className={`relative mb-[3px] whitespace-nowrap rounded-full bg-teinte px-[7px] py-[2px] text-[10px] font-bold leading-[14px] text-white shadow-[0_3px_8px_rgba(102,70,204,0.35)] ${at.x < 24 ? 'self-start' : at.x > 76 ? 'self-end' : ''}`} style={{ animation: 'flotte 3.6s ease-in-out infinite' }}>

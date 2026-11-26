@@ -7,6 +7,7 @@ import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type Reac
 import { createPortal, flushSync } from 'react-dom'
 import type { GeoJSONSource, LngLatLike, Map as CarteML } from 'maplibre-gl'
 import { cercle, cle, endroitDe } from '../lib/endroits'
+import { chargerMapLibre, urlStyleCarte } from '../lib/fondCarte'
 import { avantLesNoms, cadrer, choisirRelief, COUCHE_BATIMENTS, coucheBatiments, LUMIERE, MONDE, PENTE, PENTE_MAX, penteMax, reliefChoisi, SEUIL_3D, type Camera } from '../lib/relief'
 import { select, tap } from '../lib/haptic'
 import { ancienne, autorisation, cadre, distance, ilYA, libelle, lirePosition, messagePosition, POSITION_DEMO, suivre, texteDistance, type Autorisation } from '../lib/localisation'
@@ -19,10 +20,6 @@ import { EnRouteSheet } from './enRoute'
 import { IconeEndroit, PastilleEndroit } from './iconeEndroit'
 import { Avatar, Btn, Page, Switch } from './ui'
 
-/** Le fond de carte (Elisa, 26 novembre : « il y a pas une autre carte ? j'aime pas celle-là », puis « rétro ») :
- *  « Bright » d'OpenFreeMap, rangé avec l'appli (scripts/carte/style_nidoo.py) ; les tuiles, les noms et les icônes
- *  viennent toujours d'OpenFreeMap. */
-const STYLE = 'carte/nidoo.json'
 /** De la place en haut pour les têtes (le repère est accroché par sa pointe, en bas). */
 const MARGES = { top: 84, bottom: 28, left: 44, right: 44 }
 
@@ -774,14 +771,8 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN, on
     let fini = false
     void (async () => {
       try {
-        const [maplibre, travailleur] = await Promise.all([
-          import('maplibre-gl'),
-          // le travailleur, rangé à côté par Vite (sinon MapLibre le cherche là où il n'est pas)
-          import('maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'),
-          import('maplibre-gl/dist/maplibre-gl.css'),
-        ])
+        const maplibre = await chargerMapLibre()
         if (fini || !boite.current) return
-        maplibre.setWorkerUrl(new URL(travailleur.default, window.location.href).href)
         // personne ne partage sa position : nos adresses, s'il y en a ; sinon la France
         const c = cadre(points.length ? points.map((x) => x.p) : [...endroits])
         // de loin, la carte à plat ; elle se relève en approchant (Elisa, 26 novembre : « ça fait bizarre les
@@ -803,7 +794,7 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN, on
         }
         const nouvelle = new maplibre.Map({
           container: boite.current,
-          style: new URL(STYLE, window.location.href).href,
+          style: urlStyleCarte(),
           ...(c ? { bounds: c, fitBoundsOptions: { padding: MARGES, maxZoom: 15 } } : { center: [2.4, 46.6], zoom: 4.6 }),
           pitch: voulue.current,
           maxPitch: PENTE_MAX,
