@@ -52,13 +52,13 @@ test('n’annonce pas un message ancien ou une humeur d’hier', () => {
   assert.equal(stories[0].kind, 'invitation')
 })
 
-test('affiche les humeurs du jour sans dévoiler un dossier privé', () => {
+test('les humeurs du jour ne sont pas redites dans la chronique (chaque proche a la sienne juste en dessous)', () => {
   const state = base()
   state.members[1].mood = 'heureux'
   state.members[1].mood_at = '2026-11-18T10:00:00Z'
   const stories = homeStories(state, 'moi', null, now)
-  assert.equal(stories[0].kind, 'humeur')
-  assert.match(stories[0].title, /Léa/)
+  // ni « Les humeurs du jour », ni « Rien de neuf cette semaine » : une humeur du jour, c'est du neuf
+  assert.deepEqual(stories, [])
 })
 
 

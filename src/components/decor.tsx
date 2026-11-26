@@ -75,7 +75,7 @@ export function DecorPage({ onClose, food: forFood = false }: { onClose: () => v
         }
       >
         <p className="-mt-1 px-5 text-sous text-brume">
-          Niveau {houseItems.length + 1} · {family.stars} étoile{family.stars > 1 ? 's' : ''} à dépenser, gagnées par toute la famille.
+          Niveau {houseItems.length + 1} · avec les étoiles gagnées par toute la famille.
         </p>
 
         <div className="mx-4 mt-4 overflow-hidden rounded-[28px] bg-carte shadow-carte">

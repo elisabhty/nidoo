@@ -97,11 +97,14 @@ export function QuestionSheet({ onClose }: { onClose: () => void }) {
 
   return (
     <Sheet title="Question du jour" onClose={onClose}>
-      <div className="flex items-center gap-2.5">
-        <Art name="picto-bulle" size={30} />
-        <p className="text-note font-semibold uppercase tracking-[0.03em] text-teinte">{mine ? 'Vos réponses' : 'Réponds pour gagner 2 étoiles'}</p>
-      </div>
-      <p className="mt-2 font-rond text-titre2">{q.text}</p>
+      {/* les étoiles à gagner sont dites sur le bouton « Répondre · +2 étoiles » : pas deux fois */}
+      {mine && (
+        <div className="flex items-center gap-2.5">
+          <Art name="picto-bulle" size={30} />
+          <p className="text-note font-semibold uppercase tracking-[0.03em] text-teinte">Vos réponses</p>
+        </div>
+      )}
+      <p className={`font-rond text-titre2 ${mine ? 'mt-2' : ''}`}>{q.text}</p>
       {mine ? (
         <div className="mt-3.5 space-y-2.5">
           {members.map((m) => {

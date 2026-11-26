@@ -1,4 +1,4 @@
-import { Baby, Check, CircleHelp, Clock, Copy, Crown, House as HouseIcon, LayoutGrid, LogOut, Mail, Pencil, Plus, RefreshCw, Share, ShieldCheck, Timer, Trash2, UserRound, Volume2 } from 'lucide-react'
+import { Baby, Check, CircleHelp, Clock, Copy, Crown, House as HouseIcon, LayoutGrid, LogOut, Mail, Pencil, Plus, RefreshCw, ShieldCheck, Timer, Trash2, UserRound, Volume2 } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import House from '../components/House'
 import { careFor, careTodo, gardenKeys } from '../components/care'
@@ -6,7 +6,7 @@ import { DrawingsSheet, DrawingWidget } from '../components/drawing'
 import { DrawSheet } from '../components/planche'
 import { EventIcon, MoodSheet } from '../components/sheets'
 import { JoinRequests } from '../components/requests'
-import { Art, Avatar, Btn, choisir, confirmer, Rond, Row, Screen, Section, Segments, Sheet, Switch, ChampRequis, CHAMP_REQUIS } from '../components/ui'
+import { Art, Avatar, Btn, choisir, confirmer, Row, Screen, Section, Segments, Sheet, Switch, ChampRequis, CHAMP_REQUIS } from '../components/ui'
 import { CARE, DECOS, moodOf, PLAN_LIMITS } from '../lib/data'
 import { select } from '../lib/haptic'
 import { activerSons, jouer, sonsActives } from '../lib/sons'
@@ -268,7 +268,9 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
 
   return (
     <>
-      <Screen title="Notre famille" trailing={admin ? <Rond label="Inviter un proche" tint onClick={invite}><Share size={18} strokeWidth={2.4} /></Rond> : undefined}>
+      {/* inviter un proche : dans « Inviter un proche », plus bas (le bouton rond d'en haut faisait la même chose que
+          « Partager le lien d'invitation ») */}
+      <Screen title="Notre famille">
         <p className="px-5 pb-5 text-sous text-brume">Votre cercle, votre maison, vos habitudes.</p>
 
         <div className="mx-5 mb-5"><Segments value={section} onChange={setSection} options={[{key:'proches',label:'Mes proches'},{key:'maison',label:'La maison'},{key:'reglages',label:'Réglages'}]} /></div>

@@ -5,7 +5,7 @@ import type { Endroit, FamEvent, FamilyState, Member, Moment } from './types'
 /** Ce que la maison raconte à partir des événements réellement enregistrés par la famille. */
 export type HomeStory = {
   id: string
-  kind: 'evenement' | 'photo' | 'message' | 'humeur' | 'invitation'
+  kind: 'evenement' | 'photo' | 'message' | 'invitation'
   /** la petite ligne du haut : quand, et qui (« Aujourd’hui · 18:00 », « Léa · il y a 5 min ») */
   label: string
   title: string
@@ -16,8 +16,6 @@ export type HomeStory = {
   at?: Date
   /** qui en parle (pour son portrait) */
   member?: Member
-  /** les proches qui ont donné leur humeur */
-  members?: Member[]
   /** la photo elle-même */
   image?: string | null
   /** un vocal (pour l'icône) */
@@ -112,27 +110,14 @@ export function homeStories(state: Sources, meId: string, next: NextEvent, now =
     })
   }
 
-  const moods = state.members.filter((m) => m.id !== meId && !!m.mood && !!m.mood_at && dayDifference(new Date(m.mood_at), now) === 0)
-  if (moods.length) {
-    result.push({
-      id: 'humeur:' + moods.map((m) => m.id).join(','),
-      kind: 'humeur',
-      label: 'Les humeurs du jour',
-      title:
-        moods.length <= 2
-          ? moods.map((m) => m.display_name).join(' et ')
-          : moods.length === 3
-            ? `${moods[0].display_name}, ${moods[1].display_name} et ${moods[2].display_name}`
-            : `${moods[0].display_name}, ${moods[1].display_name} et ${moods.length - 2} autres`,
-      detail: moods.length === 1 ? 'A partagé son humeur du jour' : 'Ont partagé leur humeur du jour',
-      target: 'famille',
-      members: moods,
-    })
-  }
+  // les humeurs du jour ne sont plus une nouvelle ici : chaque proche a la sienne sous son prénom, juste en dessous
+  // (et sur la maison), elles n'étaient que redites (Elisa, 26 novembre : « améliore les redondances »)
+  const humeurs = state.members.some((m) => m.id !== meId && !!m.mood && !!m.mood_at && dayDifference(new Date(m.mood_at), now) === 0)
 
-  // rien de neuf : un mot pour en donner. Seul dans la maison, rien du tout : l'accueil invite déjà ses proches juste
-  // en dessous (Elisa, 26 novembre : « répétition »)
-  if (!result.length && hasOthers) {
+  // rien de neuf : un mot pour en donner (pas quand un proche a déjà donné son humeur aujourd'hui : ce n'est pas
+  // « rien de neuf »). Seul dans la maison, rien du tout : l'accueil invite déjà ses proches juste en dessous
+  // (Elisa, 26 novembre : « répétition »)
+  if (!result.length && hasOthers && !humeurs) {
     result.push({
       id: 'invitation',
       kind: 'invitation',

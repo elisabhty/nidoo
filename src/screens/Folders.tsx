@@ -215,6 +215,14 @@ function FolderView({ id, onBack }: { id: string; onBack: () => void }) {
   const showPhotos = filter === 'tout' || filter === 'photos'
   const showNotes = filter === 'tout' || filter === 'notes'
   const hasResults = (showPhotos && visiblePhotos.length > 0) || (showNotes && visibleNotes.length > 0) || visibleMedia.length > 0
+  // les filtres : « Tout », puis seulement les sortes de souvenirs que le dossier contient (et celui qu'on regarde)
+  const filtres = ([
+    { key: 'tout', label: 'Tout', n: 1 },
+    { key: 'photos', label: 'Photos', n: photos.length },
+    { key: 'notes', label: 'Notes', n: notes.length },
+    { key: 'audio', label: 'Vocaux', n: media.filter((m) => m.kind === 'audio').length },
+    { key: 'video', label: 'Vidéos', n: media.filter((m) => m.kind === 'video').length },
+  ] as const).filter((t) => t.n > 0 || t.key === filter)
   const addCurrent = () => {
     if (filter === 'photos') setSheet({k:'photos'})
     else if (filter === 'notes') setSheet({ k: 'note' })
@@ -292,9 +300,13 @@ function FolderView({ id, onBack }: { id: string; onBack: () => void }) {
 
             {!empty && <>
               <div className="mx-4 mt-4"><SearchField value={query} onChange={setQuery} placeholder="Rechercher dans ce dossier" /></div>
-              <div className="no-bar mt-3 flex gap-1 overflow-x-auto px-4 pb-1" role="group" aria-label="Afficher le contenu">
-                {([{key:'tout',label:'Tout',count:own.filter(i => i.kind !== 'message').length},{key:'photos',label:'Photos',count:photos.length},{key:'notes',label:'Notes',count:notes.length},{key:'audio',label:'Vocaux',count:media.filter(m=>m.kind==='audio').length},{key:'video',label:'Vidéos',count:media.filter(m=>m.kind==='video').length}] as const).map(t => <button key={t.key} onClick={e => { tap(); setFilter(t.key); e.currentTarget.scrollIntoView({inline:'nearest',block:'nearest',behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'}) }} aria-pressed={filter === t.key} className={`presse flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-3 text-note font-semibold ${filter === t.key ? 'bg-teinte text-white' : 'bg-carte text-encre'}`}>{t.label}<span className={filter === t.key ? 'text-white/75' : 'text-brume'}>{t.count}</span></button>)}
-              </div>
+              {/* les filtres : seulement ce que le dossier contient (le nombre est dit sous son nom, en haut), et
+                  aucun s'il n'y a qu'une sorte de souvenirs */}
+              {(filtres.length > 2 || filter !== 'tout') && (
+                <div className="no-bar mt-3 flex gap-1 overflow-x-auto px-4 pb-1" role="group" aria-label="Afficher le contenu">
+                  {filtres.map(t => <button key={t.key} onClick={e => { tap(); setFilter(t.key); e.currentTarget.scrollIntoView({inline:'nearest',block:'nearest',behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'}) }} aria-pressed={filter === t.key} className={`presse flex min-h-11 shrink-0 items-center rounded-full px-3.5 text-note font-semibold ${filter === t.key ? 'bg-teinte text-white' : 'bg-carte text-encre'}`}>{t.label}</button>)}
+                </div>
+              )}
             </>}
 
             {preparing && <p role="status" className="mx-4 mt-3 rounded-[14px] bg-teinte-doux p-3 text-sous text-teinte-fonce">Préparation de l’image…</p>}
@@ -306,18 +318,19 @@ function FolderView({ id, onBack }: { id: string; onBack: () => void }) {
               {q ? <button onClick={() => { setQuery(''); setFilter('tout') }} className="presse mt-4 min-h-11 text-sous font-semibold text-teinte-fonce">Effacer la recherche</button> : <Btn className="mt-5" onClick={addCurrent}>{filter === 'photos' ? 'Ajouter des photos' : filter === 'notes' ? 'Écrire une note' : filter === 'audio' ? 'Créer un souvenir vocal' : filter === 'video' ? 'Ajouter une vidéo' : 'Ajouter mon premier souvenir'}</Btn>}
             </div>}
 
-            {showPhotos && (!q || visiblePhotos.length > 0) && (!empty || filter === 'photos') && <Bloc title="Photos" count={visiblePhotos.length}>
-              <p className="-mt-1 mb-3 px-5 text-note text-brume">Ajoute des photos depuis ton téléphone ou le fil familial.</p>
+            {/* les photos : dans « Tout », seulement s'il y en a (« Ajouter », en haut, sert à en mettre) */}
+            {showPhotos && (visiblePhotos.length > 0 || (filter === 'photos' && !q)) && <Bloc title="Photos">
+              {!visiblePhotos.length && <p className="-mt-1 mb-3 px-5 text-note text-brume">Ajoute des photos depuis ton téléphone ou le fil familial.</p>}
               <ProgressiveList key={query + filter + id + 'photos'} items={visiblePhotos} size={12}>{(pagePhotos) => <div className="mx-4 grid grid-cols-3 gap-2">
                 {pagePhotos.map(p => <div key={p.id} className="relative aspect-square overflow-hidden rounded-[16px] bg-remplissage">
                   <button onClick={() => setViewer(photos.indexOf(p))} className="absolute inset-0 h-full w-full" aria-label={p.body ?? 'Ouvrir la photo'}>{p.image_url && <img src={p.image_url} alt="" loading="lazy" className="h-full w-full object-cover" />}</button>
                   {(admin || p.author_id === me.id) && <button onClick={() => void removeItem(p)} className="presse absolute right-0 top-0 flex h-11 w-11 items-center justify-center" aria-label="Retirer cette photo du dossier"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/95 text-rouge shadow-carte"><Minus size={17} /></span></button>}
                 </div>)}
-                {!q && <button onClick={() => setSheet({k:'photos'})} className="presse flex aspect-square flex-col items-center justify-center gap-2 rounded-[16px] border-2 border-dashed border-teinte/30 bg-teinte-doux text-teinte-fonce" aria-label="Ajouter des photos"><Plus size={28} /><span className="text-note font-semibold">Ajouter</span></button>}
+                {!q && !visiblePhotos.length && <button onClick={() => setSheet({k:'photos'})} className="presse flex aspect-square flex-col items-center justify-center gap-2 rounded-[16px] border-2 border-dashed border-teinte/30 bg-teinte-doux text-teinte-fonce" aria-label="Ajouter des photos"><Plus size={28} /><span className="text-note font-semibold">Ajouter</span></button>}
               </div>}</ProgressiveList>
             </Bloc>}
 
-            {showNotes && visibleNotes.length > 0 && <Bloc title="Notes" count={visibleNotes.length}>
+            {showNotes && visibleNotes.length > 0 && <Bloc title="Notes">
               <ProgressiveList key={query + filter + id + 'notes'} items={visibleNotes} size={5}>{(pageNotes) => <div className="space-y-2 px-4">{pageNotes.map(n => {
                 const by = members.find(m => m.id === n.author_id)
                 return <button key={n.id} onClick={() => { tap(); n.kind === 'dessin' ? setDrawingViewer(n) : setSheet({ k:'note', note:n }) }} className="presse flex w-full items-start gap-3 rounded-[20px] bg-carte p-4 text-left shadow-carte">
@@ -327,7 +340,7 @@ function FolderView({ id, onBack }: { id: string; onBack: () => void }) {
                 </button>
               })}</div>}</ProgressiveList>
             </Bloc>}
-            {(['audio','video'] as const).map(kind => { const entries = visibleMedia.filter(m => m.kind === kind); return entries.length > 0 && <Bloc key={kind} title={kind === 'audio' ? 'À écouter' : 'Vidéos'} count={entries.length}>
+            {(['audio','video'] as const).map(kind => { const entries = visibleMedia.filter(m => m.kind === kind); return entries.length > 0 && <Bloc key={kind} title={kind === 'audio' ? 'À écouter' : 'Vidéos'}>
               <ProgressiveList key={query + filter + id + kind} items={entries} size={5}>{(pageMedia) => <div className="space-y-3 px-4">{pageMedia.map(m => <div key={m.id} className="rounded-[22px] bg-carte p-4 shadow-carte">
                 <div className="mb-3 flex items-center gap-2.5">{m.kind === 'audio' ? <Mic size={21} className="shrink-0 text-teinte" /> : <Video size={21} className="shrink-0 text-teinte" />}<span className="min-w-0 flex-1 truncate text-corps font-semibold">{m.title || (m.kind === 'audio' ? 'Un souvenir vocal' : 'Un souvenir vidéo')}</span>{(admin || m.author_id === me.id) && <button onClick={() => void removeItem(m)} aria-label={`Retirer ${m.title || 'ce souvenir'}`} className="presse flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-remplissage text-rouge"><Minus size={19} /></button>}</div>
                 {m.media_url ? m.kind === 'audio' ? <audio src={m.media_url} controls preload="metadata" className="w-full" /> : <video src={m.media_url} controls playsInline preload="metadata" className="max-h-[320px] w-full rounded-[14px] bg-black" /> : <p className="text-sous text-brume">Ce souvenir ne peut pas être chargé. Réessaie dans un instant.</p>}
@@ -359,12 +372,12 @@ function FolderView({ id, onBack }: { id: string; onBack: () => void }) {
   )
 }
 
-function Bloc({ title, count, children }: { title: string; count: number; children: ReactNode }) {
+/** Une partie du dossier (Photos, Notes…) : son titre seul, le nombre est déjà sous le nom du dossier. */
+function Bloc({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="mt-6">
       <div className="mb-2.5 flex items-baseline gap-2 px-5">
         <h3 className="font-rond text-titre3">{title}</h3>
-        <span className="text-sous text-brume">{count}</span>
       </div>
       {children}
     </section>
@@ -589,7 +602,7 @@ function NewFolderSheet({ onClose, onCreated }: { onClose: () => void; onCreated
         }}
       />
 
-      <ChampRequis id={nameId} label="Nom du dossier" aide="Donne un nom au dossier pour pouvoir le créer." className="mb-5">
+      <ChampRequis id={nameId} label="Nom du dossier" aide="Les proches avec qui tu le partages le verront." className="mb-5">
         <input id={nameId} required aria-describedby={`${nameId}-aide`} className={CHAMP_REQUIS} placeholder="Ex. : Vacances en famille" maxLength={40} value={name} onChange={(e) => setName(e.target.value)} />
       </ChampRequis>
 
@@ -734,7 +747,7 @@ function RenameSheet({ folder, onClose }: { folder: Folder; onClose: () => void 
   const [name, setName] = useState(folder.name)
   return (
     <Sheet title="Renommer" onClose={onClose}>
-      <ChampRequis id="renommer-dossier" label="Nom du dossier" aide="Le dossier garde un nom : il en faut un pour enregistrer.">
+      <ChampRequis id="renommer-dossier" label="Nom du dossier" aide="Les proches qui y ont accès verront le nouveau nom.">
         <input id="renommer-dossier" required aria-describedby="renommer-dossier-aide" className={CHAMP_REQUIS} maxLength={40} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
       </ChampRequis>
       <Btn className="mt-4" disabled={!name.trim() || name.trim() === folder.name} onClick={async () => (await run((api) => api.renameFolder(folder.id, name), 'Dossier renommé')) && onClose()}>

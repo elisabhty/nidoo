@@ -22,7 +22,7 @@ export function CentrePage({ onClose, start = 'superette' }: { onClose: () => vo
       <div className="px-4">
         <div className="relative overflow-hidden rounded-[28px] shadow-carte" style={{ background: 'linear-gradient(180deg, #EFE9FF 0%, #FFF4EC 100%)' }}>
           <img src="./art/centre-commercial.webp" alt="La supérette, l’animalerie et la boutique" className="mx-auto block w-full max-w-[420px] px-3 pt-3" />
-          <p className="px-4 pb-3 pt-1 text-center text-note text-brume">Tout s’achète avec les étoiles de la famille : {state.family.stars} à dépenser.</p>
+          <p className="px-4 pb-3 pt-1 text-center text-note text-brume">Tout s’achète avec les étoiles de la famille.</p>
         </div>
         <div className="mt-4">
           <Segments

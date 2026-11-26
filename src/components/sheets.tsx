@@ -514,8 +514,6 @@ export const eventArt = (k: string) => KINDS.find((x) => x.key === k)?.art ?? 'p
 export function EventIcon({event,size=34,className=''}:{event:Pick<FamEvent,'kind'|'sticker'>;size?:number;className?:string}) {
   return event.sticker ? <StickerImg cle={event.sticker} className={`object-contain ${className}`} style={{width:size,height:size}} /> : <Art name={eventArt(event.kind)} size={size} className={className} />
 }
-/** Ce qu'on peut mettre dans l'agenda (pour les raccourcis « Ajouter »). */
-export const TYPES_AGENDA = KINDS.map((k) => ({ key: k.key, label: k.label, art: k.art }))
 const LIEU_EXEMPLE: Record<string, string> = { evenement: 'Ex. : Chez Mamie, à Lyon', rdv: 'Ex. : Cabinet du Dr Martin', anniversaire: 'Où se fête-t-il ?' }
 
 /** Qui est concerné (Elisa, 21 novembre : « les personnes concernées, de manière UI UX ») : une rangée de têtes,
@@ -638,8 +636,6 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
   const [lieu, setLieu] = useState(event?.lieu ?? '')
   const [who, setWho] = useState<string[]>(event?.members ?? [])
   const birthday = kind === 'anniversaire'
-  // personne de choisi : toute la famille (un anniversaire, lui, choisit sa personne tout en haut)
-  const pourTous = who.length === 0
   // le calendrier de l'appli (plus celui de l'iPhone) : pour le jour, ou pour la fin
   const [calendrier, setCalendrier] = useState<null | 'date' | 'fin'>(null)
   const nom = useRef<HTMLInputElement>(null)
@@ -1001,7 +997,7 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
       {/* Les personnes concernées (un anniversaire : tout en haut, sous son prénom) */}
       {!birthday && (
         <CarteEvt>
-          <TitreCarte icone={Users} titre="Personnes concernées" extra={<span key={`${who.length}${pourTous}`} className="anim-entre text-note text-brume">{who.length ? `${who.length} personne${who.length > 1 ? 's' : ''}` : pourTous ? 'Toute la famille' : 'Facultatif'}</span>} />
+          <TitreCarte icone={Users} titre="Personnes concernées" extra={who.length ? <span key={who.length} className="anim-entre text-note text-brume">{`${who.length} personne${who.length > 1 ? 's' : ''}`}</span> : undefined} />
           <WhoPicker value={who} onChange={setWho} />
         </CarteEvt>
       )}

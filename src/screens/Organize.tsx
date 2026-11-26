@@ -8,8 +8,8 @@ import { RecetteSheet, RecettesSheet } from '../components/recettes'
 import { MemberStack } from '../components/folder'
 import { IconeArticle } from '../components/iconeArticle'
 import { LieuEvt } from '../components/iconeEndroit'
-import { EventDetailSheet, EventSheet, EventIcon, TYPES_AGENDA } from '../components/sheets'
-import { Art, AuDessus, Avatar, Rond, Screen, Segments, Vide } from '../components/ui'
+import { EventDetailSheet, EventSheet, EventIcon } from '../components/sheets'
+import { Art, AuDessus, Avatar, Rond, Screen, Segments, Vide, Btn } from '../components/ui'
 import { choc, select, success, tap, warn } from '../lib/haptic'
 import { bravo, confettis } from '../lib/fete'
 import { useHome } from '../lib/store'
@@ -767,9 +767,9 @@ function Liste({ kind }: { kind: ListKind }) {
 
       {items.length > 0 && (
         <div className="mx-5 mt-3 flex min-h-11 items-center justify-between gap-3">
+          {/* à faire : les compteurs sont sur les filtres juste au-dessus, on ne les redit pas */}
           <p className={`min-w-0 flex-1 truncate text-note font-semibold text-brume transition-opacity ${rien ? 'opacity-0' : ''}`} role="status">
-            {todo.length} {tache ? `chose${todo.length > 1 ? 's' : ''} à faire` : `article${todo.length > 1 ? 's' : ''} à prendre`}
-            {done.length > 0 ? ` · ${done.length} ${tache ? `terminée${done.length > 1 ? 's' : ''}` : 'dans le panier'}` : ''}
+            {!tache && `${todo.length} article${todo.length > 1 ? 's' : ''} à prendre${done.length > 0 ? ` · ${done.length} dans le panier` : ''}`}
           </p>
           <button
             onClick={() => {
@@ -801,7 +801,6 @@ function Liste({ kind }: { kind: ListKind }) {
           </div>
         ))}
       {tache && todoVisible.length > 0 && <div className="groupe mx-4 mt-1 overflow-hidden shadow-carte">{todoVisible.map((i, k) => ligne(i, k === todoVisible.length - 1))}</div>}
-      {todo.length > 0 && !tache && <p className="mt-2 px-5 text-mini text-pale">Touche pour cocher · − et + pour la quantité, la poubelle pour retirer</p>}
 
       {doneVisible.length > 0 && (
         <>
@@ -855,29 +854,6 @@ function Liste({ kind }: { kind: ListKind }) {
   )
 }
 
-/** Ce qu'on peut mettre dans l'agenda, en un toucher. */
-function Ajouter({ onAdd }: { onAdd: (kind: EventKind) => void }) {
-  return (
-    <div className="mx-4 mb-5">
-      <p className="mb-2 px-1 text-sous font-semibold">Ajouter à l’agenda</p>
-      <div className="flex gap-2">
-        {TYPES_AGENDA.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => {
-              tap()
-              onAdd(t.key)
-            }}
-            className="presse flex min-w-0 flex-1 flex-col items-center gap-1.5 rounded-[18px] bg-carte px-1 py-3 shadow-carte"
-          >
-            <Art name={t.art} size={28} />
-            <span className="max-w-full truncate text-note font-semibold">{t.label}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
 
 export default function Organize() {
   const { state } = useHome()
@@ -918,8 +894,6 @@ export default function Organize() {
           <Segments value={seg} onChange={setSeg} options={[{ key: 'agenda', label: 'Agenda' }, { key: 'tache', label: 'À faire' }, { key: 'course', label: 'Courses' }]} />
         </div>
 
-        {seg === 'agenda' && <Ajouter onAdd={(kind) => setAdding({ kind })} />}
-
         {seg === 'agenda' && (
           <div className="-mt-1 mb-4 flex gap-2 px-4">
             {(
@@ -948,7 +922,11 @@ export default function Organize() {
         ) : seg === 'agenda' ? (
           coming.length === 0 ? (
             <>
-              <Vide art="picto-agenda" title="L’agenda est libre" text="Anniversaires, rendez-vous, dîners : tout le monde les verra au même endroit." />
+              <Vide art="picto-agenda" title="L’agenda est libre" text="Anniversaires, rendez-vous, dîners : tout le monde les verra au même endroit.">
+                <Btn onClick={() => setAdding({})}>
+                  <Plus size={18} strokeWidth={2.6} /> Ajouter un événement
+                </Btn>
+              </Vide>
             </>
           ) : (
             <>

@@ -178,10 +178,9 @@ export function JeuxPage({ onClose, start }: { onClose: () => void; start?: stri
                 {joue(x) ? (autres.length > 2 ? ` avec ${autres.length} joueurs` : ` avec ${autres.map((y) => nameOf(members, y, me.id)).join(', ')}`) : ` · ${joueurs.map((y) => nameOf(members, y, me.id)).join(', ')}`}
               </span>
               <span className="flex min-w-0 items-center gap-1.5 text-note text-brume">
-                <span className={mineTurn ? 'shrink-0 rounded-full bg-teinte-doux px-2 py-0.5 text-mini font-semibold text-teinte-fonce' : 'truncate'}>
-                  {x.t === 'g' ? statusLine(x.g, members, me.id) : statutPartie(x.p, members, me.id)}
-                </span>
-                <span className="truncate">· {ago(x.t === 'g' ? x.g.updated_at : x.p.updated_at)}</span>
+                {/* à moi de jouer : l'onglet « À toi » le dit déjà */}
+                {!mineTurn && <span className="truncate">{x.t === 'g' ? statusLine(x.g, members, me.id) : statutPartie(x.p, members, me.id)}</span>}
+                <span className="truncate">{mineTurn ? '' : '· '}{ago(x.t === 'g' ? x.g.updated_at : x.p.updated_at)}</span>
               </span>
             </span>
             <img src={`./art/${meta(kind).art}.webp`} alt="" className="h-10 w-10 shrink-0 object-contain" />

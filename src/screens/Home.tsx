@@ -369,7 +369,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
                 <button key={m.id} onClick={() => setSheet({ k: 'pensee', to: m })} className="presse flex w-[68px] shrink-0 flex-col items-center gap-1">
                   <Avatar m={m} size={58} mood />
                   <span className="w-full truncate text-sous font-semibold">{m.display_name}</span>
-                  <span className="w-full truncate text-note text-brume">{isToday(m.mood_at) && m.mood ? moodOf(m.mood)?.label ?? 'À partager' : 'Faire signe'}</span>
+                  <span className="w-full truncate text-note text-brume">{isToday(m.mood_at) && m.mood ? moodOf(m.mood)?.label ?? '\u00a0' : '\u00a0'}</span>
                 </button>
               ))}
             </div>
@@ -405,7 +405,6 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
               else setSheet({ k: d === 'photo' ? 'defiPhoto' : d })
             }}
           />
-          <button onClick={() => go('moments')} className="presse mx-5 mt-4 flex min-h-11 w-[calc(100%-2.5rem)] items-center justify-center gap-1 text-sous font-semibold text-teinte-fonce">Nos souvenirs <ChevronRight size={16} /></button>
 
         </div>
       </div>
@@ -427,14 +426,14 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
       {sheet?.k === 'mot' && <MotPage onClose={() => setSheet(null)} />}
       {sheet?.k === 'explorer' && (
         <Sheet title="Explorer" onClose={() => setSheet(null)}>
+          {/* les jeux n'y sont plus (ils ont leur bouton sous la maison), ni le calendrier de l'Avent (dans les défis du
+              jour) : chaque chose à un seul endroit */}
           <div className="grid grid-cols-2 gap-2.5 pb-2">
             {[
-              ...(av.visible ? [{ k: 'avent' as const, label: 'Calendrier de l’Avent', hint: caseDuJour ? 'La case du jour t’attend' : 'Une case par jour', icon: <img src="./art/avent-sapin-mini.webp" alt="" className="h-14 w-14 object-contain" /> }] : []),
-              { k: 'jeux' as const, label: 'Jouer ensemble', hint: tours.length ? `À toi de jouer (${tours.length})` : 'À deux ou en famille', icon: <img src="./art/jeu-puissance4.webp" alt="" className="h-14 w-14 object-contain" /> },
               { k: 'compagnon' as const, label: state.pet ? state.pet.name : 'Un compagnon', hint: state.pet ? 'Le compagnon de la maison' : 'Adopter un animal', icon: state.pet ? <PetFigure pet={state.pet} className="w-14" /> : <img src="./art/pet-chat.webp" alt="" className="h-14 w-14 object-contain" /> },
               { k: 'potager' as const, label: 'Le potager', hint: 'Planter et récolter', icon: <img src={`./art/${state.plots[0] ? state.plots[0].plant : 'plant-pousse'}.webp`} alt="" className="h-14 w-14 object-contain" /> },
               { k: 'centre' as const, label: 'Centre commercial', hint: 'Déco, vêtements, animalerie', icon: <img src="./art/centre-commercial.webp" alt="" className="h-14 w-[84px] object-contain" /> },
-            ].map((x) => (
+            ].map((x, i, tous) => (
               <button
                 key={x.k}
                 onClick={() => {
@@ -442,7 +441,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
                   setSheet(null)
                   lieux.open({ k: x.k })
                 }}
-                className="presse flex flex-col items-center gap-1 rounded-[22px] bg-carte px-2 pb-3 pt-4 text-center shadow-carte"
+                className={`presse flex flex-col items-center gap-1 rounded-[22px] bg-carte px-2 pb-3 pt-4 text-center shadow-carte ${i === tous.length - 1 && tous.length % 2 ? 'col-span-2' : ''}`}
               >
                 {x.icon}
                 <span className="mt-1 text-sous font-bold">{x.label}</span>
@@ -498,23 +497,6 @@ function Vignette({ h }: { h: HomeStory }) {
         <span className="absolute -bottom-0.5 -right-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-teinte text-white ring-2 ring-carte">
           {h.vocal ? <Mic size={10} strokeWidth={2.6} /> : h.kind === 'photo' ? <Camera size={10} strokeWidth={2.6} /> : <MessageCircleHeart size={10} strokeWidth={2.6} />}
         </span>
-      </span>
-    )
-  if (h.kind === 'humeur' && h.members?.length)
-    return (
-      <span className="relative h-11 w-11 shrink-0" aria-hidden>
-        {h.members.length > 1 ? (
-          <>
-            <span className="absolute left-0 top-0">
-              <Avatar m={h.members[0]} size={30} mood />
-            </span>
-            <span className="absolute bottom-0 right-0 rounded-full ring-2 ring-carte">
-              <Avatar m={h.members[1]} size={28} mood />
-            </span>
-          </>
-        ) : (
-          <Avatar m={h.members[0]} size={44} mood />
-        )}
       </span>
     )
   const Icone = h.kind === 'photo' ? Camera : h.kind === 'message' ? MessageCircleHeart : h.kind === 'evenement' ? CalendarDays : Heart

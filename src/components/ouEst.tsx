@@ -266,7 +266,7 @@ export function OuEstPage({ onClose }: { onClose: () => void }) {
               <LocateFixed size={21} strokeWidth={2.4} />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-corps font-semibold">Partager ma position</p>
+              <p className="text-corps font-semibold">Apparaître sur la carte</p>
               <p className="mt-0.5 text-sous text-brume">
                 Tes proches te voient sur la carte{NATIF_IOS ? ', et ta position suit quand tu bouges, même appli fermée' : ''}. Tu peux arrêter quand tu veux.
               </p>

@@ -457,7 +457,7 @@ function PersoOptions({ ed, color, setColor, owned = [], pres }: { ed: Perso_; c
 type ProfileProps = { name: string; setName: (v: string) => void; avatar: string; setAvatar: (v: string) => void; color: string; setColor: (v: string) => void; placeholder?: string; owned?: string[] }
 
 /** Ce que le prénom débloque, pour soi ou pour un enfant. */
-const aidePrenom = (placeholder: string) => (placeholder.startsWith('Son') ? 'Écris son prénom pour pouvoir l’ajouter.' : 'Il apparaît sous ton personnage, pour toute la famille.')
+const aidePrenom = (placeholder: string) => (placeholder.startsWith('Son') ? 'Il apparaît sous son personnage, pour toute la famille.' : 'Il apparaît sous ton personnage, pour toute la famille.')
 
 function NameField({ name, setName, placeholder }: { name: string; setName: (v: string) => void; placeholder: string }) {
   const id = useId()
