@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import { strict as assert } from 'node:assert'
 import { loadTs } from './loadTs.mjs'
-const { cadrer, coucheBatiments, PENTE } = await loadTs('src/lib/relief.ts')
+const { cadrer, coucheBatiments, MONDE, PENTE, PENTE_MAX, penteMax, SEUIL_3D, ZOOM_PLAT, ZOOM_RELIEF } = await loadTs('src/lib/relief.ts')
 
 /**
  * Une carte d'essai : une caméra à sténopé comme celle de MapLibre (champ de 36,87°, distance au centre de 1,5 fois
@@ -136,5 +136,46 @@ test('loin les uns des autres, sur une carte basse, inclinée au maximum : en qu
     assert.ok(vue, `${w}×${h} à ${pitch}° : pas de vue`)
     assert.ok(poses < 50, `${poses} essais`)
     verifie(carte, vue, loin, `${w}×${h} à ${pitch}°`)
+  }
+})
+
+test('de loin, la carte reste à plat ; elle se relève en approchant, toute la 3D dès la région', () => {
+  assert.equal(penteMax(-2), 0)
+  assert.equal(penteMax(0), 0)
+  assert.equal(penteMax(ZOOM_PLAT), 0)
+  assert.equal(penteMax(ZOOM_RELIEF), PENTE_MAX)
+  assert.equal(penteMax(22), PENTE_MAX)
+  // en douceur : de plus en plus inclinée, sans à-coup d'un cran de zoom à l'autre
+  let avant = 0
+  for (let z = ZOOM_PLAT; z <= ZOOM_RELIEF + 1e-9; z += 0.1) {
+    const p = penteMax(z)
+    assert.ok(p >= avant - 1e-9 && p - avant < 4, `zoom ${z.toFixed(1)} : ${p.toFixed(1)}°`)
+    avant = p
+  }
+  // la famille dans une ville (zoom 11 à 15), ou dans une région : la vraie 3D, jamais rabotée
+  for (const z of [7, 9, 11, 13, 15]) assert.ok(penteMax(z) >= PENTE)
+  // le bouton 3D n'est grisé que de loin (au-delà du pays)
+  assert.ok(penteMax(ZOOM_PLAT + 0.6) < SEUIL_3D && penteMax(ZOOM_PLAT + 1) >= SEUIL_3D)
+})
+
+test('jamais de vide au-delà des pôles : même inclinée au plus fort que permet le zoom, la carte reste dans le monde', () => {
+  // MapLibre garde le haut et le bas du cadre dans le monde (MONDE) comme si la carte était à plat (h/2 de part et
+  // d'autre du centre) ; inclinée, le haut du cadre voit plus loin : 1,5 h × (cos p × tan(p + 18,43°) − sin p) au-delà
+  // du centre (champ de 36,87°). Ce surplus doit tenir entre le bord du MONDE et le bord de la projection (85,05°).
+  const y = (lat) => Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360)) // mercator, rayon 1
+  const demi = (18.4349 * Math.PI) / 180
+  const nord = MONDE[1][1]
+  const sud = MONDE[0][1]
+  assert.ok(nord <= 80 && sud >= -60, 'ni le Grand Nord ni l’Antarctique')
+  for (const h of [300, 440, 852, 932]) {
+    for (let z = -1; z <= 12; z += 0.05) {
+      const p = (penteMax(z) * Math.PI) / 180
+      const loin = 1.5 * h * (Math.cos(p) * Math.tan(p + demi) - Math.sin(p))
+      const surplus = loin - h / 2
+      const monde = 512 * 2 ** z // la hauteur du monde, en pixels
+      const auNord = ((Math.PI - y(nord)) / (2 * Math.PI)) * monde
+      const auSud = ((Math.PI + y(sud)) / (2 * Math.PI)) * monde
+      assert.ok(surplus <= 0.8 * Math.min(auNord, auSud) + 0.5, `cadre de ${h} px, zoom ${z.toFixed(2)} : ${surplus.toFixed(0)} px au-delà, ${auNord.toFixed(0)} px de marge`)
+    }
   }
 })

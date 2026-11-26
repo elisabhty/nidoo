@@ -3,11 +3,11 @@
 // partager ou arrêter, et nos lieux. La carte passe d'abord, en grand, et s'ouvre en plein écran.
 // La carte : MapLibre (libre) avec les fonds d'OpenFreeMap (gratuits, sans clé, données OpenStreetMap), chargée à la demande.
 import { BatteryLow, BellRing, Car, ChevronRight, EyeOff, LocateFixed, Lock, MapPin, Maximize2, Navigation, Plus, RefreshCw, Settings, Users, X } from 'lucide-react'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal, flushSync } from 'react-dom'
 import type { GeoJSONSource, LngLatLike, Map as CarteML } from 'maplibre-gl'
 import { cercle, cle, endroitDe } from '../lib/endroits'
-import { avantLesNoms, cadrer, choisirRelief, COUCHE_BATIMENTS, coucheBatiments, LUMIERE, PENTE, reliefChoisi, SEUIL_3D, type Camera } from '../lib/relief'
+import { avantLesNoms, cadrer, choisirRelief, COUCHE_BATIMENTS, coucheBatiments, LUMIERE, MONDE, PENTE, PENTE_MAX, penteMax, reliefChoisi, SEUIL_3D, type Camera } from '../lib/relief'
 import { select, tap } from '../lib/haptic'
 import { ancienne, autorisation, cadre, distance, ilYA, libelle, lirePosition, messagePosition, POSITION_DEMO, suivre, texteDistance, type Autorisation } from '../lib/localisation'
 import { DUREES, dureeDe, enCours, finDuree, prochaineFin, texteJusqua, type Duree } from '../lib/positions'
@@ -524,6 +524,9 @@ export function OuEstPage({ onClose }: { onClose: () => void }) {
   )
 }
 
+/** La goutte des repères (50 × 58), la pointe en bas au milieu. */
+const GOUTTE = 'M25 57.2 Q22.2 50.6 16.45 48.49 A25 25 0 1 1 33.55 48.49 Q27.8 50.6 25 57.2 Z'
+
 /**
  * Le repère d'un proche sur la carte : une goutte d'un seul tenant (le rond et sa pointe dans le même tracé), la tête
  * dedans. Avant, c'était un rond et un petit carré tourné posé dessous : on voyait le raccord (Elisa, 25 novembre :
@@ -541,7 +544,7 @@ function Repere({ m, moi, pale, relief }: { m: Member; moi: boolean; pale: boole
       />
       <svg viewBox="0 0 50 58" className="absolute inset-0 h-full w-full overflow-visible" style={{ filter: 'drop-shadow(0 3px 5px rgba(29,26,43,0.3))' }} aria-hidden="true">
         <path
-          d="M25 57.2 Q22.2 50.6 16.45 48.49 A25 25 0 1 1 33.55 48.49 Q27.8 50.6 25 57.2 Z"
+          d={GOUTTE}
           className={moi ? 'fill-teinte stroke-teinte' : 'fill-white stroke-white'}
           strokeWidth="1.2"
           strokeLinejoin="round"
@@ -552,6 +555,38 @@ function Repere({ m, moi, pale, relief }: { m: Member; moi: boolean; pale: boole
         <Avatar m={m} size={42} />
       </span>
     </div>
+  )
+}
+
+/** Une tête à venir : la goutte des repères, vide et en pointillés (comme les places à prendre de l'accueil). */
+function GoutteVide({ size }: { size: number }) {
+  const id = useId()
+  return (
+    <svg width={size} height={Math.round((size * 58) / 50)} viewBox="0 0 50 58" className="overflow-visible" aria-hidden="true">
+      <defs>
+        <clipPath id={id}>
+          <circle cx="25" cy="25" r="20.5" />
+        </clipPath>
+      </defs>
+      <path d={GOUTTE} fill="#FBFAFF" stroke="#7050D5" strokeOpacity={0.6} strokeWidth={2.3} strokeDasharray="4.6 3.6" strokeLinejoin="round" />
+      <g clipPath={`url(#${id})`} fill="#7050D5" fillOpacity={0.24}>
+        <circle cx="25" cy="20.5" r="7.2" />
+        <ellipse cx="25" cy="41.5" rx="13.5" ry="10.5" />
+      </g>
+    </svg>
+  )
+}
+
+/** Personne sur la carte : trois têtes à venir, qui flottent doucement (celle du milieu un peu plus haut). */
+function TetesAVenir() {
+  return (
+    <span className="flex items-end gap-1.5" aria-hidden="true">
+      {[27, 33, 27].map((s, i) => (
+        <span key={i} className="flex" style={{ marginBottom: i === 1 ? 7 : 0, animation: `flotte ${3.2 + i * 0.45}s ease-in-out ${i * 0.35}s infinite` }}>
+          <GoutteVide size={s} />
+        </span>
+      ))}
+    </span>
   )
 }
 
@@ -570,14 +605,22 @@ type Marques = Record<string, InstanceType<typeof import('maplibre-gl').Marker>>
 /** Le zoom le plus serré pour cadrer la famille : à plat, ~800 m de large ; en 3D, ~450 m (les bâtiments se voient). */
 const ZOOM_MAX = 15
 const ZOOM_MAX_3D = 15.6
-/** Quand on ne montre que nos lieux : leur nom pend sous leur point, et le bandeau « Personne ne partage… » en bas. */
-const MARGES_LIEUX = { top: 40, bottom: 84, left: 80, right: 80 }
+/** Quand on ne montre que nos lieux : leur nom pend sous leur point, et « Vos têtes apparaîtront ici » en bas (au-dessus
+ *  des crédits). */
+const MARGES_LIEUX = { top: 40, bottom: 108, left: 80, right: 80 }
 /** En plein écran : la place des boutons du haut, et celle des puces du bas (« Tout le monde », chacun). */
 const BOUTONS_HAUT = 56
 /** La colonne de boutons, en haut à droite de la carte (et de quoi y loger une tête à côté). */
 const BOUTONS_DROITE = 76
 const BANDEAU_BAS = 76
 const COURBE = 'cubic-bezier(0.32, 0.72, 0, 1)'
+/** Sur un ordinateur (souris, pavé tactile), la molette fait défiler la page au lieu de dézoomer la carte d'un coup
+ *  jusqu'au monde entier : on zoome avec ⌘ (ou Ctrl) + molette, ou en pinçant le pavé. Pas sur un téléphone. */
+const BUREAU = typeof window !== 'undefined' && !!window.matchMedia?.('(hover: hover) and (pointer: fine)').matches
+const AIDE_ZOOM = {
+  'CooperativeGesturesHandler.MacHelpText': 'Pour zoomer : ⌘ + défilement',
+  'CooperativeGesturesHandler.WindowsHelpText': 'Pour zoomer : Ctrl + molette',
+}
 
 /** Les zones sûres de l'écran (l'encoche, la barre d'accueil), en pixels. */
 function zonesSures(): { haut: number; bas: number } {
@@ -647,6 +690,20 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN, on
   // en 3D (le dernier choix, gardé sur le téléphone ; en 3D la première fois) ; et le nord en haut, ou pas
   const [relief, setRelief] = useState(reliefChoisi)
   const reliefVu = useRef(relief)
+  // l'inclinaison voulue (le bouton, les doigts, un cadrage) ; de loin, la carte reste pourtant à plat et se relève
+  // en approchant (penteMax) : la 3D revient toute seule quand on se rapproche
+  const voulue = useRef(relief ? PENTE : 0)
+  // ce que le mouvement en cours demandait juste avant, et ce que la carte montrait (pour voir si on incline la
+  // carte, ou si on zoome seulement)
+  const propose = useRef<number | null>(null)
+  const rendue = useRef(0)
+  // un mouvement à nous (un cadrage, aller vers quelqu'un) : le bouton 3D ne suit pas chaque image
+  const programme = useRef(false)
+  // la 3D est possible à ce zoom (de loin, le bouton est grisé) ; la carte est vraiment inclinée (l'ombre des repères)
+  const [troisD, setTroisD] = useState(true)
+  const troisDVu = useRef(true)
+  const [penche, setPenche] = useState(false)
+  const pencheVu = useRef(false)
   const [nord, setNord] = useState(true)
   const nordVu = useRef(true)
   const aiguille = useRef<HTMLSpanElement>(null)
@@ -654,8 +711,6 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN, on
   const ajuste = useRef(true)
   // pendant un calcul de cadrage, la carte saute d'essai en essai : ces sauts ne comptent pas
   const calcul = useRef(false)
-  // l'inclinaison visée par le bouton 3D, le temps que la carte y arrive
-  const vise = useRef<number | null>(null)
   // en plein écran (Elisa, 26 novembre : « un bouton pour l'afficher en plein écran ») ; la puce touchée en bas
   const [plein, setPlein] = useState(false)
   const pleinVu = useRef(false)
@@ -664,8 +719,17 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN, on
   const cle = points.map((x) => `${x.m.id}:${x.p.lat},${x.p.lon}`).join('|')
   const cleLieux = endroits.map((e) => `${e.id}:${e.lat},${e.lon},${e.rayon_m},${e.nom}`).join('|')
 
-  /** Tout le monde dans la carte, à cette inclinaison (personne : nos adresses). Faux : rien à cadrer. */
-  const recadrer = (c: CarteML, anime: boolean, pitch = c.getPitch()) => {
+  /** Le bouton 3D suit l'inclinaison voulue. */
+  const suivreRelief = () => {
+    const r = voulue.current >= SEUIL_3D
+    if (r === reliefVu.current) return
+    reliefVu.current = r
+    setRelief(r)
+  }
+
+  /** Tout le monde dans la carte, à cette inclinaison (personne : nos adresses). Faux : rien à cadrer.
+   *  De loin (une famille aux quatre coins du pays, ou du monde), la carte est à plat : on cadre alors à plat. */
+  const recadrer = (c: CarteML, anime: boolean, pitch = voulue.current) => {
     const gens = points.length > 0
     const pts = gens ? points.map((x) => x.p) : [...endroits]
     if (!pts.length) return false
@@ -674,24 +738,34 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN, on
     const base = !gens ? MARGES_LIEUX : endroits.length ? { ...MARGES, left: 60, right: BOUTONS_DROITE + 24 } : { ...MARGES, right: BOUTONS_DROITE }
     // en plein écran : sous les boutons du haut, au-dessus des puces du bas
     const marges = pleinVu.current ? { ...base, top: base.top + sur.current.haut + BOUTONS_HAUT, bottom: base.bottom + sur.current.bas + (gens ? BANDEAU_BAS : 0) } : base
-    const maxZoom = pitch >= SEUIL_3D ? ZOOM_MAX_3D : ZOOM_MAX
     const lons = pts.map((p) => p.lon)
     const lats = pts.map((p) => p.lat)
     calcul.current = true
     let fin = null
+    let p = pitch
     try {
-      // une première idée : le cadrage à plat de MapLibre ; puis la perspective
-      const plat = c.cameraForBounds([[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]], { padding: marges, maxZoom })
-      const centre = versLonLat(plat?.center) ?? { lon: (Math.min(...lons) + Math.max(...lons)) / 2, lat: (Math.min(...lats) + Math.max(...lats)) / 2 }
-      fin = cadrer(camera(c), pts, { depart: { ...centre, zoom: plat?.zoom ?? 13 }, pitch, marges, maxZoom })
+      for (let essai = 0; essai < 3; essai++) {
+        const maxZoom = p >= SEUIL_3D ? ZOOM_MAX_3D : ZOOM_MAX
+        // une première idée : le cadrage à plat de MapLibre ; puis la perspective
+        const plat = c.cameraForBounds([[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]], { padding: marges, maxZoom })
+        const centre = versLonLat(plat?.center) ?? { lon: (Math.min(...lons) + Math.max(...lons)) / 2, lat: (Math.min(...lats) + Math.max(...lats)) / 2 }
+        fin = cadrer(camera(c), pts, { depart: { ...centre, zoom: plat?.zoom ?? 13 }, pitch: p, marges, maxZoom })
+        // trop loin pour être aussi incliné : on recadre à l'inclinaison permise
+        if (!fin || p <= penteMax(fin.zoom) + 0.5) break
+        p = penteMax(fin.zoom)
+      }
     } finally {
       calcul.current = false
     }
     if (!fin) return false
     ajuste.current = true
-    const vue = { center: [fin.lon, fin.lat] as [number, number], zoom: fin.zoom, pitch: fin.pitch, bearing: fin.bearing }
-    if (anime) c.easeTo({ ...vue, duration: 750 })
-    else c.jumpTo(vue)
+    // l'inclinaison voulue : la carte la rabote selon le zoom (en glissant, image par image : elle se relève en
+    // approchant), comme on l'a fait pour cadrer
+    const vue = { center: [fin.lon, fin.lat] as [number, number], zoom: fin.zoom, pitch, bearing: fin.bearing }
+    if (anime) {
+      c.easeTo({ ...vue, duration: 750 })
+      programme.current = true
+    } else c.jumpTo(vue)
     return true
   }
 
@@ -708,34 +782,53 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN, on
         ])
         if (fini || !boite.current) return
         maplibre.setWorkerUrl(new URL(travailleur.default, window.location.href).href)
-        // personne ne partage sa position : nos adresses, s'il y en a
+        // personne ne partage sa position : nos adresses, s'il y en a ; sinon la France
         const c = cadre(points.length ? points.map((x) => x.p) : [...endroits])
+        // de loin, la carte à plat ; elle se relève en approchant (Elisa, 26 novembre : « ça fait bizarre les
+        // bandes ») : inclinée de loin, elle regardait au-delà du pôle. MapLibre passe ici à chaque changement de
+        // vue (les doigts, nos mouvements, et même un saut) : on lui donne toujours l'inclinaison voulue, et c'est
+        // ici qu'elle est rabotée selon le zoom. Une autre inclinaison demandée (les doigts, le bouton, un cadrage)
+        // devient la voulue ; un simple zoom la garde (la 3D revient toute seule en se rapprochant).
+        const incliner = ({ zoom, pitch }: { zoom: number; pitch: number }) => {
+          if (calcul.current) return {}
+          // ni ce que le mouvement demandait juste avant, ni ce que la carte montrait (un mouvement repart de là)
+          if (propose.current !== null && Math.abs(pitch - propose.current) > 0.05 && Math.abs(pitch - rendue.current) > 0.05) {
+            voulue.current = pitch
+            if (!programme.current) suivreRelief()
+          }
+          propose.current = pitch
+          const permise = Math.min(voulue.current, penteMax(zoom))
+          rendue.current = permise
+          return Math.abs(permise - pitch) > 0.01 ? { pitch: permise } : {}
+        }
         const nouvelle = new maplibre.Map({
           container: boite.current,
           style: new URL(STYLE, window.location.href).href,
           ...(c ? { bounds: c, fitBoundsOptions: { padding: MARGES, maxZoom: 15 } } : { center: [2.4, 46.6], zoom: 4.6 }),
-          pitch: reliefVu.current ? PENTE : 0,
-          maxPitch: 60,
+          pitch: voulue.current,
+          maxPitch: PENTE_MAX,
+          // un monde sans bords : au plus loin, il remplit le cadre (ni vide au-dessus, ni glace en dessous)
+          maxBounds: MONDE,
+          transformCameraUpdate: incliner,
+          cooperativeGestures: BUREAU,
+          locale: AIDE_ZOOM,
           attributionControl: { compact: true },
         })
         // tout le monde dans la carte, en perspective si elle est inclinée (avant même d'être dessinée)
         recadrer(nouvelle, false)
+        propose.current = rendue.current = nouvelle.getPitch()
         // un fond qui ne se charge pas (hors ligne) : la carte reste, sans planter
         nouvelle.on('error', () => undefined)
         // bougée du doigt : elle ne se recadre plus toute seule
         nouvelle.on('movestart', (e) => {
           if (calcul.current || !(e as { originalEvent?: unknown }).originalEvent) return
           ajuste.current = false
+          programme.current = false
           setPuce(null)
         })
-        // le bouton 3D et la boussole suivent l'inclinaison et l'orientation de la carte
-        const angles = () => {
+        // la boussole suit l'orientation de la carte
+        nouvelle.on('rotate', () => {
           if (calcul.current) return
-          const r = nouvelle.getPitch() >= SEUIL_3D
-          if (vise.current === null && r !== reliefVu.current) {
-            reliefVu.current = r
-            setRelief(r)
-          }
           const b = nouvelle.getBearing()
           if (aiguille.current) aiguille.current.style.transform = `rotate(${-b}deg)`
           const n = Math.abs(b) < 0.5
@@ -743,17 +836,32 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN, on
             nordVu.current = n
             setNord(n)
           }
+        })
+        // la 3D possible à ce zoom (le bouton), et la carte vraiment inclinée (l'ombre sous les repères)
+        const vue3d = () => {
+          if (calcul.current) return
+          const ok = penteMax(nouvelle.getZoom()) >= SEUIL_3D
+          if (ok !== troisDVu.current) {
+            troisDVu.current = ok
+            setTroisD(ok)
+          }
+          const pe = nouvelle.getPitch() >= SEUIL_3D
+          if (pe !== pencheVu.current) {
+            pencheVu.current = pe
+            setPenche(pe)
+          }
         }
-        nouvelle.on('pitch', angles)
-        nouvelle.on('rotate', angles)
+        nouvelle.on('zoom', vue3d)
+        nouvelle.on('pitch', vue3d)
+        vue3d()
         nouvelle.on('moveend', (e) => {
           if (calcul.current) return
-          if (vise.current !== null) {
-            vise.current = null
-            angles()
-          }
+          programme.current = false
+          propose.current = rendue.current = nouvelle.getPitch()
+          suivreRelief()
+          vue3d()
           // incliner ou redresser la carte aux doigts : c'est gardé pour la prochaine fois
-          if ((e as { originalEvent?: unknown }).originalEvent) choisirRelief(nouvelle.getPitch() >= SEUIL_3D)
+          if ((e as { originalEvent?: unknown }).originalEvent) choisirRelief(voulue.current >= SEUIL_3D)
         })
         // pas de carte au bout de 12 s (hors ligne, travailleur refusé) : on le dit, la liste reste là
         const t = window.setTimeout(() => !fini && setPanne(true), 12000)
@@ -912,20 +1020,25 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN, on
     if (!x || !carte.current) return
     ajuste.current = false
     setPuce(e ? null : focus.id)
-    carte.current.flyTo({ center: [x.lon, x.lat], zoom: reliefVu.current ? 16 : 15, duration: 900 })
+    carte.current.flyTo({ center: [x.lon, x.lat], zoom: reliefVu.current ? 16 : 15, pitch: voulue.current, duration: 900 })
+    programme.current = true
   }, [focus]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  /** Le bouton 3D : la carte s'incline (ou se remet à plat), tout le monde reste dedans si elle montrait le cadrage. */
+  /** Le bouton 3D : la carte s'incline (ou se remet à plat), tout le monde reste dedans si elle montrait le cadrage.
+   *  De loin, il est grisé : la carte reste à plat jusqu'à ce qu'on se rapproche. */
   const basculer = () => {
     const c = carte.current
-    if (!c) return
+    if (!c || !troisDVu.current) return
     select()
-    const vers = c.getPitch() >= SEUIL_3D ? 0 : PENTE
+    const vers = reliefVu.current ? 0 : PENTE
     choisirRelief(vers > 0)
-    vise.current = vers
+    voulue.current = vers
     reliefVu.current = vers > 0
     setRelief(vers > 0)
-    if (!(ajuste.current && recadrer(c, true, vers))) c.easeTo({ pitch: vers, duration: 750 })
+    if (!(ajuste.current && recadrer(c, true, vers))) {
+      c.easeTo({ pitch: vers, duration: 750 })
+      programme.current = true
+    }
   }
 
   /** Le plein écran : la même carte quitte son cadre et prend tout l'écran (elle s'ouvre depuis son cadre), puis y
@@ -947,6 +1060,7 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN, on
     if (oui) {
       sur.current = zonesSures()
       pleinVu.current = true
+      if (BUREAU) c.cooperativeGestures.disable()
       setPuce(ajuste.current ? 'tous' : null)
       flushSync(() => setPlein(true))
       c.resize()
@@ -957,6 +1071,7 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN, on
     }
     const fin = () => {
       pleinVu.current = false
+      if (BUREAU) c.cooperativeGestures.enable()
       setPuce(null)
       flushSync(() => setPlein(false))
       anim?.cancel()
@@ -1008,7 +1123,8 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN, on
     const x = points.find((y) => y.m.id === id)?.p
     if (!x) return
     ajuste.current = false
-    c.flyTo({ center: [x.lon, x.lat], zoom: reliefVu.current ? 16 : 15, duration: 900 })
+    c.flyTo({ center: [x.lon, x.lat], zoom: reliefVu.current ? 16 : 15, pitch: voulue.current, duration: 900 })
+    programme.current = true
   }
   const bandeau = plein && points.length > 0
 
@@ -1033,21 +1149,34 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN, on
           if (!x) return null
           const pale = ancienne(x.p)
           return createPortal(
-            <Repere m={x.m} moi={id === moi} pale={pale} relief={relief} />,
+            <Repere m={x.m} moi={id === moi} pale={pale} relief={penche} />,
             el,
             id,
           )
         })}
-        {(panne || (!points.length && !endroits.length)) && (
+        {panne && (
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 px-8 text-center">
             <MapPin size={26} className="text-pale" />
-            <p className="text-sous font-semibold text-brume">{panne ? 'La carte ne s’affiche pas pour le moment' : 'Personne ne partage sa position pour l’instant'}</p>
+            <p className="text-sous font-semibold text-brume">La carte ne s’affiche pas pour le moment</p>
           </div>
         )}
-        {/* personne sur la carte, mais nos lieux y sont : on le dit en bas, sans les cacher */}
+        {/* personne sur la carte (ni nos lieux) : les têtes à venir, et ce qu'il faut pour commencer (Elisa,
+            26 novembre : « j'aime pas le mot "personne ne partage" ») ; le bouton est juste sous la carte */}
+        {!panne && !points.length && !endroits.length && (
+          <div className="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center px-6">
+            <div className="verre flex max-w-[260px] flex-col items-center rounded-[24px] px-5 pb-3.5 pt-4 text-center">
+              <TetesAVenir />
+              <p className="mt-2.5 text-corps font-bold text-encre">Vos têtes apparaîtront ici</p>
+              <p className="mt-1 text-note text-brume">{plein ? 'Quand vous partagerez votre position.' : 'Partage ta position pour commencer.'}</p>
+            </div>
+          </div>
+        )}
+        {/* personne sur la carte, mais nos lieux y sont : on le dit en bas, sans les cacher (au-dessus des crédits,
+            écrits en entier les premières secondes) */}
         {!panne && !points.length && endroits.length > 0 && (
-          <p className="verre pointer-events-none absolute bottom-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-3 py-1.5 text-note font-semibold text-brume" style={plein ? { bottom: 'calc(var(--sab) + 14px)' } : undefined}>
-            Personne ne partage sa position pour l’instant
+          <p className="verre pointer-events-none absolute bottom-10 left-1/2 z-[5] flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full py-1.5 pl-2.5 pr-3.5 text-note font-semibold text-encre" style={plein ? { bottom: 'calc(var(--sab) + 44px)' } : undefined}>
+            <GoutteVide size={14} />
+            Vos têtes apparaîtront ici
           </p>
         )}
         {/* le liseré du cadre, dans la page */}
@@ -1063,8 +1192,16 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN, on
         {prete && !panne && (
           <div className={`absolute z-[7] flex flex-col items-center gap-2 ${plein ? 'right-3' : 'right-2.5 top-2.5'}`} style={plein ? { top: 'calc(var(--sat) + 10px)' } : undefined}>
             <div className="verre flex w-10 flex-col overflow-hidden rounded-full">
-              <button onClick={basculer} aria-label={relief ? 'Voir la carte à plat' : 'Voir la carte en 3D'} className="presse flex h-10 w-10 items-center justify-center">
-                <span key={relief ? 'plat' : 'relief'} className="anim-pop text-[14px] font-extrabold tracking-[-0.2px] text-teinte-fonce">{relief ? '2D' : '3D'}</span>
+              {/* de loin, la 3D n'est pas possible (la carte reste à plat) : grisé, il revient en se rapprochant */}
+              <button
+                onClick={basculer}
+                disabled={!troisD}
+                aria-label={!troisD ? 'Vue 3D : rapproche-toi pour l’activer' : relief ? 'Voir la carte à plat' : 'Voir la carte en 3D'}
+                className="presse flex h-10 w-10 items-center justify-center disabled:opacity-35"
+              >
+                <span key={troisD && relief ? 'plat' : 'relief'} className="anim-pop text-[14px] font-extrabold tracking-[-0.2px] text-teinte-fonce">
+                  {troisD && relief ? '2D' : '3D'}
+                </span>
               </button>
               {onMoi && (
                 <>

@@ -6,9 +6,26 @@ import type { ExpressionSpecification, FillExtrusionLayerSpecification, LightSpe
 
 /** L'inclinaison de la vue 3D, en degrés (0 : à plat ; MapLibre va jusqu'à 60). */
 export const PENTE = 55
+/** L'inclinaison la plus forte, aux doigts. */
+export const PENTE_MAX = 60
 /** Au-delà, on est « en 3D » : le bouton propose de revenir à plat. */
 export const SEUIL_3D = 10
 export const COUCHE_BATIMENTS = 'nidoo-batiments-3d'
+
+// ───── De loin, la carte à plat, et un monde sans bords (Elisa, 26 novembre : « ça fait bizarre les bandes ») ─────
+
+/** Jusqu'à ce zoom (un pays, un continent), la carte reste à plat ; elle se relève ensuite, toute la 3D au zoom de
+ *  la région. Inclinée de loin, elle regardait au-delà du pôle : le vide, en bandes, au-dessus et en dessous du monde. */
+export const ZOOM_PLAT = 4
+export const ZOOM_RELIEF = 7
+/** L'inclinaison permise à ce zoom : nulle de loin, toute la 3D de près, et entre les deux en douceur. */
+export function penteMax(zoom: number): number {
+  const t = Math.min(1, Math.max(0, (zoom - ZOOM_PLAT) / (ZOOM_RELIEF - ZOOM_PLAT)))
+  return PENTE_MAX * t * t * (3 - 2 * t)
+}
+/** Le monde de la carte, sans l'Antarctique ni le Grand Nord (de la glace étirée, en grandes bandes blanches) : au
+ *  plus loin, il remplit le cadre (jamais de vide autour) ; d'est en ouest, il continue sans fin. */
+export const MONDE: [[number, number], [number, number]] = [[-180, -58], [180, 80]]
 
 /** Les bâtiments en relief : leur vraie hauteur (5 m quand OpenStreetMap ne la connaît pas), dans le beige du fond
  *  « Rétro », un peu plus soutenu pour les tours. Les tuiles ne donnent la hauteur qu'à partir du zoom 14 : les bâtiments y poussent

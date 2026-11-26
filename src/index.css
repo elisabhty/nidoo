@@ -741,6 +741,10 @@ html.kb-visible .ios-sheet.h-\[92\%\] { height: calc(100% - var(--sat) - 8px); }
 /* en plein écran : au-dessus de la barre d'accueil, et des puces du bas quand il y en a */
 .carte-famille.plein .maplibregl-ctrl-bottom-right { bottom: var(--sab); }
 .carte-famille.plein.avec-bandeau .maplibregl-ctrl-bottom-right { bottom: calc(var(--sab) + 76px); }
+/* sur un ordinateur, la molette fait défiler la page : l'indication pour zoomer, dans une pastille claire (au lieu
+   du grand voile noir de MapLibre) */
+.carte-famille .maplibregl-cooperative-gesture-screen { background: rgba(29,26,43,.16); padding: 1rem; font: inherit; transition: opacity .5s .9s; }
+.carte-famille .maplibregl-cooperative-gesture-screen .maplibregl-desktop-message { padding: 9px 16px; border-radius: 999px; background: rgba(255,255,255,.95); color: #1D1A2B; font-size: 14.5px; font-weight: 700; line-height: 1.3; box-shadow: 0 8px 24px -10px rgba(29,26,43,.4); }
 
 /* le calendrier de l'appli : le mois arrive du côté où l'on va */
 .mois-glisse { animation: moisGlisse 0.26s cubic-bezier(0.22, 0.8, 0.3, 1) both; }
