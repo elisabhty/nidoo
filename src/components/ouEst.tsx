@@ -1,9 +1,10 @@
 // « Où sont mes proches ? » (Elisa, 21 novembre ; « Où est la famille » jusqu'au 26) : la carte avec chacun là où il est, s'il a choisi de partager sa position,
-// la liste (où, depuis quand, à quelle distance, la batterie presque vide), et mon interrupteur pour partager ou arrêter.
+// la liste (où, depuis quand, à quelle distance, la batterie presque vide), « Je suis en route », mon interrupteur pour
+// partager ou arrêter, et nos lieux. La carte passe d'abord, en grand, et s'ouvre en plein écran.
 // La carte : MapLibre (libre) avec les fonds d'OpenFreeMap (gratuits, sans clé, données OpenStreetMap), chargée à la demande.
-import { BatteryLow, ChevronRight, LocateFixed, MapPin, Navigation, Plus, RefreshCw, Settings } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { BatteryLow, Car, ChevronRight, LocateFixed, Lock, MapPin, Maximize2, Navigation, Plus, RefreshCw, Settings, Users, X } from 'lucide-react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createPortal, flushSync } from 'react-dom'
 import type { GeoJSONSource, LngLatLike, Map as CarteML } from 'maplibre-gl'
 import { cercle, cle, endroitDe } from '../lib/endroits'
 import { avantLesNoms, cadrer, choisirRelief, COUCHE_BATIMENTS, coucheBatiments, LUMIERE, PENTE, reliefChoisi, SEUIL_3D, type Camera } from '../lib/relief'
@@ -13,6 +14,7 @@ import { NATIF_IOS } from '../lib/pont'
 import { useHome } from '../lib/store'
 import type { Endroit, Member, Position } from '../lib/types'
 import { EndroitSheet } from './endroits'
+import { EnRouteSheet } from './enRoute'
 import { IconeEndroit, PastilleEndroit } from './iconeEndroit'
 import { Avatar, Btn, Page, Switch } from './ui'
 
@@ -110,21 +112,40 @@ function useReprendreSuivi(jePartage: boolean) {
   }, [jePartage])
 }
 
+/** La carte, plus grande : près de la moitié de l'écran (Elisa, 26 novembre : « davantage de place à la carte »). */
+const HAUTEUR_CARTE = 'clamp(300px, 46vh, 440px)'
+
+/** La page : la carte d'abord (elle s'agrandit aussi en plein écran), mes proches juste dessous, puis « Je suis en
+ *  route », ma position et nos lieux ; ce qu'on garde (et pour qui) tout en bas (Elisa, 26 novembre : « de façon UI UX »). */
 export function OuEstPage({ onClose }: { onClose: () => void }) {
   const { state, api } = useHome()
   const { gens, points, parId, moi } = useFamillePositions()
   const { partager, arreter, occupe } = usePartager()
   const [focus, setFocus] = useState<{ id: string; n: number } | null>(null)
   const [auto, setAuto] = useState<Autorisation | null>(null)
-  // nos adresses : la fiche ouverte (« nouvelle », ou celle qu'on modifie), et celle qui vient d'arriver
+  // nos lieux : la fiche ouverte (« nouvelle », ou celle qu'on modifie), et celle qui vient d'arriver
   const [fiche, setFiche] = useState<Endroit | 'nouvelle' | null>(null)
   const [arrivee, setArrivee] = useState<string | null>(null)
+  const [enRoute, setEnRoute] = useState(false)
+  const cadreCarte = useRef<HTMLDivElement>(null)
   const viser = (id: string) => setFocus((f) => ({ id, n: (f?.n ?? 0) + 1 }))
+  /** Touché dans la liste : si la carte est sortie de l'écran, la page remonte d'abord jusqu'à elle. */
+  const montrer = (id: string) => {
+    const el = cadreCarte.current
+    const page = el?.closest<HTMLElement>('.overflow-y-auto')
+    if (el && page) {
+      const r = el.getBoundingClientRect()
+      const haut = page.getBoundingClientRect().top + 52 // sous la barre du haut
+      if (r.top < haut || r.bottom > window.innerHeight) page.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+    viser(id)
+  }
   const maintenant = Date.now()
   const ou = (p: Position) => endroitDe(p, state.endroits)
   const ici = moi ? ou(moi) : null
+  const autres = gens.filter((m) => m.id !== state.me.id)
   useReprendreSuivi(!!moi)
-  // une adresse enregistrée : sa ligne s'éclaire et la carte va la montrer (pas de bandeau : ça se voit)
+  // un lieu enregistré : sa ligne s'éclaire et la carte va le montrer (pas de bandeau : ça se voit)
   useEffect(() => {
     if (!arrivee) return
     const e = state.endroits.find((x) => cle(x.nom) === arrivee && !x.id.startsWith('nouveau-'))
@@ -145,116 +166,67 @@ export function OuEstPage({ onClose }: { onClose: () => void }) {
     void autorisation().then((a) => (a === 'active' || a === 'toujours') && partager(false))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ce que fait vraiment le suivi : « même appli fermée » seulement si l'iPhone l'autorise (« Toujours »)
+  // ce que fait vraiment le partage : « même appli fermée » seulement si l'iPhone l'autorise (« Toujours »)
   const suivi = !NATIF_IOS
     ? 'Elle change quand tu ouvres la carte'
     : auto === 'toujours'
-      ? 'Suivi actif, même appli fermée'
+      ? 'Elle suit tes déplacements, même appli fermée'
       : auto === 'active'
-        ? 'Suivi quand l’appli est ouverte'
-        : 'Suivi actif'
+        ? 'Seulement quand l’appli est ouverte'
+        : 'Elle suit tes déplacements'
   const versDe = (p: Position) => (NATIF_IOS ? `maps://?daddr=${p.lat},${p.lon}` : `https://maps.apple.com/?daddr=${p.lat},${p.lon}`)
 
   return (
     <>
     <Page title="Où sont mes proches ?" onClose={onClose}>
-      <p className="-mt-1 px-5 pb-3 text-sous text-brume">Chacun choisit de partager sa position, et peut arrêter quand il veut. Seule la dernière est gardée.</p>
-      {/* le cadre de la carte (Elisa, 25 novembre : « améliore le cadre ») : un passe-partout blanc comme les autres
-          cartes de la page, un liseré ; dans la carte, le bouton 3D et celui pour revenir sur soi */}
-      <div className="mx-4 rounded-[26px] bg-carte p-1.5 shadow-carte">
-        <div className="relative overflow-hidden rounded-[20px]">
-          <CarteFamille points={points} moi={state.me.id} focus={focus} hauteur={300} endroits={state.endroits} onMoi={moi ? () => viser(state.me.id) : undefined} />
-          <span className="pointer-events-none absolute inset-0 z-[6] rounded-[20px] ring-1 ring-inset ring-encre/[0.06]" aria-hidden="true" />
-        </div>
+      {/* la carte d'abord, et plus grande ; un passe-partout blanc comme les autres cartes de la page (Elisa,
+          25 novembre : « améliore le cadre ») ; dedans, la 3D, ma position et le plein écran */}
+      <div ref={cadreCarte} className="mx-4 rounded-[26px] bg-carte p-1.5 shadow-carte">
+        <CarteFamille points={points} moi={state.me.id} focus={focus} hauteur={HAUTEUR_CARTE} endroits={state.endroits} onMoi={moi ? () => viser(state.me.id) : undefined} />
       </div>
 
-      {/* ma position */}
-      <div className="groupe mx-4 mt-4 shadow-carte">
-        {moi ? (
-          <>
-            <div className="flex items-center gap-3 p-3.5">
-              <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#E3F1FD] text-[#2F7FD0]">
-                <LocateFixed size={21} strokeWidth={2.4} />
-                {/* le point vert : ma position est à jour (gris au-delà de 12 h) */}
-                <span className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full ring-2 ring-carte ${ancienne(moi, maintenant) ? 'bg-pale' : 'bg-[#34C759]'}`} aria-hidden="true" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-corps font-semibold">Je partage ma position</p>
-                {ici ? (
-                  <p className="flex min-w-0 items-center gap-1 text-note font-semibold text-encre">
-                    <IconeEndroit nom={ici.nom} size={14} />
-                    <span className="truncate">{ici.nom}</span>
-                  </p>
-                ) : (
-                  <p className="truncate text-note text-brume">{libelle(moi)}</p>
-                )}
-              </div>
-              <Switch on label="Partager ma position" onChange={() => void arreter()} />
-            </div>
-            <div className="flex items-center gap-3 border-t border-trait py-2.5 pl-3.5 pr-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-note font-semibold text-encre">Mise à jour {ilYA(moi.updated_at, maintenant)}</p>
-                <p className="text-mini text-brume">{suivi}</p>
-              </div>
-              <button onClick={() => (tap(), void partager(false))} disabled={occupe} className="presse flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-teinte-doux px-3.5 text-note font-bold text-teinte-fonce disabled:opacity-50">
-                <RefreshCw size={14} strokeWidth={2.8} className={occupe ? 'animate-spin' : ''} /> Actualiser
-              </button>
-            </div>
-            {NATIF_IOS && auto === 'active' && (
-              <a href="app-settings:" onClick={() => tap()} className="presse flex items-center gap-3 border-t border-trait bg-peche-doux/45 py-3 pl-3.5 pr-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-peche-doux text-peche-fonce">
-                  <Settings size={18} strokeWidth={2.3} />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sous font-semibold text-encre">Suivre aussi appli fermée</span>
-                  <span className="block text-note text-brume">Réglages › Position › Toujours</span>
-                </span>
-                <ChevronRight size={18} className="shrink-0 text-pale" />
-              </a>
-            )}
-          </>
-        ) : (
-          <div className="p-4">
-            <div className="flex items-start gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#E3F1FD] text-[#2F7FD0]">
-                <LocateFixed size={21} strokeWidth={2.4} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-corps font-semibold">Partager ma position</p>
-                <p className="mt-0.5 text-sous text-brume">
-                  Ta famille te voit sur la carte{NATIF_IOS ? ', et ta position suit quand tu bouges, même appli fermée' : ''}. Tu peux arrêter quand tu veux.
-                </p>
-              </div>
-            </div>
-            {auto === 'refusee' && (
-              <p className="mt-2 text-note font-semibold text-peche-fonce">
-                {NATIF_IOS ? (
-                  <a href="app-settings:" className="underline">NIDOO n’a pas accès à ta position : ouvre les Réglages</a>
-                ) : (
-                  'Ton navigateur refuse de donner ta position.'
-                )}
+      {/* je ne partage pas encore ma position : l'invitation à le faire, juste sous la carte */}
+      {!moi && (
+        <div className="groupe mx-4 mt-4 p-4 shadow-carte">
+          <div className="flex items-start gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#E3F1FD] text-[#2F7FD0]">
+              <LocateFixed size={21} strokeWidth={2.4} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-corps font-semibold">Partager ma position</p>
+              <p className="mt-0.5 text-sous text-brume">
+                Tes proches te voient sur la carte{NATIF_IOS ? ', et ta position suit quand tu bouges, même appli fermée' : ''}. Tu peux arrêter quand tu veux.
               </p>
-            )}
-            <Btn className="mt-3" onClick={() => void partager(true)} disabled={occupe}>
-              <MapPin size={18} strokeWidth={2.4} /> {occupe ? 'Je cherche ta position…' : 'Partager ma position'}
-            </Btn>
+            </div>
           </div>
-        )}
-      </div>
+          {auto === 'refusee' && (
+            <p className="mt-2 text-note font-semibold text-peche-fonce">
+              {NATIF_IOS ? (
+                <a href="app-settings:" className="underline">NIDOO n’a pas accès à ta position : ouvre les Réglages</a>
+              ) : (
+                'Ton navigateur refuse de donner ta position.'
+              )}
+            </p>
+          )}
+          <Btn className="mt-3" onClick={() => void partager(true)} disabled={occupe}>
+            <MapPin size={18} strokeWidth={2.4} /> {occupe ? 'Je cherche ta position…' : 'Partager ma position'}
+          </Btn>
+        </div>
+      )}
 
-      {/* la famille */}
-      <p className="entete mt-6">La famille</p>
+      {/* mes proches, juste sous la carte (Elisa, 26 novembre : « Mes proches » plutôt que « La famille ») */}
+      <p className="entete mt-6">Mes proches</p>
       <div className="groupe mx-4 shadow-carte">
-        {gens.filter((m) => m.id !== state.me.id).map((m, i, t) => {
+        {autres.map((m, i, t) => {
           const p = parId.get(m.id)
           const loin = p && moi ? texteDistance(distance(p, moi)) : null
-          // à une de nos adresses : « École » plutôt que la rue (Elisa, 26 novembre)
+          // à un de nos lieux : « École » plutôt que la rue (Elisa, 26 novembre)
           const la = p ? ou(p) : null
           const dernier = i === t.length - 1
           return (
             <div key={m.id} className="flex items-center gap-3 pl-3.5">
               <button
-                onClick={() => p && (select(), viser(m.id))}
+                onClick={() => p && (select(), montrer(m.id))}
                 disabled={!p}
                 className={`presse-ligne flex min-w-0 flex-1 items-center gap-3 py-2.5 text-left ${p ? '' : 'opacity-55'}`}
                 aria-label={p ? `Voir ${m.display_name} sur la carte` : `${m.display_name} ne partage pas sa position`}
@@ -297,12 +269,76 @@ export function OuEstPage({ onClose }: { onClose: () => void }) {
             </div>
           )
         })}
-        {gens.length <= 1 && <p className="p-4 text-sous text-brume">Invite tes proches : quand ils partageront leur position, ils apparaîtront ici.</p>}
+        {!autres.length && <p className="p-4 text-sous text-brume">Invite tes proches : quand ils partageront leur position, ils apparaîtront ici.</p>}
       </div>
 
-      {/* nos adresses (Elisa, 26 novembre : « enregistrer des adresses, école, travail, pour ne pas mettre l'adresse
-          complète mais école ») : qui s'y trouve se lit « École » au lieu de la rue */}
-      <p className="entete mt-6">Nos adresses</p>
+      {/* « Je suis en route » (Elisa, 26 novembre) : un petit mot à mes proches, avec l'heure d'arrivée */}
+      {autres.length > 0 && (
+        <button onClick={() => (tap(), setEnRoute(true))} className="presse groupe mx-4 mt-3 flex w-[calc(100%-2rem)] items-center gap-3 p-3.5 text-left shadow-carte">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-peche-doux text-peche-fonce">
+            <Car size={21} strokeWidth={2.3} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-corps font-semibold">Je suis en route</span>
+            <span className="block truncate text-note text-brume">Prévenir mes proches de mon arrivée</span>
+          </span>
+          <ChevronRight size={18} className="shrink-0 text-pale" />
+        </button>
+      )}
+
+      {/* ma position : les réglages, sous mes proches (Elisa, 26 novembre : « les membres de la famille plus vite ») */}
+      {moi && (
+        <>
+          <p className="entete mt-6">Ma position</p>
+          <div className="groupe mx-4 shadow-carte">
+            <div className="flex items-center gap-3 p-3.5">
+              <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#E3F1FD] text-[#2F7FD0]">
+                <LocateFixed size={21} strokeWidth={2.4} />
+                {/* le point vert : ma position est à jour (gris au-delà de 12 h) */}
+                <span className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full ring-2 ring-carte ${ancienne(moi, maintenant) ? 'bg-pale' : 'bg-[#34C759]'}`} aria-hidden="true" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-corps font-semibold">Partager ma position</p>
+                {ici ? (
+                  <p className="flex min-w-0 items-center gap-1 text-note font-semibold text-encre">
+                    <IconeEndroit nom={ici.nom} size={14} />
+                    <span className="truncate">{ici.nom}</span>
+                  </p>
+                ) : (
+                  <p className="truncate text-note text-brume">{libelle(moi)}</p>
+                )}
+              </div>
+              <Switch on label="Partager ma position" onChange={() => void arreter()} />
+            </div>
+            <div className="flex items-center gap-3 border-t border-trait py-2.5 pl-3.5 pr-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-note font-semibold text-encre">Mise à jour {ilYA(moi.updated_at, maintenant)}</p>
+                <p className="text-mini text-brume">{suivi}</p>
+              </div>
+              <button onClick={() => (tap(), void partager(false))} disabled={occupe} className="presse flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-teinte-doux px-3.5 text-note font-bold text-teinte-fonce disabled:opacity-50">
+                <RefreshCw size={14} strokeWidth={2.8} className={occupe ? 'animate-spin' : ''} /> Actualiser
+              </button>
+            </div>
+            {/* « Partager même appli fermée » (avant : « Suivre aussi appli fermée ») : l'iPhone doit dire « Toujours » */}
+            {NATIF_IOS && auto === 'active' && (
+              <a href="app-settings:" onClick={() => tap()} className="presse flex items-center gap-3 border-t border-trait bg-peche-doux/45 py-3 pl-3.5 pr-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-peche-doux text-peche-fonce">
+                  <Settings size={18} strokeWidth={2.3} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sous font-semibold text-encre">Partager même appli fermée</span>
+                  <span className="block text-note text-brume">Réglages › Position › Toujours</span>
+                </span>
+                <ChevronRight size={18} className="shrink-0 text-pale" />
+              </a>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* nos lieux (Elisa, 26 novembre : « enregistrer des adresses, école, travail, pour ne pas mettre l'adresse
+          complète mais école » ; « Nos lieux » plutôt que « Nos adresses ») : qui s'y trouve se lit « École » */}
+      <p className="entete mt-6">Nos lieux</p>
       <div className="groupe mx-4 shadow-carte">
         {state.endroits.map((e) => {
           const la = points.filter((x) => ou(x.p)?.id === e.id).map((x) => x.m)
@@ -339,17 +375,22 @@ export function OuEstPage({ onClose }: { onClose: () => void }) {
             <Plus size={21} strokeWidth={2.6} />
           </span>
           <span className="min-w-0 flex-1 py-2.5 pr-3.5">
-            <span className="block text-corps font-semibold text-teinte-fonce">Ajouter une adresse</span>
-            <span className="block truncate text-note text-brume">École, travail, chez Mamie…</span>
+            <span className="block text-corps font-semibold text-teinte-fonce">Ajouter un lieu</span>
+            <span className="block truncate text-note text-brume">Maison, école, travail, chez Mamie…</span>
           </span>
         </button>
       </div>
       <p className="mt-2 px-5 text-note text-brume">
-        {state.endroits.length ? `Quand quelqu’un s’y trouve, on lit « ${state.endroits[0].nom} » plutôt que l’adresse. Elles servent aussi pour l’agenda.` : 'Quand quelqu’un s’y trouve, on lit son nom plutôt que l’adresse. Elles servent aussi pour l’agenda.'}
-        {!state.endroitsPartages && ' Pour l’instant, elles restent sur ce téléphone.'}
+        {state.endroits.length ? `Quand quelqu’un s’y trouve, on lit « ${state.endroits[0].nom} » plutôt que l’adresse. Ils servent aussi pour l’agenda.` : 'Quand quelqu’un s’y trouve, on lit son nom plutôt que l’adresse. Ils servent aussi pour l’agenda.'}
+        {!state.endroitsPartages && ' Pour l’instant, ils restent sur ce téléphone.'}
       </p>
 
-      <p className="mt-5 px-5 text-mini text-pale">Carte : © OpenStreetMap · OpenFreeMap. Les positions ne sont visibles que par la famille.</p>
+      {/* ce qu'on garde, et pour qui : tout en bas (avant, sous le titre, il repoussait la carte) */}
+      <p className="mx-5 mt-7 flex gap-2 text-note text-brume">
+        <Lock size={14} strokeWidth={2.4} className="mt-[3px] shrink-0" aria-hidden="true" />
+        <span>Chacun choisit de partager sa position et peut arrêter quand il veut. Seule la dernière est gardée, et seule la famille la voit.</span>
+      </p>
+      <p className="mt-2 px-5 text-mini text-pale">Carte : © OpenStreetMap · OpenFreeMap</p>
     </Page>
     {/* à côté de la page (pas dedans : elle défile), pour couvrir tout l'écran */}
     {fiche && (
@@ -359,6 +400,7 @@ export function OuEstPage({ onClose }: { onClose: () => void }) {
         onFait={(nom) => nom && setArrivee(cle(nom))}
       />
     )}
+    {enRoute && <EnRouteSheet onClose={() => setEnRoute(false)} />}
     </>
   )
 }
@@ -409,8 +451,28 @@ type Marques = Record<string, InstanceType<typeof import('maplibre-gl').Marker>>
 /** Le zoom le plus serré pour cadrer la famille : à plat, ~800 m de large ; en 3D, ~450 m (les bâtiments se voient). */
 const ZOOM_MAX = 15
 const ZOOM_MAX_3D = 15.6
-/** Quand on ne montre que nos adresses : leur nom pend sous leur point, et le bandeau « Personne ne partage… » en bas. */
+/** Quand on ne montre que nos lieux : leur nom pend sous leur point, et le bandeau « Personne ne partage… » en bas. */
 const MARGES_LIEUX = { top: 40, bottom: 84, left: 80, right: 80 }
+/** En plein écran : la place des boutons du haut, et celle des puces du bas (« Tout le monde », chacun). */
+const BOUTONS_HAUT = 56
+/** La colonne de boutons, en haut à droite de la carte (et de quoi y loger une tête à côté). */
+const BOUTONS_DROITE = 76
+const BANDEAU_BAS = 76
+const COURBE = 'cubic-bezier(0.32, 0.72, 0, 1)'
+
+/** Les zones sûres de l'écran (l'encoche, la barre d'accueil), en pixels. */
+function zonesSures(): { haut: number; bas: number } {
+  const d = document.createElement('div')
+  d.style.cssText = 'position:fixed;left:0;top:0;width:1px;visibility:hidden;pointer-events:none'
+  document.body.appendChild(d)
+  const lire = (v: string) => {
+    d.style.height = `var(${v})`
+    return d.getBoundingClientRect().height
+  }
+  const r = { haut: lire('--sat'), bas: lire('--sab') }
+  d.remove()
+  return r
+}
 
 /** Ce que le cadrage en perspective (src/lib/relief.ts) demande à MapLibre. */
 function camera(c: CarteML): Camera {
@@ -451,7 +513,11 @@ function Aiguille() {
  *  Nos adresses y sont aussi : leur zone, et leur nom. `focus` : un membre (son id) ou une adresse (« endroit:id »).
  *  En 3D (Elisa, 26 novembre) : la carte inclinée, les bâtiments en relief, un bouton pour revenir à plat ; on peut
  *  aussi l'incliner ou la tourner à deux doigts (la boussole remet le nord en haut). */
-export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN, onMoi }: { points: Point[]; moi: string; focus: { id: string; n: number } | null; hauteur: number; endroits?: readonly Endroit[]; onMoi?: () => void }) {
+export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN, onMoi }: { points: Point[]; moi: string; focus: { id: string; n: number } | null; hauteur: number | string; endroits?: readonly Endroit[]; onMoi?: () => void }) {
+  // la place de la carte dans la page (elle la garde pendant le plein écran), et la carte elle-même
+  const place = useRef<HTMLDivElement>(null)
+  const scene = useRef<HTMLDivElement>(null)
+  const reduire = useRef<HTMLButtonElement>(null)
   const boite = useRef<HTMLDivElement>(null)
   const carte = useRef<CarteML | null>(null)
   const [marques, setMarques] = useState<Record<string, HTMLElement>>({})
@@ -471,6 +537,11 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN, on
   const calcul = useRef(false)
   // l'inclinaison visée par le bouton 3D, le temps que la carte y arrive
   const vise = useRef<number | null>(null)
+  // en plein écran (Elisa, 26 novembre : « un bouton pour l'afficher en plein écran ») ; la puce touchée en bas
+  const [plein, setPlein] = useState(false)
+  const pleinVu = useRef(false)
+  const sur = useRef({ haut: 0, bas: 0 })
+  const [puce, setPuce] = useState<string | null>(null) // un proche, « tous », ou aucune
   const cle = points.map((x) => `${x.m.id}:${x.p.lat},${x.p.lon}`).join('|')
   const cleLieux = endroits.map((e) => `${e.id}:${e.lat},${e.lon},${e.rayon_m},${e.nom}`).join('|')
 
@@ -479,8 +550,11 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN, on
     const gens = points.length > 0
     const pts = gens ? points.map((x) => x.p) : [...endroits]
     if (!pts.length) return false
-    // le nom d'une de nos adresses pend sous la tête de qui s'y trouve : un peu plus d'air sur les côtés
-    const marges = !gens ? MARGES_LIEUX : endroits.length ? { ...MARGES, left: 60, right: 60 } : MARGES
+    // le nom d'un de nos lieux pend sous la tête de qui s'y trouve : un peu plus d'air sur les côtés
+    // à droite, la place des boutons (3D, ma position, plein écran) : ni une tête ni le nom d'un lieu ne s'y cachent
+    const base = !gens ? MARGES_LIEUX : endroits.length ? { ...MARGES, left: 60, right: BOUTONS_DROITE + 24 } : { ...MARGES, right: BOUTONS_DROITE }
+    // en plein écran : sous les boutons du haut, au-dessus des puces du bas
+    const marges = pleinVu.current ? { ...base, top: base.top + sur.current.haut + BOUTONS_HAUT, bottom: base.bottom + sur.current.bas + (gens ? BANDEAU_BAS : 0) } : base
     const maxZoom = pitch >= SEUIL_3D ? ZOOM_MAX_3D : ZOOM_MAX
     const lons = pts.map((p) => p.lon)
     const lats = pts.map((p) => p.lat)
@@ -531,7 +605,9 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN, on
         nouvelle.on('error', () => undefined)
         // bougée du doigt : elle ne se recadre plus toute seule
         nouvelle.on('movestart', (e) => {
-          if (!calcul.current && (e as { originalEvent?: unknown }).originalEvent) ajuste.current = false
+          if (calcul.current || !(e as { originalEvent?: unknown }).originalEvent) return
+          ajuste.current = false
+          setPuce(null)
         })
         // le bouton 3D et la boussole suivent l'inclinaison et l'orientation de la carte
         const angles = () => {
@@ -691,6 +767,7 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN, on
     const x = e ? { lat: e.lat, lon: e.lon } : points.find((y) => y.m.id === focus.id)?.p
     if (!x || !carte.current) return
     ajuste.current = false
+    setPuce(e ? null : focus.id)
     carte.current.flyTo({ center: [x.lon, x.lat], zoom: reliefVu.current ? 16 : 15, duration: 900 })
   }, [focus]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -707,59 +784,212 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN, on
     if (!(ajuste.current && recadrer(c, true, vers))) c.easeTo({ pitch: vers, duration: 750 })
   }
 
+  /** Le plein écran : la même carte quitte son cadre et prend tout l'écran (elle s'ouvre depuis son cadre), puis y
+   *  revient. Tout le monde reste dedans si personne ne l'a bougée. */
+  const agrandir = (oui: boolean) => {
+    const c = carte.current
+    const el = scene.current
+    const pl = place.current
+    if (!c || !el || !pl || oui === pleinVu.current) return
+    select()
+    const doux = !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    // le cadre de la carte dans la page, vu depuis l'écran entier : le début (ou la fin) de l'animation
+    const decoupe = () => {
+      const p = pl.getBoundingClientRect()
+      const e = el.getBoundingClientRect()
+      return `inset(${p.top - e.top}px ${e.right - p.right}px ${e.bottom - p.bottom}px ${p.left - e.left}px round 20px)`
+    }
+    const entier = 'inset(0px 0px 0px 0px round 0px)'
+    if (oui) {
+      sur.current = zonesSures()
+      pleinVu.current = true
+      setPuce(ajuste.current ? 'tous' : null)
+      flushSync(() => setPlein(true))
+      c.resize()
+      if (ajuste.current) recadrer(c, false)
+      if (doux) el.animate([{ clipPath: decoupe() }, { clipPath: entier }], { duration: 380, easing: COURBE })
+      reduire.current?.focus({ preventScroll: true })
+      return
+    }
+    const fin = () => {
+      pleinVu.current = false
+      setPuce(null)
+      flushSync(() => setPlein(false))
+      anim?.cancel()
+      c.resize()
+      if (ajuste.current) recadrer(c, false)
+    }
+    const anim = doux ? el.animate([{ clipPath: entier }, { clipPath: decoupe() }], { duration: 300, easing: COURBE, fill: 'forwards' }) : null
+    if (anim) anim.onfinish = fin
+    else fin()
+  }
+
+  // en plein écran : Échap réduit la carte (sans fermer la page) ; la page, derrière, ne défile plus, et passe
+  // devant sa barre du haut (la carte en est une enfant : elle couvre ainsi tout l'écran, barre d'état comprise)
+  useLayoutEffect(() => {
+    if (!plein) return
+    const touche = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.preventDefault()
+      e.stopPropagation()
+      agrandir(false)
+    }
+    window.addEventListener('keydown', touche, true)
+    const page = place.current?.closest<HTMLElement>('.overflow-y-auto')
+    const avant = { o: page?.style.overflowY ?? '', z: page?.style.zIndex ?? '' }
+    if (page) {
+      page.style.overflowY = 'hidden'
+      page.style.zIndex = '35'
+    }
+    return () => {
+      window.removeEventListener('keydown', touche, true)
+      if (page) {
+        page.style.overflowY = avant.o
+        page.style.zIndex = avant.z
+      }
+    }
+  }, [plein]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Une puce du bas : on va vers lui ; « Tout le monde » remontre toute la famille. */
+  const aller = (id: string) => {
+    const c = carte.current
+    if (!c) return
+    select()
+    setPuce(id)
+    if (id === 'tous') {
+      ajuste.current = true
+      recadrer(c, true)
+      return
+    }
+    const x = points.find((y) => y.m.id === id)?.p
+    if (!x) return
+    ajuste.current = false
+    c.flyTo({ center: [x.lon, x.lat], zoom: reliefVu.current ? 16 : 15, duration: 900 })
+  }
+  const bandeau = plein && points.length > 0
+
   return (
-    <div className="carte-famille relative bg-[#F8F4F0]" style={{ height: hauteur }}>
-      {/* en style (MapLibre met « position: relative » sur la carte : la classe seule ne suffit pas) */}
-      <div ref={boite} style={{ position: 'absolute', inset: 0 }} />
-      {Object.entries(lieux).map(([id, el]) => {
-        const e = endroits.find((y) => y.id === id)
-        return e ? createPortal(<EtiquetteEndroit nom={e.nom} />, el, `endroit:${id}`) : null
-      })}
-      {Object.entries(marques).map(([id, el]) => {
-        const x = points.find((y) => y.m.id === id)
-        if (!x) return null
-        const pale = ancienne(x.p)
-        return createPortal(
-          <Repere m={x.m} moi={id === moi} pale={pale} relief={relief} />,
-          el,
-          id,
-        )
-      })}
-      {(panne || (!points.length && !endroits.length)) && (
-        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 px-8 text-center">
-          <MapPin size={26} className="text-pale" />
-          <p className="text-sous font-semibold text-brume">{panne ? 'La carte ne s’affiche pas pour le moment' : 'Personne ne partage sa position pour l’instant'}</p>
-        </div>
-      )}
-      {/* personne sur la carte, mais nos adresses y sont : on le dit en bas, sans les cacher */}
-      {!panne && !points.length && endroits.length > 0 && (
-        <p className="verre pointer-events-none absolute bottom-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-3 py-1.5 text-note font-semibold text-brume">Personne ne partage sa position pour l’instant</p>
-      )}
-      {/* en haut à droite, comme dans Plans : 3D ou à plat, ma position, et la boussole quand la carte est tournée */}
-      {prete && !panne && (
-        <div className="absolute right-2.5 top-2.5 z-[5] flex flex-col items-center gap-2">
-          <div className="verre flex w-10 flex-col overflow-hidden rounded-full">
-            <button onClick={basculer} aria-label={relief ? 'Voir la carte à plat' : 'Voir la carte en 3D'} className="presse flex h-10 w-10 items-center justify-center">
-              <span key={relief ? 'plat' : 'relief'} className="anim-pop text-[14px] font-extrabold tracking-[-0.2px] text-teinte-fonce">{relief ? '2D' : '3D'}</span>
-            </button>
-            {onMoi && (
-              <>
-                <span className="mx-2.5 h-px bg-encre/10" aria-hidden="true" />
-                <button onClick={() => (select(), onMoi())} aria-label="Revenir sur ma position" className="presse flex h-10 w-10 items-center justify-center text-teinte-fonce">
-                  <LocateFixed size={19} strokeWidth={2.4} />
-                </button>
-              </>
+    // la place de la carte dans la page : elle la garde quand la carte passe en plein écran
+    <div ref={place} className="relative" style={{ height: hauteur }}>
+      <div
+        ref={scene}
+        className={`carte-famille bg-[#F8F4F0] ${plein ? `plein fixed inset-0 z-[70] ${bandeau ? 'avec-bandeau' : ''}` : 'absolute inset-0 overflow-hidden rounded-[20px]'}`}
+        role={plein ? 'dialog' : undefined}
+        aria-modal={plein || undefined}
+        aria-label={plein ? 'Carte de mes proches en plein écran' : undefined}
+      >
+        {/* en style (MapLibre met « position: relative » sur la carte : la classe seule ne suffit pas) */}
+        <div ref={boite} style={{ position: 'absolute', inset: 0 }} />
+        {Object.entries(lieux).map(([id, el]) => {
+          const e = endroits.find((y) => y.id === id)
+          return e ? createPortal(<EtiquetteEndroit nom={e.nom} />, el, `endroit:${id}`) : null
+        })}
+        {Object.entries(marques).map(([id, el]) => {
+          const x = points.find((y) => y.m.id === id)
+          if (!x) return null
+          const pale = ancienne(x.p)
+          return createPortal(
+            <Repere m={x.m} moi={id === moi} pale={pale} relief={relief} />,
+            el,
+            id,
+          )
+        })}
+        {(panne || (!points.length && !endroits.length)) && (
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 px-8 text-center">
+            <MapPin size={26} className="text-pale" />
+            <p className="text-sous font-semibold text-brume">{panne ? 'La carte ne s’affiche pas pour le moment' : 'Personne ne partage sa position pour l’instant'}</p>
+          </div>
+        )}
+        {/* personne sur la carte, mais nos lieux y sont : on le dit en bas, sans les cacher */}
+        {!panne && !points.length && endroits.length > 0 && (
+          <p className="verre pointer-events-none absolute bottom-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-3 py-1.5 text-note font-semibold text-brume" style={plein ? { bottom: 'calc(var(--sab) + 14px)' } : undefined}>
+            Personne ne partage sa position pour l’instant
+          </p>
+        )}
+        {/* le liseré du cadre, dans la page */}
+        {!plein && <span className="pointer-events-none absolute inset-0 z-[6] rounded-[20px] ring-1 ring-inset ring-encre/[0.06]" aria-hidden="true" />}
+        {/* en plein écran : réduire, en haut à gauche (là où est « Retour » dans la page) */}
+        {plein && (
+          <button ref={reduire} onClick={() => agrandir(false)} aria-label="Réduire la carte" className="presse verre absolute left-3 z-[7] flex h-11 w-11 items-center justify-center rounded-full text-encre" style={{ top: 'calc(var(--sat) + 8px)' }}>
+            <X size={21} strokeWidth={2.6} />
+          </button>
+        )}
+        {/* en haut à droite, comme dans Plans : 3D ou à plat, ma position, le plein écran, et la boussole quand la
+            carte est tournée */}
+        {prete && !panne && (
+          <div className={`absolute z-[7] flex flex-col items-center gap-2 ${plein ? 'right-3' : 'right-2.5 top-2.5'}`} style={plein ? { top: 'calc(var(--sat) + 10px)' } : undefined}>
+            <div className="verre flex w-10 flex-col overflow-hidden rounded-full">
+              <button onClick={basculer} aria-label={relief ? 'Voir la carte à plat' : 'Voir la carte en 3D'} className="presse flex h-10 w-10 items-center justify-center">
+                <span key={relief ? 'plat' : 'relief'} className="anim-pop text-[14px] font-extrabold tracking-[-0.2px] text-teinte-fonce">{relief ? '2D' : '3D'}</span>
+              </button>
+              {onMoi && (
+                <>
+                  <span className="mx-2.5 h-px bg-encre/10" aria-hidden="true" />
+                  <button onClick={() => (select(), onMoi())} aria-label="Revenir sur ma position" className="presse flex h-10 w-10 items-center justify-center text-teinte-fonce">
+                    <LocateFixed size={19} strokeWidth={2.4} />
+                  </button>
+                </>
+              )}
+              {!plein && (
+                <>
+                  <span className="mx-2.5 h-px bg-encre/10" aria-hidden="true" />
+                  <button onClick={() => agrandir(true)} aria-label="Agrandir la carte" className="presse flex h-10 w-10 items-center justify-center text-teinte-fonce">
+                    <Maximize2 size={17} strokeWidth={2.6} />
+                  </button>
+                </>
+              )}
+            </div>
+            {!nord && (
+              <button onClick={() => (select(), carte.current?.easeTo({ bearing: 0, duration: 500 }))} aria-label="Remettre le nord en haut" className="presse verre anim-pop flex h-10 w-10 items-center justify-center rounded-full">
+                <span ref={aiguille} className="flex" style={{ transform: `rotate(${-(carte.current?.getBearing() ?? 0)}deg)` }}>
+                  <Aiguille />
+                </span>
+              </button>
             )}
           </div>
-          {!nord && (
-            <button onClick={() => (select(), carte.current?.easeTo({ bearing: 0, duration: 500 }))} aria-label="Remettre le nord en haut" className="presse verre anim-pop flex h-10 w-10 items-center justify-center rounded-full">
-              <span ref={aiguille} className="flex" style={{ transform: `rotate(${-(carte.current?.getBearing() ?? 0)}deg)` }}>
-                <Aiguille />
-              </span>
-            </button>
-          )}
-        </div>
-      )}
+        )}
+        {/* en plein écran, en bas : chacun d'un toucher (comme la liste de la page), et « Tout le monde » */}
+        {bandeau && (
+          <div className="absolute inset-x-0 bottom-0 z-[7]" style={{ paddingBottom: 'calc(var(--sab) + 12px)' }}>
+            <div className="no-bar flex gap-2 overflow-x-auto px-3 pb-1 pt-2" style={{ touchAction: 'pan-x', overscrollBehaviorX: 'contain' }} role="group" aria-label="Aller vers">
+              {points.length > 1 && (
+                <PuceCarte actif={puce === 'tous'} onClick={() => aller('tous')}>
+                  <span className={`flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full ${puce === 'tous' ? 'bg-white/20 text-white' : 'bg-teinte-doux text-teinte-fonce'}`}>
+                    <Users size={20} strokeWidth={2.4} />
+                  </span>
+                  <span className="whitespace-nowrap text-note font-bold">Tout le monde</span>
+                </PuceCarte>
+              )}
+              {points.map((x) => {
+                const nom = x.m.id === moi ? 'Moi' : x.m.display_name
+                return (
+                  <PuceCarte key={x.m.id} actif={puce === x.m.id} onClick={() => aller(x.m.id)} label={`Aller vers ${x.m.id === moi ? 'ma position' : x.m.display_name}`}>
+                    <Avatar m={x.m} size={42} />
+                    <span className="min-w-0">
+                      <span className="block max-w-[132px] truncate text-note font-bold">{nom}</span>
+                      <span className={`block max-w-[132px] truncate text-mini ${puce === x.m.id ? 'text-white/85' : 'text-brume'}`}>{endroitDe(x.p, endroits)?.nom ?? x.p.ville ?? libelle(x.p)}</span>
+                    </span>
+                  </PuceCarte>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
+  )
+}
+
+/** Une puce du bas de la carte en plein écran : sur du verre, violette quand c'est elle qu'on regarde. */
+function PuceCarte({ actif, onClick, label, children }: { actif: boolean; onClick: () => void; label?: string; children: ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={actif}
+      aria-label={label}
+      className={`presse flex h-[52px] shrink-0 items-center gap-2 rounded-full py-[5px] pl-[5px] pr-4 text-left shadow-[0_6px_18px_-6px_rgba(29,26,43,0.35)] transition-colors duration-200 ${actif ? 'bg-teinte text-white' : 'verre text-encre'}`}
+    >
+      {children}
+    </button>
   )
 }

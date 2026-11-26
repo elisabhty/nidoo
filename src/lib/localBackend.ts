@@ -957,6 +957,21 @@ export function createLocalBackend(): Backend {
       echo(f, f.members.find((m) => m.id === from)!, f.members.find((m) => m.id === to)!)
       save()
     },
+    async sendThoughts(fid, from, to, kind, message) {
+      const f = fam(fid)
+      const de = f.members.find((m) => m.id === from)!
+      const ids: string[] = []
+      for (const t of to) {
+        const id = uid()
+        ids.push(id)
+        f.thoughts.unshift({ id, family_id: fid, from_member: from, to_member: t, kind, message: message?.trim() || null, created_at: new Date().toISOString(), seen_at: null })
+        award(f, from, 'attention', 1, 5)
+        const pour = f.members.find((m) => m.id === t)
+        if (pour) echo(f, de, pour)
+      }
+      save()
+      return ids
+    },
     async sendDrawing(fid, from, to, data, image) {
       const f = fam(fid)
       if (!data.s.length && !data.k?.length && !image) throw new Error('DESSIN_VIDE')

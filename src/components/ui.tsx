@@ -103,6 +103,33 @@ export function Page({ title, back = 'Retour', onClose, trailing, children, scro
   const [scrolled, setScrolled] = useState(false)
   const body = useRef<HTMLDivElement>(null)
   const page = useRef<HTMLDivElement>(null)
+  const grandTitre = useRef<HTMLHeadingElement>(null)
+  // un titre un peu long (« Où sont mes proches ? » sur un petit iPhone) rapetisse un peu pour tenir sur une ligne,
+  // jusqu'à 29 px ; plus long encore, il passe à la ligne à sa taille
+  useLayoutEffect(() => {
+    const h = grandTitre.current
+    if (!h) return
+    const ajuster = () => {
+      h.style.fontSize = ''
+      h.style.whiteSpace = 'nowrap'
+      const cs = getComputedStyle(h)
+      const place = h.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
+      // la largeur du texte sur une ligne (scrollWidth ne voit pas un texte qui déborde dans la marge intérieure)
+      const texte = document.createRange()
+      texte.selectNodeContents(h)
+      const largeur = () => texte.getBoundingClientRect().width
+      let taille = parseFloat(cs.fontSize)
+      while (largeur() > place && taille > 29) {
+        taille -= 1
+        h.style.fontSize = `${taille}px`
+      }
+      if (largeur() > place) h.style.fontSize = ''
+      h.style.whiteSpace = ''
+    }
+    ajuster()
+    // la police arrive parfois après le premier dessin
+    void document.fonts?.ready.then(ajuster)
+  }, [title])
   // un nouveau contenu (par exemple juste après l'adoption) repart du haut
   useEffect(() => {
     body.current?.scrollTo({ top: 0 })
@@ -145,7 +172,7 @@ export function Page({ title, back = 'Retour', onClose, trailing, children, scro
         style={{ top: 'var(--sat)', paddingTop: '52px', paddingBottom: 'calc(var(--sab) + 28px)' }}
         onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 34)}
       >
-        <h1 className="px-5 pb-3 pt-2 tracking-[-0.8px] font-sans text-grand">{title}</h1>
+        <h1 ref={grandTitre} className="px-5 pb-3 pt-2 tracking-[-0.8px] font-sans text-grand">{title}</h1>
         {children}
       </div>
     </div>

@@ -26,6 +26,7 @@ import { useHome } from '../lib/store'
 import type { Drawing, FamEvent, Member } from '../lib/types'
 import { familyLabel, finDe, greeting, isToday, nextOccurrence, season } from '../lib/util'
 import type { Go } from '../App'
+import { SCENES_JOUEES } from '../lib/scenes'
 
 type Open =
   | null
@@ -52,7 +53,7 @@ export function upcoming(events: ReturnType<typeof useHome>['state']['events'], 
     .slice(0, limit)
 }
 
-const PLAYED = 'nidoo.scenes.jouees'
+const PLAYED = SCENES_JOUEES
 
 export default function Home({ go, active = true }: { go: (t: Go) => void; active?: boolean }) {
   const { state, toast, run, api, reload } = useHome()

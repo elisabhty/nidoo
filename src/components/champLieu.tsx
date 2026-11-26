@@ -171,7 +171,7 @@ export const ChampLieu = memo(function ChampLieu({ value, onChange, placeholder,
       {/* nos adresses (Elisa, 26 novembre : « ne pas mettre l'adresse complète mais école ») : d'un toucher */}
       {focus && !choisi && noms.length > 0 && (
         <div className="anim-entre mt-2">
-          <p className="mb-1.5 flex items-center gap-1 px-1 text-note font-semibold text-brume"><Bookmark size={13} /> Nos adresses</p>
+          <p className="mb-1.5 flex items-center gap-1 px-1 text-note font-semibold text-brume"><Bookmark size={13} /> Nos lieux</p>
           <div className="flex flex-wrap gap-1.5">
             {noms.map((e, i) => (
               <button key={e.id} type="button" {...toucher(e.nom)} className="presse anim-pop flex max-w-full items-center gap-1.5 rounded-full bg-teinte-doux py-2 pl-2.5 pr-3 text-note font-semibold text-teinte-fonce" style={{ animationDelay: `${i * 35}ms` }}>

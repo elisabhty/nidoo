@@ -738,6 +738,9 @@ html.kb-visible .ios-sheet.h-\[92\%\] { height: calc(100% - var(--sat) - 8px); }
    restent à un toucher, et sont écrits sous la page). La feuille de MapLibre arrive après celle-ci : d'où la classe. */
 .carte-famille .maplibregl-ctrl-attrib.maplibregl-compact { margin: 0 8px 8px 0; background-color: rgba(255,255,255,.86); box-shadow: 0 1px 4px rgba(29,26,43,.12); }
 .carte-famille .maplibregl-ctrl-attrib.maplibregl-compact:not(.maplibregl-compact-show) .maplibregl-ctrl-attrib-button { opacity: .5; }
+/* en plein écran : au-dessus de la barre d'accueil, et des puces du bas quand il y en a */
+.carte-famille.plein .maplibregl-ctrl-bottom-right { bottom: var(--sab); }
+.carte-famille.plein.avec-bandeau .maplibregl-ctrl-bottom-right { bottom: calc(var(--sab) + 76px); }
 
 /* le calendrier de l'appli : le mois arrive du côté où l'on va */
 .mois-glisse { animation: moisGlisse 0.26s cubic-bezier(0.22, 0.8, 0.3, 1) both; }

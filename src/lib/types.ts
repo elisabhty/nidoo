@@ -365,6 +365,8 @@ export interface Backend {
   deleteFolderItem(item: FolderItem): Promise<void>
   react(moment: Moment, memberId: string, emoji: string | null): Promise<void>
   sendThought(familyId: string, from: string, to: string, kind: ThoughtKind, message?: string): Promise<void>
+  /** Le même petit mot à plusieurs proches d'un coup (« Je suis en route ») : leurs identifiants. */
+  sendThoughts(familyId: string, from: string, to: readonly string[], kind: ThoughtKind, message?: string): Promise<string[]>
   markSeen(ids: string[]): Promise<void>
   /** to = null : pour toute la famille */
   sendDrawing(familyId: string, from: string, to: string | null, data: DrawingData, photo?: Blob | null): Promise<void>

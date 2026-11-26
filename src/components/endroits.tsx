@@ -1,4 +1,4 @@
-// « Nos adresses » (Elisa, 26 novembre) : la fiche pour en ajouter une ou la modifier. Un nom (École, Travail…),
+// « Nos lieux » (Elisa, 26 novembre ; « Nos adresses » au début) : la fiche pour en ajouter un ou le modifier. Un nom (École, Travail…),
 // une adresse (cherchée dans la liste, déjà utilisée dans l'agenda, ou la position de quelqu'un), la taille de la zone.
 import { Check, LocateFixed, MapPin, Trash2 } from 'lucide-react'
 import { useId, useMemo, useRef, useState } from 'react'
@@ -14,7 +14,7 @@ import { Avatar, Btn, ChampRequis, CHAMP_REQUIS, confirmer, Sheet } from './ui'
 
 type Point = { lat: number; lon: number; texte: string; de: string }
 
-/** La fiche d'une adresse. `endroit` absent : une nouvelle. `onFait` : le nom enregistré (null : retirée). */
+/** La fiche d'un lieu. `endroit` absent : un nouveau. `onFait` : le nom enregistré (null : retiré). */
 export function EndroitSheet({ endroit, onClose, onFait }: { endroit?: Endroit; onClose: () => void; onFait?: (nom: string | null) => void }) {
   const { state, run, api, toast } = useHome()
   const fid = state.family.id
@@ -109,8 +109,8 @@ export function EndroitSheet({ endroit, onClose, onFait }: { endroit?: Endroit; 
     const avecLui = state.events.filter((x) => x.lieu && cle(x.lieu) === cle(endroit.nom))
     if (!(await confirmer({
       title: `Retirer « ${endroit.nom} » ?`,
-      message: state.endroitsPartages ? 'Elle disparaît de « Nos adresses » pour toute la famille.' : 'Elle disparaît de « Nos adresses » sur ce téléphone.',
-      confirm: 'Retirer l’adresse',
+      message: state.endroitsPartages ? 'Il disparaît de « Nos lieux » pour toute la famille.' : 'Il disparaît de « Nos lieux » sur ce téléphone.',
+      confirm: 'Retirer le lieu',
       destructive: true,
     }))) return
     const ok = await run(
@@ -133,24 +133,24 @@ export function EndroitSheet({ endroit, onClose, onFait }: { endroit?: Endroit; 
 
   return (
     <Sheet
-      title={endroit ? 'Modifier l’adresse' : 'Nouvelle adresse'}
+      title={endroit ? 'Modifier le lieu' : 'Nouveau lieu'}
       tall
       cacherBasAuClavier
       onClose={() => !busy && onClose()}
       footer={
         <Btn onClick={() => void enregistrer()} disabled={busy || plein} manque={manque} onManque={() => (!propre || pris ? champNom.current?.focus() : document.querySelector<HTMLInputElement>('[aria-label="Adresse"]')?.focus())}>
-          {cherche === 'adresse' ? 'Je cherche l’adresse…' : busy ? 'Enregistrement…' : endroit ? 'Enregistrer' : 'Ajouter l’adresse'}
+          {cherche === 'adresse' ? 'Je cherche l’adresse…' : busy ? 'Enregistrement…' : endroit ? 'Enregistrer' : 'Ajouter le lieu'}
         </Btn>
       }
     >
       {/* l'image suit le nom : un cartable pour l'école, une mallette pour le travail */}
       <div className="flex flex-col items-center pb-4 pt-1">
         <PastilleEndroit nom={propre || 'autre'} size={64} vivante />
-        <p className="mt-2 max-w-full truncate text-titre3 text-encre">{propre || 'Une adresse à nommer'}</p>
+        <p className="mt-2 max-w-full truncate text-titre3 text-encre">{propre || 'Un lieu à nommer'}</p>
         <p className="text-note text-brume">On lira ce nom à la place de l’adresse</p>
       </div>
 
-      <ChampRequis id={nomId} label="Nom" aide="Dans « Où sont mes proches ? » et dans l’agenda." erreur={doublon ? `Une de vos adresses s’appelle déjà « ${doublon.nom} ».` : null}>
+      <ChampRequis id={nomId} label="Nom" aide="Dans « Où sont mes proches ? » et dans l’agenda." erreur={doublon ? `Un de vos lieux s’appelle déjà « ${doublon.nom} ».` : null}>
         <input
           ref={champNom}
           id={nomId}
@@ -236,13 +236,13 @@ export function EndroitSheet({ endroit, onClose, onFait }: { endroit?: Endroit; 
       </section>
 
       {!state.endroitsPartages && (
-        <p className="mt-3 px-1 text-note text-brume">Pour l’instant, vos adresses restent sur ce téléphone : les autres ne les voient pas encore.</p>
+        <p className="mt-3 px-1 text-note text-brume">Pour l’instant, vos lieux restent sur ce téléphone : les autres ne les voient pas encore.</p>
       )}
-      {plein && <p className="mt-3 px-1 text-note font-semibold text-peche-fonce">Trente adresses au plus : retirez-en une d’abord.</p>}
+      {plein && <p className="mt-3 px-1 text-note font-semibold text-peche-fonce">Trente lieux au plus : retirez-en un d’abord.</p>}
 
       {endroit && (
         <button type="button" onClick={() => void retirer()} className="presse mx-auto mt-6 flex min-h-11 items-center gap-2 px-4 text-sous font-semibold text-rouge">
-          <Trash2 size={17} strokeWidth={2.3} /> Retirer cette adresse
+          <Trash2 size={17} strokeWidth={2.3} /> Retirer ce lieu
         </button>
       )}
     </Sheet>

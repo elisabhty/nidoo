@@ -729,6 +729,12 @@ export function createSupabaseBackend(): Backend {
     async sendThought(fid, from, to, kind, message) {
       check(await sb.from('thoughts').insert({ family_id: fid, from_member: from, to_member: to, kind, message: message?.trim() || null }))
     },
+    async sendThoughts(fid, from, to, kind, message) {
+      if (!to.length) return []
+      const texte = message?.trim() || null
+      const r = check(await sb.from('thoughts').insert(to.map((t) => ({ family_id: fid, from_member: from, to_member: t, kind, message: texte }))).select('id'))
+      return ((r ?? []) as { id: string }[]).map((x) => x.id)
+    },
     async markSeen(ids) {
       if (ids.length) check(await sb.from('thoughts').update({ seen_at: new Date().toISOString() }).in('id', ids))
     },
