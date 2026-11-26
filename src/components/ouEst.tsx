@@ -4,8 +4,9 @@
 import { BatteryLow, ChevronRight, LocateFixed, MapPin, Navigation, Plus, RefreshCw, Settings } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import type { GeoJSONSource, Map as CarteML } from 'maplibre-gl'
+import type { GeoJSONSource, LngLatLike, Map as CarteML } from 'maplibre-gl'
 import { cercle, cle, endroitDe } from '../lib/endroits'
+import { cadrer, choisirRelief, COUCHE_BATIMENTS, coucheBatiments, LUMIERE, PENTE, reliefChoisi, SEUIL_3D, type Camera } from '../lib/relief'
 import { select, tap } from '../lib/haptic'
 import { ancienne, autorisation, cadre, distance, ilYA, libelle, lirePosition, messagePosition, POSITION_DEMO, suivre, texteDistance, type Autorisation } from '../lib/localisation'
 import { NATIF_IOS } from '../lib/pont'
@@ -155,20 +156,11 @@ export function OuEstPage({ onClose }: { onClose: () => void }) {
     <Page title="Où est la famille" onClose={onClose}>
       <p className="-mt-1 px-5 pb-3 text-sous text-brume">Chacun choisit de partager sa position, et peut arrêter quand il veut. Seule la dernière est gardée.</p>
       {/* le cadre de la carte (Elisa, 25 novembre : « améliore le cadre ») : un passe-partout blanc comme les autres
-          cartes de la page, un liseré, et le bouton pour revenir sur soi */}
+          cartes de la page, un liseré ; dans la carte, le bouton 3D et celui pour revenir sur soi */}
       <div className="mx-4 rounded-[26px] bg-carte p-1.5 shadow-carte">
         <div className="relative overflow-hidden rounded-[20px]">
-          <CarteFamille points={points} moi={state.me.id} focus={focus} hauteur={300} endroits={state.endroits} />
-          <span className="pointer-events-none absolute inset-0 rounded-[20px] ring-1 ring-inset ring-encre/[0.06]" aria-hidden="true" />
-          {moi && (
-            <button
-              onClick={() => (select(), viser(state.me.id))}
-              aria-label="Revenir sur ma position"
-              className="presse verre absolute right-2.5 top-2.5 flex h-10 w-10 items-center justify-center rounded-full text-teinte-fonce"
-            >
-              <LocateFixed size={19} strokeWidth={2.4} />
-            </button>
-          )}
+          <CarteFamille points={points} moi={state.me.id} focus={focus} hauteur={300} endroits={state.endroits} onMoi={moi ? () => viser(state.me.id) : undefined} />
+          <span className="pointer-events-none absolute inset-0 z-[6] rounded-[20px] ring-1 ring-inset ring-encre/[0.06]" aria-hidden="true" />
         </div>
       </div>
 
@@ -372,10 +364,16 @@ export function OuEstPage({ onClose }: { onClose: () => void }) {
  * dedans. Avant, c'était un rond et un petit carré tourné posé dessous : on voyait le raccord (Elisa, 25 novembre :
  * « le rond autour de la personne, ça fait bizarre, c'est mal fait »). Le mien est violet avec un filet blanc.
  * 50 × 58 : la pointe, en bas au milieu, est exactement sur la position (le repère est accroché par le bas).
+ * En 3D, une ombre douce sous la pointe : il est posé sur la carte, debout.
  */
-function Repere({ m, moi, pale }: { m: Member; moi: boolean; pale: boolean }) {
+function Repere({ m, moi, pale, relief }: { m: Member; moi: boolean; pale: boolean; relief: boolean }) {
   return (
     <div className={`relative h-[58px] w-[50px] ${pale ? 'opacity-60' : ''}`}>
+      <span
+        className={`pointer-events-none absolute left-1/2 top-[52px] h-[11px] w-[34px] -translate-x-1/2 rounded-[50%] transition-opacity duration-500 ${relief ? 'opacity-100' : 'opacity-0'}`}
+        style={{ background: 'radial-gradient(closest-side, rgba(29,26,43,0.4), rgba(29,26,43,0.14) 55%, rgba(29,26,43,0))' }}
+        aria-hidden="true"
+      />
       <svg viewBox="0 0 50 58" className="absolute inset-0 h-full w-full overflow-visible" style={{ filter: 'drop-shadow(0 3px 5px rgba(29,26,43,0.3))' }} aria-hidden="true">
         <path
           d="M25 57.2 Q22.2 50.6 16.45 48.49 A25 25 0 1 1 33.55 48.49 Q27.8 50.6 25 57.2 Z"
@@ -404,10 +402,52 @@ function EtiquetteEndroit({ nom }: { nom: string }) {
 
 const AUCUN: readonly Endroit[] = []
 type Marques = Record<string, InstanceType<typeof import('maplibre-gl').Marker>>
+/** Le zoom le plus serré pour cadrer la famille : à plat, ~800 m de large ; en 3D, ~450 m (les bâtiments se voient). */
+const ZOOM_MAX = 15
+const ZOOM_MAX_3D = 15.6
+/** Quand on ne montre que nos adresses : leur nom pend sous leur point, et le bandeau « Personne ne partage… » en bas. */
+const MARGES_LIEUX = { top: 40, bottom: 84, left: 80, right: 80 }
+
+/** Ce que le cadrage en perspective (src/lib/relief.ts) demande à MapLibre. */
+function camera(c: CarteML): Camera {
+  return {
+    taille: () => ({ w: c.getContainer().clientWidth, h: c.getContainer().clientHeight }),
+    lire: () => {
+      const k = c.getCenter()
+      return { lon: k.lng, lat: k.lat, zoom: c.getZoom(), pitch: c.getPitch(), bearing: c.getBearing() }
+    },
+    poser: (v) => {
+      c.jumpTo({
+        ...(v.lon !== undefined && v.lat !== undefined ? { center: [v.lon, v.lat] as [number, number] } : {}),
+        ...(v.zoom !== undefined ? { zoom: v.zoom } : {}),
+        ...(v.pitch !== undefined ? { pitch: v.pitch } : {}),
+        ...(v.bearing !== undefined ? { bearing: v.bearing } : {}),
+      })
+    },
+    projeter: (lon, lat) => c.project([lon, lat]),
+    deprojeter: (x, y) => {
+      const p = c.unproject([x, y])
+      return { lon: p.lng, lat: p.lat }
+    },
+  }
+}
+const versLonLat = (x: LngLatLike | undefined) => (!x ? null : Array.isArray(x) ? { lon: x[0], lat: x[1] } : 'lng' in x ? { lon: x.lng, lat: x.lat } : { lon: x.lon, lat: x.lat })
+
+/** La boussole : l'aiguille rouge montre le nord ; touchée, la carte se remet le nord en haut. */
+function Aiguille() {
+  return (
+    <svg width="12" height="24" viewBox="0 0 12 24" aria-hidden="true">
+      <path d="M6 0.5 L11 12 L1 12 Z" fill="#FF453A" />
+      <path d="M6 23.5 L11 12 L1 12 Z" fill="#C8C4D6" />
+    </svg>
+  )
+}
 
 /** La carte : chacun avec sa tête, tout le monde dans le cadre ; touché dans la liste, on va vers lui.
- *  Nos adresses y sont aussi : leur zone, et leur nom. `focus` : un membre (son id) ou une adresse (« endroit:id »). */
-export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN }: { points: Point[]; moi: string; focus: { id: string; n: number } | null; hauteur: number; endroits?: readonly Endroit[] }) {
+ *  Nos adresses y sont aussi : leur zone, et leur nom. `focus` : un membre (son id) ou une adresse (« endroit:id »).
+ *  En 3D (Elisa, 26 novembre) : la carte inclinée, les bâtiments en relief, un bouton pour revenir à plat ; on peut
+ *  aussi l'incliner ou la tourner à deux doigts (la boussole remet le nord en haut). */
+export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN, onMoi }: { points: Point[]; moi: string; focus: { id: string; n: number } | null; hauteur: number; endroits?: readonly Endroit[]; onMoi?: () => void }) {
   const boite = useRef<HTMLDivElement>(null)
   const carte = useRef<CarteML | null>(null)
   const [marques, setMarques] = useState<Record<string, HTMLElement>>({})
@@ -415,8 +455,48 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN }: 
   const [prete, setPrete] = useState(false)
   const [chargee, setChargee] = useState(false)
   const [panne, setPanne] = useState(false)
+  // en 3D (le dernier choix, gardé sur le téléphone ; en 3D la première fois) ; et le nord en haut, ou pas
+  const [relief, setRelief] = useState(reliefChoisi)
+  const reliefVu = useRef(relief)
+  const [nord, setNord] = useState(true)
+  const nordVu = useRef(true)
+  const aiguille = useRef<HTMLSpanElement>(null)
+  // la carte montre le cadrage (personne ne l'a bougée depuis) : elle suit quand quelqu'un se déplace
+  const ajuste = useRef(true)
+  // pendant un calcul de cadrage, la carte saute d'essai en essai : ces sauts ne comptent pas
+  const calcul = useRef(false)
+  // l'inclinaison visée par le bouton 3D, le temps que la carte y arrive
+  const vise = useRef<number | null>(null)
   const cle = points.map((x) => `${x.m.id}:${x.p.lat},${x.p.lon}`).join('|')
   const cleLieux = endroits.map((e) => `${e.id}:${e.lat},${e.lon},${e.rayon_m},${e.nom}`).join('|')
+
+  /** Tout le monde dans la carte, à cette inclinaison (personne : nos adresses). Faux : rien à cadrer. */
+  const recadrer = (c: CarteML, anime: boolean, pitch = c.getPitch()) => {
+    const gens = points.length > 0
+    const pts = gens ? points.map((x) => x.p) : [...endroits]
+    if (!pts.length) return false
+    // le nom d'une de nos adresses pend sous la tête de qui s'y trouve : un peu plus d'air sur les côtés
+    const marges = !gens ? MARGES_LIEUX : endroits.length ? { ...MARGES, left: 60, right: 60 } : MARGES
+    const maxZoom = pitch >= SEUIL_3D ? ZOOM_MAX_3D : ZOOM_MAX
+    const lons = pts.map((p) => p.lon)
+    const lats = pts.map((p) => p.lat)
+    calcul.current = true
+    let fin = null
+    try {
+      // une première idée : le cadrage à plat de MapLibre ; puis la perspective
+      const plat = c.cameraForBounds([[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]], { padding: marges, maxZoom })
+      const centre = versLonLat(plat?.center) ?? { lon: (Math.min(...lons) + Math.max(...lons)) / 2, lat: (Math.min(...lats) + Math.max(...lats)) / 2 }
+      fin = cadrer(camera(c), pts, { depart: { ...centre, zoom: plat?.zoom ?? 13 }, pitch, marges, maxZoom })
+    } finally {
+      calcul.current = false
+    }
+    if (!fin) return false
+    ajuste.current = true
+    const vue = { center: [fin.lon, fin.lat] as [number, number], zoom: fin.zoom, pitch: fin.pitch, bearing: fin.bearing }
+    if (anime) c.easeTo({ ...vue, duration: 750 })
+    else c.jumpTo(vue)
+    return true
+  }
 
   // la carte, une seule fois (la bibliothèque n'est chargée qu'ici)
   useEffect(() => {
@@ -437,19 +517,59 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN }: 
           container: boite.current,
           style: STYLE,
           ...(c ? { bounds: c, fitBoundsOptions: { padding: MARGES, maxZoom: 15 } } : { center: [2.4, 46.6], zoom: 4.6 }),
+          pitch: reliefVu.current ? PENTE : 0,
+          maxPitch: 60,
           attributionControl: { compact: true },
-          dragRotate: false,
-          pitchWithRotate: false,
-          touchPitch: false,
         })
-        nouvelle.touchZoomRotate.disableRotation()
+        // tout le monde dans la carte, en perspective si elle est inclinée (avant même d'être dessinée)
+        recadrer(nouvelle, false)
         // un fond qui ne se charge pas (hors ligne) : la carte reste, sans planter
         nouvelle.on('error', () => undefined)
+        // bougée du doigt : elle ne se recadre plus toute seule
+        nouvelle.on('movestart', (e) => {
+          if (!calcul.current && (e as { originalEvent?: unknown }).originalEvent) ajuste.current = false
+        })
+        // le bouton 3D et la boussole suivent l'inclinaison et l'orientation de la carte
+        const angles = () => {
+          if (calcul.current) return
+          const r = nouvelle.getPitch() >= SEUIL_3D
+          if (vise.current === null && r !== reliefVu.current) {
+            reliefVu.current = r
+            setRelief(r)
+          }
+          const b = nouvelle.getBearing()
+          if (aiguille.current) aiguille.current.style.transform = `rotate(${-b}deg)`
+          const n = Math.abs(b) < 0.5
+          if (n !== nordVu.current) {
+            nordVu.current = n
+            setNord(n)
+          }
+        }
+        nouvelle.on('pitch', angles)
+        nouvelle.on('rotate', angles)
+        nouvelle.on('moveend', (e) => {
+          if (calcul.current) return
+          if (vise.current !== null) {
+            vise.current = null
+            angles()
+          }
+          // incliner ou redresser la carte aux doigts : c'est gardé pour la prochaine fois
+          if ((e as { originalEvent?: unknown }).originalEvent) choisirRelief(nouvelle.getPitch() >= SEUIL_3D)
+        })
         // pas de carte au bout de 12 s (hors ligne, travailleur refusé) : on le dit, la liste reste là
         const t = window.setTimeout(() => !fini && setPanne(true), 12000)
         nouvelle.once('load', () => {
           window.clearTimeout(t)
           setPanne(false)
+          // les bâtiments en relief (sous les noms de rues), et une lumière douce
+          try {
+            const style = nouvelle.getStyle()
+            const source = Object.entries(style.sources).find(([, s]) => s.type === 'vector')?.[0]
+            if (source && !nouvelle.getLayer(COUCHE_BATIMENTS)) nouvelle.addLayer(coucheBatiments(source), style.layers.find((l) => l.type === 'symbol')?.id)
+            nouvelle.setLight(LUMIERE)
+          } catch {
+            /* un fond sans bâtiments : la carte s'incline quand même */
+          }
           setChargee(true)
         })
         carte.current = nouvelle
@@ -475,6 +595,7 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN }: 
       if (annule) return
       const els: Record<string, HTMLElement> = {}
       const vieux = (c as CarteML & { _nidoo?: Marques })._nidoo ?? {}
+      const premiere = !Object.keys(vieux).length
       for (const [id, mk] of Object.entries(vieux)) if (!points.some((x) => x.m.id === id)) mk.remove()
       const neufs: Marques = {}
       for (const x of points) {
@@ -491,8 +612,8 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN }: 
       }
       ;(c as CarteML & { _nidoo?: Marques })._nidoo = neufs
       setMarques(els)
-      const b = cadre(points.map((x) => x.p))
-      if (b && points.length) c.fitBounds(b, { padding: MARGES, maxZoom: 15, duration: 600 })
+      // quelqu'un bouge : la carte le suit, sauf si on est en train de la regarder ailleurs
+      if (points.length && (premiere || ajuste.current)) recadrer(c, true)
     })()
     return () => {
       annule = true
@@ -508,6 +629,7 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN }: 
       const maplibre = await import('maplibre-gl')
       if (annule) return
       const vieux = (c as CarteML & { _lieux?: Marques })._lieux ?? {}
+      const premiere = !Object.keys(vieux).length
       for (const [id, mk] of Object.entries(vieux)) if (!endroits.some((e) => e.id === id)) mk.remove()
       const neufs: Marques = {}
       const els: Record<string, HTMLElement> = {}
@@ -525,15 +647,14 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN }: 
       }
       ;(c as CarteML & { _lieux?: Marques })._lieux = neufs
       setLieux(els)
-      const b = !points.length && endroits.length ? cadre([...endroits]) : null
-      if (b) c.fitBounds(b, { padding: MARGES, maxZoom: 15, duration: 600 })
+      if (!points.length && endroits.length && (premiere || ajuste.current)) recadrer(c, true)
     })()
     return () => {
       annule = true
     }
   }, [cleLieux, prete]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // et leur zone : un disque léger, au bon rayon (dessiné par la carte, une fois son fond chargé)
+  // et leur zone : un disque léger, au bon rayon, sur le sol (sous les bâtiments), une fois le fond chargé
   useEffect(() => {
     const c = carte.current
     if (!c || !chargee) return
@@ -545,22 +666,38 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN }: 
       const src = c.getSource('endroits') as GeoJSONSource | undefined
       if (src) src.setData(data)
       else {
+        const dessous = c.getLayer(COUCHE_BATIMENTS) ? COUCHE_BATIMENTS : undefined
         c.addSource('endroits', { type: 'geojson', data })
-        c.addLayer({ id: 'endroits-zone', type: 'fill', source: 'endroits', paint: { 'fill-color': '#7050D5', 'fill-opacity': 0.08 } })
-        c.addLayer({ id: 'endroits-bord', type: 'line', source: 'endroits', paint: { 'line-color': '#7050D5', 'line-opacity': 0.35, 'line-width': 1.4 } })
+        c.addLayer({ id: 'endroits-zone', type: 'fill', source: 'endroits', paint: { 'fill-color': '#7050D5', 'fill-opacity': 0.08 } }, dessous)
+        c.addLayer({ id: 'endroits-bord', type: 'line', source: 'endroits', paint: { 'line-color': '#7050D5', 'line-opacity': 0.35, 'line-width': 1.4 } }, dessous)
       }
     } catch {
       /* un fond qui n'a pas voulu se charger : pas de zones, la liste dit tout */
     }
   }, [cleLieux, chargee]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // touché dans la liste : on va vers lui (ou vers l'adresse)
+  // touché dans la liste : on va vers lui (ou vers l'adresse) ; en 3D, d'un peu plus près, pour voir les bâtiments
   useEffect(() => {
     if (!focus) return
     const e = focus.id.startsWith('endroit:') ? endroits.find((y) => `endroit:${y.id}` === focus.id) : null
     const x = e ? { lat: e.lat, lon: e.lon } : points.find((y) => y.m.id === focus.id)?.p
-    if (x) carte.current?.flyTo({ center: [x.lon, x.lat], zoom: 15, duration: 900 })
+    if (!x || !carte.current) return
+    ajuste.current = false
+    carte.current.flyTo({ center: [x.lon, x.lat], zoom: reliefVu.current ? 16 : 15, duration: 900 })
   }, [focus]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Le bouton 3D : la carte s'incline (ou se remet à plat), tout le monde reste dedans si elle montrait le cadrage. */
+  const basculer = () => {
+    const c = carte.current
+    if (!c) return
+    select()
+    const vers = c.getPitch() >= SEUIL_3D ? 0 : PENTE
+    choisirRelief(vers > 0)
+    vise.current = vers
+    reliefVu.current = vers > 0
+    setRelief(vers > 0)
+    if (!(ajuste.current && recadrer(c, true, vers))) c.easeTo({ pitch: vers, duration: 750 })
+  }
 
   return (
     <div className="carte-famille relative bg-[#EEF1F4]" style={{ height: hauteur }}>
@@ -575,7 +712,7 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN }: 
         if (!x) return null
         const pale = ancienne(x.p)
         return createPortal(
-          <Repere m={x.m} moi={id === moi} pale={pale} />,
+          <Repere m={x.m} moi={id === moi} pale={pale} relief={relief} />,
           el,
           id,
         )
@@ -589,6 +726,31 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN }: 
       {/* personne sur la carte, mais nos adresses y sont : on le dit en bas, sans les cacher */}
       {!panne && !points.length && endroits.length > 0 && (
         <p className="verre pointer-events-none absolute bottom-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-3 py-1.5 text-note font-semibold text-brume">Personne ne partage sa position pour l’instant</p>
+      )}
+      {/* en haut à droite, comme dans Plans : 3D ou à plat, ma position, et la boussole quand la carte est tournée */}
+      {prete && !panne && (
+        <div className="absolute right-2.5 top-2.5 z-[5] flex flex-col items-center gap-2">
+          <div className="verre flex w-10 flex-col overflow-hidden rounded-full">
+            <button onClick={basculer} aria-label={relief ? 'Voir la carte à plat' : 'Voir la carte en 3D'} className="presse flex h-10 w-10 items-center justify-center">
+              <span key={relief ? 'plat' : 'relief'} className="anim-pop text-[14px] font-extrabold tracking-[-0.2px] text-teinte-fonce">{relief ? '2D' : '3D'}</span>
+            </button>
+            {onMoi && (
+              <>
+                <span className="mx-2.5 h-px bg-encre/10" aria-hidden="true" />
+                <button onClick={() => (select(), onMoi())} aria-label="Revenir sur ma position" className="presse flex h-10 w-10 items-center justify-center text-teinte-fonce">
+                  <LocateFixed size={19} strokeWidth={2.4} />
+                </button>
+              </>
+            )}
+          </div>
+          {!nord && (
+            <button onClick={() => (select(), carte.current?.easeTo({ bearing: 0, duration: 500 }))} aria-label="Remettre le nord en haut" className="presse verre anim-pop flex h-10 w-10 items-center justify-center rounded-full">
+              <span ref={aiguille} className="flex" style={{ transform: `rotate(${-(carte.current?.getBearing() ?? 0)}deg)` }}>
+                <Aiguille />
+              </span>
+            </button>
+          )}
+        </div>
       )}
     </div>
   )
