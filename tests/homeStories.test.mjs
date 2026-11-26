@@ -61,11 +61,6 @@ test('affiche les humeurs du jour sans dévoiler un dossier privé', () => {
   assert.match(stories[0].title, /Léa/)
 })
 
-test('une maison sans autre membre invite ses proches', () => {
-  const state = { members: [members[0]], moments: [] }
-  const stories = homeStories(state, 'moi', null, now)
-  assert.equal(stories[0].target, 'famille')
-})
 
 test('le lieu d’un événement qui est une de nos adresses se lit par son nom (« Maison »), pas l’adresse complète', () => {
   const maison = { id: 'm', family_id: 'f', nom: 'Maison', adresse: '15 Rue André Lalande, 91000 Évry-Courcouronnes', lat: 48.62, lon: 2.43, rayon_m: 150, created_at: '2026-11-26T00:00:00Z' }
@@ -75,4 +70,9 @@ test('le lieu d’un événement qui est une de nos adresses se lit par son nom 
   assert.equal(par('maison', [maison]), 'Maison')
   assert.equal(par('15 Rue André Lalande, 91000 Évry-Courcouronnes', []), '15 Rue André Lalande, 91000 Évry-Courcouronnes')
   assert.equal(par('Gare de Lyon', [maison]), 'Gare de Lyon')
+})
+
+test('seul dans la maison et rien encore : pas de chronique (l’accueil invite déjà ses proches, juste en dessous)', () => {
+  const state = { members: [members[0]], moments: [] }
+  assert.deepEqual(homeStories(state, 'moi', null, now), [])
 })

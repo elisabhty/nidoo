@@ -316,8 +316,9 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
               {!explorerVu && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 animate-pulse rounded-full bg-[#FF8A7A] ring-2 ring-fond" />}
             </button>
           </div>
-          {/* Une chronique vivante, alimentée uniquement par les vrais moments de cette maison. */}
-          <section className="mx-5 mt-3 rounded-[22px] bg-carte pb-1 pt-3.5 shadow-carte" aria-label="La vie de notre maison">
+          {/* Une chronique vivante, alimentée uniquement par les vrais moments de cette maison (seul et sans rien encore :
+              pas de chronique, l'invitation juste en dessous suffit). */}
+          {histoires.length > 0 && <section className="mx-5 mt-3 rounded-[22px] bg-carte pb-1 pt-3.5 shadow-carte" aria-label="La vie de notre maison">
             <div className="mb-1 flex items-baseline justify-between px-4">
               <h2 className="font-rond text-titre3">La vie de notre maison</h2>
               <button
@@ -351,7 +352,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
                 <ChevronRight size={17} className="shrink-0 text-pale" aria-hidden="true" />
               </button>
             ))}
-          </section>
+          </section>}
           {/* les proches : choisir quelqu'un, avec son prénom et son humeur (moi, je suis dans le jardin) */}
           {others.length > 0 && <p className="mx-5 mt-4 text-note font-semibold text-brume">Touche un proche pour lui faire signe</p>}
           {others.length > 0 && (

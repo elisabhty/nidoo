@@ -130,14 +130,16 @@ export function homeStories(state: Sources, meId: string, next: NextEvent, now =
     })
   }
 
-  if (!result.length) {
+  // rien de neuf : un mot pour en donner. Seul dans la maison, rien du tout : l'accueil invite déjà ses proches juste
+  // en dessous (Elisa, 26 novembre : « répétition »)
+  if (!result.length && hasOthers) {
     result.push({
       id: 'invitation',
       kind: 'invitation',
-      label: hasOthers ? 'Rien de neuf cette semaine' : 'Pour commencer',
-      title: hasOthers ? 'Donne des nouvelles à la famille' : 'Invite ta famille',
-      detail: hasOthers ? 'Une photo, un petit mot ou un vocal dans le fil' : 'La maison s’anime quand vous êtes plusieurs',
-      target: hasOthers ? 'fil' : 'famille',
+      label: 'Rien de neuf cette semaine',
+      title: 'Donne des nouvelles à la famille',
+      detail: 'Une photo, un petit mot ou un vocal dans le fil',
+      target: 'fil',
     })
   }
   return result.slice(0, 3)
