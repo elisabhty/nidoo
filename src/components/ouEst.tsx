@@ -1,4 +1,4 @@
-// « Où est la famille » (Elisa, 21 novembre) : la carte avec chacun là où il est, s'il a choisi de partager sa position,
+// « Où sont mes proches ? » (Elisa, 21 novembre ; « Où est la famille » jusqu'au 26) : la carte avec chacun là où il est, s'il a choisi de partager sa position,
 // la liste (où, depuis quand, à quelle distance, la batterie presque vide), et mon interrupteur pour partager ou arrêter.
 // La carte : MapLibre (libre) avec les fonds d'OpenFreeMap (gratuits, sans clé, données OpenStreetMap), chargée à la demande.
 import { BatteryLow, ChevronRight, LocateFixed, MapPin, Navigation, Plus, RefreshCw, Settings } from 'lucide-react'
@@ -76,7 +76,7 @@ export function OuEstApercu({ onOuvrir }: { onOuvrir: () => void }) {
         <MapPin size={22} strokeWidth={2.4} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-corps font-semibold">Où est la famille</span>
+        <span className="block text-corps font-semibold">Où sont mes proches ?</span>
         <span className="block truncate text-note text-brume">
           {autres.length
             ? autres.map((x) => `${x.m.display_name} · ${endroitDe(x.p, state.endroits)?.nom ?? x.p.ville ?? libelle(x.p)}`).join('  ·  ')
@@ -85,9 +85,10 @@ export function OuEstApercu({ onOuvrir }: { onOuvrir: () => void }) {
               : 'Voir où chacun se trouve, s’il l’accepte.'}
         </span>
       </span>
+      {/* deux têtes au plus (et aucune sur les petits iPhone) : « Où sont mes proches ? » tient sur une ligne */}
       {autres.length > 0 && (
-        <span className="flex shrink-0 -space-x-2.5">
-          {autres.map((x) => (
+        <span className="flex shrink-0 -space-x-2.5 max-[379px]:hidden">
+          {autres.slice(0, 2).map((x) => (
             <span key={x.m.id} className="rounded-full ring-2 ring-carte">
               <Avatar m={x.m} size={30} />
             </span>
@@ -156,7 +157,7 @@ export function OuEstPage({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-    <Page title="Où est la famille" onClose={onClose}>
+    <Page title="Où sont mes proches ?" onClose={onClose}>
       <p className="-mt-1 px-5 pb-3 text-sous text-brume">Chacun choisit de partager sa position, et peut arrêter quand il veut. Seule la dernière est gardée.</p>
       {/* le cadre de la carte (Elisa, 25 novembre : « améliore le cadre ») : un passe-partout blanc comme les autres
           cartes de la page, un liseré ; dans la carte, le bouton 3D et celui pour revenir sur soi */}

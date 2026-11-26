@@ -150,7 +150,7 @@ export function EndroitSheet({ endroit, onClose, onFait }: { endroit?: Endroit; 
         <p className="text-note text-brume">On lira ce nom à la place de l’adresse</p>
       </div>
 
-      <ChampRequis id={nomId} label="Nom" aide="Dans « Où est la famille » et dans l’agenda." erreur={doublon ? `Une de vos adresses s’appelle déjà « ${doublon.nom} ».` : null}>
+      <ChampRequis id={nomId} label="Nom" aide="Dans « Où sont mes proches ? » et dans l’agenda." erreur={doublon ? `Une de vos adresses s’appelle déjà « ${doublon.nom} ».` : null}>
         <input
           ref={champNom}
           id={nomId}
