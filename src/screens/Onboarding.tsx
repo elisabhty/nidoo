@@ -130,6 +130,10 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
   const invite = !!urlCode && !onCancel
   const [step, setStep] = useState<Step>(onCancel ? 'choix' : 'bonjour')
   const [path, setPath] = useState<'creer' | 'rejoindre' | null>(invite ? 'rejoindre' : null)
+  // « J'ai un code d'invitation », dès l'accueil : le code d'abord (on voit tout de suite la maison qui attend,
+  // ou que le code a expiré), puis seulement les questions sur soi
+  const [parCode, setParCode] = useState(false)
+  const rejoint = invite || parCode
   const [family, setFamily] = useState<string>('')
   const [houseType, setHouseType] = useState<HouseType>('maison')
   const [code, setCode] = useState(urlCode)
@@ -222,12 +226,17 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
     api.previewFamily(urlCode).then((p) => p && setPreview(p)).catch(() => undefined)
   }, [api, invite, urlCode])
 
-  // Le parcours, selon qu'on crée ou qu'on rejoint
+  // Le parcours, selon qu'on crée ou qu'on rejoint (Elisa, 26 novembre, les cinq familles : qui rejoint ses proches
+  // ne répond plus aux questions faites pour créer une maison — « ce qui compte », « ta tribu » ; le choix vient
+  // juste après les questions sur soi)
   const flow = useMemo<Step[]>(() => {
-    const debut: Step[] = onCancel ? ['choix'] : invite ? ['bonjour', 'panda', 'prenom', 'qui', 'allure', 'naissance'] : ['bonjour', 'panda', 'prenom', 'qui', 'allure', 'naissance', 'raison', 'proches', 'choix']
-    const suite: Step[] = path === 'rejoindre' ? ['code', 'perso'] : ['perso', 'maison']
-    return [...debut, ...suite, ...(onCancel ? [] : (['notifs', 'widgets', 'connexion'] as Step[]))]
-  }, [onCancel, invite, path])
+    const toi: Step[] = ['prenom', 'qui', 'allure', 'naissance']
+    const fin: Step[] = onCancel ? [] : ['notifs', 'widgets', 'connexion']
+    if (onCancel) return path === 'rejoindre' ? ['choix', 'code', 'perso'] : ['choix', 'perso', 'maison']
+    if (parCode) return ['bonjour', 'code', 'panda', ...toi, 'perso', ...fin]
+    if (invite) return ['bonjour', 'panda', ...toi, 'code', 'perso', ...fin]
+    return ['bonjour', 'panda', ...toi, 'choix', ...(path === 'rejoindre' ? (['code', 'perso'] as Step[]) : (['raison', 'proches', 'perso', 'maison'] as Step[])), ...fin]
+  }, [onCancel, invite, parCode, path])
   const etapes: Step[] = flow.filter((s) => s !== 'bonjour' && s !== 'panda')
   const rang = etapes.indexOf(step) + 1
   const minutes = Math.max(1, Math.ceil((etapes.length - rang + 1) / 3))
@@ -267,7 +276,8 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
       if (!p) setCodeError(T.join.invalid_code)
       else {
         setPreview(p)
-        aller('perso')
+        // l'étape d'après : le personnage, ou Panda quand le code vient en premier
+        aller(flow[flow.indexOf('code') + 1] ?? 'perso')
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String((e as { message?: unknown })?.message ?? e)
@@ -343,6 +353,18 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
   }
 
   const prenom = name.trim()
+  // ce qu'on va faire ensemble (l'écran de Panda)
+  const intro: { Icon: typeof Smile; texte: string; fond: string; encre: string; maison?: boolean }[] = rejoint
+    ? [
+        { Icon: Smile, texte: 'Ton personnage, qui te ressemble', fond: '#FFF4D6', encre: '#B07A00' },
+        { Icon: HouseIcon, texte: 'Ta place dans leur maison', fond: '#EEE8FC', encre: '#6646CC', maison: true },
+        { Icon: Heart, texte: 'Câlins, photos et nouvelles', fond: '#FFE6EE', encre: '#D23F72' },
+      ]
+    : [
+        { Icon: Smile, texte: 'Ton personnage, qui te ressemble', fond: '#FFF4D6', encre: '#B07A00' },
+        { Icon: HouseIcon, texte: 'Votre maison, à décorer ensemble', fond: '#EEE8FC', encre: '#6646CC' },
+        { Icon: Heart, texte: 'Tes proches, invités avec un code', fond: '#FFE6EE', encre: '#D23F72' },
+      ]
   const header = step !== 'bonjour' && step !== 'invite'
   const compte = step !== 'connexion' && step !== 'panda'
   const pied = (() => {
@@ -435,18 +457,42 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
                 </div>
                 <Titre avant="Bienvenue " mot="chez vous" apres="." />
                 <p className="ob-sous mt-3 max-w-[320px] text-center">Une maison pour discuter, jouer et garder vos souvenirs en famille.</p>
-                {invite && <p className="mt-4 rounded-full bg-white/15 px-4 py-2 text-sous font-semibold">Ton invitation est prête · {urlCode}</p>}
+                {invite && <p className="mt-4 max-w-full truncate rounded-full bg-white/15 px-4 py-2 text-sous font-semibold">{preview ? `Invitation pour ${familyLabel(preview.name)}` : `Ton invitation est prête · ${urlCode}`}</p>}
               </div>
               {/* Pas de faux boutons « Apple, Google, E-mail : bientôt » (25 novembre, avant la mise en ligne) :
                   on entre d'un toucher, sans compte à créer. */}
               <div className="rounded-[28px] bg-white p-5 text-encre shadow-xl">
                 <h2 className="text-center font-rond text-titre2">{invite ? 'Tes proches t’attendent' : 'On s’installe ?'}</h2>
                 <p className="mt-1 text-center text-note text-brume [text-wrap:pretty]">
-                  {invite ? 'Deux minutes pour créer ton personnage et entrer dans leur maison.' : 'Deux minutes pour créer votre maison, ou rejoindre celle de tes proches.'}
+                  {invite ? 'Quelques minutes pour créer ton personnage et entrer dans leur maison.' : 'Quelques minutes pour créer votre maison, ou rejoindre celle de tes proches.'}
                 </p>
-                <button className="ob-cta violet mt-5" onClick={() => { tap(); aller('panda') }}>
+                <button
+                  className="ob-cta violet mt-5"
+                  onClick={() => {
+                    tap()
+                    if (parCode) {
+                      setParCode(false)
+                      setPath(null)
+                    }
+                    aller('panda')
+                  }}
+                >
                   Commencer <ChevronRight size={20} strokeWidth={2.8} />
                 </button>
+                {/* reçu un code (par message, de vive voix) : on y va tout droit, sans les questions pour créer une maison */}
+                {!invite && (
+                  <button
+                    className="ob-cta doux mt-3"
+                    onClick={() => {
+                      tap()
+                      setParCode(true)
+                      setPath('rejoindre')
+                      aller('code')
+                    }}
+                  >
+                    <Mail size={19} strokeWidth={2.5} /> J’ai un code d’invitation
+                  </button>
+                )}
                 <p className="mt-4 text-center text-mini leading-relaxed text-brume">Sans compte à créer ni mot de passe à retenir.</p>
               </div>
             </div>
@@ -463,30 +509,47 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
                 </button>
               </div>
               <p key={bulle} className="ob-bulle queue-haut bulle-rebond mt-4 max-w-[340px] !text-center text-[17px] leading-[23px]">
-                {bulle ? CHATOUILLES[(bulle - 1) % CHATOUILLES.length] : <>Je vais t’accompagner pour préparer ta maison de famille. Quelques questions, et on s’y met&nbsp;!</>}
+                {bulle ? (
+                  CHATOUILLES[(bulle - 1) % CHATOUILLES.length]
+                ) : rejoint ? (
+                  <>Je vais t’accompagner jusqu’à la maison de tes proches. Quelques questions sur toi, et on y va&nbsp;!</>
+                ) : (
+                  <>Je vais t’accompagner pour préparer ta maison de famille. Quelques questions, et on s’y met&nbsp;!</>
+                )}
               </p>
               <ul className="mt-6 grid w-full max-w-[360px] gap-2.5 text-left" aria-label="Ce qu’on va faire ensemble">
-                {([
-                  { Icon: Smile, texte: 'Ton personnage, qui te ressemble', fond: '#FFF4D6', encre: '#B07A00' },
-                  { Icon: HouseIcon, texte: 'Votre maison, à décorer ensemble', fond: '#EEE8FC', encre: '#6646CC' },
-                  { Icon: Heart, texte: 'Tes proches, invités avec un code', fond: '#FFE6EE', encre: '#D23F72' },
-                ] as const).map(({ Icon, texte, fond, encre }, i) => (
+                {/* qui rejoint ses proches ne crée ni maison ni invitation : ce qui l'attend, à la place — et, le code
+                    vérifié, leur vraie maison */}
+                {intro.map(({ Icon, texte, fond, encre, maison }, i) => (
                   <li key={texte} className="ob-etape flex items-center gap-3 rounded-[16px] bg-white/[0.14] px-3.5 py-2.5 text-[15px] font-bold ring-[1.5px] ring-inset ring-white/25" style={{ animationDelay: `${0.15 + i * 0.09}s` }}>
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px]" style={{ background: fond, color: encre }}>
-                      <Icon size={19} strokeWidth={2.4} />
-                    </span>
-                    {texte}
+                    {maison && preview ? (
+                      <>
+                        <span className="h-9 w-12 shrink-0 overflow-hidden rounded-[11px] bg-white">
+                          <House type={preview.house_type} items={[]} phase="jour" className="h-full !aspect-auto" bare />
+                        </span>
+                        <span className="min-w-0 leading-[19px]">
+                          <span className="block truncate">{familyLabel(preview.name)}</span>
+                          <span className="block text-note font-semibold text-white/80">{preview.member_count > 1 ? `${preview.member_count} proches t’attendent` : 'Un proche t’attend'}</span>
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px]" style={{ background: fond, color: encre }}>
+                          <Icon size={19} strokeWidth={2.4} />
+                        </span>
+                        {texte}
+                      </>
+                    )}
                   </li>
                 ))}
               </ul>
-              <p className="mt-4 text-note font-semibold text-white/75">Ça prend à peine deux minutes.</p>
             </div>
           )}
 
           {step === 'prenom' && (
             <form className="flex flex-1 flex-col" noValidate onSubmit={(e) => (e.preventDefault(), prenom && suivant())}>
               <div className="mt-4"><Titre avant="Faisons " mot="connaissance" apres="." /></div>
-              <p className="ob-sous mt-2 text-center">Quelques questions rapides pour préparer votre petit chez-vous.</p>
+              <p className="ob-sous mt-2 text-center">{rejoint ? 'Quelques questions rapides pour préparer ton personnage.' : 'Quelques questions rapides pour préparer votre petit chez-vous.'}</p>
               <Panda humeur={prenom ? 'amour' : 'heureux'}>{prenom ? `Enchanté, ${prenom} ! Joli prénom 💛` : <>Pour commencer : comment tes proches t’appellent&#8209;ils ?</>}</Panda>
               <label htmlFor="ob-prenom" className="mb-1.5 mt-6 px-1 text-sous font-bold text-white">Ton prénom ou ton surnom</label>
               <input
@@ -837,13 +900,17 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
 
           {step === 'widgets' && (
             <div className="flex flex-1 flex-col">
-              <div className="mt-4"><Titre avant="Les " mot="widgets" apres=" Nidoo." /></div>
-              <p className="ob-sous mt-2 text-center">
-                {WIDGETS ? 'Des widgets pour envoyer un bisou, cocher une course ou jouer, sans ouvrir l’appli.' : 'Avec l’appli iPhone : des widgets pour envoyer un bisou, cocher une course ou jouer, sans ouvrir l’appli.'}
+              {/* « widget », un mot que tout le monde ne connaît pas (les cinq familles) : on dit ce que c'est */}
+              <div className="mt-4"><Titre avant="Nidoo sur ton " mot="écran d’accueil" apres="." /></div>
+              <p className="ob-sous mt-2 text-center [text-wrap:pretty]">
+                {WIDGETS
+                  ? 'Les widgets, ce sont de petites fenêtres posées à côté de tes applis : un bisou, une course, une partie, sans ouvrir Nidoo.'
+                  : 'Avec l’appli iPhone, de petites fenêtres (les widgets) se posent à côté de tes applis : un bisou, une course, une partie, sans ouvrir Nidoo.'}
               </p>
               <Panda humeur="motive">Touche-les, ils marchent pour de vrai !</Panda>
               <EcranWidgets />
-              <CommentAjouter />
+              {/* sur le site, pas de widget à poser : pas de mode d'emploi qui mènerait nulle part */}
+              {WIDGETS && <CommentAjouter />}
             </div>
           )}
 
@@ -866,7 +933,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
                     <div className="flex items-center gap-3">
                       <span className="tete-saute"><Avatar m={{ avatar, color }} size={52} ring /></span>
                       <div className="min-w-0">
-                        <p className="truncate font-semibold text-encre">{path === 'rejoindre' ? preview?.name ?? 'La maison de tes proches' : family.trim()}</p>
+                        <p className="truncate font-semibold text-encre">{path === 'rejoindre' ? (preview ? familyLabel(preview.name) : 'La maison de tes proches') : family.trim()}</p>
                         <p className="mt-0.5 text-note text-brume">Ton personnage · {name.trim()}</p>
                       </div>
                     </div>
@@ -875,7 +942,7 @@ export default function Onboarding({ onCancel }: { onCancel?: () => void }) {
                   <button className="ob-cta violet mt-5" onClick={() => (tap(), entrer())} disabled={busy}>
                     {busy ? (path === 'rejoindre' ? 'Un instant…' : T.create.loading) : path === 'rejoindre' ? 'Demander à entrer' : 'Créer ma maison'} {!busy && <ChevronRight size={20} strokeWidth={2.8} />}
                   </button>
-                  <p className="mt-3 text-center text-note text-[#8C86A3] [text-wrap:pretty]">Pas de mot de passe à retenir : ta maison reste liée à ce téléphone.</p>
+                  <p className="mt-3 text-center text-note text-[#8C86A3] [text-wrap:pretty]">{path === 'rejoindre' ? 'Pas de mot de passe à retenir : ton accès reste lié à ce téléphone.' : 'Pas de mot de passe à retenir : ta maison reste liée à ce téléphone.'}</p>
                 </div>
               </div>
             </div>

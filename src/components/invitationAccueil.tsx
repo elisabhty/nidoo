@@ -1,12 +1,13 @@
 // L'accueil quand on est seul dans la maison (Elisa, 26 novembre : « répétition », puis « c'est pas du tout UI UX ») :
 // une seule invitation, et qui donne envie. Moi, et trois places qui attendent mes proches ; ce que la maison devient
-// quand ils arrivent ; le bouton pour les inviter ; et le code, pour le donner de vive voix.
-import { Check, Copy, Plus, Send } from 'lucide-react'
+// quand ils arrivent ; le bouton pour les inviter ; le code, pour le donner de vive voix ; et les petits sans téléphone,
+// qu'on ajoute soi-même (la carte reste tant que personne d'autre, avec un téléphone, n'est arrivé).
+import { Baby, Check, ChevronRight, Copy, Plus, Send } from 'lucide-react'
 import type { Member } from '../lib/types'
 import { LettresCode, useCopie } from './copie'
 import { Avatar } from './ui'
 
-export function InvitationAccueil({ me, code, onInviter }: { me: Member; code: string | null; onInviter: () => void }) {
+export function InvitationAccueil({ me, code, onInviter, onPetit }: { me: Member; code: string | null; onInviter: () => void; onPetit: () => void }) {
   // le code copié : il le dit lui-même (la vague, « Code copié ! », des étincelles), pas de bandeau
   const { copie, vague, copier } = useCopie()
   return (
@@ -57,6 +58,18 @@ export function InvitationAccueil({ me, code, onInviter }: { me: Member; code: s
           )}
         </button>
       )}
+      {/* les petits qui n'ont pas de téléphone : pas d'invitation, on les ajoute soi-même (les cinq familles :
+          les Martin et leurs deux enfants, Inès et la petite Lou, cherchaient où le faire) */}
+      <button onClick={onPetit} className="presse mt-4 flex w-full items-center gap-3 border-t border-trait pt-4 text-left">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-peche-doux text-peche-fonce" aria-hidden="true">
+          <Baby size={20} strokeWidth={2.3} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-appel font-bold text-teinte">Ajouter un enfant ou un bébé</span>
+          <span className="block text-note text-brume">Pour les petits sans téléphone</span>
+        </span>
+        <ChevronRight size={18} strokeWidth={2.6} className="shrink-0 text-pale" aria-hidden="true" />
+      </button>
     </section>
   )
 }

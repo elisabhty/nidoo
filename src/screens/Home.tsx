@@ -9,6 +9,7 @@ import { DrawingsSheet, useUnseenDrawings } from '../components/drawing'
 import { DrawSheet } from '../components/planche'
 import { HousePhotosSheet } from '../components/housePhotos'
 import { InvitationAccueil } from '../components/invitationAccueil'
+import { nouveauPetit, PetitSheet, type Petit } from '../components/petit'
 import { housePhotoSlots, housePhotoSources } from '../lib/housePhotos'
 import House, { type HouseScene } from '../components/House'
 import { myTurns } from '../components/jeux'
@@ -43,6 +44,7 @@ type Open =
   | { k: 'photosMaison'; mode: 'add' | 'replace'; index?: number }
   | { k: 'mot' }
   | { k: 'evenement'; e: FamEvent }
+  | { k: 'petit'; p: Petit }
 
 export function upcoming(events: ReturnType<typeof useHome>['state']['events'], limit = 3) {
   const start = new Date()
@@ -317,8 +319,16 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
               {!explorerVu && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 animate-pulse rounded-full bg-[#FF8A7A] ring-2 ring-fond" />}
             </button>
           </div>
-          {/* seul dans la maison : l'invitation d'abord, c'est la prochaine chose à faire */}
-          {!others.length && <InvitationAccueil me={me} code={voitLeCode(me) && !codeExpire(family) ? family.invite_code : null} onInviter={() => void inviter()} />}
+          {/* seul dans la maison (ou avec des petits sans téléphone) : l'invitation d'abord, c'est la prochaine chose à
+              faire ; et les petits, qu'on ajoute soi-même (les cinq familles : les Martin, Inès et Lou) */}
+          {!others.some((m) => !!m.user_id) && (
+            <InvitationAccueil
+              me={me}
+              code={voitLeCode(me) && !codeExpire(family) ? family.invite_code : null}
+              onInviter={() => void inviter()}
+              onPetit={() => (tap(), setSheet({ k: 'petit', p: nouveauPetit() }))}
+            />
+          )}
           {/* Une chronique vivante, alimentée uniquement par les vrais moments de cette maison (seul et sans rien encore :
               pas de chronique, l'invitation juste au-dessus suffit). */}
           {histoires.length > 0 && <section className="mx-5 mt-3 rounded-[22px] bg-carte pb-1 pt-3.5 shadow-carte" aria-label="La vie de notre maison">
@@ -424,6 +434,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
       {sheet?.k === 'defiPhoto' && <ComposeSheet challenge={challengeOfDay()} onClose={() => setSheet(null)} />}
       {sheet?.k === 'evenement' && <EventDetailSheet event={sheet.e} onClose={() => setSheet(null)} />}
       {sheet?.k === 'mot' && <MotPage onClose={() => setSheet(null)} />}
+      {sheet?.k === 'petit' && <PetitSheet depart={sheet.p} onClose={() => setSheet(null)} />}
       {sheet?.k === 'explorer' && (
         <Sheet title="Explorer" onClose={() => setSheet(null)}>
           {/* les jeux n'y sont plus (ils ont leur bouton sous la maison), ni le calendrier de l'Avent (dans les défis du

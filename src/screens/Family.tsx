@@ -15,7 +15,7 @@ import { codeExpire, codeValable } from '../lib/invitation'
 import { useHome } from '../lib/store'
 import { WIDGETS } from '../lib/widgets'
 import type { Drawing, HouseType, Member } from '../lib/types'
-import { AGES, encodeLook, lookOf, randomLook } from '../lib/look'
+import { AGES, lookOf } from '../lib/look'
 import { dayLabel, errorText, familyLabel, isToday, timeLabel } from '../lib/util'
 import { upcoming } from './Home'
 import { HousePicker, ProfilePicker } from '../components/pickers'
@@ -23,6 +23,7 @@ import { dateVersion, etatMaj, verifier } from '../lib/majDistance'
 import Onboarding from './Onboarding'
 import { OuEstApercu, OuEstPage } from '../components/ouEst'
 import { LettresCode, useCopie } from '../components/copie'
+import { nouveauPetit, petitDe, PetitSheet, type Petit } from '../components/petit'
 import { useDemandeOuEst } from '../lib/demandes'
 import { autoActif, etatDirect, reglerAuto, retirerRendezVous } from '../lib/direct'
 
@@ -166,6 +167,8 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
   const [linked, setLinked] = useState<string | null>(null)
   const [period, setPeriod] = useState<'an' | 'mois'>('an')
   const limit = PLAN_LIMITS[family.plan]
+  const avecAppli = members.filter((m) => m.user_id).length
+  const sansTelephone = members.length - avecAppli
   const allDecos = state.houseItems.length >= DECOS.length
 
   useEffect(() => {
@@ -212,7 +215,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
   }
 
   const [section, setSection] = useState<'proches' | 'maison' | 'reglages'>('proches')
-  const [petit, setPetit] = useState<null | { m?: Member; name: string; avatar: string; color: string }>(null)
+  const [petit, setPetit] = useState<Petit | null>(null)
   const [humeurDe, setHumeurDe] = useState<Member | null>(null)
 
   // Un enfant ou un bébé sans téléphone : tout le monde peut donner son humeur ou changer son personnage.
@@ -220,7 +223,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
     const canRemove = admin || m.managed_by === me.id
     const actions = [
       { label: 'Donner son humeur du jour', go: () => setHumeurDe(m) },
-      { label: 'Modifier son personnage', go: () => setPetit({ m, name: m.display_name, avatar: m.avatar, color: m.color }) },
+      { label: 'Modifier son personnage', go: () => setPetit(petitDe(m)) },
       ...(canRemove
         ? [
             {
@@ -306,7 +309,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
             <div className="min-w-0 flex-1">
               <p className="truncate font-rond text-titre3">{familyLabel(family.name)}</p>
               <p className="text-note text-brume">
-                {members.filter((m) => m.user_id).length} membres avec l’appli (jusqu’à {limit}){members.some((m) => !m.user_id) ? `, ${members.filter((m) => !m.user_id).length} sans téléphone` : ''} · offre {family.plan === 'plus' ? 'Famille+' : 'gratuite'}
+                {avecAppli} {avecAppli > 1 ? 'membres' : 'membre'} avec l’appli (jusqu’à {limit}){sansTelephone ? `, ${sansTelephone} sans téléphone` : ''} · offre {family.plan === 'plus' ? 'Famille+' : 'gratuite'}
               </p>
             </div>
             <button onClick={() => setSheet('maison')} className="presse flex h-11 w-11 items-center justify-center rounded-full bg-remplissage text-teinte" aria-label="Modifier la maison">
@@ -352,7 +355,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
           <button
             onClick={() => {
               select()
-              setPetit({ name: '', avatar: encodeLook({ ...randomLook(), a: 3, p: 1, h: 12, g: 0, b: 0, m: 0, l: 0 }), color: 'rose' })
+              setPetit(nouveauPetit())
             }}
             className="presse-ligne flex w-full items-center gap-3 pl-3.5 text-left"
           >
@@ -361,7 +364,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
             </span>
             <span className="min-w-0 flex-1 py-3 pr-4">
               <span className="block text-corps text-teinte">Ajouter un enfant ou un bébé</span>
-              <span className="block text-note text-brume">Pour les petits qui n’ont pas de téléphone</span>
+              <span className="block text-note text-brume">Pour les petits sans téléphone</span>
             </span>
           </button>
         </div>
@@ -635,32 +638,7 @@ export default function Family({ onGuide }: { onGuide: () => void }) {
           }}
         />
       )}
-      {petit && (
-        <Sheet title={petit.m ? petit.m.display_name : 'Un enfant ou un bébé'} onClose={() => setPetit(null)} tall footer={<Btn
-            disabled={!petit.name.trim()}
-            onClick={async () => {
-              const ok = petit.m
-                ? await run((a) => a.updateMember(petit.m!.id, { display_name: petit.name.trim(), avatar: petit.avatar, color: petit.color }), 'Personnage mis à jour')
-                : await run((a) => a.addChild(family.id, { displayName: petit.name, avatar: petit.avatar, color: petit.color }), `${petit.name.trim()} arrive dans la maison`)
-              if (ok) setPetit(null)
-            }}
-          >
-            {petit.m ? 'Enregistrer' : 'Ajouter à la maison'}
-          </Btn>}>
-          {!petit.m && <p className="-mt-1 mb-3 text-center text-sous text-brume">Il ou elle vivra dans le jardin avec vous ; la famille donnera son humeur et lui enverra des câlins.</p>}
-          <ProfilePicker
-            name={petit.name}
-            setName={(v) => setPetit((x) => x && { ...x, name: v })}
-            avatar={petit.avatar}
-            setAvatar={(v) => setPetit((x) => x && { ...x, avatar: v })}
-            color={petit.color}
-            setColor={(v) => setPetit((x) => x && { ...x, color: v })}
-            placeholder="Son prénom"
-            owned={state.owned}
-          />
-
-        </Sheet>
-      )}
+      {petit && <PetitSheet depart={petit} onClose={() => setPetit(null)} />}
       {humeurDe && <MoodSheet member={humeurDe} onClose={() => setHumeurDe(null)} />}
     </>
   )
