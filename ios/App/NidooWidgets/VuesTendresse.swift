@@ -355,11 +355,12 @@ struct VueOu: View {
         let bouton = avecBouton(etat)
         switch f {
         case .systemSmall:
-            VStack(alignment: .leading, spacing: 0) {
+            // en bas à droite : le logo de Plans, en bas à gauche, reste visible
+            VStack(alignment: .trailing, spacing: 0) {
                 Spacer(minLength: 0)
                 etiquette
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
             .bandeau(e)
             .fond(f) { CarteTetes(carte: carte, gens: tous, moi: etat.moi, tete: 30) }
         case .systemMedium:
@@ -399,7 +400,7 @@ struct VueOu: View {
         }
     }
 
-    /// Sur le petit, en bas à gauche de la carte.
+    /// Sur le petit, en bas à droite de la carte.
     private var etiquette: some View {
         HStack(spacing: 4) {
             Image(systemName: "location.fill").font(.system(size: 9, weight: .bold)).foregroundStyle(Color(hex: 0x2F7FD0))

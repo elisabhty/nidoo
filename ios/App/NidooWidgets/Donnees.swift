@@ -1,6 +1,6 @@
 import AppIntents
 import Foundation
-import MapKit
+@preconcurrency import MapKit
 import UIKit
 import WidgetKit
 
@@ -223,10 +223,10 @@ enum CarteProches {
         }
     }
 
-    /// De la place autour des points : au-dessus pour les têtes (accrochées par leur pointe), dessous pour l'étiquette
-    /// du petit, et sur les côtés.
+    /// De la place autour des points : au-dessus pour les têtes (accrochées par leur pointe) ; dessous, le logo de Plans
+    /// (en bas à gauche, il doit rester visible) et l'étiquette du petit ; et sur les côtés.
     static func marges(_ f: WidgetFamily) -> (haut: Double, bas: Double, cote: Double) {
-        f == .systemSmall ? (50, 36, 26) : (50, 16, 26)
+        f == .systemSmall ? (50, 40, 26) : (50, 30, 26)
     }
 
     /// Les positions à mettre sur la carte : celles qui sont partagées en ce moment, la mienne comprise.
