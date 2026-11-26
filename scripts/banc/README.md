@@ -40,3 +40,23 @@ Après avoir ajouté ou redessiné une figurine : `python3 sam.py <id>` puis `ma
 `decoupe_reparer.py` — ce que le détourage a mangé là où du blanc touchait le fond blanc d'origine : la jambe de
 fi6, les baskets blanches dans les autres couleurs de peau (reprises sur la figurine de départ).
 Reste à faire à la main : la manche droite de h14, le bord droit de la manche de fa2 et de la tunique de f16.
+
+## Les compagnons (les animaux)
+
+Même principe pour les huit compagnons (`public/art/pet-<espèce>.webp`) et ce qu'ils portent :
+
+- `animaux.py --ecrire` — mesure chaque animal sur son image (ses yeux, son crâne sans les oreilles, la largeur de sa
+  tête, son corps sans sa queue, ses pattes) et écrit `src/lib/animaux.ts` et `public/art/pet-<espèce>-corps.webp`
+  (le masque à la forme duquel le pull est découpé). `src/lib/habitsAnimaux.ts` pose chaque habit d'après ces
+  repères ; `components/pet.tsx` redessine la tête par-dessus ce qui se porte au cou.
+- `habits_animaux.py --ecrire` — retire l'ombre portée et le liseré blanc dessinés dans les images de l'animalerie
+  (habits, paniers, jouets, gamelle). Une image déjà nettoyée est laissée telle quelle.
+- `animaux_decoupe.py --ecrire` — comble ce que le détourage avait mordu (la tête du lapin et du panda), d'après la
+  planche d'origine (`sources/compagnons.jpg`).
+
+Le banc sait aussi montrer un compagnon : une case `{'pet': 'renard', 'habit': 'habit:pull'}`.
+
+Après avoir changé une image de compagnon : `animaux.py --ecrire`, une planche pour vérifier, et — au prochain
+changement natif seulement, car toucher à `ios/` demande de refaire l'appli — `python3 scripts/widgets_images.py`
+pour que les widgets reprennent la nouvelle image.
+

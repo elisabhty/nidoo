@@ -365,14 +365,27 @@ function PetView({ pet, onShop }: { pet: Pet; onShop: (shop: Shop) => void }) {
       <div className="relative mt-1 h-[268px] overflow-hidden rounded-[28px] shadow-carte" style={{ background: 'linear-gradient(180deg, #D9ECFF 0%, #F1F7FF 54%, #CFEAC0 54.4%, #BBDFA6 100%)' }}>
         <span className="absolute left-[8%] top-[10%] h-[40px] w-[96px] rounded-full bg-white/70 blur-[6px]" />
         <span className="absolute right-[10%] top-[18%] h-[30px] w-[70px] rounded-full bg-white/60 blur-[6px]" />
-        {pet.bed && <img src={`./art/${pet.bed.replace(':', '-')}.webp`} alt="" className="absolute bottom-[10%] left-[6%] w-[30%]" />}
-        {gold && <img src="./art/shop-gamelle.webp" alt="" className="absolute bottom-[8%] right-[8%] w-[16%]" />}
+        {/* chacun a son ombre douce sur l'herbe (les images n'en portent plus : elle y était dessinée en gris clair,
+            et faisait une tache blanche sous l'animal) */}
+        {pet.bed && (
+          <span className="absolute bottom-[10%] left-[6%] block w-[30%]">
+            <span aria-hidden className="absolute inset-x-[6%] bottom-[1%] block h-[9%] rounded-[50%] bg-[#35612B]/30 blur-[5px]" />
+            <img src={`./art/${pet.bed.replace(':', '-')}.webp`} alt="" className="relative block w-full" />
+          </span>
+        )}
+        {gold && (
+          <span className="absolute bottom-[8%] right-[8%] block w-[16%]">
+            <span aria-hidden className="absolute inset-x-[4%] bottom-[1%] block h-[10%] rounded-[50%] bg-[#35612B]/30 blur-[4px]" />
+            <img src="./art/shop-gamelle.webp" alt="" className="relative block w-full" />
+          </span>
+        )}
         <button
           onClick={() => void caress()}
           className="absolute bottom-[8%] left-1/2 block -translate-x-1/2 transition-[width] duration-700"
           style={{ width: `${46 * stage.scale}%` }}
           aria-label={`Caresser ${pet.name}`}
         >
+          <span aria-hidden className="absolute inset-x-[14%] bottom-[0.5%] block h-[8%] rounded-[50%] bg-[#35612B]/30 blur-[6px]" />
           <PetFigure
             pet={pet}
             className="w-full"
