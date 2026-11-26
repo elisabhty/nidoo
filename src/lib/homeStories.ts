@@ -1,5 +1,6 @@
 import { timeLabel } from './util'
-import type { FamEvent, FamilyState, Member, Moment } from './types'
+import { endroitNomme } from './endroits'
+import type { Endroit, FamEvent, FamilyState, Member, Moment } from './types'
 
 /** Ce que la maison raconte à partir des événements réellement enregistrés par la famille. */
 export type HomeStory = {
@@ -23,7 +24,8 @@ export type HomeStory = {
   vocal?: boolean
 }
 
-type Sources = Pick<FamilyState, 'members' | 'moments'>
+/** `endroits` : nos adresses, pour lire « École » au lieu de l'adresse complète (Elisa, 26 novembre). */
+type Sources = Pick<FamilyState, 'members' | 'moments'> & { endroits?: readonly Endroit[] }
 type NextEvent = { e: FamEvent; at: Date } | null
 
 const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
@@ -65,7 +67,7 @@ export function homeStories(state: Sources, meId: string, next: NextEvent, now =
         label: [quand, heure].filter(Boolean).join(' · '),
         title: next.e.title,
         detail:
-          next.e.lieu ||
+          (next.e.lieu ? (endroitNomme(next.e.lieu, state.endroits ?? [])?.nom ?? next.e.lieu) : '') ||
           (avec.length ? (avec.length > 2 ? `Avec ${avec.slice(0, 2).join(', ')} et ${avec.length - 2} autre${avec.length > 3 ? 's' : ''}` : `Avec ${avec.join(' et ')}`) : '') ||
           (next.e.kind === 'anniversaire' ? 'Pense à lui faire une surprise' : next.e.all_day ? 'Toute la journée, toute la famille' : 'Toute la famille'),
         target: 'organiser',

@@ -10,6 +10,8 @@ import { partagerTexte } from '../lib/share'
 import { ouvrirLieu } from '../lib/plans'
 import { useLienTaches } from '../lib/lienTaches'
 import { ChampLieu } from './champLieu'
+import { IconeEndroit } from './iconeEndroit'
+import { lieuAffiche, lieuComplet } from '../lib/endroits'
 import type { EventKind, FamEvent, Member, Repete, Sticker, ThoughtKind } from '../lib/types'
 import { chargerImage, photoFinale, vignettesFiltres, type FiltreKey } from '../lib/filtres'
 import { MAX_STICKERS } from '../lib/stickers'
@@ -975,7 +977,7 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
       {/* Lieu */}
       <CarteEvt>
         <TitreCarte icone={MapPin} titre="Lieu" extra={FACULTATIF} />
-        <ChampLieu value={lieu} onChange={setLieu} placeholder={LIEU_EXEMPLE[kind] ?? 'Où ?'} recents={lieuxConnus} />
+        <ChampLieu value={lieu} onChange={setLieu} placeholder={LIEU_EXEMPLE[kind] ?? 'Où ?'} recents={lieuxConnus} endroits={state.endroits} />
       </CarteEvt>
 
       {/* Les personnes concernées */}
@@ -1097,7 +1099,7 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
       return void retirerRendezVous(ev)
     }
     setDirect((d) => d && { ...d, suivi: true })
-    const r = await suivreRendezVous(ev, state.members, state.me.id)
+    const r = await suivreRendezVous(ev, state.members, state.me.id, state.endroits)
     if (r === 'lancee') return success()
     setDirect((d) => d && { ...d, suivi: false })
     toast(r === 'refusee' ? 'Les activités en direct sont coupées pour NIDOO : Réglages › NIDOO › Activités en direct.' : 'Impossible de l’afficher sur l’écran verrouillé pour le moment.', 'err')
@@ -1129,17 +1131,25 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
     if (await run((api) => api.deleteEvent(ev.id), 'Événement supprimé')) onClose()
   }
   const calendrier = async () => {
-    const r = await ajouterAuCalendrier(ev)
+    // une de nos adresses (« École ») : le calendrier du téléphone reçoit aussi l'adresse, le nom seul n'y dirait rien
+    const r = await ajouterAuCalendrier(ev.lieu ? { ...ev, lieu: lieuComplet(ev.lieu, state.endroits) } : ev)
     if (r === 'ajoute') success()
     else if (r === 'safari') toast('Le navigateur s’ouvre : touche « Ajouter » pour le mettre dans ton calendrier')
   }
   const partager = async () => {
-    const r = await partagerTexte(`${titreCalendrier(ev)} : ${quand.charAt(0).toLowerCase()}${quand.slice(1)}${ev.lieu ? `, ${ev.lieu}` : ''}${ev.description ? `\n${ev.description}` : ''}`)
+    const r = await partagerTexte(`${titreCalendrier(ev)} : ${quand.charAt(0).toLowerCase()}${quand.slice(1)}${ev.lieu ? `, ${lieuComplet(ev.lieu, state.endroits)}` : ''}${ev.description ? `\n${ev.description}` : ''}`)
     if (r === 'copie') toast('Copié : tu peux le coller dans un message')
+  }
+  // le lieu : une de nos adresses (« École ») mène à son point exact ; sinon le texte, tel qu'il est écrit
+  const lieuVu = ev.lieu ? lieuAffiche(ev.lieu, state.endroits) : null
+  const allerAuLieu = () => {
+    if (!ev.lieu) return
+    const e = lieuVu?.endroit
+    void ouvrirLieu(lieuComplet(ev.lieu, state.endroits), e ? { lat: e.lat, lon: e.lon } : undefined)
   }
   const actions = [
     <ActionEvt key="cal" icone={CalendarPlus} label="Calendrier" onClick={calendrier} />,
-    ev.lieu ? <ActionEvt key="plans" icone={Navigation} label="Itinéraire" onClick={() => void ouvrirLieu(ev.lieu!)} /> : null,
+    ev.lieu ? <ActionEvt key="plans" icone={Navigation} label="Itinéraire" onClick={allerAuLieu} /> : null,
     <ActionEvt key="partage" icone={Share} label="Partager" onClick={() => void partager()} />,
     peutModifier ? <ActionEvt key="modif" icone={PenLine} label="Modifier" onClick={() => setModif(true)} /> : null,
   ].filter(Boolean)
@@ -1197,7 +1207,7 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
       <div className="groupe mt-4">
         {!ev.lieu && peutModifier && (ajoutLieu ? (
           <form className="anim-entre border-b border-trait p-3" onSubmit={(e) => { e.preventDefault(); void enregistrerLieu() }}>
-            <ChampLieu value={lieu} onChange={setLieu} placeholder="Une adresse, un lieu…" recents={lieuxConnus} autoFocus />
+            <ChampLieu value={lieu} onChange={setLieu} placeholder="Une adresse, un lieu…" recents={lieuxConnus} autoFocus endroits={state.endroits} />
             <div className="mt-2.5 flex gap-2">
               <button type="button" onClick={() => (tap(), setAjoutLieu(false), setLieu(''))} className="presse min-h-11 flex-1 rounded-full bg-doux text-sous font-semibold text-encre">Annuler</button>
               <button type="submit" disabled={!lieu.trim()} className="presse flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-full bg-teinte text-sous font-bold text-white transition-opacity disabled:opacity-40">
@@ -1214,10 +1224,11 @@ export function EventDetailSheet({ event, onClose }: { event: FamEvent; at?: Dat
           </button>
         ))}
         {ev.lieu && (
-          <button type="button" onClick={() => (tap(), void ouvrirLieu(ev.lieu!))} className={`presse-ligne block w-full text-left ${lieuArrive ? 'ligne-arrive' : ''}`}>
-            <Info icone={<MapPin size={18} strokeWidth={2.3} />} fleche>
-              <span className="block break-words">{ev.lieu}</span>
-              <span className="text-note text-brume">Plans, Google Maps, Citymapper ou Waze</span>
+          <button type="button" onClick={() => (tap(), allerAuLieu())} className={`presse-ligne block w-full text-left ${lieuArrive ? 'ligne-arrive' : ''}`}>
+            {/* une de nos adresses : son nom, et l'adresse en dessous */}
+            <Info icone={lieuVu?.endroit ? <IconeEndroit nom={lieuVu.endroit.nom} size={18} sobre /> : <MapPin size={18} strokeWidth={2.3} />} fleche>
+              <span className={`block break-words ${lieuVu?.endroit ? 'font-semibold' : ''}`}>{lieuVu?.titre ?? ev.lieu}</span>
+              <span className="text-note text-brume">{lieuVu?.detail ?? 'Plans, Google Maps, Citymapper ou Waze'}</span>
             </Info>
           </button>
         )}

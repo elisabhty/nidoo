@@ -255,6 +255,11 @@ const ERRORS: Record<string, string> = {
   PERSONNE_N_A_REPONDU: 'Personne n’a encore répondu.',
   MOT_5_LETTRES: 'Il faut un mot de 5 lettres.',
   MOT_FINI: 'Tu as fini le mot du jour : rendez-vous demain !',
+  ENDROIT_NOM: 'Donne un nom à cette adresse.',
+  ENDROIT_EXISTE: 'Une de vos adresses porte déjà ce nom.',
+  // la même règle, dite par la base (un nom ne sert qu'une fois par maison)
+  endroits_nom_idx: 'Une de vos adresses porte déjà ce nom.',
+  ENDROITS_COMPLET: 'Trente adresses au plus : retirez-en une d’abord.',
 }
 /** Le jour d'il y a n jours, au format AAAA-MM-JJ. */
 export const daysAgoKey = (n: number) => todayKey(new Date(Date.now() - n * 86400000))

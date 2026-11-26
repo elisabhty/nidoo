@@ -1,6 +1,9 @@
 // « Où est la famille » : ce qu'on affiche d'une position (depuis quand, où, à quelle distance), sans rien de natif.
 import type { Position } from './types'
 
+/** En démo, rien ne quitte l'appareil : une position d'exemple, à Annecy comme le reste de la famille. */
+export const POSITION_DEMO = { lat: 45.9029, lon: 6.1269, precision: 12, lieu: 'Place de l’Hôtel de Ville', ville: 'Annecy', batterie: 71 }
+
 /** « à l'instant », « il y a 5 min », « il y a 2 h », « hier à 18:30 », « le 12 nov. ». */
 export function ilYA(quand: string, maintenant = Date.now()): string {
   const t = new Date(quand).getTime()

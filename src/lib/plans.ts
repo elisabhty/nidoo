@@ -4,16 +4,20 @@ import { choisir } from '../components/ui'
 // Aller à un lieu : avec Plans, Google Maps, Citymapper ou Waze (Elisa, 21 novembre).
 // Ce sont des liens universels : l'appli s'ouvre si elle est installée, sinon le site (rien à installer côté iPhone).
 
+/** Le point exact d'une de nos adresses (« École ») : son nom seul ne dirait rien à une appli de cartes. */
+type Vers = { lat: number; lon: number }
+const pt = (p: Vers) => `${p.lat},${p.lon}`
 const APPLIS = [
-  { cle: 'plans', label: 'Plans', url: (l: string) => `https://maps.apple.com/?daddr=${encodeURIComponent(l)}` },
-  { cle: 'google', label: 'Google Maps', url: (l: string) => `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(l)}` },
-  { cle: 'citymapper', label: 'Citymapper', url: (l: string) => `https://citymapper.com/directions?endaddress=${encodeURIComponent(l)}&endname=${encodeURIComponent(l)}` },
-  { cle: 'waze', label: 'Waze', url: (l: string) => `https://waze.com/ul?q=${encodeURIComponent(l)}&navigate=yes` },
+  { cle: 'plans', label: 'Plans', url: (l: string, p?: Vers) => `https://maps.apple.com/?daddr=${p ? pt(p) : encodeURIComponent(l)}` },
+  { cle: 'google', label: 'Google Maps', url: (l: string, p?: Vers) => `https://www.google.com/maps/dir/?api=1&destination=${p ? pt(p) : encodeURIComponent(l)}` },
+  { cle: 'citymapper', label: 'Citymapper', url: (l: string, p?: Vers) => `https://citymapper.com/directions?${p ? `endcoord=${pt(p)}` : `endaddress=${encodeURIComponent(l)}`}&endname=${encodeURIComponent(l)}` },
+  { cle: 'waze', label: 'Waze', url: (l: string, p?: Vers) => `https://waze.com/ul?${p ? `ll=${pt(p)}` : `q=${encodeURIComponent(l)}`}&navigate=yes` },
 ]
 const PREFEREE = 'nidoo.plans'
 
-/** Propose les applis de cartes (la dernière choisie en premier) et ouvre le lieu dans celle qu'on touche. */
-export async function ouvrirLieu(lieu: string) {
+/** Propose les applis de cartes (la dernière choisie en premier) et ouvre le lieu dans celle qu'on touche.
+ *  `vers` : le point exact, pour une de nos adresses. */
+export async function ouvrirLieu(lieu: string, vers?: Vers) {
   let pref = ''
   try {
     pref = localStorage.getItem(PREFEREE) ?? ''
@@ -30,6 +34,6 @@ export async function ouvrirLieu(lieu: string) {
     /* rien */
   }
   // dans l'appli iPhone, une adresse d'ailleurs s'ouvre dans l'appli concernée (ou Safari)
-  const w = window.open(app.url(lieu), '_blank')
-  if (!w && !Capacitor.isNativePlatform()) location.href = app.url(lieu)
+  const w = window.open(app.url(lieu, vers), '_blank')
+  if (!w && !Capacitor.isNativePlatform()) location.href = app.url(lieu, vers)
 }

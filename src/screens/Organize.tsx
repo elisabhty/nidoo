@@ -7,6 +7,7 @@ import { evenementsAVenir, jourCourt, useLienTaches } from '../lib/lienTaches'
 import { RecetteSheet, RecettesSheet } from '../components/recettes'
 import { MemberStack } from '../components/folder'
 import { IconeArticle } from '../components/iconeArticle'
+import { LieuEvt } from '../components/iconeEndroit'
 import { EventDetailSheet, EventSheet, EventIcon, TYPES_AGENDA } from '../components/sheets'
 import { Art, AuDessus, Avatar, Rond, Screen, Segments, Vide } from '../components/ui'
 import { choc, select, success, tap, warn } from '../lib/haptic'
@@ -167,12 +168,7 @@ function Semaine({ onOpen, onAdd }: { onOpen: (o: Ouvert) => void; onAdd: (day: 
                             {repeteDe(e) && repeteDe(e) !== 'annee' ? ` · ${rythme(e, at)?.toLowerCase()}` : repeteDe(e) === 'annee' && e.kind !== 'anniversaire' ? ' · chaque année' : ''}
                             {!e.lieu && e.description ? ` · ${e.description}` : ''}
                           </span>
-                          {e.lieu && (
-                            <span className="mt-0.5 flex items-start gap-1 text-note text-teinte-fonce">
-                              <MapPin size={12} strokeWidth={2.4} className="mt-[3px] shrink-0" />
-                              <span className="min-w-0 break-words">{e.lieu}</span>
-                            </span>
-                          )}
+                          {e.lieu && <LieuEvt lieu={e.lieu} endroits={state.endroits} />}
                         </span>
                         {!!e.members?.length && <MemberStack ids={e.members} size={26} max={3} />}
                         <ChevronRight size={17} strokeWidth={2.6} className="shrink-0 text-pale" />
@@ -995,12 +991,7 @@ export default function Organize() {
                                 return t.charAt(0).toUpperCase() + t.slice(1)
                               })()}
                             </span>
-                            {e.lieu && (
-                              <span className="mt-0.5 flex items-start gap-1 text-note text-teinte-fonce">
-                                <MapPin size={12} strokeWidth={2.4} className="mt-[3px] shrink-0" />
-                                <span className="min-w-0 break-words">{e.lieu}</span>
-                              </span>
-                            )}
+                            {e.lieu && <LieuEvt lieu={e.lieu} endroits={state.endroits} />}
                             {e.description && <span className="block truncate text-note text-brume">{e.description}</span>}
                           </span>
                           {e.members?.length ? <MemberStack ids={e.members} size={24} max={2} /> : null}<EventIcon event={e} size={32} className="shrink-0" />

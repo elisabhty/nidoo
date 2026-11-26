@@ -6,15 +6,16 @@ import { applyMove, botMemory, botMorpion, botPuissance4, isMemory, MEMORY_MAX, 
 import { partiesDemo, type Cache, type MotDemo } from './partiesDemo'
 import type { AnneeState } from './parties'
 import { etoilesDe, parisToday } from './avent'
-import type { AdventDoor, AppFlag, Backend, Drawing, Ecrit, Game, Family, FamilyState, Folder, FolderItem, JoinRequest, LiveEvent, Member, Moment, MyRequest, Position, Sticker, ThoughtKind } from './types'
+import { ENDROITS_MAX, nomPris, nomPropre, RAYON } from './endroits'
+import type { AdventDoor, AppFlag, Backend, Drawing, Ecrit, Endroit, Game, Family, FamilyState, Folder, FolderItem, JoinRequest, LiveEvent, Member, Moment, MyRequest, Position, Sticker, ThoughtKind } from './types'
 import { blobToDataUrl, compressImage, daysAgoKey, todayKey, uid } from './util'
 import { challenge, nextReward, WEEKLY, weekIndex, weekKey, weekStart, type WeeklyCounts, type WeeklyKey } from './weekly'
 
 // Mode démo : toute la maison vit sur l'appareil, avec des proches fictifs
 // qui répondent aux attentions. Même contrat que le backend Supabase.
 
-type Raw = Omit<FamilyState, 'me' | 'weekly' | 'houseSince' | 'mot' | 'flags' | 'advent' | 'positions'> & { houseSince?: Record<string, string>; advent?: AdventDoor[] }
-  & { positions?: (Position & { il?: number })[] }
+type Raw = Omit<FamilyState, 'me' | 'weekly' | 'houseSince' | 'mot' | 'flags' | 'advent' | 'positions' | 'endroits' | 'endroitsPartages'> & { houseSince?: Record<string, string>; advent?: AdventDoor[] }
+  & { positions?: (Position & { il?: number })[]; endroits?: Endroit[] }
   & { caches?: Record<string, Cache>; motDemo?: MotDemo } & { dossiersDemo?: boolean; enfantsDemo?: boolean; weeklyClaims?: Record<string, string>; aventDemo?: number }
   & { jeuxDemo?: boolean; decks?: Record<string, { deck: number[]; pending: number | null }> }
   & { porte?: Record<string, Record<number, { e: number; t: number }>> }
@@ -239,6 +240,15 @@ function migrate(f: Raw, userId: string) {
       ...pos('Papa', 45.9135, 6.13, 'Avenue de Brogny', 12, 64),
       ...pos('Mamie Jo', 45.8993, 6.1244, 'Rue Sainte-Claire', 130, 88),
     ]
+  }
+  if (!f.endroits) {
+    // Nos adresses : là où sont Papa et Mamie Jo (les proches fictifs), pour lire « Bureau de Papa » à la place de la
+    // rue. Léa, au bord du lac, garde sa rue : c'est l'endroit à nommer pour essayer.
+    const chez = (name: string, nom: string, il: number): Endroit[] => {
+      const p = (f.positions ?? []).find((x) => x.il != null && f.members.find((m) => m.id === x.member_id)?.display_name === name)
+      return p ? [{ id: uid(), family_id: f.family.id, nom, adresse: [p.lieu, p.ville].filter(Boolean).join(', ') || null, lat: p.lat, lon: p.lon, rayon_m: RAYON, created_at: iso(il) }] : []
+    }
+    f.endroits = [...chez('Papa', 'Bureau de Papa', 5000), ...chez('Mamie Jo', 'Chez Mamie Jo', 4990)]
   }
   if (!f.drawings) {
     // Un premier dessin de Léa pour toute la famille, pour voir le widget rempli.
@@ -753,6 +763,8 @@ export function createLocalBackend(): Backend {
         advent: f.advent ?? [],
         // en démo, les proches viennent de bouger : leurs positions restent fraîches
         positions: (f.positions ?? []).map(({ il, ...p }) => (il != null ? { ...p, updated_at: iso(il) } : p)),
+        endroits: f.endroits ?? [],
+        endroitsPartages: true,
       })
     },
     subscribe(_fid, onChange) {
@@ -1324,6 +1336,27 @@ export function createLocalBackend(): Backend {
       const f = fam(fid)
       const me = myId(f)
       f.positions = (f.positions ?? []).filter((x) => x.member_id !== me)
+      save()
+    },
+    // ───── Nos adresses : comme la base (un nom ne sert qu'une fois, 30 adresses au plus) ─────
+    async enregistrerEndroit(fid, e) {
+      const f = fam(fid)
+      const liste = (f.endroits ??= [])
+      const nom = nomPropre(e.nom)
+      if (!nom) throw new Error('ENDROIT_NOM')
+      if (nomPris(nom, liste, e.id)) throw new Error('ENDROIT_EXISTE')
+      const champs = { nom, adresse: e.adresse?.trim().slice(0, 200) || null, lat: Math.round(e.lat * 1e5) / 1e5, lon: Math.round(e.lon * 1e5) / 1e5, rayon_m: e.rayon_m ?? RAYON }
+      const deja = e.id ? liste.find((x) => x.id === e.id) : undefined
+      if (deja) Object.assign(deja, champs)
+      else {
+        if (liste.length >= ENDROITS_MAX) throw new Error('ENDROITS_COMPLET')
+        liste.push({ id: uid(), family_id: fid, ...champs, created_at: new Date().toISOString() })
+      }
+      save()
+    },
+    async supprimerEndroit(fid, id) {
+      const f = fam(fid)
+      f.endroits = (f.endroits ?? []).filter((x) => x.id !== id)
       save()
     },
     async widgetCle() {

@@ -104,4 +104,4 @@ async function batterieNavigateur(): Promise<number | null> {
 }
 
 // ce qu'on affiche (sans rien de natif : testé à part)
-export { ancienne, cadre, distance, ilYA, libelle, texteDistance } from './positions'
+export { ancienne, cadre, distance, ilYA, libelle, POSITION_DEMO, texteDistance } from './positions'

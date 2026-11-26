@@ -4,9 +4,20 @@
 // • Photon (Komoot, données OpenStreetMap) : les lieux qui ont un nom (restaurants, gares, parcs, écoles…).
 // Seul ce qu'on tape part vers ces services (pas de nom, pas de compte), et seulement à partir de 3 lettres.
 
-export type Suggestion = { texte: string; titre: string; detail: string; genre: 'adresse' | 'lieu' | 'ville'; cp?: string; ville?: string }
+/** lat, lon : le point de l'adresse, quand le service le donne (pour « Nos adresses », qui en a besoin). */
+export type Suggestion = { texte: string; titre: string; detail: string; genre: 'adresse' | 'lieu' | 'ville'; cp?: string; ville?: string; lat?: number; lon?: number }
 
-type FeatureBan = { properties: { label?: string; name?: string; city?: string; postcode?: string; context?: string; type?: string; score?: number } }
+/** Les deux services répondent en GeoJSON : le point est rangé longitude d'abord. */
+type Geo = { geometry?: { coordinates?: unknown } | null }
+type FeatureBan = Geo & { properties: { label?: string; name?: string; city?: string; postcode?: string; context?: string; type?: string; score?: number } }
+
+/** Le point d'un résultat, s'il est donné et plausible. */
+export function pointDe(f: Geo): { lat: number; lon: number } | null {
+  const c = f.geometry?.coordinates
+  if (!Array.isArray(c)) return null
+  const [lon, lat] = c as unknown[]
+  return typeof lat === 'number' && typeof lon === 'number' && Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180 ? { lat, lon } : null
+}
 
 /** Un code postal tapé (5 chiffres) : les suggestions s'y limitent (Elisa, 21 novembre : « détecter les codes postaux,
  *  pour ne pas se tromper avec la même adresse dans deux villes différentes »). */
@@ -35,7 +46,7 @@ export function avecCodePostal(texte: string, cp: string, ville: string): string
   }
   return `${base}, ${cp} ${ville}`
 }
-type FeaturePhoton = { properties: { name?: string; housenumber?: string; street?: string; postcode?: string; city?: string; country?: string; osm_key?: string; osm_value?: string; type?: string } }
+type FeaturePhoton = Geo & { properties: { name?: string; housenumber?: string; street?: string; postcode?: string; city?: string; country?: string; osm_key?: string; osm_value?: string; type?: string } }
 
 const LIEUX = new Set(['amenity', 'shop', 'tourism', 'leisure', 'railway', 'aeroway', 'historic', 'office', 'healthcare', 'craft', 'public_transport', 'sport'])
 
@@ -58,20 +69,20 @@ export async function chercherAdresses(q: string, signal: AbortSignal): Promise<
     json<{ features?: FeaturePhoton[] }>(`https://photon.komoot.io/api/?q=${enc}&lang=fr&limit=6&lat=46.6&lon=2.4`, signal),
   ])
   const lieux: Suggestion[] = (photon?.features ?? [])
-    .map((f) => f.properties)
-    .filter((p) => p.name && p.osm_key && LIEUX.has(p.osm_key) && (!cp || p.postcode === cp))
+    .filter(({ properties: p }) => p.name && p.osm_key && LIEUX.has(p.osm_key) && (!cp || p.postcode === cp))
     .slice(0, 3)
-    .map((p) => {
+    .map((f) => {
+      const p = f.properties
       const rue = [p.housenumber, p.street].filter(Boolean).join(' ')
       const ville = [p.postcode, p.city].filter(Boolean).join(' ')
       const detail = [rue, ville].filter(Boolean).join(', ') || p.country || ''
       // le code postal reste dans l'adresse : deux villes peuvent avoir le même nom de rue
-      return { titre: p.name!, detail, texte: [p.name, rue, ville].filter(Boolean).join(', '), genre: 'lieu' as const, cp: p.postcode, ville: p.city }
+      return { titre: p.name!, detail, texte: [p.name, rue, ville].filter(Boolean).join(', '), genre: 'lieu' as const, cp: p.postcode, ville: p.city, ...pointDe(f) }
     })
   const adresses: Suggestion[] = (ban?.features ?? [])
-    .map((f) => f.properties)
-    .filter((p) => p.label)
-    .map((p) => {
+    .filter((f) => f.properties.label)
+    .map((f) => {
+      const p = f.properties
       const ville = p.type === 'municipality'
       return {
         titre: ville ? (p.city ?? p.label!) : (p.name ?? p.label!),
@@ -80,6 +91,7 @@ export async function chercherAdresses(q: string, signal: AbortSignal): Promise<
         genre: ville ? ('ville' as const) : ('adresse' as const),
         cp: p.postcode,
         ville: p.city,
+        ...pointDe(f),
       }
     })
   const vus = new Set<string>()
@@ -89,6 +101,21 @@ export async function chercherAdresses(q: string, signal: AbortSignal): Promise<
     vus.add(k)
     return true
   }).slice(0, 6)
+}
+
+/** Le point d'une adresse écrite à la main, sans l'avoir choisie dans la liste (« Nos adresses ») : le meilleur
+ *  résultat s'il est sûr, et jamais une ville entière (son centre n'est pas « chez Mamie »). null : rien de sûr. */
+export async function trouverPoint(q: string, signal?: AbortSignal): Promise<{ lat: number; lon: number; texte: string } | null> {
+  const t = q.trim()
+  if (t.length < 5) return null
+  const s = signal ?? new AbortController().signal
+  const cp = codePostal(t)
+  const ban = await json<{ features?: FeatureBan[] }>(`https://data.geopf.fr/geocodage/search?q=${encodeURIComponent(t)}&limit=1${cp ? `&postcode=${cp}` : ''}`, s)
+  const f = ban?.features?.[0]
+  const p = f?.properties
+  const pt = f ? pointDe(f) : null
+  if (!p || !pt || p.type === 'municipality' || (p.score ?? 0) < 0.6) return null
+  return { ...pt, texte: [p.name, [p.postcode, p.city].filter(Boolean).join(' ')].filter(Boolean).join(', ') || p.label || t }
 }
 
 /** Une adresse tapée sans code postal : on cherche à quoi elle correspond. Une seule ville possible : l'adresse complète

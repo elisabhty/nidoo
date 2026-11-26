@@ -182,7 +182,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           if (!vu || !alive) return false
           const frais = Date.now() - vu.at < LIENS_MS
           setCircles(vu.valeur.circles)
-          poser(frais ? vu.valeur.state : sansLiens(vu.valeur.state))
+          // une copie gardée par une version d'avant n'a pas encore tout (positions, nos adresses) : des listes vides
+          const garde: FamilyState = { ...vu.valeur.state, positions: vu.valeur.state.positions ?? [], endroits: vu.valeur.state.endroits ?? [], endroitsPartages: vu.valeur.state.endroitsPartages ?? true }
+          poser(frais ? garde : sansLiens(garde))
           setStatus('ready')
           return true
         }

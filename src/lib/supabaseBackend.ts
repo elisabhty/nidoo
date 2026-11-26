@@ -4,7 +4,8 @@ import { SUPABASE_KEY, SUPABASE_URL } from '../config'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { isMemory } from './jeux'
 import { jourParis, type AnneeState, type MotLigne, type MotMoi, type Secret } from './parties'
-import type { AdventDoor, AppFlag, Answer, Backend, Game, Partie, HouseCare, Pet, Plot, Circle, Drawing, DrawingData, FamEvent, Family, FamilyState, Folder, JoinRequest, LiveEvent, LiveInvite, MyRequest, FolderItem, FolderMember, ListItem, Member, Moment, PollVote, Position, Reaction, StarEntry, Thought, Ecrit } from './types'
+import { ENDROITS_MAX, nomPris, nomPropre, RAYON } from './endroits'
+import type { AdventDoor, AppFlag, Answer, Backend, Game, Partie, HouseCare, Pet, Plot, Circle, Drawing, DrawingData, Endroit, FamEvent, Family, FamilyState, Folder, JoinRequest, LiveEvent, LiveInvite, MyRequest, FolderItem, FolderMember, ListItem, Member, Moment, PollVote, Position, Reaction, StarEntry, Thought, Ecrit } from './types'
 import { compressImage, daysAgoKey, todayKey, uid } from './util'
 import { createSignedUrlCache } from './signedUrls'
 import { ecrireCopie, effacerCopies, lireCopie } from './cacheEtat'
@@ -18,6 +19,37 @@ function check<T>(r: { data: T; error: { message: string } | null }): T {
   if (r.error) throw new Error(r.error.message)
   return r.data
 }
+
+// ───── Nos adresses ─────
+// La table « endroits » (supabase/migrations/20261126013000_endroits.sql) les partage avec toute la famille. Tant
+// qu'elle n'est pas là, elles sont gardées sur ce téléphone (les autres ne les voient pas) ; le jour où elle existe,
+// elles rejoignent la maison toutes seules.
+const COLONNES_ENDROIT = 'id, family_id, nom, adresse, lat, lon, rayon_m, created_at'
+const cleEndroits = (fid: string) => `nidoo.endroits.${fid}`
+const bonEndroit = (e: unknown): e is Endroit => {
+  const x = e as Partial<Endroit> | null
+  return !!x && typeof x.id === 'string' && typeof x.nom === 'string' && Number.isFinite(x.lat) && Number.isFinite(x.lon) && Number.isFinite(x.rayon_m)
+}
+function lireEndroits(fid: string): Endroit[] {
+  try {
+    const v: unknown = JSON.parse(localStorage.getItem(cleEndroits(fid)) ?? '[]')
+    return Array.isArray(v) ? v.filter(bonEndroit) : []
+  } catch {
+    return []
+  }
+}
+function ecrireEndroits(fid: string, liste: Endroit[]) {
+  try {
+    if (liste.length) localStorage.setItem(cleEndroits(fid), JSON.stringify(liste))
+    else localStorage.removeItem(cleEndroits(fid))
+  } catch {
+    /* stockage refusé : elles resteront le temps de la session */
+  }
+}
+/** La table est absente depuis peu : on ne l'a pas redemandée. */
+const PAS_DEMANDE = 'PAS_DEMANDE'
+/** La base répond qu'elle ne connaît pas la table (elle n'a pas encore reçu la migration). */
+const tableAbsente = (e: { code?: string; message: string }) => /PGRST205|42P01/.test(e.code ?? '') || /schema cache|does not exist/i.test(e.message)
 
 export function createSupabaseBackend(): Backend {
   const sb: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -52,6 +84,59 @@ export function createSupabaseBackend(): Backend {
   }
   let userId = ''
   const traits = new Map<string, DrawingData>()
+  // Nos adresses : la table est-elle là (null : pas encore regardé) ; et son temps réel, sur un canal à part (un canal
+  // qui écoute une table inconnue est refusé en entier : celui de la famille ne doit pas en dépendre).
+  let endroitsEnBase: boolean | null = null
+  let endroitsVusLe = 0
+  const derniers = new Map<string, Endroit[]>()
+  const abonnes = new Map<string, () => void>()
+  const canauxEndroits = new Map<string, RealtimeChannel>()
+  const enMontee = new Set<string>()
+  const ecouterEndroits = (fid: string) => {
+    const onChange = abonnes.get(fid)
+    if (!onChange || canauxEndroits.has(fid) || endroitsEnBase !== true) return
+    const ch = sb.channel(`famille:${fid}:endroits`)
+    ch.on('postgres_changes', { event: '*', schema: 'public', table: 'endroits', filter: `family_id=eq.${fid}` }, onChange)
+    ch.subscribe()
+    canauxEndroits.set(fid, ch)
+  }
+  /** Les adresses de la maison : celles de la base, ou celles de ce téléphone tant que la base ne sait pas les garder. */
+  const nosEndroits = async (fid: string, r: { data: unknown; error: { code?: string; message: string } | null }): Promise<Pick<FamilyState, 'endroits' | 'endroitsPartages'>> => {
+    const gardes = lireEndroits(fid)
+    if (r.error) {
+      // la table manque (pas encore installée) : on la redemandera dans un quart d'heure
+      if (r.error.message !== PAS_DEMANDE && tableAbsente(r.error)) {
+        endroitsEnBase = false
+        endroitsVusLe = Date.now()
+      }
+      // une autre erreur (le réseau) : ce qu'on savait déjà
+      if (endroitsEnBase !== false) return { endroits: derniers.get(fid) ?? gardes, endroitsPartages: endroitsEnBase !== null || !gardes.length }
+      return { endroits: gardes, endroitsPartages: false }
+    }
+    endroitsEnBase = true
+    ecouterEndroits(fid)
+    let liste = (r.data ?? []) as Endroit[]
+    if (gardes.length) {
+      // gardées ici en attendant : elles montent à la maison (sauf un nom que la famille a déjà pris entre-temps)
+      const neuves = gardes.filter((g) => !nomPris(g.nom, liste))
+      // une seule montée à la fois : deux chargements qui se croisent ne les envoient pas deux fois
+      if (!neuves.length || enMontee.has(fid)) liste = [...liste, ...neuves]
+      else {
+        enMontee.add(fid)
+        try {
+          const mises = await sb.from('endroits').insert(neuves.map((g) => ({ family_id: fid, nom: g.nom, adresse: g.adresse, lat: g.lat, lon: g.lon, rayon_m: g.rayon_m }))).select(COLONNES_ENDROIT)
+          if (mises.error) liste = [...liste, ...neuves] // pas cette fois : elles restent ici, on réessaiera
+          else liste = [...liste, ...((mises.data ?? []) as Endroit[])]
+          if (!mises.error) ecrireEndroits(fid, [])
+        } finally {
+          enMontee.delete(fid)
+        }
+      }
+      if (!neuves.length) ecrireEndroits(fid, [])
+    }
+    derniers.set(fid, liste)
+    return { endroits: liste, endroitsPartages: true }
+  }
   // Un seul canal privé par famille pour les invitations à dessiner à deux.
   const canaux = new Map<string, Promise<RealtimeChannel>>()
   const ecouteurs = new Map<string, Set<(m: { payload: LiveInvite }) => void>>()
@@ -176,7 +261,7 @@ export function createSupabaseBackend(): Backend {
       )
       const since = new Date(Date.now() - 14 * 86400000).toISOString()
       const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString()
-      const [family, members, requests, weekly, moments, pollVotes, folders, folderMembers, folderItems, reactions, thoughts, drawings, events, items, answers, house, stars, cares, pets, plots, stock, owned, games, jeux2, motJour, flags, advent, positions] = await Promise.all([
+      const [family, members, requests, weekly, moments, pollVotes, folders, folderMembers, folderItems, reactions, thoughts, drawings, events, items, answers, house, stars, cares, pets, plots, stock, owned, games, jeux2, motJour, flags, advent, positions, adresses] = await Promise.all([
         sb.from('families').select('*').eq('id', fid).single(),
         sb.from('members').select('*').eq('family_id', fid).order('joined_at'),
         // Lisibles seulement par les responsables (RLS) : vide pour les autres.
@@ -209,6 +294,11 @@ export function createSupabaseBackend(): Backend {
         sb.from('advent_doors').select('year, day, opened_by, opened_at').eq('family_id', fid),
         // Où est la famille : si la table manque (base pas encore à jour), l'appli marche sans.
         sb.from('positions').select('member_id, family_id, lat, lon, precision_m, lieu, ville, batterie, updated_at').eq('family_id', fid),
+        // Nos adresses : si la table manque, elles sont gardées sur ce téléphone (voir plus haut). On ne la redemande
+        // qu'une fois tous les quarts d'heure : le jour où elle arrive, l'appli s'en aperçoit toute seule.
+        endroitsEnBase === false && Date.now() - endroitsVusLe < 15 * 60000
+          ? Promise.resolve({ data: null, error: { message: PAS_DEMANDE } })
+          : sb.from('endroits').select(COLONNES_ENDROIT).eq('family_id', fid).order('created_at'),
       ])
       const pet = ((check(pets) ?? []) as Pet[])[0] ?? null
       const mem = check(members) as Member[]
@@ -296,6 +386,7 @@ export function createSupabaseBackend(): Backend {
         flags: Object.fromEntries(((flags.data ?? []) as ({ key: string } & AppFlag)[]).map(({ key, ...f }) => [key, f])),
         advent: (advent.data ?? []) as AdventDoor[],
         positions: (positions.data ?? []) as Position[],
+        ...(await nosEndroits(fid, adresses)),
       }
       return state
     },
@@ -307,8 +398,14 @@ export function createSupabaseBackend(): Backend {
       }
       ch.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'families', filter: `id=eq.${fid}` }, onChange)
       ch.subscribe()
+      abonnes.set(fid, onChange)
+      ecouterEndroits(fid)
       return () => {
         void sb.removeChannel(ch)
+        abonnes.delete(fid)
+        const e = canauxEndroits.get(fid)
+        canauxEndroits.delete(fid)
+        if (e) void sb.removeChannel(e)
       }
     },
 
@@ -378,6 +475,34 @@ export function createSupabaseBackend(): Backend {
     },
     async arreterPosition(fid) {
       check(await sb.rpc('position_arreter', { p_family: fid }))
+    },
+    // ───── Nos adresses (supabase/migrations/20261126013000_endroits.sql) ─────
+    async enregistrerEndroit(fid, e) {
+      const nom = nomPropre(e.nom)
+      if (!nom) throw new Error('ENDROIT_NOM')
+      const champs = { nom, adresse: e.adresse?.trim().slice(0, 200) || null, lat: Math.round(e.lat * 1e5) / 1e5, lon: Math.round(e.lon * 1e5) / 1e5, rayon_m: e.rayon_m ?? RAYON }
+      const gardes = lireEndroits(fid)
+      const ici = e.id ? gardes.findIndex((x) => x.id === e.id) : -1
+      if (endroitsEnBase !== false && ici < 0) {
+        const r = e.id ? await sb.from('endroits').update(champs).eq('id', e.id) : await sb.from('endroits').insert({ family_id: fid, ...champs })
+        if (!r.error) return
+        if (!tableAbsente(r.error)) throw new Error(r.error.message)
+        endroitsEnBase = false
+      }
+      // la base ne sait pas (encore) les garder : sur ce téléphone, avec les mêmes règles
+      if (nomPris(nom, gardes, e.id)) throw new Error('ENDROIT_EXISTE')
+      if (ici >= 0) gardes[ici] = { ...gardes[ici], ...champs }
+      else {
+        if (gardes.length >= ENDROITS_MAX) throw new Error('ENDROITS_COMPLET')
+        gardes.push({ id: uid(), family_id: fid, ...champs, created_at: new Date().toISOString() })
+      }
+      ecrireEndroits(fid, gardes)
+    },
+    async supprimerEndroit(fid, id) {
+      const gardes = lireEndroits(fid)
+      if (gardes.some((x) => x.id === id)) return ecrireEndroits(fid, gardes.filter((x) => x.id !== id))
+      if (endroitsEnBase === false) return
+      check(await sb.from('endroits').delete().eq('id', id))
     },
     async widgetCle(fid) {
       return (check(await sb.rpc('widget_cle', { p_family: fid })) as string) ?? ''

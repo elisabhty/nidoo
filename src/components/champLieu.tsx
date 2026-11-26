@@ -1,11 +1,21 @@
-import { Building2, Check, Clock, MapPin, Store, X } from 'lucide-react'
+import { Bookmark, Building2, Check, Clock, MapPin, Store, X } from 'lucide-react'
 import { memo, useEffect, useRef, useState } from 'react'
 import { avecCodePostal, chercherAdresses, verifierAdresse, type Suggestion } from '../lib/adresses'
+import { cle, endroitNomme, endroitsQuiCollent } from '../lib/endroits'
 import { select, tap } from '../lib/haptic'
+import type { Endroit } from '../lib/types'
+import { IconeEndroit } from './iconeEndroit'
+
+const AUCUN: readonly Endroit[] = []
 
 /** Le lieu d'un événement : en tapant, une liste d'adresses et de lieux (gratuite) ; champ vide, les lieux déjà utilisés
- *  par la famille. Un toucher sur une suggestion la met dans le champ. */
-export const ChampLieu = memo(function ChampLieu({ value, onChange, placeholder, recents, autoFocus = false }: { value: string; onChange: (v: string) => void; placeholder: string; recents: string[]; autoFocus?: boolean }) {
+ *  par la famille. Un toucher sur une suggestion la met dans le champ.
+ *  `endroits` : nos adresses (« École », « Travail »), proposées d'un toucher à la place de l'adresse à taper.
+ *  `onChoisi` : la suggestion qu'on vient de prendre dans la liste, avec son point (pour enregistrer une adresse). */
+export const ChampLieu = memo(function ChampLieu({ value, onChange, placeholder, recents, autoFocus = false, endroits = AUCUN, onChoisi, label = 'Lieu' }: {
+  value: string; onChange: (v: string) => void; placeholder: string; recents: string[]; autoFocus?: boolean
+  endroits?: readonly Endroit[]; onChoisi?: (s: Suggestion) => void; label?: string
+}) {
   const [focus, setFocus] = useState(false)
   const [choisi, setChoisi] = useState(false)
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
@@ -96,7 +106,7 @@ export const ChampLieu = memo(function ChampLieu({ value, onChange, placeholder,
   const garder = (e: React.PointerEvent) => e.preventDefault() // effacer garde le clavier
   const appui = useRef<{ x: number; y: number } | null>(null)
   const pris = useRef(0)
-  const toucher = (texte: string) => ({
+  const toucher = (texte: string, apres?: () => void) => ({
     onPointerDown: (e: React.PointerEvent) => {
       appui.current = { x: e.clientX, y: e.clientY }
     },
@@ -106,16 +116,25 @@ export const ChampLieu = memo(function ChampLieu({ value, onChange, placeholder,
       if (!a || Math.hypot(e.clientX - a.x, e.clientY - a.y) > 12) return
       pris.current = Date.now()
       prendre(texte)
+      apres?.()
     },
     onPointerCancel: () => {
       appui.current = null
     },
     // le clavier ou un lecteur d'écran : le clic seul (pas deux fois après un toucher)
     onClick: () => {
-      if (Date.now() - pris.current > 700) prendre(texte)
+      if (Date.now() - pris.current > 700) {
+        prendre(texte)
+        apres?.()
+      }
     },
   })
-  const deja = recents.filter((r) => r.trim().toLowerCase() !== value.trim().toLowerCase()).slice(0, 6)
+  // nos adresses : toutes quand le champ est vide, celles dont le nom colle quand on tape (sauf celle déjà écrite)
+  const nommee = endroits.length ? endroitNomme(value, endroits) : null
+  const ecrite = nommee && cle(nommee.nom) === cle(value) ? nommee : null
+  const noms = endroitsQuiCollent(value, endroits).filter((e) => e !== ecrite).slice(0, 6)
+  // un lieu déjà utilisé qui est une de nos adresses a sa puce plus haut : pas deux fois
+  const deja = recents.filter((r) => r.trim().toLowerCase() !== value.trim().toLowerCase() && !endroitNomme(r, endroits)).slice(0, 6)
   const Icone = ({ s }: { s: Suggestion }) => (s.genre === 'lieu' ? <Store size={17} strokeWidth={2.3} /> : s.genre === 'ville' ? <Building2 size={17} strokeWidth={2.3} /> : <MapPin size={17} strokeWidth={2.3} />)
 
   return (
@@ -139,15 +158,37 @@ export const ChampLieu = memo(function ChampLieu({ value, onChange, placeholder,
           onBlur={() => window.setTimeout(() => document.activeElement !== champ.current && setFocus(false), 250)}
           enterKeyHint="done"
           autoComplete="street-address"
-          aria-label="Lieu"
+          aria-label={label}
           aria-autocomplete="list"
         />
         {value && (
-          <button type="button" onPointerDown={garder} onClick={() => (tap(), onChange(''), setChoisi(false), champ.current?.focus())} aria-label="Effacer le lieu" className="presse anim-pop flex h-9 w-9 shrink-0 items-center justify-center">
+          <button type="button" onPointerDown={garder} onClick={() => (tap(), onChange(''), setChoisi(false), champ.current?.focus())} aria-label={label === 'Lieu' ? 'Effacer le lieu' : `Effacer : ${label}`} className="presse anim-pop flex h-9 w-9 shrink-0 items-center justify-center">
             <span className="flex h-[19px] w-[19px] items-center justify-center rounded-full bg-[rgba(60,56,82,0.32)] text-white"><X size={11} strokeWidth={3.4} /></span>
           </button>
         )}
       </div>
+
+      {/* nos adresses (Elisa, 26 novembre : « ne pas mettre l'adresse complète mais école ») : d'un toucher */}
+      {focus && !choisi && noms.length > 0 && (
+        <div className="anim-entre mt-2">
+          <p className="mb-1.5 flex items-center gap-1 px-1 text-note font-semibold text-brume"><Bookmark size={13} /> Nos adresses</p>
+          <div className="flex flex-wrap gap-1.5">
+            {noms.map((e, i) => (
+              <button key={e.id} type="button" {...toucher(e.nom)} className="presse anim-pop flex max-w-full items-center gap-1.5 rounded-full bg-teinte-doux py-2 pl-2.5 pr-3 text-note font-semibold text-teinte-fonce" style={{ animationDelay: `${i * 35}ms` }}>
+                <IconeEndroit nom={e.nom} size={15} sobre />
+                <span className="min-w-0 truncate">{e.nom}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {/* une de nos adresses est écrite : son adresse en dessous, pour savoir de laquelle on parle */}
+      {!focus && ecrite?.adresse && (
+        <p className="anim-entre mt-1.5 flex items-center gap-1.5 px-1 text-note text-brume">
+          <IconeEndroit nom={ecrite.nom} size={14} />
+          <span className="min-w-0 flex-1 truncate">{ecrite.adresse}</span>
+        </p>
+      )}
 
       {/* champ vide : les lieux déjà utilisés par la famille */}
       {focus && !value.trim() && deja.length > 0 && (
@@ -195,7 +236,7 @@ export const ChampLieu = memo(function ChampLieu({ value, onChange, placeholder,
               type="button"
               role="option"
               aria-selected={false}
-              {...toucher(s.texte)}
+              {...toucher(s.texte, onChoisi && (() => onChoisi(s)))}
               className="presse-ligne ligne-arrive-pop flex w-full items-center gap-3 pl-4 text-left"
               style={{ animationDelay: `${i * 40}ms` }}
             >

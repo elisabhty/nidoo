@@ -66,3 +66,13 @@ test('une maison sans autre membre invite ses proches', () => {
   const stories = homeStories(state, 'moi', null, now)
   assert.equal(stories[0].target, 'famille')
 })
+
+test('le lieu d’un événement qui est une de nos adresses se lit par son nom (« Maison »), pas l’adresse complète', () => {
+  const maison = { id: 'm', family_id: 'f', nom: 'Maison', adresse: '15 Rue André Lalande, 91000 Évry-Courcouronnes', lat: 48.62, lon: 2.43, rayon_m: 150, created_at: '2026-11-26T00:00:00Z' }
+  const at = new Date('2026-11-19T19:30:00Z')
+  const par = (lieu, endroits) => homeStories({ ...base(), endroits }, 'moi', { e: { id: 'x', title: 'Goûter', kind: 'evenement', all_day: false, lieu }, at }, now)[0].detail
+  assert.equal(par('15 Rue André Lalande, 91000 Évry-Courcouronnes', [maison]), 'Maison')
+  assert.equal(par('maison', [maison]), 'Maison')
+  assert.equal(par('15 Rue André Lalande, 91000 Évry-Courcouronnes', []), '15 Rue André Lalande, 91000 Évry-Courcouronnes')
+  assert.equal(par('Gare de Lyon', [maison]), 'Gare de Lyon')
+})

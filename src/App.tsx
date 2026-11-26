@@ -82,7 +82,7 @@ export default function App() {
   useEffect(() => {
     if (!state || !NATIF_IOS) return
     const voir = () => {
-      if (document.visibilityState === 'visible') void suivreProchain(state.events, state.members, state.me.id)
+      if (document.visibilityState === 'visible') void suivreProchain(state.events, state.members, state.me.id, state.endroits)
     }
     voir()
     document.addEventListener('visibilitychange', voir)

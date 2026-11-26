@@ -1,22 +1,23 @@
 // « Où est la famille » (Elisa, 21 novembre) : la carte avec chacun là où il est, s'il a choisi de partager sa position,
 // la liste (où, depuis quand, à quelle distance, la batterie presque vide), et mon interrupteur pour partager ou arrêter.
 // La carte : MapLibre (libre) avec les fonds d'OpenFreeMap (gratuits, sans clé, données OpenStreetMap), chargée à la demande.
-import { BatteryLow, ChevronRight, LocateFixed, MapPin, Navigation, RefreshCw, Settings } from 'lucide-react'
+import { BatteryLow, ChevronRight, LocateFixed, MapPin, Navigation, Plus, RefreshCw, Settings } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import type { Map as CarteML } from 'maplibre-gl'
+import type { GeoJSONSource, Map as CarteML } from 'maplibre-gl'
+import { cercle, cle, endroitDe } from '../lib/endroits'
 import { select, tap } from '../lib/haptic'
-import { ancienne, autorisation, cadre, distance, ilYA, libelle, lirePosition, messagePosition, suivre, texteDistance, type Autorisation, type PositionLue } from '../lib/localisation'
+import { ancienne, autorisation, cadre, distance, ilYA, libelle, lirePosition, messagePosition, POSITION_DEMO, suivre, texteDistance, type Autorisation } from '../lib/localisation'
 import { NATIF_IOS } from '../lib/pont'
 import { useHome } from '../lib/store'
-import type { Member, Position } from '../lib/types'
+import type { Endroit, Member, Position } from '../lib/types'
+import { EndroitSheet } from './endroits'
+import { IconeEndroit, PastilleEndroit } from './iconeEndroit'
 import { Avatar, Btn, Page, Switch } from './ui'
 
 const STYLE = 'https://tiles.openfreemap.org/styles/positron'
 /** De la place en haut pour les têtes (le repère est accroché par sa pointe, en bas). */
 const MARGES = { top: 84, bottom: 28, left: 44, right: 44 }
-/** En démo, rien ne quitte l'appareil : une position d'exemple, à Annecy comme le reste de la famille. */
-const DEMO: PositionLue = { lat: 45.9029, lon: 6.1269, precision: 12, lieu: 'Place de l’Hôtel de Ville', ville: 'Annecy', batterie: 71 }
 
 type Point = { m: Member; p: Position }
 
@@ -39,7 +40,7 @@ function usePartager() {
     if (occupe) return false
     setOccupe(true)
     try {
-      const p = api.mode === 'local' ? DEMO : await lirePosition()
+      const p = api.mode === 'local' ? POSITION_DEMO : await lirePosition()
       const ok = await run((a) => a.partagerPosition(state.family.id, p))
       // l'iPhone suit ensuite les déplacements, même appli fermée (il demande « Toujours » la première fois)
       if (ok && premiereFois) await suivre(true)
@@ -74,7 +75,7 @@ export function OuEstApercu({ onOuvrir }: { onOuvrir: () => void }) {
         <span className="block text-corps font-semibold">Où est la famille</span>
         <span className="block truncate text-note text-brume">
           {autres.length
-            ? autres.map((x) => `${x.m.display_name} · ${x.p.ville ?? libelle(x.p)}`).join('  ·  ')
+            ? autres.map((x) => `${x.m.display_name} · ${endroitDe(x.p, state.endroits)?.nom ?? x.p.ville ?? libelle(x.p)}`).join('  ·  ')
             : moi
               ? 'Ta position est partagée. Les autres peuvent partager la leur aussi.'
               : 'Voir où chacun se trouve, s’il l’accepte.'}
@@ -110,8 +111,22 @@ export function OuEstPage({ onClose }: { onClose: () => void }) {
   const { partager, arreter, occupe } = usePartager()
   const [focus, setFocus] = useState<{ id: string; n: number } | null>(null)
   const [auto, setAuto] = useState<Autorisation | null>(null)
+  // nos adresses : la fiche ouverte (« nouvelle », ou celle qu'on modifie), et celle qui vient d'arriver
+  const [fiche, setFiche] = useState<Endroit | 'nouvelle' | null>(null)
+  const [arrivee, setArrivee] = useState<string | null>(null)
+  const viser = (id: string) => setFocus((f) => ({ id, n: (f?.n ?? 0) + 1 }))
   const maintenant = Date.now()
+  const ou = (p: Position) => endroitDe(p, state.endroits)
+  const ici = moi ? ou(moi) : null
   useReprendreSuivi(!!moi)
+  // une adresse enregistrée : sa ligne s'éclaire et la carte va la montrer (pas de bandeau : ça se voit)
+  useEffect(() => {
+    if (!arrivee) return
+    const e = state.endroits.find((x) => cle(x.nom) === arrivee && !x.id.startsWith('nouveau-'))
+    if (e) viser(`endroit:${e.id}`)
+    const t = window.setTimeout(() => setArrivee(null), 1800)
+    return () => window.clearTimeout(t)
+  }, [arrivee, state.endroits]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (api.mode === 'local') return
@@ -136,17 +151,18 @@ export function OuEstPage({ onClose }: { onClose: () => void }) {
   const versDe = (p: Position) => (NATIF_IOS ? `maps://?daddr=${p.lat},${p.lon}` : `https://maps.apple.com/?daddr=${p.lat},${p.lon}`)
 
   return (
+    <>
     <Page title="Où est la famille" onClose={onClose}>
       <p className="-mt-1 px-5 pb-3 text-sous text-brume">Chacun choisit de partager sa position, et peut arrêter quand il veut. Seule la dernière est gardée.</p>
       {/* le cadre de la carte (Elisa, 25 novembre : « améliore le cadre ») : un passe-partout blanc comme les autres
           cartes de la page, un liseré, et le bouton pour revenir sur soi */}
       <div className="mx-4 rounded-[26px] bg-carte p-1.5 shadow-carte">
         <div className="relative overflow-hidden rounded-[20px]">
-          <CarteFamille points={points} moi={state.me.id} focus={focus} hauteur={300} />
+          <CarteFamille points={points} moi={state.me.id} focus={focus} hauteur={300} endroits={state.endroits} />
           <span className="pointer-events-none absolute inset-0 rounded-[20px] ring-1 ring-inset ring-encre/[0.06]" aria-hidden="true" />
           {moi && (
             <button
-              onClick={() => (select(), setFocus((f) => ({ id: state.me.id, n: (f?.n ?? 0) + 1 })))}
+              onClick={() => (select(), viser(state.me.id))}
               aria-label="Revenir sur ma position"
               className="presse verre absolute right-2.5 top-2.5 flex h-10 w-10 items-center justify-center rounded-full text-teinte-fonce"
             >
@@ -168,7 +184,14 @@ export function OuEstPage({ onClose }: { onClose: () => void }) {
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-corps font-semibold">Je partage ma position</p>
-                <p className="truncate text-note text-brume">{libelle(moi)}</p>
+                {ici ? (
+                  <p className="flex min-w-0 items-center gap-1 text-note font-semibold text-encre">
+                    <IconeEndroit nom={ici.nom} size={14} />
+                    <span className="truncate">{ici.nom}</span>
+                  </p>
+                ) : (
+                  <p className="truncate text-note text-brume">{libelle(moi)}</p>
+                )}
               </div>
               <Switch on label="Partager ma position" onChange={() => void arreter()} />
             </div>
@@ -229,11 +252,13 @@ export function OuEstPage({ onClose }: { onClose: () => void }) {
         {gens.filter((m) => m.id !== state.me.id).map((m, i, t) => {
           const p = parId.get(m.id)
           const loin = p && moi ? texteDistance(distance(p, moi)) : null
+          // à une de nos adresses : « École » plutôt que la rue (Elisa, 26 novembre)
+          const la = p ? ou(p) : null
           const dernier = i === t.length - 1
           return (
             <div key={m.id} className="flex items-center gap-3 pl-3.5">
               <button
-                onClick={() => p && (select(), setFocus((f) => ({ id: m.id, n: (f?.n ?? 0) + 1 })))}
+                onClick={() => p && (select(), viser(m.id))}
                 disabled={!p}
                 className={`presse-ligne flex min-w-0 flex-1 items-center gap-3 py-2.5 text-left ${p ? '' : 'opacity-55'}`}
                 aria-label={p ? `Voir ${m.display_name} sur la carte` : `${m.display_name} ne partage pas sa position`}
@@ -243,7 +268,14 @@ export function OuEstPage({ onClose }: { onClose: () => void }) {
                   <span className="block truncate text-corps font-semibold">{m.display_name}</span>
                   {p ? (
                     <>
-                      <span className={`block truncate text-note ${ancienne(p, maintenant) ? 'text-brume' : 'text-encre'}`}>{libelle(p)}</span>
+                      {la ? (
+                        <span className={`flex min-w-0 items-center gap-1 text-note font-semibold ${ancienne(p, maintenant) ? 'text-brume' : 'text-encre'}`}>
+                          <IconeEndroit nom={la.nom} size={14} />
+                          <span className="truncate">{la.nom}</span>
+                        </span>
+                      ) : (
+                        <span className={`block truncate text-note ${ancienne(p, maintenant) ? 'text-brume' : 'text-encre'}`}>{libelle(p)}</span>
+                      )}
                       <span className="flex items-center gap-1.5 text-mini text-brume">
                         {ilYA(p.updated_at, maintenant)}
                         {loin && <> · {loin}</>}
@@ -271,8 +303,67 @@ export function OuEstPage({ onClose }: { onClose: () => void }) {
         })}
         {gens.length <= 1 && <p className="p-4 text-sous text-brume">Invite tes proches : quand ils partageront leur position, ils apparaîtront ici.</p>}
       </div>
-      <p className="mt-2 px-5 text-mini text-pale">Carte : © OpenStreetMap · OpenFreeMap. Les positions ne sont visibles que par la famille.</p>
+
+      {/* nos adresses (Elisa, 26 novembre : « enregistrer des adresses, école, travail, pour ne pas mettre l'adresse
+          complète mais école ») : qui s'y trouve se lit « École » au lieu de la rue */}
+      <p className="entete mt-6">Nos adresses</p>
+      <div className="groupe mx-4 shadow-carte">
+        {state.endroits.map((e) => {
+          const la = points.filter((x) => ou(x.p)?.id === e.id).map((x) => x.m)
+          return (
+            <button
+              key={e.id}
+              onClick={() => (tap(), setFiche(e))}
+              className={`presse-ligne flex w-full items-center gap-3 pl-3.5 text-left ${arrivee === cle(e.nom) ? 'ligne-arrive' : ''}`}
+              aria-label={`${e.nom}${la.length ? `, ${la.map((m) => m.display_name).join(' et ')} y ${la.length > 1 ? 'sont' : 'est'}` : ''} : modifier`}
+            >
+              <PastilleEndroit nom={e.nom} size={40} />
+              <span className="flex min-w-0 flex-1 items-center gap-2 border-b border-trait py-2.5 pr-3">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-corps font-semibold">{e.nom}</span>
+                  <span className="block truncate text-note text-brume">{e.adresse ?? 'Position enregistrée'}</span>
+                </span>
+                {/* qui y est en ce moment */}
+                {la.length > 0 && (
+                  <span className="flex shrink-0 -space-x-2">
+                    {la.slice(0, 3).map((m) => (
+                      <span key={m.id} className="rounded-full ring-2 ring-carte">
+                        <Avatar m={m} size={26} />
+                      </span>
+                    ))}
+                  </span>
+                )}
+                <ChevronRight size={17} className="shrink-0 text-pale" />
+              </span>
+            </button>
+          )
+        })}
+        <button onClick={() => (tap(), setFiche('nouvelle'))} className="presse-ligne flex w-full items-center gap-3 pl-3.5 text-left">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teinte-doux text-teinte-fonce">
+            <Plus size={21} strokeWidth={2.6} />
+          </span>
+          <span className="min-w-0 flex-1 py-2.5 pr-3.5">
+            <span className="block text-corps font-semibold text-teinte-fonce">Ajouter une adresse</span>
+            <span className="block truncate text-note text-brume">École, travail, chez Mamie…</span>
+          </span>
+        </button>
+      </div>
+      <p className="mt-2 px-5 text-note text-brume">
+        {state.endroits.length ? `Quand quelqu’un s’y trouve, on lit « ${state.endroits[0].nom} » plutôt que l’adresse. Elles servent aussi pour l’agenda.` : 'Quand quelqu’un s’y trouve, on lit son nom plutôt que l’adresse. Elles servent aussi pour l’agenda.'}
+        {!state.endroitsPartages && ' Pour l’instant, elles restent sur ce téléphone.'}
+      </p>
+
+      <p className="mt-5 px-5 text-mini text-pale">Carte : © OpenStreetMap · OpenFreeMap. Les positions ne sont visibles que par la famille.</p>
     </Page>
+    {/* à côté de la page (pas dedans : elle défile), pour couvrir tout l'écran */}
+    {fiche && (
+      <EndroitSheet
+        endroit={fiche === 'nouvelle' ? undefined : fiche}
+        onClose={() => setFiche(null)}
+        onFait={(nom) => nom && setArrivee(cle(nom))}
+      />
+    )}
+    </>
   )
 }
 
@@ -301,14 +392,31 @@ function Repere({ m, moi, pale }: { m: Member; moi: boolean; pale: boolean }) {
   )
 }
 
-/** La carte : chacun avec sa tête, tout le monde dans le cadre ; touché dans la liste, on va vers lui. */
-export function CarteFamille({ points, moi, focus, hauteur }: { points: Point[]; moi: string; focus: { id: string; n: number } | null; hauteur: number }) {
+/** Le nom d'une de nos adresses sur la carte, sous son point (les têtes, elles, sont au-dessus du leur). */
+function EtiquetteEndroit({ nom }: { nom: string }) {
+  return (
+    <span className="flex max-w-[150px] items-center gap-1 whitespace-nowrap rounded-full bg-white/95 py-[3px] pl-1.5 pr-2.5 text-mini font-bold text-encre shadow-[0_2px_8px_-1px_rgba(29,26,43,0.22)]">
+      <IconeEndroit nom={nom} size={12} />
+      <span className="truncate">{nom}</span>
+    </span>
+  )
+}
+
+const AUCUN: readonly Endroit[] = []
+type Marques = Record<string, InstanceType<typeof import('maplibre-gl').Marker>>
+
+/** La carte : chacun avec sa tête, tout le monde dans le cadre ; touché dans la liste, on va vers lui.
+ *  Nos adresses y sont aussi : leur zone, et leur nom. `focus` : un membre (son id) ou une adresse (« endroit:id »). */
+export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN }: { points: Point[]; moi: string; focus: { id: string; n: number } | null; hauteur: number; endroits?: readonly Endroit[] }) {
   const boite = useRef<HTMLDivElement>(null)
   const carte = useRef<CarteML | null>(null)
   const [marques, setMarques] = useState<Record<string, HTMLElement>>({})
+  const [lieux, setLieux] = useState<Record<string, HTMLElement>>({})
   const [prete, setPrete] = useState(false)
+  const [chargee, setChargee] = useState(false)
   const [panne, setPanne] = useState(false)
   const cle = points.map((x) => `${x.m.id}:${x.p.lat},${x.p.lon}`).join('|')
+  const cleLieux = endroits.map((e) => `${e.id}:${e.lat},${e.lon},${e.rayon_m},${e.nom}`).join('|')
 
   // la carte, une seule fois (la bibliothèque n'est chargée qu'ici)
   useEffect(() => {
@@ -323,7 +431,8 @@ export function CarteFamille({ points, moi, focus, hauteur }: { points: Point[];
         ])
         if (fini || !boite.current) return
         maplibre.setWorkerUrl(new URL(travailleur.default, window.location.href).href)
-        const c = cadre(points.map((x) => x.p))
+        // personne ne partage sa position : nos adresses, s'il y en a
+        const c = cadre(points.length ? points.map((x) => x.p) : [...endroits])
         const nouvelle = new maplibre.Map({
           container: boite.current,
           style: STYLE,
@@ -341,6 +450,7 @@ export function CarteFamille({ points, moi, focus, hauteur }: { points: Point[];
         nouvelle.once('load', () => {
           window.clearTimeout(t)
           setPanne(false)
+          setChargee(true)
         })
         carte.current = nouvelle
         setPrete(true)
@@ -364,20 +474,22 @@ export function CarteFamille({ points, moi, focus, hauteur }: { points: Point[];
       const maplibre = await import('maplibre-gl')
       if (annule) return
       const els: Record<string, HTMLElement> = {}
-      const vieux = (c as CarteML & { _nidoo?: Record<string, InstanceType<typeof maplibre.Marker>> })._nidoo ?? {}
+      const vieux = (c as CarteML & { _nidoo?: Marques })._nidoo ?? {}
       for (const [id, mk] of Object.entries(vieux)) if (!points.some((x) => x.m.id === id)) mk.remove()
-      const neufs: Record<string, InstanceType<typeof maplibre.Marker>> = {}
+      const neufs: Marques = {}
       for (const x of points) {
         let mk = vieux[x.m.id]
         if (!mk) {
           const el = document.createElement('div')
+          // les têtes passent devant le nom des adresses
           el.className = 'repere-famille'
+          el.style.zIndex = '2'
           mk = new maplibre.Marker({ element: el, anchor: 'bottom' }).setLngLat([x.p.lon, x.p.lat]).addTo(c)
         } else mk.setLngLat([x.p.lon, x.p.lat])
         neufs[x.m.id] = mk
         els[x.m.id] = mk.getElement()
       }
-      ;(c as CarteML & { _nidoo?: typeof neufs })._nidoo = neufs
+      ;(c as CarteML & { _nidoo?: Marques })._nidoo = neufs
       setMarques(els)
       const b = cadre(points.map((x) => x.p))
       if (b && points.length) c.fitBounds(b, { padding: MARGES, maxZoom: 15, duration: 600 })
@@ -387,17 +499,77 @@ export function CarteFamille({ points, moi, focus, hauteur }: { points: Point[];
     }
   }, [cle, prete]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // touché dans la liste : on va vers lui
+  // nos adresses : leur nom (sous le point), et la carte les montre si personne ne partage sa position
+  useEffect(() => {
+    let annule = false
+    void (async () => {
+      const c = carte.current
+      if (!c) return
+      const maplibre = await import('maplibre-gl')
+      if (annule) return
+      const vieux = (c as CarteML & { _lieux?: Marques })._lieux ?? {}
+      for (const [id, mk] of Object.entries(vieux)) if (!endroits.some((e) => e.id === id)) mk.remove()
+      const neufs: Marques = {}
+      const els: Record<string, HTMLElement> = {}
+      for (const e of endroits) {
+        let mk = vieux[e.id]
+        if (!mk) {
+          const el = document.createElement('div')
+          el.className = 'repere-endroit'
+          el.style.zIndex = '1'
+          el.style.pointerEvents = 'none'
+          mk = new maplibre.Marker({ element: el, anchor: 'top', offset: [0, 5] }).setLngLat([e.lon, e.lat]).addTo(c)
+        } else mk.setLngLat([e.lon, e.lat])
+        neufs[e.id] = mk
+        els[e.id] = mk.getElement()
+      }
+      ;(c as CarteML & { _lieux?: Marques })._lieux = neufs
+      setLieux(els)
+      const b = !points.length && endroits.length ? cadre([...endroits]) : null
+      if (b) c.fitBounds(b, { padding: MARGES, maxZoom: 15, duration: 600 })
+    })()
+    return () => {
+      annule = true
+    }
+  }, [cleLieux, prete]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // et leur zone : un disque léger, au bon rayon (dessiné par la carte, une fois son fond chargé)
+  useEffect(() => {
+    const c = carte.current
+    if (!c || !chargee) return
+    const data = {
+      type: 'FeatureCollection' as const,
+      features: endroits.map((e) => ({ type: 'Feature' as const, properties: {}, geometry: { type: 'Polygon' as const, coordinates: [cercle(e, e.rayon_m)] } })),
+    }
+    try {
+      const src = c.getSource('endroits') as GeoJSONSource | undefined
+      if (src) src.setData(data)
+      else {
+        c.addSource('endroits', { type: 'geojson', data })
+        c.addLayer({ id: 'endroits-zone', type: 'fill', source: 'endroits', paint: { 'fill-color': '#7050D5', 'fill-opacity': 0.08 } })
+        c.addLayer({ id: 'endroits-bord', type: 'line', source: 'endroits', paint: { 'line-color': '#7050D5', 'line-opacity': 0.35, 'line-width': 1.4 } })
+      }
+    } catch {
+      /* un fond qui n'a pas voulu se charger : pas de zones, la liste dit tout */
+    }
+  }, [cleLieux, chargee]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // touché dans la liste : on va vers lui (ou vers l'adresse)
   useEffect(() => {
     if (!focus) return
-    const x = points.find((y) => y.m.id === focus.id)
-    if (x) carte.current?.flyTo({ center: [x.p.lon, x.p.lat], zoom: 15, duration: 900 })
+    const e = focus.id.startsWith('endroit:') ? endroits.find((y) => `endroit:${y.id}` === focus.id) : null
+    const x = e ? { lat: e.lat, lon: e.lon } : points.find((y) => y.m.id === focus.id)?.p
+    if (x) carte.current?.flyTo({ center: [x.lon, x.lat], zoom: 15, duration: 900 })
   }, [focus]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="carte-famille relative bg-[#EEF1F4]" style={{ height: hauteur }}>
       {/* en style (MapLibre met « position: relative » sur la carte : la classe seule ne suffit pas) */}
       <div ref={boite} style={{ position: 'absolute', inset: 0 }} />
+      {Object.entries(lieux).map(([id, el]) => {
+        const e = endroits.find((y) => y.id === id)
+        return e ? createPortal(<EtiquetteEndroit nom={e.nom} />, el, `endroit:${id}`) : null
+      })}
       {Object.entries(marques).map(([id, el]) => {
         const x = points.find((y) => y.m.id === id)
         if (!x) return null
@@ -408,11 +580,15 @@ export function CarteFamille({ points, moi, focus, hauteur }: { points: Point[];
           id,
         )
       })}
-      {(panne || !points.length) && (
+      {(panne || (!points.length && !endroits.length)) && (
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 px-8 text-center">
           <MapPin size={26} className="text-pale" />
           <p className="text-sous font-semibold text-brume">{panne ? 'La carte ne s’affiche pas pour le moment' : 'Personne ne partage sa position pour l’instant'}</p>
         </div>
+      )}
+      {/* personne sur la carte, mais nos adresses y sont : on le dit en bas, sans les cacher */}
+      {!panne && !points.length && endroits.length > 0 && (
+        <p className="verre pointer-events-none absolute bottom-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-3 py-1.5 text-note font-semibold text-brume">Personne ne partage sa position pour l’instant</p>
       )}
     </div>
   )

@@ -586,7 +586,9 @@ export const confirmerAchat = (nom: string, cout: number) =>
 
 /** Un champ obligatoire, présenté partout pareil (dossier, événement, prénom, maison) : son nom à gauche,
  *  « Obligatoire » à droite, un cadre teinté, et une ligne qui dit ce qu'il débloque. */
-export function ChampRequis({ id, label, aide, children, className = '', compact = false }: { id: string; label: string; aide: string; children: ReactNode; className?: string; compact?: boolean }) {
+export function ChampRequis({ id, label, aide, children, className = '', compact = false, erreur }: { id: string; label: string; aide: string; children: ReactNode; className?: string; compact?: boolean
+  /** Ce qui ne va pas (« ce nom est déjà pris ») : dit à la place de l'aide, en orange. */
+  erreur?: string | null }) {
   return (
     <div className={className}>
       <div className="mb-1.5 flex items-baseline justify-between gap-3 px-1">
@@ -595,10 +597,16 @@ export function ChampRequis({ id, label, aide, children, className = '', compact
         </label>
         <span className="text-note font-semibold text-teinte-fonce">Obligatoire</span>
       </div>
-      <div className="overflow-hidden rounded-[14px] border border-teinte/25 bg-carte focus-within:border-teinte focus-within:ring-2 focus-within:ring-teinte/15">{children}</div>
-      <p id={`${id}-aide`} className="mt-1.5 px-1 text-note text-brume">
-        {aide}
-      </p>
+      <div className={`overflow-hidden rounded-[14px] border bg-carte focus-within:ring-2 ${erreur ? 'border-peche focus-within:border-peche focus-within:ring-peche/15' : 'border-teinte/25 focus-within:border-teinte focus-within:ring-teinte/15'}`}>{children}</div>
+      {erreur ? (
+        <p id={`${id}-aide`} role="alert" className="anim-entre mt-1.5 px-1 text-note font-semibold text-peche-fonce">
+          {erreur}
+        </p>
+      ) : (
+        <p id={`${id}-aide`} className="mt-1.5 px-1 text-note text-brume">
+          {aide}
+        </p>
+      )}
     </div>
   )
 }

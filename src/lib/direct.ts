@@ -5,8 +5,9 @@
 // Sur le web et en démo, rien de tout ceci n'existe : les boutons ne s'affichent pas.
 import { titreCalendrier } from './calendrier'
 import { avecQui, cleFois, prochainASuivre, suivable } from './directRegles'
+import { endroitNomme } from './endroits'
 import { pont } from './pont'
-import type { FamEvent, Member } from './types'
+import type { Endroit, FamEvent, Member } from './types'
 
 const CLE_AUTO = 'nidoo.direct.auto'
 const CLE_VUS = 'nidoo.direct.vus'
@@ -53,7 +54,7 @@ const vus = (): string[] => {
 const noterVu = (cle: string) => ecrire(CLE_VUS, JSON.stringify([...vus().filter((x) => x !== cle), cle].slice(-30)))
 
 /** Afficher ce rendez-vous sur l'écran verrouillé et dans l'île dynamique. */
-export async function suivreRendezVous(e: FamEvent, members: Member[], moi: string): Promise<'lancee' | 'refusee' | 'indisponible'> {
+export async function suivreRendezVous(e: FamEvent, members: Member[], moi: string, endroits: readonly Endroit[] = []): Promise<'lancee' | 'refusee' | 'indisponible'> {
   const at = suivable(e)
   if (!pont || !at) return 'indisponible'
   try {
@@ -62,7 +63,8 @@ export async function suivreRendezVous(e: FamEvent, members: Member[], moi: stri
       genre: e.kind,
       titre: titreCalendrier(e),
       debut: at.getTime(),
-      ...(e.lieu?.trim() ? { lieu: e.lieu.trim().split(',')[0].slice(0, 60) } : {}),
+      // une de nos adresses : son nom (« École »), plutôt que le début de l'adresse
+      ...(e.lieu?.trim() ? { lieu: (endroitNomme(e.lieu, endroits)?.nom ?? e.lieu.trim().split(',')[0]).slice(0, 60) } : {}),
       ...(avecQui(e, members, moi) ? { avec: avecQui(e, members, moi)! } : {}),
     })
     if (r.etat === 'lancee') noterVu(cleFois(e.id, at))
@@ -88,7 +90,7 @@ export async function retirerRendezVous(e?: FamEvent) {
 
 let enCours = false
 /** À l'ouverture de l'appli : le prochain rendez-vous qui me concerne, s'il commence dans moins de deux heures. */
-export async function suivreProchain(events: FamEvent[], members: Member[], moi: string) {
+export async function suivreProchain(events: FamEvent[], members: Member[], moi: string, endroits: readonly Endroit[] = []) {
   if (!pont || enCours || !autoActif()) return
   const prochain = prochainASuivre(events, moi, vus())
   if (!prochain) return
@@ -96,7 +98,7 @@ export async function suivreProchain(events: FamEvent[], members: Member[], moi:
   try {
     const etat = await etatDirect()
     if (!etat.possible || etat.ids.length) return // déjà un rendez-vous à l'écran : on ne le remplace pas tout seul
-    await suivreRendezVous(prochain.e, members, moi)
+    await suivreRendezVous(prochain.e, members, moi, endroits)
   } finally {
     enCours = false
   }
