@@ -1,18 +1,21 @@
-"""Le style de carte de NIDOO (Elisa, 26 novembre : « il y a pas une autre carte ? j'aime pas celle-là »).
+"""Le fond de carte de NIDOO (Elisa, 26 novembre : « il y a pas une autre carte ? j'aime pas celle-là »).
 
-Pris sur « Liberty » d'OpenFreeMap (mêmes tuiles, mêmes icônes, mêmes polices : aucun nouveau service), repeint
-dans des couleurs proches de Plans sur iPhone : un fond crème, des parcs vert tendre, l'eau bleu ciel, des rues
-blanches, les grands axes jaune doux, des bâtiments clairs (le relief 3D est ajouté par l'appli, src/lib/relief.ts).
+Elle a choisi « Rétro » parmi quatre fonds dessinés sur de vraies données : c'est « Bright » d'OpenFreeMap tel quel
+(mêmes tuiles, mêmes icônes, mêmes polices qu'avant : aucun nouveau service), sans son faux relief (les toits
+décalés, « building-top ») puisque l'appli pose de vrais bâtiments en 3D (src/lib/relief.ts).
+L'autre proposition, « plans » (Liberty repeint façon Plans sur iPhone), reste ici si on veut y revenir.
 
-  python3 scripts/carte/style_nidoo.py scripts/carte/liberty.json public/carte/nidoo.json
+  python3 scripts/carte/style_nidoo.py retro public/carte/nidoo.json      (ou : plans)
   (essai local : un troisième argument, la base d'un serveur qui sert /tiles, /fonts et /sprites)
 
-liberty.json : github.com/hyperknot/openfreemap-styles, styles/liberty/style.json (commit 006ea57, 25 oct. 2026).
+bright.json et liberty.json : github.com/hyperknot/openfreemap-styles, styles/<nom>/style.json (commit 006ea57,
+25 oct. 2026).
 
-Licences : Liberty (MIT, OpenFreeMap) vient d'OSM Liberty, d'OSM Bright et de Mapbox Open Styles (code BSD 3,
+Licences : Bright et Liberty (MIT, OpenFreeMap) viennent d'OSM Bright et de Mapbox Open Styles (code BSD 3,
 dessin CC BY 4.0) ; l'attribution « © OpenMapTiles © OpenStreetMap » reste affichée sur la carte.
 """
-import json, sys
+import json, os, sys
+ICI = os.path.dirname(os.path.abspath(__file__))
 
 FOND = '#F2EFE9'
 EAU = '#A2D4F7'
@@ -113,10 +116,21 @@ def peindre(style):
     s['name'] = 'NIDOO'
     return s
 
+def retro(style):
+    """Bright tel quel, sans son faux relief (et sans 3D à lui : l'appli pose la sienne)."""
+    s = json.loads(json.dumps(style))
+    s['layers'] = [l for l in s['layers'] if l['id'] != 'building-top' and l['type'] != 'fill-extrusion']
+    s['name'] = 'NIDOO'
+    return s
+
 if __name__ == '__main__':
-    entree, sortie = sys.argv[1], sys.argv[2]
-    style = json.load(open(entree))
-    nidoo = peindre(style)
+    theme, sortie = sys.argv[1], sys.argv[2]
+    if theme == 'plans':
+        nidoo = peindre(json.load(open(os.path.join(ICI, 'liberty.json'))))
+    elif theme == 'retro':
+        nidoo = retro(json.load(open(os.path.join(ICI, 'bright.json'))))
+    else:
+        sys.exit('thème : retro ou plans')
     if len(sys.argv) > 3:
         # essai local : les tuiles, les polices et les icônes d'un serveur d'essai
         base = sys.argv[3]

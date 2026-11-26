@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { GeoJSONSource, LngLatLike, Map as CarteML } from 'maplibre-gl'
 import { cercle, cle, endroitDe } from '../lib/endroits'
-import { cadrer, choisirRelief, COUCHE_BATIMENTS, coucheBatiments, LUMIERE, PENTE, reliefChoisi, SEUIL_3D, type Camera } from '../lib/relief'
+import { avantLesNoms, cadrer, choisirRelief, COUCHE_BATIMENTS, coucheBatiments, LUMIERE, PENTE, reliefChoisi, SEUIL_3D, type Camera } from '../lib/relief'
 import { select, tap } from '../lib/haptic'
 import { ancienne, autorisation, cadre, distance, ilYA, libelle, lirePosition, messagePosition, POSITION_DEMO, suivre, texteDistance, type Autorisation } from '../lib/localisation'
 import { NATIF_IOS } from '../lib/pont'
@@ -16,8 +16,8 @@ import { EndroitSheet } from './endroits'
 import { IconeEndroit, PastilleEndroit } from './iconeEndroit'
 import { Avatar, Btn, Page, Switch } from './ui'
 
-/** Le fond de carte (Elisa, 26 novembre : « il y a pas une autre carte ? j'aime pas celle-là ») : le nôtre, dans des
- *  couleurs proches de Plans (scripts/carte/style_nidoo.py), rangé avec l'appli ; les tuiles, les noms et les icônes
+/** Le fond de carte (Elisa, 26 novembre : « il y a pas une autre carte ? j'aime pas celle-là », puis « rétro ») :
+ *  « Bright » d'OpenFreeMap, rangé avec l'appli (scripts/carte/style_nidoo.py) ; les tuiles, les noms et les icônes
  *  viennent toujours d'OpenFreeMap. */
 const STYLE = 'carte/nidoo.json'
 /** De la place en haut pour les têtes (le repère est accroché par sa pointe, en bas). */
@@ -572,7 +572,7 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN, on
           try {
             const style = nouvelle.getStyle()
             const source = Object.entries(style.sources).find(([, s]) => s.type === 'vector')?.[0]
-            if (source && !nouvelle.getLayer(COUCHE_BATIMENTS)) nouvelle.addLayer(coucheBatiments(source), style.layers.find((l) => l.type === 'symbol')?.id)
+            if (source && !nouvelle.getLayer(COUCHE_BATIMENTS)) nouvelle.addLayer(coucheBatiments(source), avantLesNoms(style.layers))
             nouvelle.setLight(LUMIERE)
           } catch {
             /* un fond sans bâtiments : la carte s'incline quand même */
@@ -707,7 +707,7 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN, on
   }
 
   return (
-    <div className="carte-famille relative bg-[#F2EFE9]" style={{ height: hauteur }}>
+    <div className="carte-famille relative bg-[#F8F4F0]" style={{ height: hauteur }}>
       {/* en style (MapLibre met « position: relative » sur la carte : la classe seule ne suffit pas) */}
       <div ref={boite} style={{ position: 'absolute', inset: 0 }} />
       {Object.entries(lieux).map(([id, el]) => {

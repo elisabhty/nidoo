@@ -10,8 +10,8 @@ export const PENTE = 55
 export const SEUIL_3D = 10
 export const COUCHE_BATIMENTS = 'nidoo-batiments-3d'
 
-/** Les bâtiments en relief : leur vraie hauteur (5 m quand OpenStreetMap ne la connaît pas), un blanc chaud comme
- *  dans Plans, un peu plus soutenu pour les tours. Les tuiles ne donnent la hauteur qu'à partir du zoom 14 : les bâtiments y poussent
+/** Les bâtiments en relief : leur vraie hauteur (5 m quand OpenStreetMap ne la connaît pas), dans le beige du fond
+ *  « Rétro », un peu plus soutenu pour les tours. Les tuiles ne donnent la hauteur qu'à partir du zoom 14 : les bâtiments y poussent
  *  en douceur au lieu d'apparaître d'un coup. Les parties d'un bâtiment déjà dessinées à part (hide_3d) sont sautées. */
 export function coucheBatiments(source: string): FillExtrusionLayerSpecification {
   const haut: ExpressionSpecification = ['coalesce', ['get', 'render_height'], 5]
@@ -24,13 +24,22 @@ export function coucheBatiments(source: string): FillExtrusionLayerSpecification
     minzoom: 14,
     filter: ['!', ['has', 'hide_3d']],
     paint: {
-      'fill-extrusion-color': ['interpolate', ['linear'], haut, 0, '#F2EFEA', 30, '#E9E5DF', 80, '#DFD9D1'],
+      'fill-extrusion-color': ['interpolate', ['linear'], haut, 0, '#EDE6DA', 30, '#E6DFD2', 80, '#DDD5C7'],
       'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 14, 0, 14.8, haut],
       'fill-extrusion-base': ['interpolate', ['linear'], ['zoom'], 14, 0, 14.8, bas],
       'fill-extrusion-opacity': ['interpolate', ['linear'], ['zoom'], 14, 0, 14.5, 0.95],
       'fill-extrusion-vertical-gradient': true,
     },
   }
+}
+
+/** Où glisser les bâtiments en relief : juste avant les noms (le dernier bloc de couches de texte), après toutes les
+ *  rues, ponts et bâtiments à plat ; sinon ceux-là seraient peints par-dessus le relief. Certains fonds glissent une
+ *  couche de texte au milieu des rues (les flèches des sens uniques) : ce n'est pas encore « les noms ». */
+export function avantLesNoms(couches: readonly { id: string; type: string }[]): string | undefined {
+  let i = couches.length
+  while (i > 0 && couches[i - 1].type === 'symbol') i--
+  return couches[i]?.id
 }
 
 /** Une lumière douce venue de l'avant (liée à l'écran : les façades restent lisibles quand on tourne la carte). */
