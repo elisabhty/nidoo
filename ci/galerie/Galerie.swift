@@ -119,7 +119,8 @@ struct Planche: View {
     /// Personne d'autre ne partage sa position.
     private var seul: Entree {
         var x = Entree.exemple()
-        x.etat?.positions = x.etat?.positions?.filter { $0.id == "moi" }
+        let restent = x.etat?.positions?.filter { $0.id == "moi" }
+        x.etat?.positions = restent
         return x
     }
 
