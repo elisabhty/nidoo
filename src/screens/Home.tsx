@@ -76,6 +76,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
   const pendingThoughts = state.thoughts.filter(t => t.to_member === me.id && !t.seen_at)
   const nextSender = pendingThoughts[pendingThoughts.length - 1]?.from_member ?? received[0]?.from_member
   const others = members.filter((m) => m.id !== me.id)
+  const humeursDuJour = others.some((m) => isToday(m.mood_at) && !!m.mood && !!moodOf(m.mood))
   const inviter = async () => {
     tap()
     // un code expiré se remplace tout seul avant le partage ; sinon (pas responsable, pas de réseau) : la page Famille
@@ -380,7 +381,9 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
                 <button key={m.id} onClick={() => setSheet({ k: 'pensee', to: m })} className="presse flex w-[68px] shrink-0 flex-col items-center gap-1">
                   <Avatar m={m} size={58} mood />
                   <span className="w-full truncate text-sous font-semibold">{m.display_name}</span>
-                  <span className="w-full truncate text-note text-brume">{isToday(m.mood_at) && m.mood ? moodOf(m.mood)?.label ?? '\u00a0' : '\u00a0'}</span>
+                  {/* la ligne d'humeur seulement si quelqu'un en a donné une aujourd'hui (sinon un grand vide sous les
+                      prénoms : Elisa, 27 novembre, « pb d'espace ») ; vide chez les autres, pour rester alignés */}
+                  {humeursDuJour && <span className="w-full truncate text-note text-brume">{isToday(m.mood_at) && m.mood ? moodOf(m.mood)?.label ?? '\u00a0' : '\u00a0'}</span>}
                 </button>
               ))}
             </div>
