@@ -49,6 +49,8 @@ struct Cadre<Vue: View>: View {
 
 struct Planche: View {
     let page: Int
+    /// « Où sont mes proches ? » : les cartes de Plans, faites au lancement (pages 10, 12 et 13)
+    @State private var cartes: [String: CarteRendue] = [:]
 
     private var e: Entree { .exemple() }
 
@@ -90,6 +92,51 @@ struct Planche: View {
     private var nuit: Entree { vers(22) }
 
     private var pasBranche: Entree { Entree(date: Date(), etat: nil, branche: false) }
+
+    /// La carte de cette taille posée sur l'état (« petit », « moyen », « grand », « grand-discret »).
+    private func avecCarte(_ x: Entree, _ cle: String) -> Entree {
+        var y = x
+        y.carte = cartes[cle]
+        return y
+    }
+
+    /// Léa partage une position approximative, Papa pour une heure.
+    private var discret: Entree {
+        var x = Entree.exemple()
+        if var ps = x.etat?.positions {
+            ps[0].a = true
+            ps[0].l = nil
+            ps[0].v = "Annecy"
+            ps[0].la = 45.91
+            ps[0].lo = 6.15
+            ps[0].p = 1000
+            ps[1].j = ISO8601DateFormatter().string(from: Date().addingTimeInterval(3600))
+            x.etat?.positions = ps
+        }
+        return x
+    }
+
+    /// Personne d'autre ne partage sa position.
+    private var seul: Entree {
+        var x = Entree.exemple()
+        x.etat?.positions = x.etat?.positions?.filter { $0.id == "moi" }
+        return x
+    }
+
+    private func chargerCartes() async {
+        guard [10, 12, 13].contains(page) else { return }
+        var c: [String: CarteRendue] = [:]
+        let tailles: [(String, WidgetFamily, CGSize, Entree)] = [
+            ("petit", .systemSmall, CGSize(width: 170, height: 170), Entree.exemple()),
+            ("moyen", .systemMedium, CGSize(width: 364, height: 170), Entree.exemple()),
+            ("grand", .systemLarge, CGSize(width: 364, height: 382), Entree.exemple()),
+            ("grand-discret", .systemLarge, CGSize(width: 364, height: 382), discret),
+        ]
+        for (cle, f, taille, x) in tailles {
+            c[cle] = await CarteProches.pour(x.etat, f: f, widget: taille)
+        }
+        cartes = c
+    }
 
     /// Le rendez-vous d'exemple de l'activité en direct : dans 42 minutes.
     private var rdv: RendezVous.ContentState {
@@ -140,6 +187,7 @@ struct Planche: View {
                 contenu
             }
         }
+        .task { await chargerCartes() }
     }
 
     @ViewBuilder
@@ -197,13 +245,25 @@ struct Planche: View {
             }
             Cadre(f: .systemMedium) { VueSondage(e: pasBranche, f: .systemMedium) }
         case 10:
-            // Où est la famille
+            // Où sont mes proches ? : la carte, en petit, en moyen et en grand
             HStack(spacing: 24) {
-                Cadre(f: .systemSmall) { VueOu(e: e, f: .systemSmall) }
+                Cadre(f: .systemSmall) { VueOu(e: avecCarte(e, "petit"), f: .systemSmall) }
                 Cadre(f: .systemSmall) { VueOu(e: pasBranche, f: .systemSmall) }
             }
+            Cadre(f: .systemMedium) { VueOu(e: avecCarte(e, "moyen"), f: .systemMedium) }
+            Cadre(f: .systemLarge) { VueOu(e: avecCarte(e, "grand"), f: .systemLarge) }
+        case 12:
+            // Où sont mes proches ? : « Je suis en route » envoyé ; sans carte (pas de réseau) ; personne d'autre
+            Cadre(f: .systemMedium) { VueOu(e: avecCarte(envoye(a: "tous", k: "en_route"), "moyen"), f: .systemMedium) }
             Cadre(f: .systemMedium) { VueOu(e: e, f: .systemMedium) }
-            Cadre(f: .systemLarge) { VueOu(e: e, f: .systemLarge) }
+            HStack(spacing: 24) {
+                Cadre(f: .systemSmall) { VueOu(e: e, f: .systemSmall) }
+                Cadre(f: .systemSmall) { VueOu(e: seul, f: .systemSmall) }
+            }
+        case 13:
+            // Où sont mes proches ? : une position approximative (le halo), un partage pour une heure ; sans carte
+            Cadre(f: .systemLarge) { VueOu(e: avecCarte(discret, "grand-discret"), f: .systemLarge) }
+            Cadre(f: .systemLarge) { VueOu(e: discret, f: .systemLarge) }
         case 11:
             // L'activité en direct du prochain rendez-vous : écran verrouillé, île dynamique réduite puis ouverte
             VueRdvVerrou(genre: "rdv", s: rdv)

@@ -1,5 +1,7 @@
 import AppIntents
 import Foundation
+import MapKit
+import UIKit
 import WidgetKit
 
 /// Le serveur, vu des widgets : deux fonctions de la base, appelées avec la clé widget (jamais avec la session du compte).
@@ -60,6 +62,8 @@ struct Entree: TimelineEntry {
     var branche = true
     /// la famille d'exemple (galerie des widgets)
     var apercu = false
+    /// « Où sont mes proches ? » : la carte, dessinée pour la taille de ce widget
+    var carte: CarteRendue?
 
     /// Dans la galerie des widgets (et tant que rien n'est chargé) : une famille d'exemple.
     static func exemple(_ date: Date = Date()) -> Entree { Entree(date: date, etat: .exemple, apercu: true) }
@@ -172,6 +176,128 @@ struct FournisseurProche: AppIntentTimelineProvider {
     }
 }
 
+/// « Où sont mes proches ? » : l'état de la maison, puis la carte à la taille du widget.
+struct FournisseurOu: TimelineProvider {
+    func placeholder(in context: Context) -> Entree { .exemple() }
+
+    func getSnapshot(in context: Context, completion: @escaping (Entree) -> Void) {
+        Task {
+            var e: Entree
+            if context.isPreview {
+                e = .exemple()
+            } else {
+                e = await Source.entree()
+            }
+            e.carte = await CarteProches.pour(e.etat, f: context.family, widget: context.displaySize, date: e.date)
+            completion(e)
+        }
+    }
+
+    func getTimeline(in context: Context, completion: @escaping (Timeline<Entree>) -> Void) {
+        Task {
+            var e = await Source.entree()
+            e.carte = await CarteProches.pour(e.etat, f: context.family, widget: context.displaySize, date: e.date)
+            completion(Source.chronologie(e))
+        }
+    }
+}
+
+/// La carte d'un widget « Où sont mes proches ? » : un instantané de Plans, et l'endroit où tombe chacun dessus
+/// (les têtes se dessinent par-dessus, voir CarteTetes).
+struct CarteRendue: @unchecked Sendable {
+    var image: UIImage
+    /// où tombe chacun sur l'image, en points (l'origine en haut à gauche)
+    var points: [String: CGPoint]
+    var taille: CGSize
+    /// combien de mètres fait un point de la carte (le halo d'une position approximative)
+    var metresParPoint: Double
+}
+
+enum CarteProches {
+    /// La place de la carte dans le widget : tout le petit, la gauche du moyen, le haut du grand.
+    static func taille(_ f: WidgetFamily, widget: CGSize) -> CGSize {
+        switch f {
+        case .systemSmall: return widget
+        case .systemMedium: return CGSize(width: (widget.width * 0.46).rounded(), height: widget.height)
+        default: return CGSize(width: widget.width, height: (widget.height * 0.46).rounded())
+        }
+    }
+
+    /// De la place autour des points : au-dessus pour les têtes (accrochées par leur pointe), dessous pour l'étiquette
+    /// du petit, et sur les côtés.
+    static func marges(_ f: WidgetFamily) -> (haut: Double, bas: Double, cote: Double) {
+        f == .systemSmall ? (50, 36, 26) : (50, 16, 26)
+    }
+
+    /// Les positions à mettre sur la carte : celles qui sont partagées en ce moment, la mienne comprise.
+    static func aMontrer(_ etat: Etat, date: Date) -> [Etat.Position] {
+        (etat.positions ?? []).filter { !$0.finie(date) && etat.membre($0.id) != nil }
+    }
+
+    /// L'instantané de Plans qui montre tout le monde (au plus près : une rue, pas une maison).
+    static func fabriquer(_ positions: [Etat.Position], taille: CGSize, f: WidgetFamily) async -> CarteRendue? {
+        guard !positions.isEmpty, taille.width > 40, taille.height > 40 else { return nil }
+        let m = marges(f)
+        let latMoyenne = positions.map(\.la).reduce(0, +) / Double(positions.count)
+        let ky = 111_195.0
+        let kx = ky * max(cos(latMoyenne * .pi / 180), 0.05)
+        let xs = positions.map { $0.lo * kx }
+        let ys = positions.map { $0.la * ky }
+        let x0 = xs.min() ?? 0, x1 = xs.max() ?? 0, y0 = ys.min() ?? 0, y1 = ys.max() ?? 0
+        let utileL = max(Double(taille.width) - 2 * m.cote, 30)
+        let utileH = max(Double(taille.height) - m.haut - m.bas, 30)
+        let parPoint = max((x1 - x0) / utileL, (y1 - y0) / utileH, 3)
+        // plus de place en haut (les têtes) qu'en bas : le groupe descend un peu sous le milieu de la carte
+        let decale = (m.haut - m.bas) / 2 * parPoint
+        let centre = CLLocationCoordinate2D(latitude: ((y0 + y1) / 2 + decale) / ky, longitude: (x0 + x1) / 2 / kx)
+        let o = MKMapSnapshotter.Options()
+        o.region = MKCoordinateRegion(
+            center: centre,
+            span: MKCoordinateSpan(latitudeDelta: Double(taille.height) * parPoint / ky, longitudeDelta: Double(taille.width) * parPoint / kx)
+        )
+        o.size = taille
+        o.scale = 3
+        o.mapType = .mutedStandard
+        o.pointOfInterestFilter = .excludingAll
+        o.showsBuildings = false
+        o.traitCollection = UITraitCollection(userInterfaceStyle: .light)
+        let outil = MKMapSnapshotter(options: o)
+        let instantane: MKMapSnapshotter.Snapshot? = await withCheckedContinuation { suite in
+            outil.start(with: .global(qos: .userInitiated)) { s, _ in
+                _ = outil
+                suite.resume(returning: s)
+            }
+        }
+        guard let s = instantane else { return nil }
+        var points: [String: CGPoint] = [:]
+        for p in positions { points[p.id] = s.point(for: CLLocationCoordinate2D(latitude: p.la, longitude: p.lo)) }
+        // l'échelle vraie, mesurée sur l'image (Plans ajuste la région à sa façon)
+        let a = s.point(for: centre)
+        let b = s.point(for: CLLocationCoordinate2D(latitude: centre.latitude + 0.01, longitude: centre.longitude))
+        let ecart = Double(abs(a.y - b.y))
+        return CarteRendue(image: s.image, points: points, taille: taille, metresParPoint: ecart > 0.1 ? 0.01 * ky / ecart : parPoint)
+    }
+
+    /// La carte du widget, dès que quelqu'un d'autre que moi partage sa position ; sans réseau, on n'attend pas plus
+    /// de 6 s (le widget montre alors la liste seule).
+    static func pour(_ etat: Etat?, f: WidgetFamily, widget: CGSize, date: Date = Date()) async -> CarteRendue? {
+        guard let etat, !f.surEcranVerrouille else { return nil }
+        let ps = aMontrer(etat, date: date)
+        guard ps.contains(where: { $0.id != etat.moi }) else { return nil }
+        let t = taille(f, widget: widget)
+        return await withTaskGroup(of: CarteRendue?.self) { groupe in
+            groupe.addTask { await fabriquer(ps, taille: t, f: f) }
+            groupe.addTask {
+                try? await Task.sleep(nanoseconds: 6_000_000_000)
+                return nil
+            }
+            let premiere = await groupe.next() ?? nil
+            groupe.cancelAll()
+            return premiere
+        }
+    }
+}
+
 /// Le widget où l'on choisit sa liste.
 struct FournisseurListe: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> Entree { .exemple() }
@@ -254,11 +380,12 @@ extension Etat {
             compagnon: Compagnon(e: "renard", n: "Cannelle", a: 34, tenue: nil, friandises: 3),
             sondage: Sondage(id: "s1", q: "Ce soir, on mange quoi ?", de: "papa", choix: ["Pizza", "Raclette", "Crêpes"], voix: [1, 3, 1], moi: 1),
             positions: [
-                Position(id: "lea", la: 45.9061, lo: 6.1453, p: 20, l: "Avenue d’Albigny", v: "Annecy", b: 18, q: ilYA(4)),
+                Position(id: "lea", la: 45.9061, lo: 6.1453, p: 20, l: "École", v: nil, b: 18, q: ilYA(4)),
                 Position(id: "papa", la: 45.9135, lo: 6.13, p: 20, l: "Avenue de Brogny", v: "Annecy", b: 64, q: ilYA(12)),
                 Position(id: "mamie", la: 45.8993, lo: 6.1244, p: 20, l: "Rue Sainte-Claire", v: "Annecy", b: 88, q: ilYA(130)),
                 Position(id: "moi", la: 45.9029, lo: 6.1269, p: 12, l: "Place de l’Hôtel de Ville", v: "Annecy", b: 71, q: ilYA(1)),
-            ]
+            ],
+            en_route: true
         )
     }
 }

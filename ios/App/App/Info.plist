@@ -11,9 +11,9 @@
 	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
 	<string>Nidoo ajoute à ton calendrier les événements de la famille que tu choisis.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Pour « Où est la famille » : tes proches te voient sur la carte, seulement si tu choisis de partager ta position.</string>
+	<string>Pour « Où sont mes proches ? » : ta famille te voit sur la carte, seulement si tu choisis de partager ta position.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Pour que ta famille voie où tu es même quand NIDOO est fermée. Tu peux arrêter de partager quand tu veux.</string>
+	<string>Pour que tes proches voient où tu es même quand NIDOO est fermée, et pour « Bien arrivé ! ». Tu peux arrêter de partager quand tu veux.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>NSPhotoLibraryUsageDescription</key>

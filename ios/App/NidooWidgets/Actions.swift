@@ -119,6 +119,20 @@ struct BisouAuProche: AppIntent {
     }
 }
 
+/// « Je suis en route » (Elisa, 26 novembre) : le même petit mot à chacun de ses proches qui a un téléphone. Depuis le
+/// widget « Où sont mes proches ? », le Centre de contrôle (iOS 18) ou Raccourcis.
+struct PrevenirEnRoute: AppIntent {
+    static var title: LocalizedStringResource = "Je suis en route"
+    static var description = IntentDescription("Préviens tes proches que tu es en route : ils reçoivent un petit mot.")
+
+    func perform() async throws -> some IntentResult {
+        await Action.faire("en_route", ["m": Mots.enRoute]) { local in
+            local.envoi = Local.Envoi(a: "tous", k: "en_route", le: Date().timeIntervalSince1970)
+        }
+        return .result()
+    }
+}
+
 struct ChoisirHumeur: AppIntent {
     static var title: LocalizedStringResource = "Dire mon humeur"
     static var isDiscoverable: Bool = false

@@ -94,22 +94,34 @@ struct Etat: Codable {
         var moi: Int?
     }
 
-    /// « Où est la famille » : la dernière position de ceux qui la partagent.
+    /// « Où sont mes proches ? » : la dernière position de ceux qui la partagent.
     struct Position: Codable, Identifiable {
         var id: String
         var la: Double
         var lo: Double
         var p: Int?
-        /// la rue (ou le lieu), la ville, la batterie du téléphone
+        /// la rue (ou le nom d'un de nos lieux), la ville, la batterie du téléphone
         var l: String?
         var v: String?
         var b: Int?
         var q: String
+        /// partagée jusqu'à (pour un temps) ; approximative (la ville, à 1 km près)
+        var j: String?
+        var a: Bool?
 
-        /// « Rue Sainte-Claire, Annecy » ; sans rue : la ville.
+        var approx: Bool { a == true }
+
+        /// « Rue Sainte-Claire, Annecy » ; sans rue : la ville ; approximative : « ≈ Annecy ».
         var libelle: String {
+            if approx { return "≈ " + (v ?? "Position approximative") }
             if let l, let v, !l.localizedCaseInsensitiveContains(v) { return "\(l), \(v)" }
             return l ?? v ?? "Position partagée"
+        }
+
+        /// Partagée pour un temps, et l'heure est passée.
+        func finie(_ maintenant: Date) -> Bool {
+            guard let j, let fin = Temps.date(j) else { return false }
+            return fin <= maintenant
         }
     }
 
@@ -129,6 +141,8 @@ struct Etat: Codable {
     var sondage: Sondage?
     /// absent des états gardés avant « Où est la famille »
     var positions: [Position]?
+    /// le serveur sait faire « Je suis en route » (sinon, le widget n'en montre pas le bouton)
+    var en_route: Bool?
 
     func membre(_ id: String?) -> Membre? {
         guard let id else { return nil }
@@ -322,6 +336,13 @@ enum Temps {
         return f.string(from: j)
     }
 
+    /// « 18 h 30 », « 19 h »
+    static func heure(_ d: Date) -> String {
+        let c = Calendar.current.dateComponents([.hour, .minute], from: d)
+        let h = c.hour ?? 0, m = c.minute ?? 0
+        return m == 0 ? "\(h)\u{00A0}h" : String(format: "%d\u{00A0}h\u{00A0}%02d", h, m)
+    }
+
     static func numero(_ texte: String) -> String {
         guard let j = jour(texte) else { return "" }
         return String(Calendar.current.component(.day, from: j))
@@ -354,6 +375,8 @@ enum Temps {
 /// Les mots de l'appli.
 enum Mots {
     static let gestes = ["coeur", "calin", "courage", "bisou"]
+    /// le petit mot du bouton « Je suis en route » (le même que dans l'appli, sans l'heure)
+    static let enRoute = "Je suis en route\u{00A0}🚗"
 
     /// « Mamie… t’envoie des bisous »
     static func dit(_ geste: String) -> String {
@@ -404,6 +427,8 @@ enum Mots {
             case "TROP_DE_PARTIES": return "Trop de parties en cours"
             case "DOUCEMENT": return "Doucement ! Réessaie dans un instant"
             case "PLUS_DE_FRIANDISES": return "Plus de friandises"
+            case "PERSONNE_A_PREVENIR": return "Personne à prévenir pour l’instant"
+            case "ACTION_INCONNUE": return "Ouvre NIDOO pour la mettre à jour"
             case "PAS_DE_COMPAGNON": return "Pas encore de compagnon"
             default: return "Ça n’a pas marché"
             }

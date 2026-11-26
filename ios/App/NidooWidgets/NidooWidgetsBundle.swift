@@ -14,6 +14,7 @@ struct LotNidoo: WidgetBundle {
         RendezVousDirect()
         if #available(iOS 18.0, *) {
             BisouControle()
+            EnRouteControle()
         }
     }
 }
@@ -130,13 +131,14 @@ struct FamilleWidget: Widget {
     }
 }
 
+/// « Où sont mes proches ? » (avant : « Où est la famille », même widget pour ceux qui l'ont déjà posé).
 struct OuWidget: Widget {
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "NidooOuEst", provider: Fournisseur()) { e in
+        StaticConfiguration(kind: "NidooOuEst", provider: FournisseurOu()) { e in
             Selon { f in VueOu(e: e, f: f) }
         }
-        .configurationDisplayName("Où est la famille")
-        .description("Où se trouve chacun, depuis quand, s’il a choisi de partager sa position.")
+        .configurationDisplayName("Où sont mes proches ?")
+        .description("Tes proches sur la carte, là où chacun a choisi de partager sa position. Et « Je suis en route » d’un toucher.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }

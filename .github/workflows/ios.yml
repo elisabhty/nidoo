@@ -83,9 +83,10 @@ jobs:
           xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 || true
           xcrun simctl install "$UDID" "$RUNNER_TEMP/dg/Build/Products/Debug-iphonesimulator/Galerie.app"
           mkdir -p captures
-          for p in 1 2 3 4 5 6 7 8 9 10 11; do
+          for p in 1 2 3 4 5 6 7 8 9 10 11 12 13; do
             xcrun simctl launch "$UDID" com.getupworkspace.nidoo.galerie -page $p
-            sleep 4
+            # les pages de « Où sont mes proches ? » attendent les cartes de Plans
+            case $p in 10|12|13) sleep 14 ;; *) sleep 4 ;; esac
             xcrun simctl io "$UDID" screenshot "captures/page-$p.png"
             xcrun simctl terminate "$UDID" com.getupworkspace.nidoo.galerie || true
           done
