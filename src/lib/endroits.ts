@@ -41,7 +41,9 @@ export const nomsLibres = (endroits: readonly Endroit[]) => NOMS_COURANTS.filter
 type Point = { lat: number; lon: number }
 
 /** L'endroit où se trouve une position : le plus proche parmi ceux dont elle est dans le rayon (null : aucun). */
-export function endroitDe(p: Point & { precision_m?: number | null }, endroits: readonly Endroit[]): Endroit | null {
+export function endroitDe(p: Point & { precision_m?: number | null; approx?: boolean }, endroits: readonly Endroit[]): Endroit | null {
+  // une position approximative ne dit jamais « École » : ce serait dire où l'on est
+  if (p.approx) return null
   const flou = Math.min(Math.max(p.precision_m ?? 0, 0), FLOU_MAX)
   let mieux: Endroit | null = null
   let pres = Infinity

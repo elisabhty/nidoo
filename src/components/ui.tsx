@@ -487,12 +487,13 @@ export function Envol({ art = 'geste-coeur', count = 14 }: { art?: string; count
 }
 
 /** Interrupteur iOS. */
-export function Switch({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
+export function Switch({ on, onChange, label, disabled }: { on: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean }) {
   return (
     <button
       role="switch"
       aria-checked={on}
       aria-label={label}
+      disabled={disabled}
       onClick={() => {
         select()
         onChange(!on)

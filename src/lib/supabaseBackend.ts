@@ -50,6 +50,8 @@ function ecrireEndroits(fid: string, liste: Endroit[]) {
 const PAS_DEMANDE = 'PAS_DEMANDE'
 /** La base répond qu'elle ne connaît pas la table (elle n'a pas encore reçu la migration). */
 const tableAbsente = (e: { code?: string; message: string }) => /PGRST205|42P01/.test(e.code ?? '') || /schema cache|does not exist/i.test(e.message)
+const colonneAbsente = (e: { code?: string; message: string }) => /42703|PGRST204/.test(e.code ?? '') || /column .* does not exist/i.test(e.message)
+const COLONNES_POSITION = 'member_id, family_id, lat, lon, precision_m, lieu, ville, batterie, updated_at'
 
 export function createSupabaseBackend(): Backend {
   const sb: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -87,6 +89,9 @@ export function createSupabaseBackend(): Backend {
   // Nos adresses : la table est-elle là (null : pas encore regardé) ; et son temps réel, sur un canal à part (un canal
   // qui écoute une table inconnue est refusé en entier : celui de la famille ne doit pas en dépendre).
   let endroitsEnBase: boolean | null = null
+  // la base connaît-elle les réglages du partage ? (null : pas encore regardé)
+  let reglagesEnBase: boolean | null = null
+  let reglagesVusLe = 0
   let endroitsVusLe = 0
   const derniers = new Map<string, Endroit[]>()
   const abonnes = new Map<string, () => void>()
@@ -99,6 +104,21 @@ export function createSupabaseBackend(): Backend {
     ch.on('postgres_changes', { event: '*', schema: 'public', table: 'endroits', filter: `family_id=eq.${fid}` }, onChange)
     ch.subscribe()
     canauxEndroits.set(fid, ch)
+  }
+  /** Les positions de la maison, avec leurs réglages si la base les connaît (20261126220000_geo.sql) ; sinon sans,
+   *  et on redemande dans un quart d'heure. */
+  const nosPositions = async (fid: string) => {
+    if (reglagesEnBase !== false || Date.now() - reglagesVusLe > 15 * 60000) {
+      const r = await sb.from('positions').select(`${COLONNES_POSITION}, jusqua, approx, prevenir`).eq('family_id', fid)
+      if (!r.error) {
+        reglagesEnBase = true
+        return r
+      }
+      if (!colonneAbsente(r.error)) return r
+      reglagesEnBase = false
+      reglagesVusLe = Date.now()
+    }
+    return sb.from('positions').select(COLONNES_POSITION).eq('family_id', fid)
   }
   /** Les adresses de la maison : celles de la base, ou celles de ce téléphone tant que la base ne sait pas les garder. */
   const nosEndroits = async (fid: string, r: { data: unknown; error: { code?: string; message: string } | null }): Promise<Pick<FamilyState, 'endroits' | 'endroitsPartages'>> => {
@@ -292,8 +312,9 @@ export function createSupabaseBackend(): Backend {
         // Les interrupteurs à distance et l'Avent : s'ils manquent, l'appli marche quand même (sans calendrier).
         sb.from('app_flags').select('key, enabled, starts_at, ends_at'),
         sb.from('advent_doors').select('year, day, opened_by, opened_at').eq('family_id', fid),
-        // Où est la famille : si la table manque (base pas encore à jour), l'appli marche sans.
-        sb.from('positions').select('member_id, family_id, lat, lon, precision_m, lieu, ville, batterie, updated_at').eq('family_id', fid),
+        // Où sont mes proches : si la table manque (base pas encore à jour), l'appli marche sans ; sans les réglages
+        // (pour un temps, approximative, « Bien arrivé ! »), sans eux.
+        nosPositions(fid),
         // Nos adresses : si la table manque, elles sont gardées sur ce téléphone (voir plus haut). On ne la redemande
         // qu'une fois tous les quarts d'heure : le jour où elle arrive, l'appli s'en aperçoit toute seule.
         endroitsEnBase === false && Date.now() - endroitsVusLe < 15 * 60000
@@ -386,6 +407,7 @@ export function createSupabaseBackend(): Backend {
         flags: Object.fromEntries(((flags.data ?? []) as ({ key: string } & AppFlag)[]).map(({ key, ...f }) => [key, f])),
         advent: (advent.data ?? []) as AdventDoor[],
         positions: (positions.data ?? []) as Position[],
+        positionsReglables: reglagesEnBase === true,
         ...(await nosEndroits(fid, adresses)),
       }
       return state
@@ -468,10 +490,15 @@ export function createSupabaseBackend(): Backend {
       return Object.fromEntries(rows.map((r) => [r.niveau, { e: r.etoiles, t: Number(r.temps) }]))
     },
     // ───── Où est la famille (supabase/migrations/20261121220000_positions.sql) ─────
-    async partagerPosition(fid, p) {
+    async partagerPosition(fid, p, reglages) {
       check(await sb.rpc('position_partager', {
         p_family: fid, p_lat: p.lat, p_lon: p.lon, p_precision: p.precision ?? null, p_lieu: p.lieu ?? null, p_ville: p.ville ?? null, p_batterie: p.batterie ?? null,
+        // les réglages, seulement si la base les connaît (sinon elle refuserait l'appel)
+        ...(reglages && reglagesEnBase === true ? { p_reglages: reglages } : {}),
       }))
+    },
+    async reglerPosition(fid, reglages) {
+      check(await sb.rpc('position_reglages', { p_family: fid, p_reglages: reglages }))
     },
     async arreterPosition(fid) {
       check(await sb.rpc('position_arreter', { p_family: fid }))

@@ -2,7 +2,7 @@
 // la liste (où, depuis quand, à quelle distance, la batterie presque vide), « Je suis en route », mon interrupteur pour
 // partager ou arrêter, et nos lieux. La carte passe d'abord, en grand, et s'ouvre en plein écran.
 // La carte : MapLibre (libre) avec les fonds d'OpenFreeMap (gratuits, sans clé, données OpenStreetMap), chargée à la demande.
-import { BatteryLow, Car, ChevronRight, LocateFixed, Lock, MapPin, Maximize2, Navigation, Plus, RefreshCw, Settings, Users, X } from 'lucide-react'
+import { BatteryLow, BellRing, Car, ChevronRight, EyeOff, LocateFixed, Lock, MapPin, Maximize2, Navigation, Plus, RefreshCw, Settings, Users, X } from 'lucide-react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal, flushSync } from 'react-dom'
 import type { GeoJSONSource, LngLatLike, Map as CarteML } from 'maplibre-gl'
@@ -10,9 +10,10 @@ import { cercle, cle, endroitDe } from '../lib/endroits'
 import { avantLesNoms, cadrer, choisirRelief, COUCHE_BATIMENTS, coucheBatiments, LUMIERE, PENTE, reliefChoisi, SEUIL_3D, type Camera } from '../lib/relief'
 import { select, tap } from '../lib/haptic'
 import { ancienne, autorisation, cadre, distance, ilYA, libelle, lirePosition, messagePosition, POSITION_DEMO, suivre, texteDistance, type Autorisation } from '../lib/localisation'
+import { DUREES, dureeDe, enCours, finDuree, prochaineFin, texteJusqua, type Duree } from '../lib/positions'
 import { NATIF_IOS } from '../lib/pont'
 import { useHome } from '../lib/store'
-import type { Endroit, Member, Position } from '../lib/types'
+import type { Endroit, Member, Position, ReglagesPartage } from '../lib/types'
 import { EndroitSheet } from './endroits'
 import { EnRouteSheet } from './enRoute'
 import { IconeEndroit, PastilleEndroit } from './iconeEndroit'
@@ -27,27 +28,54 @@ const MARGES = { top: 84, bottom: 28, left: 44, right: 44 }
 
 type Point = { m: Member; p: Position }
 
-/** Les proches qui ont un téléphone, avec leur position s'ils la partagent ; moi en premier. */
+/** Les proches qui ont un téléphone, avec leur position s'ils la partagent ; moi en premier. Un partage pour un temps
+ *  disparaît à son heure (la carte se redessine à ce moment-là). */
 function useFamillePositions() {
   const { state } = useHome()
+  const [tic, setTic] = useState(0)
+  useEffect(() => {
+    const fin = prochaineFin(state.positions)
+    if (fin == null) return
+    const t = window.setTimeout(() => setTic((n) => n + 1), Math.min(fin - Date.now() + 500, 2 ** 31 - 1))
+    return () => window.clearTimeout(t)
+  }, [state.positions, tic])
   return useMemo(() => {
-    const parId = new Map(state.positions.map((p) => [p.member_id, p]))
+    const parId = new Map(state.positions.filter((p) => enCours(p)).map((p) => [p.member_id, p]))
     const gens = state.members.filter((m) => m.user_id).sort((a, b) => (a.id === state.me.id ? -1 : b.id === state.me.id ? 1 : 0))
     const points: Point[] = gens.flatMap((m) => (parId.has(m.id) ? [{ m, p: parId.get(m.id)! }] : []))
     return { gens, points, parId, moi: parId.get(state.me.id) ?? null }
-  }, [state.positions, state.members, state.me.id])
+  }, [state.positions, state.members, state.me.id, tic])
+}
+
+/** Mes réglages de partage gardés sur ce téléphone (approximative, « Bien arrivé ! ») : on les retrouve en repartageant. */
+const REGLAGES = 'nidoo.partage.reglages'
+function reglagesGardes(): { approx: boolean; prevenir: boolean } {
+  try {
+    const r = JSON.parse(localStorage.getItem(REGLAGES) ?? '{}') as { approx?: boolean; prevenir?: boolean }
+    return { approx: !!r.approx, prevenir: !!r.prevenir }
+  } catch {
+    return { approx: false, prevenir: false }
+  }
+}
+function garderReglages(r: ReglagesPartage) {
+  try {
+    const avant = reglagesGardes()
+    localStorage.setItem(REGLAGES, JSON.stringify({ approx: r.approx ?? avant.approx, prevenir: r.prevenir ?? avant.prevenir }))
+  } catch {
+    /* tant pis : les réglages par défaut */
+  }
 }
 
 /** Partager (ou remettre à jour) ma position : lue sur le téléphone, puis envoyée à la maison. */
 function usePartager() {
   const { api, run, state, toast } = useHome()
   const [occupe, setOccupe] = useState(false)
-  const partager = async (premiereFois: boolean) => {
+  const partager = async (premiereFois: boolean, reglages?: ReglagesPartage) => {
     if (occupe) return false
     setOccupe(true)
     try {
       const p = api.mode === 'local' ? POSITION_DEMO : await lirePosition()
-      const ok = await run((a) => a.partagerPosition(state.family.id, p))
+      const ok = await run((a) => a.partagerPosition(state.family.id, p, reglages))
       // l'iPhone suit ensuite les déplacements, même appli fermée (il demande « Toujours » la première fois)
       if (ok && premiereFois) await suivre(true)
       return ok
@@ -63,7 +91,48 @@ function usePartager() {
     const ok = await run((a) => a.arreterPosition(state.family.id))
     if (ok) await suivre(false)
   }
-  return { partager, arreter, occupe }
+  /** Pour combien de temps, approximative, « Bien arrivé ! » : tout de suite (la position précise revient aussitôt). */
+  const regler = async (r: ReglagesPartage) => {
+    garderReglages(r)
+    const ok = await run((a) => a.reglerPosition(state.family.id, r))
+    if (ok && r.approx === false) void partager(false)
+    return ok
+  }
+  return { partager, arreter, regler, occupe }
+}
+
+/** Les trois durées, comme des boutons radio. */
+function ChoixDuree({ valeur, onChoix }: { valeur: Duree; onChoix: (d: Duree) => void }) {
+  return (
+    <div className="grid grid-cols-3 gap-1.5" role="radiogroup" aria-label="Partager pendant">
+      {DUREES.map((d) => (
+        <button
+          key={d.cle}
+          type="button"
+          role="radio"
+          aria-checked={valeur === d.cle}
+          onClick={() => valeur !== d.cle && (select(), onChoix(d.cle))}
+          className={`presse choix-pop rounded-full py-[7px] text-[14.5px] font-semibold transition-colors duration-200 ${valeur === d.cle ? 'bg-teinte text-white' : 'bg-doux text-encre'}`}
+        >
+          {d.libelle}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** Une ligne de réglage avec son interrupteur. */
+function LigneReglage({ icone, titre, detail, on, actif = true, onChange }: { icone: ReactNode; titre: string; detail: string; on: boolean; actif?: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div className={`flex items-center gap-3 border-t border-trait py-3 pl-3.5 pr-3 ${actif ? '' : 'opacity-55'}`}>
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teinte-doux text-teinte-fonce">{icone}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sous font-semibold text-encre">{titre}</span>
+        <span className="block text-note text-brume">{detail}</span>
+      </span>
+      <Switch on={on} label={titre} disabled={!actif} onChange={onChange} />
+    </div>
+  )
 }
 
 /** L'aperçu dans « Mes proches » : qui est où, en un coup d'œil ; touché, la carte s'ouvre. */
@@ -120,7 +189,14 @@ const HAUTEUR_CARTE = 'clamp(300px, 46vh, 440px)'
 export function OuEstPage({ onClose }: { onClose: () => void }) {
   const { state, api } = useHome()
   const { gens, points, parId, moi } = useFamillePositions()
-  const { partager, arreter, occupe } = usePartager()
+  const { partager, arreter, regler, occupe } = usePartager()
+  // je commence à partager : pour une heure, jusqu'à ce soir, ou toujours
+  const [duree, setDuree] = useState<Duree>('toujours')
+  const reglable = !!state.positionsReglables
+  const commencer = () => {
+    const gardes = reglagesGardes()
+    void partager(true, reglable ? { jusqua: finDuree(duree), approx: gardes.approx, prevenir: gardes.prevenir } : undefined)
+  }
   const [focus, setFocus] = useState<{ id: string; n: number } | null>(null)
   const [auto, setAuto] = useState<Autorisation | null>(null)
   // nos lieux : la fiche ouverte (« nouvelle », ou celle qu'on modifie), et celle qui vient d'arriver
@@ -208,7 +284,13 @@ export function OuEstPage({ onClose }: { onClose: () => void }) {
               )}
             </p>
           )}
-          <Btn className="mt-3" onClick={() => void partager(true)} disabled={occupe}>
+          {reglable && (
+            <div className="mt-3">
+              <p className="mb-1.5 text-note font-semibold text-brume">Pendant</p>
+              <ChoixDuree valeur={duree} onChoix={setDuree} />
+            </div>
+          )}
+          <Btn className="mt-3" onClick={commencer} disabled={occupe}>
             <MapPin size={18} strokeWidth={2.4} /> {occupe ? 'Je cherche ta position…' : 'Partager ma position'}
           </Btn>
         </div>
@@ -244,9 +326,11 @@ export function OuEstPage({ onClose }: { onClose: () => void }) {
                       ) : (
                         <span className={`block truncate text-note ${ancienne(p, maintenant) ? 'text-brume' : 'text-encre'}`}>{libelle(p)}</span>
                       )}
-                      <span className="flex items-center gap-1.5 text-mini text-brume">
+                      <span className="flex flex-wrap items-center gap-x-1.5 text-mini text-brume">
                         {ilYA(p.updated_at, maintenant)}
-                        {loin && <> · {loin}</>}
+                        {/* approximative : à 1 km près, la distance ne veut rien dire */}
+                        {p.approx ? <> · à 1 km près</> : loin && <> · {loin}</>}
+                        {p.jusqua && <> · {texteJusqua(p)}</>}
                         {p.batterie != null && p.batterie <= 20 && (
                           <span className="flex items-center gap-0.5 font-semibold text-rouge">
                             · <BatteryLow size={13} strokeWidth={2.4} /> {p.batterie} %
@@ -319,6 +403,41 @@ export function OuEstPage({ onClose }: { onClose: () => void }) {
                 <RefreshCw size={14} strokeWidth={2.8} className={occupe ? 'animate-spin' : ''} /> Actualiser
               </button>
             </div>
+            {/* pour combien de temps, approximative, « Bien arrivé ! » (Elisa, 26 novembre : « la partie géo ») */}
+            {reglable && (
+              <>
+                <div className="border-t border-trait px-3.5 pb-3 pt-2.5">
+                  <div className="mb-2 flex items-baseline justify-between gap-2">
+                    <p className="text-sous font-semibold text-encre">Pendant</p>
+                    {moi.jusqua && <p className="text-note font-semibold text-teinte-fonce">{texteJusqua(moi)}</p>}
+                  </div>
+                  <ChoixDuree valeur={dureeDe(moi)} onChoix={(d) => void regler({ jusqua: finDuree(d) })} />
+                </div>
+                <LigneReglage
+                  icone={<EyeOff size={17} strokeWidth={2.4} />}
+                  titre="Position approximative"
+                  detail="Tes proches voient la ville, pas la rue (à 1 km près)."
+                  on={!!moi.approx}
+                  onChange={(v) => void regler({ approx: v })}
+                />
+                <LigneReglage
+                  icone={<BellRing size={17} strokeWidth={2.4} />}
+                  titre={'Bien arrivé\u00a0!'}
+                  detail={
+                    moi.approx
+                      ? 'Pas avec une position approximative.'
+                      : !state.endroits.length
+                        ? 'Ajoute d’abord un de nos lieux (École, Travail…).'
+                        : !state.endroitsPartages
+                          ? 'Quand nos lieux seront partagés avec toute la famille.'
+                          : 'Un petit mot à tes proches quand tu arrives à un de nos lieux.'
+                  }
+                  on={!!moi.prevenir && !moi.approx}
+                  actif={!moi.approx && state.endroits.length > 0 && state.endroitsPartages}
+                  onChange={(v) => void regler({ prevenir: v })}
+                />
+              </>
+            )}
             {/* « Partager même appli fermée » (avant : « Suivre aussi appli fermée ») : l'iPhone doit dire « Toujours » */}
             {NATIF_IOS && auto === 'active' && (
               <a href="app-settings:" onClick={() => tap()} className="presse flex items-center gap-3 border-t border-trait bg-peche-doux/45 py-3 pl-3.5 pr-3">
@@ -759,6 +878,31 @@ export function CarteFamille({ points, moi, focus, hauteur, endroits = AUCUN, on
       /* un fond qui n'a pas voulu se charger : pas de zones, la liste dit tout */
     }
   }, [cleLieux, chargee]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // une position approximative : un halo bleu, à 1 km près (la tête est au centre, pas à l'endroit exact)
+  const cleFlous = points.filter((x) => x.p.approx).map((x) => `${x.p.lat},${x.p.lon},${x.p.precision_m}`).join('|')
+  useEffect(() => {
+    const c = carte.current
+    if (!c || !chargee) return
+    const data = {
+      type: 'FeatureCollection' as const,
+      features: points
+        .filter((x) => x.p.approx)
+        .map((x) => ({ type: 'Feature' as const, properties: {}, geometry: { type: 'Polygon' as const, coordinates: [cercle(x.p, Math.max(x.p.precision_m ?? 0, 1000))] } })),
+    }
+    try {
+      const src = c.getSource('flous') as GeoJSONSource | undefined
+      if (src) src.setData(data)
+      else {
+        const dessous = c.getLayer(COUCHE_BATIMENTS) ? COUCHE_BATIMENTS : undefined
+        c.addSource('flous', { type: 'geojson', data })
+        c.addLayer({ id: 'flous-zone', type: 'fill', source: 'flous', paint: { 'fill-color': '#2F7FD0', 'fill-opacity': 0.09 } }, dessous)
+        c.addLayer({ id: 'flous-bord', type: 'line', source: 'flous', paint: { 'line-color': '#2F7FD0', 'line-opacity': 0.4, 'line-width': 1.4, 'line-dasharray': [2, 2] } }, dessous)
+      }
+    } catch {
+      /* pas de halo : la liste dit « à 1 km près » */
+    }
+  }, [cleFlous, chargee]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // touché dans la liste : on va vers lui (ou vers l'adresse) ; en 3D, d'un peu plus près, pour voir les bâtiments
   useEffect(() => {

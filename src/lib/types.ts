@@ -257,7 +257,13 @@ export type Partie = {
   photos?: (string | null)[]
 }
 /** « Où est la famille » : la dernière position qu'un proche a choisi de partager (une seule, jamais d'historique). */
-export type Position = { member_id: string; family_id: string; lat: number; lon: number; precision_m: number | null; lieu: string | null; ville: string | null; batterie: number | null; updated_at: string }
+export type Position = {
+  member_id: string; family_id: string; lat: number; lon: number; precision_m: number | null; lieu: string | null; ville: string | null; batterie: number | null; updated_at: string
+  /** partagée jusqu'à (pour un temps) ; la ville seulement, à 1 km près ; « Bien arrivé ! » (absents d'une base pas à jour) */
+  jusqua?: string | null; approx?: boolean; prevenir?: boolean
+}
+/** Les réglages du partage (une clé absente garde le réglage d'avant). */
+export type ReglagesPartage = { jusqua?: string | null; approx?: boolean; prevenir?: boolean }
 /** « Nos adresses » : un endroit de la famille qui a un nom (École, Travail, Chez Mamie). Dans « Où est la famille »,
  *  celui qui s'y trouve (à moins de rayon_m mètres) est « École » au lieu de « Rue André Lalande, Évry ». */
 export type Endroit = { id: string; family_id: string; nom: string; adresse: string | null; lat: number; lon: number; rayon_m: number; created_at: string }
@@ -312,6 +318,8 @@ export type FamilyState = {
   endroits: Endroit[]
   /** Faux : la maison ne sait pas encore les garder, elles restent sur ce téléphone (les autres ne les voient pas). */
   endroitsPartages: boolean
+  /** La maison sait partager pour un temps, en approximatif, et « Bien arrivé ! » (base à jour). */
+  positionsReglables?: boolean
 }
 
 /** Un interrupteur à distance : allumé, et éventuellement borné dans le temps. */
@@ -437,8 +445,11 @@ export interface Backend {
   porteRecords(familyId: string, memberId: string): Promise<Record<number, { e: number; t: number }>>
   /** Une partie gagnée : garde le meilleur résultat, et renvoie les étoiles gagnées pour la maison (les nouvelles seulement). */
   porteFini(familyId: string, niveau: number, etoiles: number, temps: number): Promise<{ gain: number }>
-  /** Partager ma position avec cette maison (la première fois, ou pour la remettre à jour). */
-  partagerPosition(familyId: string, p: { lat: number; lon: number; precision?: number | null; lieu?: string | null; ville?: string | null; batterie?: number | null }): Promise<void>
+  /** Partager ma position avec cette maison (la première fois, ou pour la remettre à jour). Avec des réglages : je
+   *  commence (ou recommence) à partager, avec eux. */
+  partagerPosition(familyId: string, p: { lat: number; lon: number; precision?: number | null; lieu?: string | null; ville?: string | null; batterie?: number | null }, reglages?: ReglagesPartage): Promise<void>
+  /** Changer les réglages de mon partage : pour combien de temps, approximatif, « Bien arrivé ! ». */
+  reglerPosition(familyId: string, reglages: ReglagesPartage): Promise<void>
   /** Ne plus partager ma position avec cette maison : elle disparaît tout de suite. */
   arreterPosition(familyId: string): Promise<void>
   /** Nos adresses : enregistrer un endroit qui a un nom (École, Travail…), ou le modifier. */

@@ -7,6 +7,7 @@ import { partiesDemo, type Cache, type MotDemo } from './partiesDemo'
 import type { AnneeState } from './parties'
 import { etoilesDe, parisToday } from './avent'
 import { ENDROITS_MAX, nomPris, nomPropre, RAYON } from './endroits'
+import { enCours } from './positions'
 import type { AdventDoor, AppFlag, Backend, Drawing, Ecrit, Endroit, Game, Family, FamilyState, Folder, FolderItem, JoinRequest, LiveEvent, Member, Moment, MyRequest, Position, Sticker, ThoughtKind } from './types'
 import { blobToDataUrl, compressImage, daysAgoKey, todayKey, uid } from './util'
 import { challenge, nextReward, WEEKLY, weekIndex, weekKey, weekStart, type WeeklyCounts, type WeeklyKey } from './weekly'
@@ -761,8 +762,10 @@ export function createLocalBackend(): Backend {
         aventDemo: undefined,
         flags: { avent: demoFlag() },
         advent: f.advent ?? [],
-        // en démo, les proches viennent de bouger : leurs positions restent fraîches
-        positions: (f.positions ?? []).map(({ il, ...p }) => (il != null ? { ...p, updated_at: iso(il) } : p)),
+        // en démo, les proches viennent de bouger : leurs positions restent fraîches ; un partage pour un temps fini
+        // ne se voit plus (comme dans la base)
+        positions: (f.positions ?? []).filter((p) => enCours(p)).map(({ il, ...p }) => (il != null ? { ...p, updated_at: iso(il) } : p)),
+        positionsReglables: true,
         endroits: f.endroits ?? [],
         endroitsPartages: true,
       })
@@ -1337,14 +1340,48 @@ export function createLocalBackend(): Backend {
     async porteRecords(fid, memberId) {
       return { ...(fam(fid).porte?.[memberId] ?? {}) }
     },
-    async partagerPosition(fid, p) {
+    async partagerPosition(fid, p, reglages) {
       const f = fam(fid)
       const me = myId(f)
+      // comme la base : un partage pour un temps déjà fini s'arrête, sauf si l'on repart avec des réglages
+      let avant = (f.positions ?? []).find((x) => x.member_id === me)
+      if (avant && !enCours(avant)) {
+        f.positions = (f.positions ?? []).filter((x) => x.member_id !== me)
+        avant = undefined
+        if (!reglages) {
+          save()
+          return
+        }
+      }
+      const jusqua = reglages && 'jusqua' in reglages ? (reglages.jusqua ?? null) : (avant?.jusqua ?? null)
+      const approx = reglages && 'approx' in reglages ? !!reglages.approx : !!avant?.approx
+      const prevenir = reglages && 'prevenir' in reglages ? !!reglages.prevenir : !!avant?.prevenir
+      const arrondi = approx ? 1e2 : 1e5
       const ligne: Position = {
-        member_id: me, family_id: fid, lat: Math.round(p.lat * 1e5) / 1e5, lon: Math.round(p.lon * 1e5) / 1e5, precision_m: p.precision ?? null,
-        lieu: p.lieu ?? null, ville: p.ville ?? null, batterie: p.batterie ?? null, updated_at: new Date().toISOString(),
+        member_id: me, family_id: fid, lat: Math.round(p.lat * arrondi) / arrondi, lon: Math.round(p.lon * arrondi) / arrondi,
+        precision_m: approx ? Math.max(p.precision ?? 0, 1000) : (p.precision ?? null),
+        lieu: approx ? null : (p.lieu ?? null), ville: p.ville ?? null, batterie: p.batterie ?? null, updated_at: new Date().toISOString(),
+        jusqua, approx, prevenir,
       }
       f.positions = [ligne, ...(f.positions ?? []).filter((x) => x.member_id !== me)]
+      save()
+    },
+    async reglerPosition(fid, reglages) {
+      const f = fam(fid)
+      const me = myId(f)
+      const p = (f.positions ?? []).find((x) => x.member_id === me)
+      if (!p || !enCours(p)) throw new Error('PAS_PARTAGE')
+      if ('jusqua' in reglages) p.jusqua = reglages.jusqua ?? null
+      if ('prevenir' in reglages) p.prevenir = !!reglages.prevenir
+      if ('approx' in reglages) {
+        p.approx = !!reglages.approx
+        if (p.approx) {
+          p.lat = Math.round(p.lat * 100) / 100
+          p.lon = Math.round(p.lon * 100) / 100
+          p.lieu = null
+          p.precision_m = Math.max(p.precision_m ?? 0, 1000)
+        }
+      }
       save()
     },
     async arreterPosition(fid) {
