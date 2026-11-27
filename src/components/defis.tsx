@@ -150,43 +150,54 @@ export function QuestionSheet({ onClose }: { onClose: () => void }) {
               if (f) setPic({ blob: f, url: URL.createObjectURL(f) })
             }}
           />
-          {pic && (
-            <div className="relative mb-2.5 overflow-hidden rounded-[18px]">
-              <img src={pic.url} alt="Ta photo" className="block max-h-[240px] w-full object-cover" />
+          {/* la réponse : une carte blanche, le mot et (si on veut) une photo ; plus de bloc gris (Elisa, 27 novembre) */}
+          <div className="overflow-hidden rounded-[20px] bg-carte shadow-carte transition-shadow focus-within:shadow-[0_0_0_2px_#9B85E8,0_6px_18px_-10px_rgba(102,70,204,0.35)]">
+            {pic && (
+              <div className="relative overflow-hidden">
+                <img src={pic.url} alt="Ta photo" className="block max-h-[220px] w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    tap()
+                    setPic(null)
+                  }}
+                  className="presse verre absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-full text-encre"
+                  aria-label="Retirer la photo"
+                >
+                  <X size={17} strokeWidth={2.8} />
+                </button>
+              </div>
+            )}
+            <textarea
+              aria-label="Ta réponse à la question du jour"
+              rows={pic ? 2 : 3}
+              className="block w-full resize-none bg-transparent px-4 pb-2 pt-3.5 text-corps text-encre outline-none placeholder:text-pale"
+              placeholder={pic ? 'Un mot avec ta photo (facultatif)' : 'Écris ta réponse ici…'}
+              maxLength={140}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+            />
+            <div className="flex items-center justify-between border-t border-trait py-1 pl-1.5 pr-3.5">
               <button
                 type="button"
-                onClick={() => {
+                onClick={async () => {
                   tap()
-                  setPic(null)
+                  // prendre la photo avec l'appareil de Nidoo (la question posée sur l'image), ou en choisir une
+                  const i = await choisir({ title: pic ? 'Changer la photo' : 'Répondre avec une photo', actions: [{ label: 'Prendre une photo' }, { label: 'Choisir dans la photothèque' }] })
+                  if (i === 1) return picker.current?.click()
+                  if (i !== 0) return
+                  const r = await prendrePhoto({ titre: 'Question du jour', consigne: q.text, galerie: true })
+                  if (r instanceof File) setPic({ blob: r, url: URL.createObjectURL(r) })
+                  else if (r === 'galerie' || r === 'natif') picker.current?.click()
                 }}
-                className="presse verre absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full text-encre"
-                aria-label="Retirer la photo"
+                className="presse flex h-11 items-center gap-2 rounded-full px-3 text-sous font-semibold text-teinte-fonce"
               >
-                <X size={16} strokeWidth={2.8} />
+                <Camera size={19} strokeWidth={2.3} /> {pic ? 'Changer la photo' : 'Ajouter une photo'}
               </button>
+              <span className="text-note tabular-nums text-pale" aria-hidden="true">{text.length}/140</span>
             </div>
-          )}
-          <div className="flex items-center gap-2">
-            <textarea aria-label="Ta réponse à la question du jour" rows={3} className="champ min-w-0 flex-1 resize-none" placeholder={pic ? 'Un mot avec ta photo (facultatif)' : 'Ta réponse'} maxLength={140} value={text} onChange={(e) => setText(e.target.value)} />
-            <button
-              type="button"
-              onClick={async () => {
-                tap()
-                // prendre la photo avec l'appareil de Nidoo (la question posée sur l'image), ou en choisir une
-                const i = await choisir({ title: pic ? 'Changer la photo' : 'Répondre avec une photo', actions: [{ label: 'Prendre une photo' }, { label: 'Choisir dans la photothèque' }] })
-                if (i === 1) return picker.current?.click()
-                if (i !== 0) return
-                const r = await prendrePhoto({ titre: 'Question du jour', consigne: q.text, galerie: true })
-                if (r instanceof File) setPic({ blob: r, url: URL.createObjectURL(r) })
-                else if (r === 'galerie' || r === 'natif') picker.current?.click()
-              }}
-              className="presse flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-[14px] bg-teinte-doux text-teinte-fonce"
-              aria-label={pic ? 'Changer la photo' : 'Répondre avec une photo'}
-            >
-              <Camera size={21} strokeWidth={2.2} />
-            </button>
           </div>
-          <p className="px-1 pt-2 text-note text-brume">Réponds par un mot, une photo, ou les deux. Les réponses des autres apparaissent une fois la tienne envoyée.</p>
+          <p className="px-1 pt-2 text-note text-brume">Les réponses des autres apparaissent dès que tu as envoyé la tienne.</p>
           <Btn type="submit" className="mt-3" disabled={!text.trim() && !pic}>
             Répondre · +2 étoiles
           </Btn>

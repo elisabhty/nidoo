@@ -33,7 +33,9 @@ input[type='date'], input[type='time'] { -webkit-appearance: none; appearance: n
 @layer components {
   .verre { @apply border border-white/60 bg-white/70 shadow-verre backdrop-blur-2xl backdrop-saturate-150; }
   .groupe { @apply overflow-hidden rounded-groupe bg-carte; }
-  .champ { @apply w-full rounded-[14px] bg-remplissage px-4 py-[13px] text-corps text-encre outline-none placeholder:text-pale focus:ring-2 focus:ring-teinte/40; }
+  /* un champ : blanc, bordé d'un trait lavande ; plus de bloc gris sur le fond lavande (Elisa, 27 novembre : « les gris
+     ça fait sombre ») */
+  .champ { @apply w-full rounded-[14px] bg-carte px-4 py-[13px] text-corps text-encre outline-none shadow-[inset_0_0_0_1px_#E4DFF2] placeholder:text-pale focus:shadow-[inset_0_0_0_2px_#9B85E8]; }
   .presse { @apply transition-[transform,opacity] duration-150 active:scale-[0.97] active:opacity-80; }
   /* le toucher d'une ligne : un voile violet très léger, plus de gros gris (Elisa, 21 novembre) */
   .presse-ligne { transition: background-color 0.22s ease; }
@@ -361,9 +363,11 @@ html.natif.kb-ouvert, html.natif.kb-ouvert body { background: var(--fond-clavier
 }
 
 /* Un bouton pas encore utilisable reste lisible : il dit ce qu'il manque (« Écris d'abord ce que c'est »). */
-.btn-desactive:disabled { background: #ECEAF3 !important; color: rgba(60, 56, 82, 0.82) !important; box-shadow: none !important; opacity: 1; }
+/* le bouton principal pas encore prêt : le même violet, en plus clair (on voit que c'est lui qu'on touchera), pas un
+   gris sombre qui fait douter (Elisa, 27 novembre) */
+.btn-desactive:disabled { background: #C7BAF0 !important; color: rgba(255, 255, 255, 0.96) !important; box-shadow: none !important; opacity: 1; }
 /* un bouton auquel il manque quelque chose : grisé comme un bouton désactivé, mais il se touche et dit ce qui manque */
-.btn-incomplet { background: #ECEAF3 !important; color: rgba(60, 56, 82, 0.82) !important; box-shadow: none !important; }
+.btn-incomplet { background: #C7BAF0 !important; color: rgba(255, 255, 255, 0.96) !important; box-shadow: none !important; }
 .ios-sheet .sheet-footer { overflow: visible; }
 .secoue { animation: secoue 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97); }
 @keyframes secoue { 10%, 90% { transform: translateX(-2px); } 20%, 80% { transform: translateX(4px); } 30%, 50%, 70% { transform: translateX(-7px); } 40%, 60% { transform: translateX(7px); } }

@@ -456,6 +456,9 @@ function PersoOptions({ ed, color, setColor, owned = [], pres }: { ed: Perso_; c
 
 type ProfileProps = { name: string; setName: (v: string) => void; avatar: string; setAvatar: (v: string) => void; color: string; setColor: (v: string) => void; placeholder?: string; owned?: string[] }
 
+/** Dans le champ, un exemple plutôt que le titre répété (Elisa, 27 novembre : « répétition »). */
+const exemplePrenom = (placeholder: string) => (placeholder.startsWith('Son') ? 'Ex. : Lina' : 'Ex. : Mamie Jo')
+
 /** Ce que le prénom débloque, pour soi ou pour un enfant. */
 const aidePrenom = (placeholder: string) => (placeholder.startsWith('Son') ? 'Il apparaît sous son personnage, pour toute la famille.' : 'Il apparaît sous ton personnage, pour toute la famille.')
 
@@ -464,7 +467,7 @@ function NameField({ name, setName, placeholder }: { name: string; setName: (v: 
   return (
     <>
       <ChampRequis id={id} className="mt-5" label={placeholder} aide={aidePrenom(placeholder)}>
-        <input id={id} required aria-describedby={`${id}-aide`} autoComplete="given-name" enterKeyHint="done" className={`${CHAMP_REQUIS} !h-[56px] text-center font-rond text-titre3`} placeholder={placeholder} maxLength={24} value={name} onChange={(e) => setName(e.target.value)} />
+        <input id={id} required aria-describedby={`${id}-aide`} autoComplete="given-name" enterKeyHint="done" className={`${CHAMP_REQUIS} !h-[56px] text-center font-rond text-titre3 placeholder:font-sans placeholder:text-corps placeholder:font-normal placeholder:text-pale`} placeholder={exemplePrenom(placeholder)} maxLength={24} value={name} onChange={(e) => setName(e.target.value)} />
       </ChampRequis>
     </>
   )
@@ -482,8 +485,8 @@ export function ProfilePicker({ name, setName, avatar, setAvatar, color, setColo
       <div className="sticky top-0 z-10 -mx-5 mb-4 flex items-center gap-3 border-b border-trait bg-fond px-5 pb-4">
         <Portrait ed={ed} color={color} size={148} />
         <div className="min-w-0 flex-1">
-          <ChampRequis id={nameId} compact label={placeholder.startsWith('Son') ? 'Son prénom' : 'Ton prénom'} aide={aidePrenom(placeholder)}>
-            <input id={nameId} required aria-describedby={`${nameId}-aide`} autoComplete="given-name" enterKeyHint="done" className={`${CHAMP_REQUIS} font-rond text-titre3`} placeholder={placeholder} maxLength={24} value={name} onChange={e => setName(e.target.value)} />
+          <ChampRequis id={nameId} compact label={placeholder.startsWith('Son') ? 'Son prénom' : 'Ton prénom ou surnom'} aide={aidePrenom(placeholder)}>
+            <input id={nameId} required aria-describedby={`${nameId}-aide`} autoComplete="given-name" enterKeyHint="done" className={`${CHAMP_REQUIS} font-rond text-titre3 placeholder:font-sans placeholder:text-corps placeholder:font-normal placeholder:text-pale`} placeholder={exemplePrenom(placeholder)} maxLength={24} value={name} onChange={e => setName(e.target.value)} />
           </ChampRequis>
         </div>
       </div>

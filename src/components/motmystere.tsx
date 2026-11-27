@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { select, success, tap } from '../lib/haptic'
 import { MOT_ESSAIS, type MotMoi } from '../lib/parties'
 import { jouer } from '../lib/sons'
@@ -11,6 +11,35 @@ import { Avatar, Page } from './ui'
 
 const COULEUR: Record<string, string> = { '2': '#7A5AE0', '1': '#FF8A7A', '0': '#CFCBDB' }
 const RANGEES = ['AZERTYUIOP', 'QSDFGHJKLM', 'WXCVBN']
+const ECART = 6
+
+/** La grille et le clavier tiennent dans l'écran, sans défiler (Elisa, 27 novembre : « tout doit tenir dans
+ *  l'écran ») : la grille prend la place qui reste au-dessus du clavier ; sur un petit écran, les touches rapetissent. */
+function useTaillesQuiTiennent(enJeu: boolean) {
+  const grille = useRef<HTMLDivElement>(null)
+  const [t, setT] = useState({ largeur: 300, touche: 48 })
+  useLayoutEffect(() => {
+    const g = grille.current
+    const boite = g?.closest('.overflow-y-auto') as HTMLElement | null
+    if (!g || !boite) return
+    const ajuster = () => {
+      const haut = g.getBoundingClientRect().top - boite.getBoundingClientRect().top + boite.scrollTop
+      // le bas de la page garde la barre du bas de l'iPhone, pas toute la marge prévue pour défiler
+      const bas = Math.max(8, parseFloat(getComputedStyle(boite).paddingBottom) - 20)
+      const touche = boite.clientHeight < 700 ? 42 : 48
+      // sous la grille : le clavier (3 rangées), la légende, les marges
+      const dessous = enJeu ? 12 + 3 * touche + 2 * ECART + 12 + 18 : 12 + 18
+      const place = boite.clientHeight - haut - bas - dessous
+      const parLaHauteur = ((place - 5 * ECART) / 6) * 5 + 4 * ECART
+      setT({ largeur: Math.floor(Math.max(170, Math.min(300, boite.clientWidth * 0.78, parLaHauteur))), touche })
+    }
+    ajuster()
+    const ro = new ResizeObserver(ajuster)
+    ro.observe(boite)
+    return () => ro.disconnect()
+  }, [enJeu])
+  return { grille, ...t }
+}
 
 export function useMotMoi() {
   const { state, api } = useHome()
@@ -92,11 +121,13 @@ export function MotPage({ onClose }: { onClose: () => void }) {
 
   const autres = state.members.filter((m) => m.user_id && m.id !== state.me.id)
   const lignes = Array.from({ length: MOT_ESSAIS }, (_, i) => i)
+  const { grille, largeur, touche } = useTaillesQuiTiennent(!fini)
+  const tuile = (largeur - 4 * ECART) / 5
 
   return (
     <Page title="Mot mystère" onClose={onClose}>
-      <p className="-mt-1 px-5 text-sous text-brume">Le même mot de 5 lettres pour toute la famille, aujourd’hui. Six essais pour le trouver.</p>
-      <div className="mx-auto mt-4 grid w-[min(300px,78vw)] gap-1.5">
+      <p className="-mt-1 px-5 text-sous text-brume">Le même mot de 5 lettres pour toute la famille. Six essais pour le trouver.</p>
+      <div ref={grille} className="relative mx-auto mt-4 grid gap-1.5" style={{ width: largeur }}>
         {lignes.map((i) => {
           const w = i < mots.length ? mots[i] : i === mots.length && !fini ? saisie.padEnd(5, ' ') : '     '
           const m = motifs[i]
@@ -105,8 +136,9 @@ export function MotPage({ onClose }: { onClose: () => void }) {
               {[...w].map((ch, k) => (
                 <span
                   key={k}
-                  className="flex aspect-square items-center justify-center rounded-[10px] font-rond text-[24px] font-bold"
+                  className="flex aspect-square items-center justify-center rounded-[10px] font-rond font-bold"
                   style={{
+                    fontSize: Math.round(Math.min(24, tuile * 0.46)),
                     background: m ? COULEUR[m[k]] : '#FFFFFF',
                     color: m ? (m[k] === '0' ? '#5E5A70' : '#fff') : '#2B2540',
                     boxShadow: m ? 'inset 0 -3px 0 rgba(0,0,0,0.1)' : ch.trim() ? 'inset 0 0 0 2px #B9A6F5' : 'inset 0 0 0 1.5px #E4E0EE',
@@ -119,17 +151,17 @@ export function MotPage({ onClose }: { onClose: () => void }) {
             </div>
           )
         })}
+        {bulle && <p className="anim-pop pointer-events-none absolute left-1/2 top-1/2 z-10 w-max max-w-[92%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-teinte px-4 py-2 text-center text-sous font-semibold text-white shadow-[0_10px_26px_-8px_rgba(102,70,204,0.6)]">{bulle}</p>}
       </div>
       <style>{'@keyframes jeuTuile { from { transform: rotateX(90deg); } to { transform: rotateX(0); } }'}</style>
-      {bulle && <p className="anim-pop mx-auto mt-3 w-fit rounded-full bg-teinte px-4 py-1.5 text-sous font-semibold text-white">{bulle}</p>}
       {fini && !bulle && <p className="mt-3 text-center text-sous font-semibold text-teinte-fonce">{ligne?.trouve ? `Trouvé en ${motifs.length} essai${motifs.length > 1 ? 's' : ''} !` : moi?.solution ? `Le mot était ${moi.solution}` : 'Grille finie'} Nouveau mot demain.</p>}
 
       {!fini && (
-        <div className="mx-2 mt-4 flex flex-col gap-1.5">
+        <div className="mx-2 mt-3 flex flex-col gap-1.5">
           {RANGEES.map((r, ri) => (
             <div key={r} className="flex justify-center gap-1">
               {ri === 2 && (
-                <button onClick={() => void valide()} disabled={saisie.length !== 5 || busy} className="presse h-12 rounded-[10px] bg-teinte px-2.5 text-mini font-bold text-white disabled:opacity-40">
+                <button onClick={() => void valide()} disabled={saisie.length !== 5 || busy} style={{ height: touche }} className="presse rounded-[10px] bg-teinte px-2.5 text-mini font-bold text-white disabled:opacity-40">
                   ENTRÉE
                 </button>
               )}
@@ -137,14 +169,14 @@ export function MotPage({ onClose }: { onClose: () => void }) {
                 <button
                   key={ch}
                   onClick={() => tape(ch)}
-                  className="presse h-12 w-[8.6vw] max-w-[38px] rounded-[10px] text-sous font-bold"
-                  style={{ background: touches[ch] ? COULEUR[touches[ch]] : '#FFFFFF', color: touches[ch] && touches[ch] !== '0' ? '#fff' : touches[ch] === '0' ? '#8A869A' : '#2B2540', boxShadow: '0 2px 0 rgba(0,0,0,0.08)' }}
+                  className="presse w-[8.6vw] max-w-[38px] rounded-[10px] text-sous font-bold"
+                  style={{ height: touche, background: touches[ch] ? COULEUR[touches[ch]] : '#FFFFFF', color: touches[ch] && touches[ch] !== '0' ? '#fff' : touches[ch] === '0' ? '#8A869A' : '#2B2540', boxShadow: '0 2px 0 rgba(0,0,0,0.08)' }}
                 >
                   {ch}
                 </button>
               ))}
               {ri === 2 && (
-                <button onClick={efface} disabled={!saisie || busy} aria-label="Effacer une lettre" className="presse h-12 rounded-[10px] bg-white px-2.5 text-mini font-bold text-encre shadow-[0_2px_0_rgba(0,0,0,0.08)] disabled:opacity-40">
+                <button onClick={efface} disabled={!saisie || busy} aria-label="Effacer une lettre" style={{ height: touche }} className="presse rounded-[10px] bg-white px-2.5 text-mini font-bold text-encre shadow-[0_2px_0_rgba(0,0,0,0.08)] disabled:opacity-40">
                   EFFACER
                 </button>
               )}
@@ -153,7 +185,7 @@ export function MotPage({ onClose }: { onClose: () => void }) {
         </div>
       )}
 
-      <div className="mx-5 mt-5 flex justify-center gap-3 text-mini text-brume">
+      <div className="mx-5 mt-3 flex justify-center gap-3 text-mini text-brume">
         <span className="flex items-center gap-1"><span className="h-3 w-3 rounded-[4px]" style={{ background: COULEUR['2'] }} /> bien placée</span>
         <span className="flex items-center gap-1"><span className="h-3 w-3 rounded-[4px]" style={{ background: COULEUR['1'] }} /> ailleurs</span>
         <span className="flex items-center gap-1"><span className="h-3 w-3 rounded-[4px]" style={{ background: COULEUR['0'] }} /> absente</span>
