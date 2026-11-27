@@ -106,6 +106,14 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
   const [, setHistN] = useState(0)
   const [body, setBody] = useState('')
   const [busy, setBusy] = useState(false)
+  // le défi se relève en photo ; écrire un mot reste possible, mais c'est un second choix (Elisa, 27 novembre :
+  // « améliore l'ui ux de cette page »)
+  const [ecrire, setEcrire] = useState(false)
+  const duJour = challenge ? state.moments.filter((m) => !m.reply_to && m.challenge === challenge && isToday(m.created_at)) : []
+  const dejaFait = duJour.some((m) => m.member_id === state.me.id)
+  const ontReleve = [...new Set(duJour.map((m) => m.member_id).filter((id) => id !== state.me.id))]
+    .map((id) => state.members.find((x) => x.id === id))
+    .filter((m): m is Member => !!m)
   const camera = useRef<HTMLInputElement>(null)
   const gallery = useRef<HTMLInputElement>(null)
   const preview = useMemo(() => (shown ? URL.createObjectURL(shown) : null), [shown])
@@ -170,7 +178,7 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
     }
     const ok = await run(
       (api) => api.postMoment(state.family.id, state.me.id, { blob, body, challenge }),
-      blob ? 'Photo partagée avec la famille' : 'Petit mot partagé',
+      challenge && blob && !dejaFait ? 'Défi relevé, bravo !' : blob ? 'Photo partagée avec la famille' : 'Petit mot partagé',
     )
     setBusy(false)
     if (ok) {
@@ -181,10 +189,43 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
 
   return (
     <Sheet title={challenge ? 'Défi photo' : startWith === 'mot' ? 'Petit mot' : 'Photo surprise'} onClose={onClose}>
-      {challenge && (
-        <div className="mb-3 flex items-center gap-3 rounded-[18px] bg-peche-doux px-3.5 py-3">
-          <Art name="picto-photo" size={36} />
-          <p className="text-sous font-semibold">{challenge}</p>
+      {challenge && !preview && (
+        <div className="relative overflow-hidden rounded-[26px] bg-gradient-to-br from-[#FFE9DC] via-[#FFE2E4] to-[#F1E4FF] px-5 pb-5 pt-4 text-center">
+          <div className="flex items-center justify-between">
+            <span className="rounded-full bg-white/75 px-2.5 py-1 text-note font-bold uppercase tracking-[0.04em] text-peche-fonce">Défi du jour</span>
+            {dejaFait ? (
+              <span className="flex items-center gap-1 rounded-full bg-vert px-2.5 py-1 text-note font-bold text-white">
+                <Check size={14} strokeWidth={3} /> Relevé
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 rounded-full bg-white/75 py-1 pl-2.5 pr-2 text-note font-bold text-teinte-fonce">
+                +3 <Art name="picto-etoile" size={15} />
+              </span>
+            )}
+          </div>
+          <Art name="picto-photo" size={84} className="anim-flotte mx-auto mt-1" />
+          <p className="mx-auto mt-2 max-w-[300px] font-rond text-titre2 text-encre">{challenge}</p>
+          <p className="mx-auto mt-1.5 max-w-[280px] text-sous text-encre/70">{dejaFait ? 'Tu l’as relevé aujourd’hui. Une autre idée ? Envoie-la aussi.' : 'Une photo prise maintenant, là où tu es.'}</p>
+          {ontReleve.length > 0 && (
+            <div className="mt-3 flex items-center justify-center gap-2">
+              <span className="flex">
+                {ontReleve.slice(0, 3).map((m, k) => (
+                  <span key={m.id} className="rounded-full ring-2 ring-white" style={{ marginLeft: k ? -8 : 0 }}>
+                    <Avatar m={m} size={26} />
+                  </span>
+                ))}
+              </span>
+              <span className="text-note font-semibold text-encre/75">
+                {ontReleve.length === 1 ? `${ontReleve[0].display_name} l’a relevé` : ontReleve.length === 2 ? `${ontReleve[0].display_name} et ${ontReleve[1].display_name} l’ont relevé` : `${ontReleve[0].display_name} et ${ontReleve.length - 1} autres l’ont relevé`}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+      {challenge && preview && (
+        <div className="mb-3 flex items-center gap-2 rounded-full bg-peche-doux py-1.5 pl-1.5 pr-4">
+          <Art name="picto-photo" size={30} />
+          <p className="min-w-0 flex-1 truncate text-sous font-semibold">{challenge}</p>
         </div>
       )}
       <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={(e) => void pick(e.target.files?.[0]).then(() => (e.target.value = ''))} />
@@ -285,6 +326,28 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
             </div>
           )}
         </>
+      ) : challenge ? (
+        ecrire ? null : (
+          <>
+            <Btn
+              className="mt-4"
+              onClick={async () => {
+                tap()
+                // l'appareil photo de Nidoo (le défi posé sur l'image), sans photothèque : le défi se relève sur le moment
+                const r = await prendrePhoto({ titre: 'Défi photo', consigne: challenge, galerie: false })
+                if (r instanceof File) void pick(r)
+                else if (r === 'natif') camera.current?.click()
+              }}
+            >
+              <span className="flex items-center justify-center gap-2">
+                <Camera size={21} strokeWidth={2.3} /> {dejaFait ? 'Prendre une autre photo' : 'Prendre la photo'}
+              </span>
+            </Btn>
+            <button onClick={() => { tap(); setEcrire(true) }} className="presse mt-1.5 min-h-11 w-full text-sous font-semibold text-teinte-fonce">
+              Pas d’appareil sous la main ? Écris un petit mot
+            </button>
+          </>
+        )
       ) : (
         <>
           <div className="groupe">
@@ -307,21 +370,30 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
               </button>
             )}
           </div>
-          {challenge && <p className="mt-2 px-1 text-note text-brume">Le défi se relève sur le moment : une photo prise maintenant, pas une déjà dans le téléphone.</p>}
         </>
       )}
-      <textarea
-        className="champ mt-3 resize-none !bg-carte"
-        rows={preview ? 2 : 3}
-        maxLength={280}
-        placeholder={preview ? 'Ajouter une légende' : 'Ou écris juste un petit mot à toute la famille'}
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        autoFocus={startWith === 'mot'}
-      />
-      <Btn className="mt-3" onClick={send} disabled={busy || (!orig && !body.trim())}>
-        {busy ? 'Envoi…' : 'Envoyer à la famille'}
-      </Btn>
+      {/* le mot : la légende de la photo, ou (pour le défi) le petit mot qu'on écrit à la place */}
+      {(!challenge || preview || ecrire) && (
+        <>
+          <textarea
+            className="champ mt-3 resize-none !bg-carte"
+            rows={preview ? 2 : 3}
+            maxLength={280}
+            placeholder={preview ? (challenge ? 'Ajoute un petit mot (facultatif)' : 'Ajouter une légende') : challenge ? `Ton petit mot sur « ${challenge} »` : 'Ou écris juste un petit mot à toute la famille'}
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            autoFocus={startWith === 'mot' || (ecrire && !preview)}
+          />
+          <Btn className="mt-3" onClick={send} disabled={busy || (!orig && !body.trim())}>
+            {busy ? 'Envoi…' : challenge && preview && !dejaFait ? 'Relever le défi' : 'Envoyer à la famille'}
+          </Btn>
+          {challenge && ecrire && !preview && (
+            <button onClick={() => { tap(); setEcrire(false) }} className="presse mt-1.5 min-h-11 w-full text-sous font-semibold text-teinte-fonce">
+              Prendre plutôt une photo
+            </button>
+          )}
+        </>
+      )}
     </Sheet>
   )
 }
