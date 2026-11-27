@@ -762,3 +762,16 @@ html.kb-visible .ios-sheet.h-\[92\%\] { height: calc(100% - var(--sat) - 8px); }
 .mois-glisse { animation: moisGlisse 0.26s cubic-bezier(0.22, 0.8, 0.3, 1) both; }
 @keyframes moisGlisse { from { opacity: 0; transform: translateX(calc(var(--sens, 0) * 26px)); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .mois-glisse { animation: none; } }
+
+/* L'appareil photo de Nidoo (27 novembre) : l'éclair du déclic, le déclencheur qui s'enfonce, la caméra qui se
+   retourne, et la photo qui se pose comme un Polaroid puis se développe. */
+.appareil-eclair { animation: appareilEclair 0.42s ease-out both; }
+@keyframes appareilEclair { from { opacity: 0.92; } to { opacity: 0; } }
+.appareil-declencheur > span { transition: transform 0.15s cubic-bezier(0.3, 0.7, 0.4, 1); }
+.appareil-declencheur:active:not(:disabled) > span { transform: scale(0.86); }
+.appareil-tourne { animation: appareilTourne 0.45s cubic-bezier(0.3, 0.7, 0.4, 1); }
+@keyframes appareilTourne { from { transform: rotate(-180deg); } to { transform: rotate(0); } }
+.polaroid { border-radius: 6px; transform: rotate(-2deg); animation: polaroidPose 0.55s cubic-bezier(0.25, 1.2, 0.4, 1) both; }
+@keyframes polaroidPose { from { opacity: 0; transform: translateY(-18px) rotate(-7deg) scale(0.94); } to { opacity: 1; transform: rotate(-2deg); } }
+.polaroid-image { border-radius: 2px; animation: polaroidDeveloppe 1.3s ease-out both; }
+@keyframes polaroidDeveloppe { from { filter: brightness(1.85) saturate(0.1) contrast(0.75); } to { filter: none; } }

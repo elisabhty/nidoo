@@ -3,7 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { PhotoEditeur } from '../components/photoEditeur'
 import { StickerImg, StickerTray } from '../components/stickers'
-import { Art, Avatar, confirmer, Sheet } from '../components/ui'
+import { Art, Avatar, choisir, confirmer, Sheet } from '../components/ui'
+import { prendrePhoto } from '../components/appareil'
 import { REACTIONS } from '../lib/data'
 import { select, success, tap } from '../lib/haptic'
 import { bulle } from '../lib/sons'
@@ -628,10 +629,17 @@ function Saisie({ onPhoto, envoyer }: { onPhoto: (f: File) => void; envoyer: (m:
         <div className="flex flex-col gap-1.5">
           <div className="flex items-end gap-1.5 rounded-[28px] bg-white p-1.5 shadow-[0_8px_28px_rgba(29,26,43,0.16)]">
           <button
-            onClick={() => {
+            onClick={async () => {
               tap()
               signal('photo')
-              fichier.current?.click()
+              // prendre une photo (l'appareil de Nidoo) ou en choisir une : le choix d'abord, comme pour une attention
+              const i = await choisir({ title: 'Une photo pour le fil', actions: [{ label: 'Prendre une photo' }, { label: 'Choisir dans la photothèque' }] })
+              if (i === 1) return fichier.current?.click()
+              if (i !== 0) return signal(null)
+              const r = await prendrePhoto({ titre: 'Une photo pour le fil', galerie: true })
+              if (r instanceof File) onPhoto(r)
+              else if (r === 'galerie' || r === 'natif') fichier.current?.click()
+              else signal(null)
             }}
             className="presse flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-teinte-doux text-teinte-fonce"
             aria-label="Envoyer une photo"

@@ -14,6 +14,7 @@ import { DrawingCanvas, usePhoto } from './drawing'
 import { PorteJeu } from './porte'
 import { FilterRow, nouveauSticker, StickerStage, StickerTray } from './stickers'
 import { Avatar, Btn, choisir, confirmer, Sheet } from './ui'
+import { prendrePhoto } from './appareil'
 
 const RATIO = `${DRAW_W} / ${DRAW_H}`
 
@@ -347,7 +348,14 @@ export function DrawSheet({ to: initialTo = null, onClose, carte, live: liveInit
   const photoMenu = async () => {
     const actions = [{ label: 'Prendre une photo' }, { label: 'Choisir dans la photothèque' }, ...(pic ? [{ label: 'Retirer la photo', destructive: true }] : [])]
     const i = await choisir({ title: pic ? 'Photo de fond' : 'Ajouter une photo', actions })
-    if (i === 0) camera.current?.click()
+    if (i === 0) {
+      // l'appareil photo de Nidoo ; la photothèque ou l'appareil du téléphone sinon
+      const r = await prendrePhoto({ titre: pic ? 'Une autre photo' : 'Une photo à décorer', galerie: true })
+      if (r instanceof File) {
+        if ((await pick(r)) && phase !== 'edition') setPhase('edition')
+      } else if (r === 'galerie') gallery.current?.click()
+      else if (r === 'natif') camera.current?.click()
+    }
     if (i === 1) gallery.current?.click()
     if (i === 2) {
       setPic(null)

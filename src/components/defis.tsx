@@ -5,7 +5,8 @@ import { success, tap } from '../lib/haptic'
 import { MOT_ESSAIS } from '../lib/parties'
 import { useHome } from '../lib/store'
 import { todayKey } from '../lib/util'
-import { Art, Avatar, Btn, Sheet } from './ui'
+import { Art, Avatar, Btn, choisir, Sheet } from './ui'
+import { prendrePhoto } from './appareil'
 
 // Les défis du jour, sur l'accueil : la question du jour, le défi photo, le mot mystère,
 // la case du calendrier (en décembre), chacun avec les étoiles à gagner.
@@ -169,9 +170,15 @@ export function QuestionSheet({ onClose }: { onClose: () => void }) {
             <textarea aria-label="Ta réponse à la question du jour" rows={3} className="champ min-w-0 flex-1 resize-none" placeholder={pic ? 'Un mot avec ta photo (facultatif)' : 'Ta réponse'} maxLength={140} value={text} onChange={(e) => setText(e.target.value)} />
             <button
               type="button"
-              onClick={() => {
+              onClick={async () => {
                 tap()
-                picker.current?.click()
+                // prendre la photo avec l'appareil de Nidoo (la question posée sur l'image), ou en choisir une
+                const i = await choisir({ title: pic ? 'Changer la photo' : 'Répondre avec une photo', actions: [{ label: 'Prendre une photo' }, { label: 'Choisir dans la photothèque' }] })
+                if (i === 1) return picker.current?.click()
+                if (i !== 0) return
+                const r = await prendrePhoto({ titre: 'Question du jour', consigne: q.text, galerie: true })
+                if (r instanceof File) setPic({ blob: r, url: URL.createObjectURL(r) })
+                else if (r === 'galerie' || r === 'natif') picker.current?.click()
               }}
               className="presse flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-[14px] bg-teinte-doux text-teinte-fonce"
               aria-label={pic ? 'Changer la photo' : 'Répondre avec une photo'}

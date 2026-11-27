@@ -5,6 +5,7 @@ import { LiveInvites } from './components/planche'
 import Guide from './components/Guide'
 import { Incoming } from './components/sheets'
 import { ActionSheetHost, Btn, Toasts } from './components/ui'
+import { AppareilHote } from './components/appareil'
 import { useKeyboardViewport } from './lib/useKeyboardViewport'
 import { appliPrete } from './lib/majDistance'
 import { ajouterNaissance } from './lib/naissance'
@@ -234,6 +235,8 @@ export default function App() {
             <LiveInvites />
           </>
         )}
+        {/* l'appareil photo de Nidoo, par-dessus les feuilles */}
+        <AppareilHote />
         <ActionSheetHost />
         <Toasts />
       </div>

@@ -28,6 +28,7 @@ import { IncomingDrawing, markDrawingsSeen, useUnseenDrawings } from './drawing'
 import { DrawSheet } from './planche'
 import { Art, Avatar, Btn, choisir, confirmer, Envol, Segments, Sheet, Switch, ChampRequis, CHAMP_REQUIS } from './ui'
 import { ChoixDate } from './choixDate'
+import { prendrePhoto } from './appareil'
 
 // ───────── Humeur du jour ─────────
 
@@ -286,7 +287,16 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
         </>
       ) : (
         <div className="groupe">
-          <button onClick={() => camera.current?.click()} className="presse-ligne flex h-[52px] w-full items-center gap-3 border-b border-trait px-4 text-corps text-teinte">
+          <button
+            onClick={async () => {
+              // l'appareil photo de Nidoo (le défi posé sur l'image) ; la photothèque ou l'appareil du téléphone sinon
+              const r = await prendrePhoto({ titre: challenge ? 'Défi photo' : 'Photo surprise', consigne: challenge, galerie: true })
+              if (r instanceof File) void pick(r)
+              else if (r === 'galerie') gallery.current?.click()
+              else if (r === 'natif') camera.current?.click()
+            }}
+            className="presse-ligne flex h-[52px] w-full items-center gap-3 border-b border-trait px-4 text-corps text-teinte"
+          >
             <Camera size={22} /> Prendre une photo
           </button>
           <button onClick={() => gallery.current?.click()} className="presse-ligne flex h-[52px] w-full items-center gap-3 px-4 text-corps text-teinte">
