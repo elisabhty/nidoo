@@ -760,6 +760,21 @@ export function createLocalBackend(): Backend {
         for (const item of f.folderItems.filter(i => i.folder_id === d.id)) item.root_id = d.id
       }
       const mine = new Set(f.folderMembers.filter((x) => x.member_id === me.id).map((x) => x.folder_id))
+      // la corbeille : ce que j'ai supprimé il y a moins de 30 jours (au-delà, c'est effacé)
+      const TRENTE = 30 * 86400000
+      const perime = (x: { deleted_at?: string | null }) => !!x.deleted_at && Date.now() - Date.parse(x.deleted_at) > TRENTE
+      if ([...f.moments, ...f.folders, ...f.folderItems].some(perime)) {
+        const albums = new Set(f.folders.filter(perime).map((d) => d.id))
+        f.moments = f.moments.filter((m) => !perime(m))
+        f.folderItems = f.folderItems.filter((i) => !perime(i) && !albums.has(i.root_id))
+        f.folders = f.folders.filter((d) => !albums.has(d.root_id))
+        f.folderMembers = f.folderMembers.filter((x) => f.folders.some((d) => d.id === x.folder_id))
+        save()
+      }
+      const albumsJetes = new Set(f.folders.filter((d) => d.deleted_at).map((d) => d.id))
+      const vivant = (d: { deleted_at?: string | null; root_id: string }) => !d.deleted_at && !albumsJetes.has(d.root_id)
+      const aMoi = (x: { deleted_at?: string | null; deleted_by?: string | null }) => !!x.deleted_at && x.deleted_by === me.id
+      const avecUrl = (m: Moment) => ({ ...m, image_url: m.image_path, audio_url: m.audio_path ?? null, video_url: m.video_path ?? null, poster_url: m.poster_path ?? null })
       return structuredClone({
         ...f,
         me,
@@ -770,11 +785,16 @@ export function createLocalBackend(): Backend {
         cares: f.cares.filter((c) => c.day >= daysAgoKey(6)),
         houseSince: { ...f.houseSince, ...(f.pet ? { compagnon: f.pet.adopted_at } : {}) },
         pet: f.pet ? avecSonPrenom(f.pet) : null,
-        moments: f.moments.map((m) => ({ ...m, image_url: m.image_path, audio_url: m.audio_path ?? null, video_url: m.video_path ?? null, poster_url: m.poster_path ?? null })),
+        moments: f.moments.filter((m) => !m.deleted_at).map(avecUrl),
         drawings: f.drawings.filter((d) => !d.to_member || d.to_member === me.id || d.from_member === me.id).slice(0, 30).map((d) => ({ ...d, photo_url: d.photo_path ?? null })),
-        folders: f.folders.filter((d) => mine.has(d.root_id)).map((d) => ({ ...d, cover_url: d.cover_path })),
+        folders: f.folders.filter((d) => mine.has(d.root_id) && vivant(d)).map((d) => ({ ...d, cover_url: d.cover_path })),
         folderMembers: f.folderMembers.filter((x) => mine.has(x.folder_id)),
-        folderItems: f.folderItems.filter((i) => mine.has(i.root_id)).map((i) => ({ ...i, image_url: i.image_path, media_url: i.media_path ?? null })),
+        folderItems: f.folderItems.filter((i) => mine.has(i.root_id) && vivant(i)).map((i) => ({ ...i, image_url: i.image_path, media_url: i.media_path ?? null })),
+        jetes: {
+          moments: f.moments.filter(aMoi).map(avecUrl),
+          folders: f.folders.filter((d) => aMoi(d) && mine.has(d.root_id)).map((d) => ({ ...d, cover_url: d.cover_path })),
+          folderItems: f.folderItems.filter((i) => aMoi(i) && mine.has(i.root_id)).map((i) => ({ ...i, image_url: i.image_path, media_url: i.media_path ?? null })),
+        },
         dossiersDemo: undefined,
         commentairesDemo: undefined,
         decks: undefined,
@@ -797,6 +817,7 @@ export function createLocalBackend(): Backend {
         positionsReglables: true,
         commentaires: true,
         videos: true,
+        corbeille: true,
         endroits: f.endroits ?? [],
         endroitsPartages: true,
       })
@@ -886,6 +907,34 @@ export function createLocalBackend(): Backend {
       f.pollVotes = f.pollVotes.filter((v) => !(v.moment_id === moment.id && v.member_id === memberId))
       f.pollVotes.push({ moment_id: moment.id, member_id: memberId, family_id: moment.family_id, option_index: optionIndex })
       save()
+    },
+    async jeter(table, id) {
+      const at = new Date().toISOString()
+      for (const f of Object.values(db.families)) {
+        const me = f.members.find((x) => x.user_id === db.userId)
+        const l: { id: string; deleted_at?: string | null; deleted_by?: string | null }[] = table === 'moments' ? f.moments : table === 'folders' ? f.folders : f.folderItems
+        const x = l.find((y) => y.id === id && !y.deleted_at)
+        if (x && me) {
+          x.deleted_at = at
+          x.deleted_by = me.id
+          save()
+          return
+        }
+      }
+      throw new Error('CORBEILLE_REFUSEE')
+    },
+    async restaurer(table, id) {
+      for (const f of Object.values(db.families)) {
+        const l: { id: string; deleted_at?: string | null; deleted_by?: string | null }[] = table === 'moments' ? f.moments : table === 'folders' ? f.folders : f.folderItems
+        const x = l.find((y) => y.id === id && y.deleted_at)
+        if (x) {
+          x.deleted_at = null
+          x.deleted_by = null
+          save()
+          return
+        }
+      }
+      throw new Error('CORBEILLE_REFUSEE')
     },
     async deleteMoment(moment) {
       const f = fam(moment.family_id)

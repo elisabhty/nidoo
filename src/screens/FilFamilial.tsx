@@ -21,18 +21,19 @@ import { useHome } from '../lib/store'
 import { cleSticker, PERSO } from '../lib/stickers'
 import type { FamilyState, Folder, FolderItem, Member, Moment } from '../lib/types'
 import { ago, compressImage } from '../lib/util'
+import { Corbeille } from './Corbeille'
 import { AlbumsListe, FolderView, NewFolderSheet } from './Folders'
 import { Apercu, Sondage, SondageCompose, Texte, Vocal, type NouvelEnvoi } from './Moments'
 
 // ═════════════════════════ L'onglet : le fil, la liste des albums, un album ═════════════════════════
 
-type Vue = { k: 'fil' } | { k: 'albums' } | { k: 'album'; id: string; depuis: 'fil' | 'albums' }
+type Vue = { k: 'fil' } | { k: 'albums' } | { k: 'corbeille' } | { k: 'album'; id: string; depuis: 'fil' | 'albums' }
 
 export default function FilFamilial() {
   const { state } = useHome()
   const [vue, setVue] = useState<Vue>({ k: 'fil' })
   const album = vue.k === 'album' && state.folders.some((f) => f.id === vue.id) ? vue : null
-  const liste = vue.k === 'albums' || (album?.depuis === 'albums')
+  const liste = vue.k === 'albums' || vue.k === 'corbeille' || album?.depuis === 'albums'
   // toucher l'onglet Fil quand on y est déjà : on revient au fil (comme sur l'iPhone)
   useEffect(() => {
     const f = (e: Event) => (e as CustomEvent<string>).detail === 'fil' && setVue({ k: 'fil' })
@@ -47,10 +48,11 @@ export default function FilFamilial() {
         <Fil onAlbum={(id) => setVue({ k: 'album', id, depuis: 'fil' })} onAlbums={() => setVue({ k: 'albums' })} />
       </div>
       {liste && (
-        <div className="h-full" hidden={!!album}>
-          <AlbumsListe onOpen={(id) => setVue({ k: 'album', id, depuis: 'albums' })} onBack={() => setVue({ k: 'fil' })} />
+        <div className="h-full" hidden={!!album || vue.k === 'corbeille'}>
+          <AlbumsListe onOpen={(id) => setVue({ k: 'album', id, depuis: 'albums' })} onBack={() => setVue({ k: 'fil' })} onCorbeille={() => setVue({ k: 'corbeille' })} />
         </div>
       )}
+      {vue.k === 'corbeille' && <Corbeille onBack={() => setVue({ k: 'albums' })} />}
       {album && <FolderView key={album.id} id={album.id} retour={album.depuis === 'albums' ? 'Albums' : 'Le fil'} onBack={() => setVue(album.depuis === 'albums' ? { k: 'albums' } : { k: 'fil' })} />}
     </>
   )
@@ -550,7 +552,16 @@ function Publication({ mo, coms, peutCommenter, onPhoto, onCommentaires, onNouve
       ...(gardable ? [{ label: 'Garder dans un album', go: () => void garder() }] : []),
       ...(mo.body && !sondage ? [{ label: 'Copier le texte', go: () => void navigator.clipboard?.writeText(mo.body!).then(() => toast('Texte copié')).catch(() => undefined) }] : []),
       ...(mien ? [{ label: 'Supprimer la publication', destructive: true, go: async () => {
-        if (await confirmer({ title: 'Supprimer cette publication ?', message: coms.length ? 'Elle disparaît pour toute la famille, avec ses commentaires.' : 'Elle disparaît pour toute la famille.', confirm: 'Supprimer', destructive: true })) void run((api) => api.deleteMoment(mo))
+        const corbeille = !!state.corbeille
+        const message = `Elle disparaît du fil pour toute la famille${coms.length ? ', avec ses commentaires' : ''}.${corbeille ? ' Tu pourras la remettre pendant 30 jours : Albums › Supprimés récemment.' : ''}`
+        if (!(await confirmer({ title: 'Supprimer cette publication ?', message, confirm: 'Supprimer', destructive: true }))) return
+        if (!corbeille) return void run((api) => api.deleteMoment(mo))
+        // à la corbeille : elle quitte le fil tout de suite, et m'attend dans « Supprimés récemment »
+        void run(
+          (api) => api.jeter('moments', mo.id),
+          undefined,
+          (st: FamilyState) => ({ ...st, moments: st.moments.filter((m) => m.id !== mo.id), jetes: { moments: [{ ...mo, deleted_at: new Date().toISOString(), deleted_by: st.me.id }, ...(st.jetes?.moments ?? [])], folders: st.jetes?.folders ?? [], folderItems: st.jetes?.folderItems ?? [] } }),
+        )
       } }] : []),
     ]
     const i = await choisir({ actions })

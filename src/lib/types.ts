@@ -80,6 +80,9 @@ export type Moment = {
   video_url?: string | null
   poster_path?: string | null
   poster_url?: string | null
+  /** à la corbeille (« Supprimés récemment ») depuis cette date, par ce proche ; effacé pour de bon après 30 jours */
+  deleted_at?: string | null
+  deleted_by?: string | null
 }
 
 export type PollVote = { moment_id: string; member_id: string; family_id: string; option_index: number }
@@ -99,6 +102,8 @@ export type Folder = {
   cover_url?: string | null
   created_at: string
   updated_at: string
+  deleted_at?: string | null
+  deleted_by?: string | null
 }
 export type FolderMember = { folder_id: string; member_id: string }
 export type ItemKind = 'photo' | 'note' | 'message' | 'dessin' | 'audio' | 'video'
@@ -118,7 +123,11 @@ export type FolderItem = {
   source_moment_id?: string | null
   created_at: string
   updated_at: string
+  deleted_at?: string | null
+  deleted_by?: string | null
 }
+/** Ce qui peut aller à la corbeille. */
+export type Jetable = 'moments' | 'folder_items' | 'folders'
 export type FolderCover = { blob: Blob } | { path: string } | null
 
 export type Reaction = { moment_id: string; member_id: string; emoji: string }
@@ -331,6 +340,10 @@ export type FamilyState = {
   commentaires?: boolean
   /** Les vidéos du fil : la base sait les garder (colonne moments.video_path) ; sinon, pas de vidéo dans le fil. */
   videos?: boolean
+  /** La corbeille de 30 jours : la base la connaît (colonnes deleted_at) ; sinon, supprimer efface tout de suite. */
+  corbeille?: boolean
+  /** Ce que j'ai mis à la corbeille (moins de 30 jours) : seulement moi le vois. */
+  jetes?: { moments: Moment[]; folderItems: FolderItem[]; folders: Folder[] }
 }
 
 /** Un interrupteur à distance : allumé, et éventuellement borné dans le temps. */
@@ -371,6 +384,9 @@ export interface Backend {
   ecrit(familyId: string, memberId: string, quoi: Ecrit | null): void
   onEcrit(familyId: string, me: string, cb: (e: { m: string; quoi: Ecrit | null }) => void): () => void
   deleteMoment(moment: Moment): Promise<void>
+  /** Mettre à la corbeille (30 jours), ou en sortir. Effacer pour de bon : deleteMoment, deleteFolderItem, deleteFolder. */
+  jeter(table: Jetable, id: string): Promise<void>
+  restaurer(table: Jetable, id: string): Promise<void>
   /** Un membre peut modifier son vote ; la base n'autorise qu'un vote par sondage. */
   votePoll(moment: Moment, memberId: string, optionIndex: number): Promise<void>
   // Dossiers

@@ -1,6 +1,6 @@
 // Les vidéos à l'écran : couper le passage à garder (comme sur Snap), préparer la vidéo qu'on va envoyer (avec sa
 // progression), et la regarder dans le fil.
-import { Play, Scissors, X } from 'lucide-react'
+import { Pause, Play, Scissors, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as PE } from 'react'
 import { createPortal } from 'react-dom'
 import { select, tap } from '../lib/haptic'
@@ -228,20 +228,20 @@ export function CoupeVideo({ fichier, duree, maxS, extrait, valider, annuler }: 
   const longueur = fin - debut
   const auMax = longueur >= max - 0.05 && max < duree
   return createPortal(
-    <div className="anim-fondu fixed inset-0 z-[96] flex flex-col bg-[#0F0D16] text-white" role="dialog" aria-modal="true" aria-label="Couper la vidéo">
-      {/* en haut : annuler, le titre, valider */}
-      <div className="flex items-center justify-between px-3" style={{ paddingTop: 'calc(var(--sat) + 8px)' }}>
-        <button onClick={() => { tap(); annuler() }} className="presse min-h-11 rounded-full px-3 text-corps font-semibold text-white/85">
-          Annuler
+    <div className="anim-fondu fixed inset-0 z-[96] flex flex-col bg-fond text-encre" role="dialog" aria-modal="true" aria-label="Choisir le passage de la vidéo">
+      {/* en haut : fermer, le titre, lecture / pause (comme l'appareil photo de Nidoo) */}
+      <div className="relative flex h-[56px] shrink-0 items-center justify-between px-4" style={{ marginTop: 'var(--sat)' }}>
+        <button onClick={() => { tap(); annuler() }} className="presse flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-carte text-encre shadow-carte" aria-label="Annuler">
+          <X size={20} />
         </button>
-        <p className="text-corps font-bold">Couper la vidéo</p>
-        <button onClick={() => { tap(); valider({ debut, fin }) }} className="presse ios-primary min-h-11 rounded-full px-5 text-corps font-bold text-white">
-          OK
+        <p className="pointer-events-none absolute inset-x-[72px] truncate text-center text-corps font-semibold">Choisis le passage</p>
+        <button onClick={basculer} className="presse flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-carte text-encre shadow-carte" aria-label={lecture ? 'Mettre en pause' : 'Lire le passage'}>
+          {lecture ? <Pause size={18} fill="currentColor" strokeWidth={0} /> : <Play size={18} fill="currentColor" strokeWidth={0} className="ml-0.5" />}
         </button>
       </div>
 
-      {/* la vidéo, en boucle sur le passage gardé ; toucher : pause / lecture */}
-      <button onClick={basculer} className="relative mt-2 min-h-0 flex-1" aria-label={lecture ? 'Mettre en pause' : 'Lire le passage'}>
+      {/* la vidéo, en boucle sur le passage gardé ; la toucher : pause / lecture */}
+      <button onClick={basculer} className="relative mx-4 mt-1 min-h-0 flex-1 overflow-hidden rounded-[30px] bg-encre shadow-[0_16px_40px_-18px_rgba(36,16,110,0.55)]" aria-label={lecture ? 'Mettre en pause' : 'Lire le passage'}>
         <video
           ref={lecteur}
           src={url}
@@ -253,71 +253,82 @@ export function CoupeVideo({ fichier, duree, maxS, extrait, valider, annuler }: 
           onTimeUpdate={temps}
           className="absolute inset-0 h-full w-full object-contain"
         />
+        <span className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 rounded-full bg-black/40 px-3.5 py-1.5 text-note font-semibold tabular-nums text-white backdrop-blur-md">
+          {mmss(debut)} → {mmss(fin)}
+        </span>
         {!lecture && (
           <span className="absolute inset-0 flex items-center justify-center">
-            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 text-encre">
-              <Play size={28} fill="currentColor" className="ml-1" />
+            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/95 text-teinte shadow-[0_8px_24px_rgba(0,0,0,0.3)]">
+              <Play size={28} fill="currentColor" strokeWidth={0} className="ml-1" />
             </span>
           </span>
         )}
       </button>
 
-      {/* en bas : la durée gardée, et la bande */}
-      <div className="px-4 pt-4" style={{ paddingBottom: 'calc(var(--sab) + 18px)' }}>
-        <div className="mb-3 flex items-center justify-between text-sous">
-          <span className="tabular-nums text-white/70">
-            {mmss(debut)} → {mmss(fin)}
-          </span>
-          <span className={`rounded-full px-2.5 py-1 font-bold tabular-nums ${auMax ? 'bg-white text-encre' : 'bg-white/15 text-white'}`} aria-live="polite">
-            {dureeEnMots(Math.round(longueur))}
-            {max < duree ? ` / ${dureeEnMots(max)} max` : ''}
-          </span>
-        </div>
-        <div ref={bande} className="relative h-14 touch-none select-none" onPointerMove={bouger} onPointerUp={lacher} onPointerCancel={lacher}>
-          {/* les images */}
-          <div className="absolute inset-0 flex overflow-hidden rounded-[10px] bg-white/10">
-            {images.map((u, k) => (
-              <span key={k} className="h-full min-w-0 flex-1 bg-cover bg-center" style={u ? { backgroundImage: `url("${u}")` } : undefined} />
+      {/* en bas : la bande, la durée gardée, et les boutons */}
+      <div className="shrink-0 px-4 pt-4" style={{ paddingBottom: 'calc(var(--sab) + 12px)' }}>
+        <div className="rounded-[24px] bg-carte p-3 shadow-carte">
+          <div className="mb-2.5 flex items-center justify-between gap-2 px-1">
+            <span className="flex min-w-0 items-center gap-2">
+              <img src="./art/stickers/panda-heureux.webp" alt="" className="h-7 w-7 shrink-0 object-contain" />
+              <span className="truncate text-note font-semibold text-brume">{max < duree ? 'Glisse le cadre violet' : 'Tire les poignées'}</span>
+            </span>
+            <span className={`shrink-0 rounded-full px-2.5 py-1 text-note font-bold tabular-nums transition-colors ${auMax ? 'bg-teinte text-white' : 'bg-teinte-doux text-teinte-fonce'}`} aria-live="polite">
+              {dureeEnMots(Math.round(longueur))}
+              {max < duree ? ` / ${dureeEnMots(max)}` : ''}
+            </span>
+          </div>
+          <div ref={bande} className="relative mx-[11px] h-14 touch-none select-none" onPointerMove={bouger} onPointerUp={lacher} onPointerCancel={lacher}>
+            {/* les images */}
+            <div className="absolute inset-0 flex overflow-hidden rounded-[12px] bg-teinte-doux">
+              {images.map((u, k) => (
+                <span key={k} className={`h-full min-w-0 flex-1 bg-cover bg-center ${u ? '' : 'animate-pulse bg-teinte-doux'}`} style={u ? { backgroundImage: `url("${u}")` } : undefined} />
+              ))}
+            </div>
+            {/* ce qui n'est pas gardé : voilé */}
+            <span className="pointer-events-none absolute inset-y-0 left-0 rounded-l-[12px] bg-carte/75" style={{ width: pct(debut) }} />
+            <span className="pointer-events-none absolute inset-y-0 right-0 rounded-r-[12px] bg-carte/75" style={{ width: `${((duree - fin) / duree) * 100}%` }} />
+            {/* le cadre : glisser pour déplacer le passage */}
+            <div
+              className="absolute -inset-y-[3px] cursor-grab rounded-[14px] border-[3px] border-teinte shadow-[0_4px_14px_-4px_rgba(102,70,204,0.55)]"
+              style={{ left: pct(debut), width: pct(longueur) }}
+              onPointerDown={commencer('tout')}
+              aria-hidden="true"
+            >
+              {/* là où en est la lecture */}
+              <span className="pointer-events-none absolute inset-y-0 w-[3px] -translate-x-1/2 rounded-full bg-white shadow-[0_0_0_1px_rgba(102,70,204,0.45)]" style={{ left: `${Math.min(100, Math.max(0, ((instant - debut) / Math.max(longueur, 0.1)) * 100))}%` }} />
+            </div>
+            {/* les poignées : le début, la fin */}
+            {(['debut', 'fin'] as const).map((mode) => (
+              <span
+                key={mode}
+                role="slider"
+                tabIndex={0}
+                aria-label={mode === 'debut' ? 'Début du passage' : 'Fin du passage'}
+                aria-valuemin={0}
+                aria-valuemax={Math.round(duree)}
+                aria-valuenow={Math.round(mode === 'debut' ? debut : fin)}
+                aria-valuetext={mmss(mode === 'debut' ? debut : fin)}
+                onPointerDown={commencer(mode)}
+                onKeyDown={clavier(mode)}
+                className="absolute -inset-y-[3px] z-10 flex w-11 cursor-ew-resize items-center justify-center rounded-[10px] outline-none focus-visible:ring-2 focus-visible:ring-teinte/50"
+                style={{ left: `calc(${pct(mode === 'debut' ? debut : fin)} - 22px)` }}
+              >
+                <span className="flex h-full w-[20px] items-center justify-center rounded-[9px] bg-teinte shadow-[0_2px_8px_rgba(36,16,110,0.35)]">
+                  <span className="h-5 w-[3px] rounded-full bg-white/85" />
+                </span>
+              </span>
             ))}
           </div>
-          {/* ce qui n'est pas gardé, assombri */}
-          <span className="pointer-events-none absolute inset-y-0 left-0 rounded-l-[10px] bg-black/60" style={{ width: pct(debut) }} />
-          <span className="pointer-events-none absolute inset-y-0 right-0 rounded-r-[10px] bg-black/60" style={{ width: `${((duree - fin) / duree) * 100}%` }} />
-          {/* le cadre : glisser pour déplacer le passage */}
-          <div
-            className="absolute -inset-y-[3px] cursor-grab rounded-[12px] border-[3px] border-white shadow-[0_0_0_1px_rgba(0,0,0,0.25)]"
-            style={{ left: pct(debut), width: pct(longueur) }}
-            onPointerDown={commencer('tout')}
-            aria-hidden="true"
-          >
-            {/* là où en est la lecture */}
-            <span className="pointer-events-none absolute inset-y-0 w-[2px] rounded-full bg-white/90" style={{ left: `${Math.min(100, Math.max(0, ((instant - debut) / Math.max(longueur, 0.1)) * 100))}%` }} />
-          </div>
-          {/* les poignées : le début, la fin */}
-          {(['debut', 'fin'] as const).map((mode) => (
-            <span
-              key={mode}
-              role="slider"
-              tabIndex={0}
-              aria-label={mode === 'debut' ? 'Début du passage' : 'Fin du passage'}
-              aria-valuemin={0}
-              aria-valuemax={Math.round(duree)}
-              aria-valuenow={Math.round(mode === 'debut' ? debut : fin)}
-              aria-valuetext={mmss(mode === 'debut' ? debut : fin)}
-              onPointerDown={commencer(mode)}
-              onKeyDown={clavier(mode)}
-              className="absolute -inset-y-[3px] z-10 flex w-11 cursor-ew-resize items-center justify-center outline-none"
-              style={{ left: `calc(${pct(mode === 'debut' ? debut : fin)} - 22px)` }}
-            >
-              <span className="flex h-full w-[18px] items-center justify-center rounded-[8px] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.35)]">
-                <span className="h-5 w-[3px] rounded-full bg-[#0F0D16]/40" />
-              </span>
-            </span>
-          ))}
         </div>
-        <p className="mt-3 text-center text-note text-white/60">
-          {max < duree ? `Glisse le cadre sur le passage à garder : ${dureeEnMots(max)} au plus.` : 'Tire les poignées pour raccourcir la vidéo.'}
-        </p>
+        <div className="mt-3 flex items-center gap-3">
+          <button onClick={() => { tap(); annuler() }} className="presse flex min-h-[56px] flex-1 items-center justify-center rounded-full bg-carte text-corps font-bold text-encre shadow-carte">
+            Annuler
+          </button>
+          <button onClick={() => { tap(); valider({ debut, fin }) }} className="presse ios-primary flex min-h-[56px] flex-[1.35] items-center justify-center gap-2 rounded-full text-corps font-bold text-white">
+            <Scissors size={19} strokeWidth={2.4} /> Garder ce passage
+          </button>
+        </div>
       </div>
     </div>,
     document.body,
@@ -328,23 +339,23 @@ export function CoupeVideo({ fichier, duree, maxS, extrait, valider, annuler }: 
  *  qu'on peut encore couper. */
 export function ApercuVideo({ v, onRetirer, onCouper }: { v: VideoEnCours; onRetirer: () => void; onCouper?: () => void }) {
   const pct = Math.round(v.progres * 100)
-  const r = 26
-  const tour = 2 * Math.PI * r
   return (
     <div className="relative mt-2 overflow-hidden rounded-[20px] bg-black">
       {v.etat === 'pret' && v.urlPrete ? (
         <video key={v.urlPrete} src={v.urlPrete} poster={v.afficheUrl} controls playsInline preload="metadata" className="block max-h-[360px] w-full" />
       ) : (
-        <video key={v.url} src={v.url} muted playsInline preload="metadata" className="block max-h-[360px] min-h-[180px] w-full opacity-50" />
+        <video key={v.url} src={v.url} muted playsInline preload="metadata" className="block max-h-[360px] min-h-[200px] w-full opacity-40" />
       )}
       {v.etat === 'prep' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white" role="status" aria-live="polite">
-          <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true">
-            <circle cx="32" cy="32" r={r} fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="5" />
-            <circle cx="32" cy="32" r={r} fill="none" stroke="#fff" strokeWidth="5" strokeLinecap="round" strokeDasharray={tour} strokeDashoffset={tour * (1 - v.progres)} transform="rotate(-90 32 32)" style={{ transition: 'stroke-dashoffset 0.3s ease' }} />
-            <text x="32" y="37" textAnchor="middle" fontSize="14" fontWeight="700" fill="#fff">{pct}%</text>
-          </svg>
-          <span className="text-sous font-semibold [text-shadow:0_1px_6px_rgba(0,0,0,0.4)]">Préparation de la vidéo…</span>
+        <div className="absolute inset-0 flex items-center justify-center p-4" role="status" aria-live="polite">
+          <div className="anim-pop flex w-full max-w-[250px] flex-col items-center rounded-[22px] bg-carte/95 px-5 pb-4 pt-3 text-center text-encre shadow-[0_12px_32px_-12px_rgba(36,16,110,0.45)]">
+            <img src="./art/stickers/panda-motive.webp" alt="" className="anim-flotte h-14 w-14 object-contain" />
+            <p className="mt-1 font-rond text-sous font-bold">On prépare ta vidéo…</p>
+            <span className="mt-2.5 block h-2 w-full overflow-hidden rounded-full bg-teinte-doux">
+              <span className="block h-full rounded-full bg-teinte transition-[width] duration-300 ease-out" style={{ width: `${Math.max(4, pct)}%` }} />
+            </span>
+            <p className="mt-1.5 text-note tabular-nums text-brume">{pct} % · plus légère pour ta famille</p>
+          </div>
         </div>
       )}
       {v.etat === 'pret' && v.prep && (
@@ -378,8 +389,8 @@ export function VideoDuFil({ mo }: { mo: Moment }) {
         <button onClick={() => { tap(); setLecture(true) }} className="relative block w-full" aria-label={`Regarder la vidéo${mo.duree ? `, ${dureeEnMots(mo.duree)}` : ''}`}>
           {mo.poster_url ? <img src={mo.poster_url} alt="" loading="lazy" className="block max-h-[540px] w-full object-cover" /> : <span className="block aspect-[4/3] w-full bg-gradient-to-br from-[#3A3358] to-[#17141F]" />}
           <span className="absolute inset-0 flex items-center justify-center">
-            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 text-encre shadow-[0_8px_24px_rgba(0,0,0,0.3)]">
-              <Play size={28} fill="currentColor" className="ml-1" />
+            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/95 text-teinte shadow-[0_8px_24px_rgba(0,0,0,0.3)]">
+              <Play size={28} fill="currentColor" strokeWidth={0} className="ml-1" />
             </span>
           </span>
           {!!mo.duree && <span className="absolute bottom-2.5 left-2.5 rounded-full bg-black/55 px-2.5 py-1 text-note font-semibold tabular-nums text-white">{mmss(mo.duree)}</span>}

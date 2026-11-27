@@ -1,0 +1,73 @@
+name: Sauvegarde de nuit
+
+# Chaque nuit : vider la corbeille (plus de 30 jours), copier les photos et vidéos dans Cloudflare R2, et une copie
+# chiffrée de la base (30 jours gardés). Tant que les secrets ne sont pas réglés, ne fait rien (voir docs/sauvegarde.md).
+
+on:
+  schedule:
+    - cron: '23 2 * * *' # 3 h 23 à Paris l'hiver, 4 h 23 l'été
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sauvegarde
+  cancel-in-progress: false
+
+jobs:
+  sauvegarder:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET: ${{ secrets.R2_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+
+      - name: Ce qui est réglé
+        id: regle
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] && echo "supabase=oui" >> "$GITHUB_OUTPUT"
+          [ -n "$R2_BUCKET" ] && [ -n "$R2_ACCESS_KEY_ID" ] && echo "r2=oui" >> "$GITHUB_OUTPUT"
+          [ -n "$SUPABASE_DB_URL" ] && [ -n "$BACKUP_PASSPHRASE" ] && echo "base=oui" >> "$GITHUB_OUTPUT"
+          [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] || echo "::notice::Sauvegarde pas encore réglée : voir docs/sauvegarde.md"
+          exit 0
+
+      - name: Vider la corbeille (plus de 30 jours)
+        if: steps.regle.outputs.supabase == 'oui'
+        run: node scripts/sauvegarde.mjs corbeille
+
+      - name: Copier les photos et vidéos
+        if: steps.regle.outputs.supabase == 'oui' && steps.regle.outputs.r2 == 'oui'
+        run: node scripts/sauvegarde.mjs fichiers
+
+      - name: Copier la base (chiffrée)
+        if: steps.regle.outputs.r2 == 'oui' && steps.regle.outputs.base == 'oui'
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          # pg_dump 17, comme la base
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSo /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-17 > /dev/null
+          /usr/lib/postgresql/17/bin/pg_dump "$SUPABASE_DB_URL" --format=custom --no-owner --no-privileges \
+            --schema=public --schema=private --schema=auth --schema=storage --file=base.dump
+          # chiffrée : sans la phrase secrète, la copie ne se lit pas
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -in base.dump -out base.dump.enc -pass env:BACKUP_PASSPHRASE
+          rm -f base.dump
+          DUMP_FICHIER=base.dump.enc node scripts/sauvegarde.mjs base

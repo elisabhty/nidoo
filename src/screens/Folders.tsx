@@ -10,7 +10,7 @@ import { Art, Avatar, Btn, choisir, confirmer, Rond, Screen, SearchField, Sheet,
 import { contentLine, folderStats, membersOf, subtreeIds, whoText } from '../lib/folders'
 import { select, success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
-import type { Folder, FolderItem } from '../lib/types'
+import type { FamilyState, Folder, FolderItem } from '../lib/types'
 import { ago, compressImage, errorText } from '../lib/util'
 
 // Les albums (photos, notes, vocaux, vidéos), avec les proches de son choix. Ils vivent dans le fil depuis que le fil
@@ -19,8 +19,9 @@ import { ago, compressImage, errorText } from '../lib/util'
 
 // ═════════════════════════ Tous les albums ═════════════════════════
 
-export function AlbumsListe({ onOpen, onBack }: { onOpen: (id: string) => void; onBack: () => void }) {
+export function AlbumsListe({ onOpen, onBack, onCorbeille }: { onOpen: (id: string) => void; onBack: () => void; onCorbeille?: () => void }) {
   const { state } = useHome()
+  const nbJetes = (state.jetes?.moments.length ?? 0) + (state.jetes?.folderItems.length ?? 0) + (state.jetes?.folders.length ?? 0)
   const [query, setQuery] = useState('')
   const [creating, setCreating] = useState(false)
 
@@ -45,7 +46,7 @@ export function AlbumsListe({ onOpen, onBack }: { onOpen: (id: string) => void; 
         }
         trailing={<Rond label="Nouvel album" tint onClick={() => setCreating(true)}><FolderPlus size={19} /></Rond>}
       >
-        <p className="-mt-1 mb-4 px-5 text-sous text-brume">Photos, notes, dessins, voix et vidéos, avec les proches de votre choix.</p>
+        <p className="-mt-1 mb-4 px-5 text-sous text-brume">Photos, notes, dessins et vidéos, avec les proches de votre choix.</p>
 
         {total === 0 ? (
           <Vide art="picto-cadeau" title="Votre premier souvenir commence ici" text="Un album rassemble les souvenirs que tu choisis, avec les proches de ton choix. Les autres ne le voient pas.">
@@ -66,6 +67,21 @@ export function AlbumsListe({ onOpen, onBack }: { onOpen: (id: string) => void; 
               </div>}</ProgressiveList>
             )}
           </>
+        )}
+
+        {/* comme dans Photos sur l'iPhone : ce qu'on a supprimé, gardé 30 jours */}
+        {state.corbeille && onCorbeille && (
+          <button onClick={() => { tap(); onCorbeille() }} className="presse mx-4 mt-6 flex min-h-[60px] w-[calc(100%-2rem)] items-center gap-3 rounded-[20px] bg-carte px-4 text-left shadow-carte">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teinte-doux text-teinte-fonce">
+              <Trash2 size={19} strokeWidth={2.3} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-corps font-semibold">Supprimés récemment</span>
+              <span className="block text-note text-brume">Gardés 30 jours, puis effacés</span>
+            </span>
+            {nbJetes > 0 && <span className="text-sous font-semibold tabular-nums text-brume">{nbJetes}</span>}
+            <ChevronRight size={18} strokeWidth={2.4} className="shrink-0 text-pale" />
+          </button>
         )}
       </Screen>
       {creating && <NewFolderSheet onClose={() => setCreating(false)} onCreated={onOpen} />}
@@ -118,7 +134,29 @@ type Open =
   | { k: 'photos' }
   | { k: 'media'; kind: 'audio' | 'video' }
 
+const IL_RESTE = ' Tu pourras le remettre pendant 30 jours : Albums › Supprimés récemment.'
+
+/** Retirer un souvenir d'un album : à la corbeille quand la base la connaît (30 jours pour le remettre), sinon effacé. */
+function useRetirer() {
+  const { state, run } = useHome()
+  const corbeille = !!state.corbeille
+  const retirer = (item: FolderItem, message: string) =>
+    corbeille
+      ? run(
+          (api) => api.jeter('folder_items', item.id),
+          message,
+          (st: FamilyState) => ({
+            ...st,
+            folderItems: st.folderItems.filter((x) => x.id !== item.id),
+            jetes: { moments: st.jetes?.moments ?? [], folders: st.jetes?.folders ?? [], folderItems: [{ ...item, deleted_at: new Date().toISOString(), deleted_by: st.me.id }, ...(st.jetes?.folderItems ?? [])] },
+          }),
+        )
+      : run((api) => api.deleteFolderItem(item), message)
+  return { retirer, apres: corbeille ? IL_RESTE : '' }
+}
+
 export function FolderView({ id, onBack, retour = 'Le fil' }: { id: string; onBack: () => void; retour?: string }) {
+  const { retirer, apres } = useRetirer()
   const { state, run, toast } = useHome()
   const { me, members, folders, folderItems, folderMembers } = state
   const folder = folders.find((f) => f.id === id)!
@@ -155,8 +193,8 @@ export function FolderView({ id, onBack, retour = 'Le fil' }: { id: string; onBa
   }
   const removeItem = async (item: FolderItem) => {
     const image = item.kind === 'photo'
-    if (!(await confirmer({ title: image ? 'Retirer cette photo de l’album ?' : 'Retirer ce souvenir de l’album ?', message: image ? 'La photo et son message restent dans le fil familial. Seule la copie de cet album est retirée.' : 'Il sera retiré pour tous les membres de cet album.', confirm:'Retirer de l’album',destructive:true }))) return
-    await run(api => api.deleteFolderItem(item),'Souvenir retiré de l’album')
+    if (!(await confirmer({ title: image ? 'Retirer cette photo de l’album ?' : 'Retirer ce souvenir de l’album ?', message: (image ? 'La photo et son message restent dans le fil familial. Seule la copie de cet album est retirée.' : 'Il sera retiré pour tous les membres de cet album.') + apres, confirm:'Retirer de l’album',destructive:true }))) return
+    await retirer(item, 'Souvenir retiré de l’album')
   }
   const add = async () => {
     const i = await choisir({ title:`Ajouter dans « ${folder.name} »`, actions:[{label:'Ajouter des photos'},{label:'Note écrite'},{label:'Note dessinée'},{label:'Vidéo souvenir'}] })
@@ -167,13 +205,27 @@ export function FolderView({ id, onBack, retour = 'Le fil' }: { id: string; onBa
   }
 
   const remove = async () => {
+    const corbeille = !!state.corbeille
     const ok = await confirmer({
       title: `Supprimer « ${folder.name} » ?`,
-      message: 'Cet album et tout son contenu seront supprimés pour tous les membres.',
+      message: corbeille ? 'Cet album et tout son contenu disparaissent pour tous les membres. Tu pourras le remettre pendant 30 jours : Albums › Supprimés récemment.' : 'Cet album et tout son contenu seront supprimés pour tous les membres.',
       confirm: 'Supprimer l’album',
       destructive: true,
     })
-    if (ok && (await run((api) => api.deleteFolder(folder), 'Album supprimé'))) onBack()
+    if (!ok) return
+    const fait = corbeille
+      ? await run(
+          (api) => api.jeter('folders', folder.id),
+          'Album supprimé',
+          (st: FamilyState) => ({
+            ...st,
+            folders: st.folders.filter((d) => d.id !== folder.id && d.root_id !== folder.id),
+            folderItems: st.folderItems.filter((x) => x.root_id !== folder.id),
+            jetes: { moments: st.jetes?.moments ?? [], folderItems: st.jetes?.folderItems ?? [], folders: [{ ...folder, deleted_at: new Date().toISOString(), deleted_by: st.me.id }, ...(st.jetes?.folders ?? [])] },
+          }),
+        )
+      : await run((api) => api.deleteFolder(folder), 'Album supprimé')
+    if (fait) onBack()
   }
 
   const leave = async () => {
@@ -385,7 +437,8 @@ function Bloc({ title, children }: { title: string; children: ReactNode }) {
 // ═════════════════════════ Visionneuse ═════════════════════════
 
 function PhotoViewer({ photos, start, admin, onClose }: { photos: FolderItem[]; start: number; folder: Folder; admin: boolean; onClose: () => void }) {
-  const { state, run } = useHome()
+  const { retirer, apres } = useRetirer()
+  const { state } = useHome()
   const [i, setI] = useState(start)
   const [dx, setDx] = useState(0)
   const from = useRef<number | null>(null)
@@ -409,9 +462,9 @@ function PhotoViewer({ photos, start, admin, onClose }: { photos: FolderItem[]; 
     if (!list.length) return
     const k = await choisir({ actions: list })
     const label = list[k]?.label
-    if (label === 'Retirer de l’album' && (await confirmer({ title: 'Retirer ce souvenir de l’album ?', message:'Le fil familial reste inchangé.', confirm: 'Retirer de l’album', destructive: true }))) {
+    if (label === 'Retirer de l’album' && (await confirmer({ title: 'Retirer ce souvenir de l’album ?', message: 'Le fil familial reste inchangé.' + apres, confirm: 'Retirer de l’album', destructive: true }))) {
       if (photos.length === 1) onClose()
-      await run((api) => api.deleteFolderItem(p), 'Souvenir retiré de l’album')
+      await retirer(p, 'Souvenir retiré de l’album')
     }
   }
 
@@ -481,6 +534,7 @@ function PhotoViewer({ photos, start, admin, onClose }: { photos: FolderItem[]; 
 // ═════════════════════════ Feuilles ═════════════════════════
 
 function NoteSheet({ folder, note, admin, onClose, onSaved }: { folder: Folder; note?: FolderItem; admin: boolean; onClose: () => void; onSaved: () => void }) {
+  const { retirer, apres } = useRetirer()
   const { state, run } = useHome()
   const [title, setTitle] = useState(note?.title ?? '')
   const [body, setBody] = useState(note?.body ?? '')
@@ -526,8 +580,8 @@ function NoteSheet({ folder, note, admin, onClose, onSaved }: { folder: Folder; 
           kind="gris"
           className="mt-2 [&>button]:!text-rouge"
           onClick={async () => {
-            if (!(await confirmer({ title: 'Supprimer cette note ?', message: 'Elle disparaîtra pour tous les membres.', confirm: 'Supprimer', destructive: true }))) return
-            if (await run((api) => api.deleteFolderItem(note), 'Note supprimée')) onClose()
+            if (!(await confirmer({ title: 'Supprimer cette note ?', message: 'Elle disparaîtra pour tous les membres.' + apres.replace('le remettre', 'la remettre'), confirm: 'Supprimer', destructive: true }))) return
+            if (await retirer(note, 'Note supprimée')) onClose()
           }}
         >
           <Trash2 size={17} /> Supprimer la note

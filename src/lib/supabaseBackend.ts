@@ -23,7 +23,7 @@ import { emptyCounts, type WeeklyCounts } from './weekly'
 // Même chose pour les vidéos du fil (colonnes video_path et poster_path, supabase/migrations/20261127210000_videos_fil.sql).
 const colonnesVues = new Map<string, { ok: boolean; at: number }>()
 let sbCommentaires: SupabaseClient | null = null
-async function colonneEnBase(colonne: 'reply_to' | 'video_path') {
+async function colonneEnBase(colonne: 'reply_to' | 'video_path' | 'deleted_at') {
   const vu = colonnesVues.get(colonne)
   if (vu?.ok || (vu && Date.now() - vu.at < 60000) || !sbCommentaires) return vu?.ok ?? false
   const { error } = await sbCommentaires.from('moments').select(colonne).limit(1)
@@ -32,6 +32,9 @@ async function colonneEnBase(colonne: 'reply_to' | 'video_path') {
 }
 const commentairesEnBase = () => colonneEnBase('reply_to')
 const videosEnBase = () => colonneEnBase('video_path')
+// …et pour la corbeille de 30 jours (supabase/migrations/20261127230000_corbeille.sql)
+const corbeilleEnBase = () => colonneEnBase('deleted_at')
+const TRENTE_JOURS = 30 * 86400000
 
 function check<T>(r: { data: T; error: { message: string } | null }): T {
   if (r.error) throw new Error(r.error.message)
@@ -393,6 +396,22 @@ export function createSupabaseBackend(): Backend {
         for (const g of parties) if (isMemory(g.state)) g.photos = g.state.paths.map((p) => byPath.get(p) ?? null)
         for (const p of groupes) if (p.kind === 'annee') p.photos = (p.state as AnneeState).photos.map((x) => byPath.get(x) ?? null)
       }
+      // La corbeille : ce que j'ai supprimé (la base ne montre la corbeille qu'à la personne qui l'a remplie) ; un
+      // album supprimé emporte ses souvenirs avec lui. Passé 30 jours, on l'efface pour de bon, sans attendre la nuit.
+      const corbeille = await corbeilleEnBase()
+      const jete = (x: { deleted_at?: string | null }) => !!x.deleted_at
+      const perime = (x: { deleted_at?: string | null }) => !!x.deleted_at && Date.now() - Date.parse(x.deleted_at) > TRENTE_JOURS
+      const albumsVivants = new Set(dossiers.filter((d) => !jete(d) && !dossiers.some((r) => r.id === d.root_id && jete(r))).map((d) => d.id))
+      const jetes = { moments: moms.filter((m) => jete(m) && !perime(m)), folders: dossiers.filter((d) => jete(d) && !perime(d)), folderItems: contenus.filter((i) => jete(i) && !perime(i)) }
+      if (corbeille) {
+        const vieux = { moments: moms.filter(perime), folders: dossiers.filter(perime), folderItems: contenus.filter(perime) }
+        if (vieux.moments.length || vieux.folders.length || vieux.folderItems.length)
+          void (async () => {
+            for (const m of vieux.moments) await this.deleteMoment(m).catch(() => undefined)
+            for (const i of vieux.folderItems) await this.deleteFolderItem(i).catch(() => undefined)
+            for (const d of vieux.folders) await this.deleteFolder(d).catch(() => undefined)
+          })()
+      }
       const state: FamilyState = {
         family: check(family) as Family,
         me,
@@ -402,11 +421,11 @@ export function createSupabaseBackend(): Backend {
           const w = check(weekly) as { counts: Partial<WeeklyCounts>; claimed: string | null } | null
           return { counts: { ...emptyCounts(), ...w?.counts }, claimed: w?.claimed ?? null }
         })(),
-        moments: moms,
+        moments: moms.filter((m) => !jete(m)),
         pollVotes: (check(pollVotes) ?? []) as PollVote[],
-        folders: dossiers,
+        folders: dossiers.filter((d) => albumsVivants.has(d.id)),
         folderMembers: (check(folderMembers) ?? []) as FolderMember[],
-        folderItems: contenus,
+        folderItems: contenus.filter((i) => !jete(i) && albumsVivants.has(i.folder_id)),
         reactions: (check(reactions) ?? []) as Reaction[],
         thoughts: (check(thoughts) ?? []) as Thought[],
         drawings: dessins.filter((d) => traits.has(d.id)).map((d) => ({ ...d, data: traits.get(d.id)! })),
@@ -433,6 +452,8 @@ export function createSupabaseBackend(): Backend {
         positionsReglables: reglagesEnBase === true,
         commentaires: await commentairesEnBase(),
         videos: await videosEnBase(),
+        corbeille,
+        jetes,
         ...(await nosEndroits(fid, adresses)),
       }
       return state
@@ -707,6 +728,12 @@ export function createSupabaseBackend(): Backend {
       ecrivains.get(fid)!.add(f)
       void canalFamille(fid).catch(() => {})
       return () => void ecrivains.get(fid)?.delete(f)
+    },
+    async jeter(table, id) {
+      check(await sb.rpc('corbeille_jeter', { p_table: table, p_id: id }))
+    },
+    async restaurer(table, id) {
+      check(await sb.rpc('corbeille_restaurer', { p_table: table, p_id: id }))
     },
     async deleteMoment(moment) {
       const fichiers = [moment.image_path, moment.audio_path, moment.video_path, moment.poster_path].filter((x): x is string => !!x)
