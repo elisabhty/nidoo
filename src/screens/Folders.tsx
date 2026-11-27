@@ -159,12 +159,11 @@ export function FolderView({ id, onBack, retour = 'Le fil' }: { id: string; onBa
     await run(api => api.deleteFolderItem(item),'Souvenir retiré de l’album')
   }
   const add = async () => {
-    const i = await choisir({ title:`Ajouter dans « ${folder.name} »`, actions:[{label:'Ajouter des photos'},{label:'Note écrite'},{label:'Note dessinée'},{label:'Souvenir vocal'},{label:'Vidéo souvenir'}] })
+    const i = await choisir({ title:`Ajouter dans « ${folder.name} »`, actions:[{label:'Ajouter des photos'},{label:'Note écrite'},{label:'Note dessinée'},{label:'Vidéo souvenir'}] })
     if (i === 0) setSheet({k:'photos'})
     if (i === 1) setSheet({k:'note'})
     if (i === 2) void openEditor()
-    if (i === 3) setSheet({k:'media',kind:'audio'})
-    if (i === 4) setSheet({k:'media',kind:'video'})
+    if (i === 3) setSheet({k:'media',kind:'video'})
   }
 
   const remove = async () => {
@@ -224,7 +223,8 @@ export function FolderView({ id, onBack, retour = 'Le fil' }: { id: string; onBa
   const addCurrent = () => {
     if (filter === 'photos') setSheet({k:'photos'})
     else if (filter === 'notes') setSheet({ k: 'note' })
-    else if (filter === 'audio' || filter === 'video') setSheet({k:'media',kind:filter})
+    // plus de nouveaux vocaux (27 novembre) : ceux déjà gardés s'écoutent toujours
+    else if (filter === 'video') setSheet({k:'media',kind:'video'})
     else void add()
   }
 
@@ -312,8 +312,8 @@ export function FolderView({ id, onBack, retour = 'Le fil' }: { id: string; onBa
             {!hasResults && (q || filter !== 'photos') && <div className="px-5 py-7 text-center">
               <Art name={filter === 'notes' ? 'picto-missions' : 'picto-photo'} size={64} className="mx-auto" />
               <h2 className="mt-3 font-rond text-titre2">{q ? 'Aucun résultat' : filter === 'notes' ? 'Ta première note' : filter === 'audio' ? 'Une histoire à écouter' : filter === 'video' ? 'Un moment à regarder' : filter === 'photos' ? 'Vos photos auront leur place ici' : 'Vos souvenirs commencent ici'}</h2>
-              <p className="mx-auto mt-2 max-w-[290px] text-sous text-brume">{q ? 'Essaie un autre mot ou retrouve tout le contenu de l’album.' : 'Photos du téléphone ou du fil, notes écrites ou dessinées, voix et vidéos : garde ici ce qui compte.'}</p>
-              {q ? <button onClick={() => { setQuery(''); setFilter('tout') }} className="presse mt-4 min-h-11 text-sous font-semibold text-teinte-fonce">Effacer la recherche</button> : <Btn className="mt-5" onClick={addCurrent}>{filter === 'photos' ? 'Ajouter des photos' : filter === 'notes' ? 'Écrire une note' : filter === 'audio' ? 'Créer un souvenir vocal' : filter === 'video' ? 'Ajouter une vidéo' : 'Ajouter mon premier souvenir'}</Btn>}
+              <p className="mx-auto mt-2 max-w-[290px] text-sous text-brume">{q ? 'Essaie un autre mot ou retrouve tout le contenu de l’album.' : 'Photos du téléphone ou du fil, notes écrites ou dessinées, vidéos : garde ici ce qui compte.'}</p>
+              {q ? <button onClick={() => { setQuery(''); setFilter('tout') }} className="presse mt-4 min-h-11 text-sous font-semibold text-teinte-fonce">Effacer la recherche</button> : <Btn className="mt-5" onClick={addCurrent}>{filter === 'photos' ? 'Ajouter des photos' : filter === 'notes' ? 'Écrire une note' : filter === 'video' ? 'Ajouter une vidéo' : 'Ajouter mon premier souvenir'}</Btn>}
             </div>}
 
             {/* les photos : dans « Tout », seulement s'il y en a (« Ajouter », en haut, sert à en mettre) */}

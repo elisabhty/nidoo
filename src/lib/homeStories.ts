@@ -123,7 +123,7 @@ export function homeStories(state: Sources, meId: string, next: NextEvent, now =
       kind: 'invitation',
       label: 'Rien de neuf cette semaine',
       title: 'Donne des nouvelles à la famille',
-      detail: 'Une photo, un petit mot ou un vocal dans le fil',
+      detail: 'Une photo ou un petit mot dans le fil',
       target: 'fil',
     })
   }

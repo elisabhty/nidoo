@@ -2,7 +2,7 @@
 // souvenirs et le fil actuel »). En haut, « Quoi de neuf ? » pour publier (à toute la famille, ou dans un album) ;
 // puis les albums (les anciens Souvenirs) ; puis le fil : les publications, des plus récentes aux plus anciennes, avec
 // leurs réactions et leurs commentaires, et ce que chacun ajoute dans les albums qu'on partage avec lui.
-import { ArrowUp, BookOpen, BookmarkCheck, BookmarkPlus, ChartNoAxesColumn, ChevronDown, ChevronRight, Ellipsis, Heart, Images, Lock, MessageCircle, Mic, Plus, Search, Smile, Sparkles, Trash2, UsersRound, X } from 'lucide-react'
+import { ArrowUp, BookOpen, BookmarkCheck, BookmarkPlus, ChartNoAxesColumn, ChevronDown, ChevronRight, Ellipsis, Heart, Images, Lock, MessageCircle, Plus, Search, Smile, Sparkles, UsersRound, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { prendrePhoto } from '../components/appareil'
@@ -20,7 +20,7 @@ import { cleSticker, PERSO } from '../lib/stickers'
 import type { FamilyState, Folder, FolderItem, Member, Moment } from '../lib/types'
 import { ago, compressImage } from '../lib/util'
 import { AlbumsListe, FolderView, NewFolderSheet } from './Folders'
-import { Apercu, mmss, Sondage, SondageCompose, Texte, useEnregistreur, Vocal, type NouvelEnvoi, type VocalPret } from './Moments'
+import { Apercu, Sondage, SondageCompose, Texte, Vocal, type NouvelEnvoi } from './Moments'
 
 // ═════════════════════════ L'onglet : le fil, la liste des albums, un album ═════════════════════════
 
@@ -102,7 +102,7 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
   const [filtre, setFiltre] = useState<Filtre>('tout')
   const [chercher, setChercher] = useState(false)
   const [recherche, setRecherche] = useState('')
-  const [compose, setCompose] = useState<null | { vocal?: boolean; fichier?: File }>(null)
+  const [compose, setCompose] = useState<null | { fichier?: File }>(null)
   const [sondage, setSondage] = useState<string | null>(null)
   const [commentaires, setCommentaires] = useState<{ id: string; ecrire: boolean } | null>(null)
   const [plein, setPlein] = useState<string | null>(null)
@@ -228,9 +228,8 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
                 <span className="truncate">Quoi de neuf, {me.display_name} ?</span>
               </button>
             </div>
-            <div className="mt-2.5 grid grid-cols-3 gap-1 border-t border-trait pt-2">
+            <div className="mt-2.5 grid grid-cols-2 gap-1 border-t border-trait pt-2">
               <Raccourci icone={<Images size={20} strokeWidth={2.2} className="text-vert-fonce" />} label="Photo" onClick={() => void ajouterPhoto()} />
-              <Raccourci icone={<Mic size={19} strokeWidth={2.3} className="text-rouge" />} label="Vocal" onClick={() => { tap(); setCompose({ vocal: true }) }} />
               <Raccourci icone={<ChartNoAxesColumn size={19} strokeWidth={2.4} className="text-peche-fonce" />} label="Sondage" onClick={() => { tap(); setSondage('') }} />
             </div>
           </section>
@@ -265,7 +264,7 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
               <div className="flex flex-col items-center px-8 pb-6 pt-8 text-center">
                 <Art name="picto-bulle" size={72} className="anim-flotte" />
                 <p className="mt-3 font-rond text-titre3">Le fil est tout neuf</p>
-                <p className="mt-1 max-w-[290px] text-sous text-brume">Une photo, un mot, un vocal : toute la famille le voit, réagit et commente.</p>
+                <p className="mt-1 max-w-[290px] text-sous text-brume">Une photo, un mot, un sondage : toute la famille le voit, réagit et commente.</p>
                 <Btn className="mt-5 max-w-[240px]" onClick={() => setCompose({})}>Publier quelque chose</Btn>
               </div>
             ) : (
@@ -300,7 +299,6 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
 
       {compose && (
         <NouvellePublication
-          vocal={compose.vocal}
           fichier={compose.fichier}
           onSondage={(question) => { setCompose(null); setSondage(question) }}
           onClose={(ok) => {
@@ -932,20 +930,17 @@ function Commentaire({ c, aime, nbAime }: { c: Moment; aime: boolean; nbAime: nu
 
 // ═════════════════════════ Publier ═════════════════════════
 
-function NouvellePublication({ vocal: depuisVocal, fichier, onSondage, onClose }: { vocal?: boolean; fichier?: File; onSondage: (question: string) => void; onClose: (publie: boolean) => void }) {
+function NouvellePublication({ fichier, onSondage, onClose }: { fichier?: File; onSondage: (question: string) => void; onClose: (publie: boolean) => void }) {
   const { state, run, toast } = useHome()
   const { me, family, folders, folderMembers, members } = state
   const [texte, setTexte] = useState('')
   // où : toute la famille (null), ou un album (et seulement ses membres)
   const [ou, setOu] = useState<string | null>(null)
   const [photo, setPhoto] = useState<{ blob: Blob; url: string } | null>(null)
-  const [vocal, setVocal] = useState<(VocalPret & { url: string }) | null>(null)
   const [sticker, setSticker] = useState<string | null>(null)
   const [tiroir, setTiroir] = useState(false)
-  const [micro, setMicro] = useState(!!depuisVocal)
   const [decorer, setDecorer] = useState<File | null>(null)
   const [envoi, setEnvoi] = useState(false)
-  const rec = useEnregistreur((m) => toast(m, 'err'))
   const input = useRef<HTMLInputElement>(null)
   const zone = useRef<HTMLTextAreaElement>(null)
   const albums = folders.filter((f) => !f.parent_id)
@@ -958,19 +953,16 @@ function NouvellePublication({ vocal: depuisVocal, fichier, onSondage, onClose }
         if (x) URL.revokeObjectURL(x.url)
         return { blob, url: URL.createObjectURL(blob) }
       })
-      setVocal(null)
       setSticker(null)
-      setMicro(false)
     } catch {
       toast('Cette photo ne s’ouvre pas. Essaie une autre.', 'err')
     }
   }
   useEffect(() => {
     if (fichier) void poserPhoto(fichier)
-    else if (!depuisVocal) window.setTimeout(() => zone.current?.focus(), 350)
+    else window.setTimeout(() => zone.current?.focus(), 350)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => void (photo && URL.revokeObjectURL(photo.url)), [photo])
-  useEffect(() => () => void (vocal && URL.revokeObjectURL(vocal.url)), [vocal])
   useEffect(() => {
     const z = zone.current
     if (!z) return
@@ -996,20 +988,10 @@ function NouvellePublication({ vocal: depuisVocal, fichier, onSondage, onClose }
     if (i < 0) return
     const id = i === 0 ? null : albums[i - 1].id
     setOu(id)
-    // un album garde des photos, des mots et des vocaux : pas de sticker seul
+    // un album garde des photos et des mots : pas de sticker seul
     if (id) setSticker(null)
   }
-  const arreterVocal = async (garder: boolean) => {
-    const v = await rec.arreter(garder)
-    if (v) {
-      setVocal({ ...v, url: URL.createObjectURL(v.blob) })
-      setPhoto(null)
-      setSticker(null)
-      setMicro(false)
-    }
-  }
-
-  const pret = !!(texte.trim() || photo || vocal || sticker) && !rec.enCours
+  const pret = !!(texte.trim() || photo || sticker)
   const publier = async () => {
     if (!pret || envoi) return
     setEnvoi(true)
@@ -1018,11 +1000,10 @@ function NouvellePublication({ vocal: depuisVocal, fichier, onSondage, onClose }
     if (album) {
       ok = await run(async (api) => {
         if (photo) await api.addFolderItem(album, me.id, { kind: 'photo', blob: photo.blob, body: t || undefined })
-        else if (vocal) await api.addFolderItem(album, me.id, { kind: 'audio', blob: vocal.blob, title: t || undefined })
         else await api.addFolderItem(album, me.id, { kind: 'message', body: t })
       })
     } else {
-      const m: NouvelEnvoi = { body: t || undefined, blob: photo?.blob, sticker: sticker ?? undefined, audio: vocal ? { blob: vocal.blob, duree: vocal.duree, ondes: vocal.ondes } : undefined }
+      const m: NouvelEnvoi = { body: t || undefined, blob: photo?.blob, sticker: sticker ?? undefined }
       ok = await run((api) => api.postMoment(family.id, me.id, m))
     }
     setEnvoi(false)
@@ -1032,13 +1013,11 @@ function NouvellePublication({ vocal: depuisVocal, fichier, onSondage, onClose }
     }
   }
   const fermer = async () => {
-    if (rec.enCours) await rec.arreter(false)
-    if ((texte.trim() || photo || vocal) && !(await confirmer({ title: 'Abandonner cette publication ?', confirm: 'Abandonner', destructive: true }))) return
+    if ((texte.trim() || photo) && !(await confirmer({ title: 'Abandonner cette publication ?', confirm: 'Abandonner', destructive: true }))) return
     onClose(false)
   }
 
   const idsAlbum = album ? membersOf(folderMembers, album.id) : []
-  const apercuVocal: Moment | null = vocal ? { id: 'apercu-vocal', family_id: family.id, member_id: me.id, image_path: null, body: null, challenge: null, created_at: new Date().toISOString(), audio_path: 'apercu', audio_url: vocal.url, duree: Math.max(1, Math.round(vocal.duree)), ondes: vocal.ondes } : null
 
   return (
     <>
@@ -1082,9 +1061,9 @@ function NouvellePublication({ vocal: depuisVocal, fichier, onSondage, onClose }
           value={texte}
           maxLength={1000}
           onChange={(e) => setTexte(e.target.value)}
-          placeholder={photo ? 'Dis quelques mots sur cette photo…' : vocal ? 'Un titre pour ce vocal ? (facultatif)' : `Quoi de neuf, ${me.display_name} ?`}
+          placeholder={photo ? 'Dis quelques mots sur cette photo…' : `Quoi de neuf, ${me.display_name} ?`}
           aria-label="Ta publication"
-          className={`mt-3 w-full resize-none bg-transparent text-encre outline-none placeholder:text-pale ${!photo && !vocal && !sticker && texte.length <= 90 ? 'text-[22px] font-semibold leading-[29px]' : 'text-corps leading-[24px]'}`}
+          className={`mt-3 w-full resize-none bg-transparent text-encre outline-none placeholder:text-pale ${!photo && !sticker && texte.length <= 90 ? 'text-[22px] font-semibold leading-[29px]' : 'text-corps leading-[24px]'}`}
         />
 
         {/* ce qu'on joint */}
@@ -1101,53 +1080,12 @@ function NouvellePublication({ vocal: depuisVocal, fichier, onSondage, onClose }
             </div>
           </div>
         )}
-        {apercuVocal && (
-          <div className="mt-2 flex items-center gap-2 rounded-[18px] bg-teinte-doux py-1.5 pl-3 pr-1.5">
-            <div className="min-w-0 flex-1">
-              <Vocal mo={apercuVocal} mine={false} />
-            </div>
-            <button onClick={() => { tap(); setVocal(null) }} className="presse flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-brume" aria-label="Retirer le vocal">
-              <Trash2 size={19} />
-            </button>
-          </div>
-        )}
         {sticker && (
           <div className="relative mt-2 inline-block">
             <StickerImg cle={sticker} className="block h-[120px] w-[120px] object-contain" />
             <button onClick={() => { tap(); setSticker(null) }} className="presse absolute -right-2 -top-2 flex h-9 w-9 items-center justify-center rounded-full bg-carte text-encre shadow-carte" aria-label="Retirer le sticker">
               <X size={16} />
             </button>
-          </div>
-        )}
-
-        {/* le micro */}
-        {micro && !vocal && (
-          <div className="mt-3 rounded-[22px] bg-carte p-4 shadow-carte">
-            {rec.enCours ? (
-              <div className="flex items-center gap-2.5">
-                <button onClick={() => void arreterVocal(false)} className="presse flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-rouge" aria-label="Annuler le vocal">
-                  <Trash2 size={20} />
-                </button>
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-rouge" style={{ animation: 'scintille 1s ease-in-out infinite' }} />
-                <span className="w-10 shrink-0 text-sous font-semibold tabular-nums">{mmss(rec.secondes)}</span>
-                <span className="flex h-8 min-w-0 flex-1 items-center justify-end gap-[2px] overflow-hidden" aria-hidden="true">
-                  {rec.niveaux.slice(-30).map((v, i) => (
-                    <span key={i} className="w-[3px] shrink-0 rounded-full bg-teinte" style={{ height: `${Math.max(3, v * 0.3)}px` }} />
-                  ))}
-                </span>
-                <button onClick={() => void arreterVocal(true)} className="presse ios-primary flex h-11 shrink-0 items-center rounded-full px-4 text-sous font-bold text-white">
-                  Terminer
-                </button>
-              </div>
-            ) : (
-              <button onClick={() => void rec.demarrer()} className="presse flex w-full flex-col items-center gap-2 py-1">
-                <span className="flex h-16 w-16 items-center justify-center rounded-full bg-rouge text-white shadow-[0_8px_22px_-8px_rgba(215,0,21,0.6)]">
-                  <Mic size={28} strokeWidth={2.3} />
-                </span>
-                <span className="text-sous font-semibold">Touche pour enregistrer</span>
-                <span className="text-note text-brume">Deux minutes au plus</span>
-              </button>
-            )}
           </div>
         )}
 
@@ -1158,8 +1096,6 @@ function NouvellePublication({ vocal: depuisVocal, fichier, onSondage, onClose }
               onPick={(key, t, c) => {
                 setSticker((key === PERSO ? cleSticker({ i: PERSO, t, c }) : key).slice(0, 60))
                 setPhoto(null)
-                setVocal(null)
-                setMicro(false)
                 setTiroir(false)
               }}
               onClose={() => setTiroir(false)}
@@ -1170,10 +1106,15 @@ function NouvellePublication({ vocal: depuisVocal, fichier, onSondage, onClose }
         {/* ajouter à la publication */}
         <div className="mt-4 rounded-[20px] bg-carte p-1.5 shadow-carte">
           <p className="px-2.5 pb-1 pt-1.5 text-note font-semibold text-brume">Ajouter à ta publication</p>
-          <div className={`grid gap-1 ${album ? 'grid-cols-2' : 'grid-cols-4'}`}>
-            <Ajouter icone={<Images size={21} strokeWidth={2.2} className="text-vert-fonce" />} label="Photo" actif={!!photo} onClick={() => void choisirPhoto()} />
-            <Ajouter icone={<Mic size={20} strokeWidth={2.3} className="text-rouge" />} label="Vocal" actif={micro || !!vocal} onClick={() => { tap(); setMicro(true); setTiroir(false) }} />
-            {!album && <Ajouter icone={<Smile size={21} strokeWidth={2.2} className="text-[#C28A00]" />} label="Sticker" actif={tiroir || !!sticker} onClick={() => { tap(); setTiroir(!tiroir); setMicro(false) }} />}
+          <div className={`grid gap-1 ${album ? 'grid-cols-1' : 'grid-cols-3'}`}>
+            {album ? (
+              <button onClick={() => void choisirPhoto()} aria-pressed={!!photo} className={`presse flex min-h-12 items-center justify-center gap-2 rounded-[16px] text-sous font-semibold ${photo ? 'bg-teinte-doux text-teinte-fonce' : 'text-encre'}`}>
+                <Images size={21} strokeWidth={2.2} className="text-vert-fonce" /> {photo ? 'Changer la photo' : 'Ajouter une photo'}
+              </button>
+            ) : (
+              <Ajouter icone={<Images size={21} strokeWidth={2.2} className="text-vert-fonce" />} label="Photo" actif={!!photo} onClick={() => void choisirPhoto()} />
+            )}
+            {!album && <Ajouter icone={<Smile size={21} strokeWidth={2.2} className="text-[#C28A00]" />} label="Sticker" actif={tiroir || !!sticker} onClick={() => { tap(); setTiroir(!tiroir) }} />}
             {!album && <Ajouter icone={<ChartNoAxesColumn size={20} strokeWidth={2.4} className="text-peche-fonce" />} label="Sondage" onClick={() => { tap(); onSondage(texte.trim()) }} />}
           </div>
         </div>

@@ -7,7 +7,7 @@ import { ago } from '../lib/util'
 import { Art, Avatar, Btn, Sheet } from './ui'
 
 const EARN: { icon: ReactNode; label: string; stars: number; limit?: string }[] = [
-  { icon: <Art name="picto-photo" size={40} />, label: 'Écrire dans le fil familial (message, photo, vocal, sticker)', stars: 3, limit: 'jusqu’à 5 par jour' },
+  { icon: <Art name="picto-photo" size={40} />, label: 'Écrire dans le fil familial (message, photo, sticker, sondage)', stars: 3, limit: 'jusqu’à 5 par jour' },
   { icon: <Art name="picto-bulle" size={40} />, label: 'Répondre à la question du jour', stars: 2 },
   { icon: <Art name="humeur-heureux" size={40} />, label: 'Partager mon humeur', stars: 1, limit: 'une fois par jour' },
   { icon: <Art name="geste-calin" size={40} />, label: 'Envoyer un câlin', stars: 1, limit: 'jusqu’à 5 par jour' },

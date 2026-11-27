@@ -1,5 +1,5 @@
 import { Check, Pause, Play, Plus, X } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Avatar, Sheet } from '../components/ui'
 import { select, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
@@ -312,75 +312,6 @@ export function SondageCompose({ question0 = '', onClose, envoyer }: { question0
   )
 }
 
-/** Ce qu'on publie : du texte, un sticker, une photo (avec sa légende), un vocal ou un sondage. */
+/** Ce qu'on publie : du texte, un sticker, une photo (avec sa légende) ou un sondage. (Les vocaux ne s'enregistrent
+ *  plus depuis le 27 novembre ; ceux déjà publiés s'écoutent toujours.) */
 export type NouvelEnvoi = { body?: string; sticker?: string; blob?: Blob; pollOptions?: string[]; audio?: { blob: Blob; duree: number; ondes: number[] } }
-
-// ───────── Le vocal : le micro, une petite onde en direct, 2 minutes au plus ─────────
-
-type Enreg = { rec: MediaRecorder; stream: MediaStream; ctx: AudioContext; t0: number; niveaux: number[]; morceaux: Blob[]; timer: number }
-export type VocalPret = { blob: Blob; duree: number; ondes: number[] }
-
-/** L'enregistreur de vocaux : demarrer(), puis arreter(true) rend le vocal (ou null s'il est trop court ou annulé). */
-export function useEnregistreur(onErreur: (message: string) => void) {
-  const [enreg, setEnreg] = useState<Enreg | null>(null)
-  const [, tic] = useState(0)
-  const courant = useRef<Enreg | null>(null)
-  const arreter = useCallback(async (garder: boolean): Promise<VocalPret | null> => {
-    const e = courant.current
-    if (!e) return null
-    courant.current = null
-    window.clearInterval(e.timer)
-    setEnreg(null)
-    const fini = new Promise<void>((res) => {
-      e.rec.onstop = () => res()
-    })
-    if (e.rec.state !== 'inactive') e.rec.stop()
-    await fini
-    e.stream.getTracks().forEach((t) => t.stop())
-    void e.ctx.close()
-    const duree = (Date.now() - e.t0) / 1000
-    if (!garder || duree < 0.8) return null
-    const blob = new Blob(e.morceaux, { type: e.rec.mimeType || e.morceaux[0]?.type || 'audio/mp4' })
-    const n = 40
-    const ondes = Array.from({ length: n }, (_, i) => {
-      const a = Math.floor((i * e.niveaux.length) / n)
-      const b = Math.max(a + 1, Math.floor(((i + 1) * e.niveaux.length) / n))
-      const tranche = e.niveaux.slice(a, b)
-      return tranche.length ? Math.round(Math.max(...tranche)) : 10
-    })
-    return { blob, duree, ondes }
-  }, [])
-  // on s'en va en plein enregistrement : le micro s'éteint
-  useEffect(() => () => void arreter(false), [arreter])
-  const demarrer = async () => {
-    tap()
-    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') return onErreur('Les vocaux ne marchent pas sur ce navigateur.')
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const type = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg'].find((x) => MediaRecorder.isTypeSupported?.(x))
-      const rec = new MediaRecorder(stream, type ? { mimeType: type } : undefined)
-      const morceaux: Blob[] = []
-      rec.ondataavailable = (ev) => ev.data.size && morceaux.push(ev.data)
-      rec.start(250)
-      const ctx = new AudioContext()
-      const an = ctx.createAnalyser()
-      an.fftSize = 512
-      ctx.createMediaStreamSource(stream).connect(an)
-      const buf = new Uint8Array(an.fftSize)
-      const e: Enreg = { rec, stream, ctx, t0: Date.now(), niveaux: [], morceaux, timer: 0 }
-      e.timer = window.setInterval(() => {
-        an.getByteTimeDomainData(buf)
-        let s = 0
-        for (const v of buf) s += ((v - 128) / 128) ** 2
-        e.niveaux.push(Math.min(100, Math.round(Math.sqrt(s / buf.length) * 320)))
-        if (Date.now() - e.t0 > 120000) void arreter(true)
-        tic((x) => x + 1)
-      }, 100)
-      courant.current = e
-      setEnreg(e)
-    } catch {
-      onErreur('Pour enregistrer un vocal, autorise le micro : Réglages de l’iPhone › NIDOO › Micro.')
-    }
-  }
-  return { enCours: !!enreg, secondes: enreg ? (Date.now() - enreg.t0) / 1000 : 0, niveaux: enreg?.niveaux ?? [], demarrer, arreter }
-}
