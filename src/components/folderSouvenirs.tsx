@@ -7,7 +7,7 @@ import type { Folder } from '../lib/types'
 import { compressImage, errorText } from '../lib/util'
 import { PhotoEditeur } from './photoEditeur'
 import { Art, Avatar, Btn, Sheet } from './ui'
-import { ApercuVideo, useVideoAPreparer } from './videos'
+import { ApercuVideo, CoupeVideo, useVideoAPreparer } from './videos'
 
 export async function photoBlob(url: string) {
   const response = await fetch(url)
@@ -96,7 +96,7 @@ export function SouvenirMedia({ folder, kind, onClose, onSaved }: { folder: Fold
   const alive = useRef(true)
   const preview = usePreview(blob)
   // une vidéo est allégée avant l'envoi (720p) ; pas de limite de durée dans un album, 25 Mo au plus une fois prête
-  const vid = useVideoAPreparer(null, (m) => setError(m), () => file.current?.click())
+  const vid = useVideoAPreparer(null, (m) => setError(m))
   const videoPrete = kind === 'video' && vid.video?.etat === 'pret' ? vid.video.prep?.blob ?? null : null
   const aGarder = kind === 'video' ? videoPrete : blob
   useEffect(() => { alive.current = true; return () => {
@@ -166,7 +166,8 @@ export function SouvenirMedia({ folder, kind, onClose, onSaved }: { folder: Fold
     <input ref={file} type="file" accept={kind === 'audio' ? 'audio/*' : 'video/mp4,video/quicktime,video/webm'} hidden onChange={e => {choose(e.target.files?.[0]);e.target.value=''}} />
     {error && <p role="alert" className="mb-4 rounded-[16px] bg-rouge/10 p-3 text-sous text-rouge">{error}</p>}
     {kind === 'audio' && <div className="rounded-[24px] bg-white p-6 text-center shadow-carte"><Mic size={36} className={`mx-auto ${recording ? 'text-rouge' : 'text-teinte'}`} /><p role="status" className="mt-3 font-rond text-titre1">{recording ? clock(seconds) : 'Ta voix raconte un souvenir'}</p><p className="mt-2 text-sous text-brume">{recording ? 'Enregistrement en cours · 2 minutes maximum' : 'Tu peux l’écouter avant de le garder.'}</p>{recording ? <><Btn className="mt-5" onClick={() => stop()}><Square size={18} fill="currentColor" />Arrêter</Btn><button onClick={() => stop(true)} className="mt-2 min-h-11 text-sous text-brume">Annuler l’enregistrement</button></> : <Btn className="mt-5" onClick={() => void start()} disabled={busy || starting}><Mic size={18} />{starting ? 'Ouverture du micro…' : blob ? 'Réenregistrer' : 'Enregistrer ma voix'}</Btn>}</div>}
-    {kind === 'video' && vid.video && <ApercuVideo v={vid.video} onRetirer={vid.retirer} />}
+    {kind === 'video' && vid.video && <ApercuVideo v={vid.video} onRetirer={vid.retirer} onCouper={vid.recouper} />}
+    {vid.coupe && <CoupeVideo {...vid.coupe} />}
     {preview && !recording && kind !== 'video' && <div className="mt-4 rounded-[20px] bg-white p-3 shadow-carte"><audio key={preview} src={preview} controls preload="metadata" className="w-full" /></div>}
     {!recording && <button onClick={() => file.current?.click()} disabled={busy || starting} className="presse mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-teinte-doux px-4 text-sous font-semibold text-teinte-fonce">{kind === 'video' ? <Video size={19} /> : <Upload size={19} />}{kind === 'video' ? vid.video ? 'Changer de vidéo' : 'Choisir une vidéo' : 'Importer un audio'}</button>}
     <p className="mt-2 text-center text-note text-brume">{kind === 'video' ? 'Elle est allégée avant l’envoi · 25 Mo au plus' : 'Audio · 10 Mo maximum'}</p>

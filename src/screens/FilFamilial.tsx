@@ -12,7 +12,7 @@ import { PhotoEditeur } from '../components/photoEditeur'
 import { StickerImg, StickerTray } from '../components/stickers'
 import { Art, Avatar, Btn, choisir, confirmer, Rond, Screen, SearchField, Sheet } from '../components/ui'
 import { QuiAReagi, ReactionImg, ToutesReactions } from '../components/reactions'
-import { ApercuVideo, useVideoAPreparer, VideoDuFil } from '../components/videos'
+import { ApercuVideo, CoupeVideo, useVideoAPreparer, VideoDuFil } from '../components/videos'
 import { VIDEO_FIL_MAX_S } from '../lib/video'
 import { lesPlusDonnees, motDe, RAPIDES, reaction, retenir } from '../lib/reactions'
 import { folderStats, membersOf, whoText } from '../lib/folders'
@@ -202,7 +202,7 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
   // ── une vidéo : la filmer (l'appareil de l'iPhone) ou la choisir ; elle est préparée pendant qu'on écrit
   const ajouterVideo = async () => {
     tap()
-    const i = await choisir({ title: 'Une vidéo', message: 'Une minute au plus : elle est allégée avant l’envoi.', actions: [{ label: 'Filmer une vidéo' }, { label: 'Choisir dans la photothèque' }] })
+    const i = await choisir({ title: 'Une vidéo', message: 'Une minute au plus : tu choisis le passage à garder.', actions: [{ label: 'Filmer une vidéo' }, { label: 'Choisir dans la photothèque' }] })
     if (i === 0) filmerInput.current?.click()
     else if (i === 1) videoInput.current?.click()
   }
@@ -1011,7 +1011,7 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onClose 
   const albums = folders.filter((f) => !f.parent_id)
   const album = ou ? albums.find((f) => f.id === ou) ?? null : null
   // une vidéo, préparée pendant qu'on écrit (1 minute au plus, comme dans le fil)
-  const vid = useVideoAPreparer(VIDEO_FIL_MAX_S, (m) => toast(m, 'err'), () => videoInput.current?.click())
+  const vid = useVideoAPreparer(VIDEO_FIL_MAX_S, (m) => toast(m, 'err'))
   const video = vid.video
   // le fil sait-il garder une vidéo ? (la base à jour) ; un album, toujours
   const videoPossible = !!album || !!state.videos
@@ -1059,7 +1059,7 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onClose 
   }
   const choisirVideo = async () => {
     tap()
-    const i = await choisir({ title: 'Une vidéo', message: 'Une minute au plus : elle est allégée avant l’envoi.', actions: [{ label: 'Filmer une vidéo' }, { label: 'Choisir dans la photothèque' }] })
+    const i = await choisir({ title: 'Une vidéo', message: 'Une minute au plus : tu choisis le passage à garder.', actions: [{ label: 'Filmer une vidéo' }, { label: 'Choisir dans la photothèque' }] })
     if (i === 0) filmerInput.current?.click()
     else if (i === 1) videoInput.current?.click()
   }
@@ -1172,7 +1172,7 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onClose 
         />
 
         {/* ce qu'on joint */}
-        {video && <ApercuVideo v={video} onRetirer={vid.retirer} />}
+        {video && <ApercuVideo v={video} onRetirer={vid.retirer} onCouper={vid.recouper} />}
         {videoBloquee && <p className="mt-2 rounded-[14px] bg-peche-doux px-3 py-2 text-note text-peche-fonce">Les vidéos arrivent bientôt dans le fil. En attendant, choisis un album pour la partager.</p>}
         {photo && (
           <div className="relative mt-2 overflow-hidden rounded-[20px] bg-remplissage">
@@ -1222,6 +1222,7 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onClose 
           </div>
         </div>
       </Sheet>
+      {vid.coupe && <CoupeVideo {...vid.coupe} />}
       {decorer && (
         <PhotoEditeur
           file={decorer}
