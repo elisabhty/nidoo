@@ -78,23 +78,26 @@ export function homeStories(state: Sources, meId: string, next: NextEvent, now =
   // Ce que les proches ont posté dans le fil cette semaine ; ses propres messages seulement s'il n'y a rien d'autre.
   const semaine = state.moments.filter((m) => !m.reply_to && recent(m.created_at, now, 7)).sort((a, b) => b.created_at.localeCompare(a.created_at))
   const dAbord = (l: Moment[]) => [...l.filter((m) => m.member_id !== meId), ...l.filter((m) => m.member_id === meId)]
-  const photo = dAbord(semaine.filter((m) => !!m.image_path || !!m.image_url))[0]
+  // une photo, ou une vidéo (son affiche) : ce qu'on a envie de voir en premier
+  const visuel = (m: Moment) => !!m.image_path || !!m.image_url || !!m.video_path
+  const photo = dAbord(semaine.filter(visuel))[0]
   if (photo) {
     const moi = photo.member_id === meId
-    const autres = semaine.filter((m) => (m.image_path || m.image_url) && m.id !== photo.id).length
+    const video = !photo.image_path && !photo.image_url
+    const autres = semaine.filter((m) => visuel(m) && m.id !== photo.id).length
     result.push({
       id: 'photo:' + photo.id,
       kind: 'photo',
       label: `${qui(photo)} · ${ago(photo.created_at, now)}`,
-      title: photo.body?.trim() ? `« ${extrait(photo.body, 50)} »` : moi ? 'Ta photo est dans le fil' : `Une photo de ${qui(photo)}`,
-      detail: autres ? `Et ${autres} autre${autres > 1 ? 's' : ''} photo${autres > 1 ? 's' : ''} cette semaine` : moi ? 'Toute la famille peut la voir' : 'Touche pour la voir en grand',
+      title: photo.body?.trim() ? `« ${extrait(photo.body, 50)} »` : moi ? (video ? 'Ta vidéo est dans le fil' : 'Ta photo est dans le fil') : video ? `Une vidéo de ${qui(photo)}` : `Une photo de ${qui(photo)}`,
+      detail: autres ? `Et ${autres} autre${autres > 1 ? 's' : ''} photo${autres > 1 ? 's' : ''} ou vidéo${autres > 1 ? 's' : ''} cette semaine` : moi ? 'Toute la famille peut la voir' : video ? 'Touche pour la regarder' : 'Touche pour la voir en grand',
       target: 'fil',
       member: byId.get(photo.member_id),
-      image: photo.image_url ?? null,
+      image: photo.image_url ?? photo.poster_url ?? null,
     })
   }
 
-  const message = dAbord(semaine.filter((m) => m.id !== photo?.id && !m.image_path && !m.image_url && (!!m.body?.trim() || !!m.audio_path)))[0]
+  const message = dAbord(semaine.filter((m) => m.id !== photo?.id && !visuel(m) && (!!m.body?.trim() || !!m.audio_path)))[0]
   if (message) {
     const moi = message.member_id === meId
     const autres = semaine.filter((m) => m.member_id !== meId && m.id !== message.id && m.id !== photo?.id).length

@@ -298,14 +298,15 @@ export function createLocalBackend(): Backend {
   // « X écrit… » en démo : les proches fictifs écrivent pour de vrai sous tes yeux, puis répondent.
   const ecrivains = new Set<(e: { m: string; quoi: Ecrit | null }) => void>()
   const signale = (m: string, quoi: Ecrit | null) => ecrivains.forEach((f) => f({ m, quoi }))
-  const REPONSES: Record<'texte' | 'photo' | 'vocal' | 'sticker', string[]> = {
+  const REPONSES: Record<'texte' | 'photo' | 'vocal' | 'sticker' | 'video', string[]> = {
+    video: ['J’adore cette vidéo 😍', 'Je l’ai regardée trois fois !', 'Trop mignon, ça me donne envie de venir'],
     sticker: ['emo-amoureux', 'emo-mdr', 'emo-calin', 'emo-bisou', 'emo-coucou', 'emo-fete', 'panda-amour'],
     texte: ['Oh trop bien ! On en parle dimanche ?', 'Hâte de te voir 🥰', 'Haha, je savais que tu dirais ça !', 'Bisous à toute la maison', 'Tu me manques déjà…', 'Bonne idée, je m’en occupe 😉'],
     photo: ['Trop belle cette photo ! 😍', 'Oh, j’adore. Tu me l’envoies en grand ?', 'C’est où ? On dirait des vacances !'],
     vocal: ['Ça fait du bien d’entendre ta voix 🥰', 'Haha, j’ai écouté deux fois !', 'Je te rappelle ce soir, promis.'],
   }
   // un proche répond : sous la publication, en commentaire (le fil façon Facebook)
-  const repondre = (fid: string, quoi: 'texte' | 'photo' | 'vocal' | 'sticker', sous?: string) => {
+  const repondre = (fid: string, quoi: 'texte' | 'photo' | 'vocal' | 'sticker' | 'video', sous?: string) => {
     const f = db.families[fid]
     const autres = f?.members.filter((x) => x.user_id && x.user_id !== db.userId) ?? []
     const qui = autres[Math.floor(Math.random() * autres.length)]
@@ -769,7 +770,7 @@ export function createLocalBackend(): Backend {
         cares: f.cares.filter((c) => c.day >= daysAgoKey(6)),
         houseSince: { ...f.houseSince, ...(f.pet ? { compagnon: f.pet.adopted_at } : {}) },
         pet: f.pet ? avecSonPrenom(f.pet) : null,
-        moments: f.moments.map((m) => ({ ...m, image_url: m.image_path, audio_url: m.audio_path ?? null })),
+        moments: f.moments.map((m) => ({ ...m, image_url: m.image_path, audio_url: m.audio_path ?? null, video_url: m.video_path ?? null, poster_url: m.poster_path ?? null })),
         drawings: f.drawings.filter((d) => !d.to_member || d.to_member === me.id || d.from_member === me.id).slice(0, 30).map((d) => ({ ...d, photo_url: d.photo_path ?? null })),
         folders: f.folders.filter((d) => mine.has(d.root_id)).map((d) => ({ ...d, cover_url: d.cover_path })),
         folderMembers: f.folderMembers.filter((x) => mine.has(x.folder_id)),
@@ -795,6 +796,7 @@ export function createLocalBackend(): Backend {
         positions: (f.positions ?? []).filter((p) => enCours(p)).map(({ il, ...p }) => (il != null ? { ...p, updated_at: iso(il) } : p)),
         positionsReglables: true,
         commentaires: true,
+        videos: true,
         endroits: f.endroits ?? [],
         endroitsPartages: true,
       })
@@ -838,6 +840,8 @@ export function createLocalBackend(): Backend {
         body: m.body?.trim() || null, challenge: m.challenge ?? null, created_at: new Date().toISOString(),
         audio_path: m.audio ? await blobToDataUrl(m.audio.blob) : null, duree: m.audio ? Math.round(m.audio.duree) : null, ondes: m.audio?.ondes ?? null,
         sticker: m.sticker ?? null, poll_options: m.pollOptions ?? null, reply_to: m.replyTo ?? null,
+        // la démo garde la vidéo le temps de la session (trop lourde pour le stockage du navigateur), et son affiche
+        ...(m.video ? { video_path: URL.createObjectURL(m.video.blob), poster_path: m.video.affiche ? await blobToDataUrl(m.video.affiche) : null, duree: Math.round(m.video.duree) } : {}),
       }
       if (m.replyTo && !f.moments.some((x) => x.id === m.replyTo && !x.reply_to)) throw new Error('COMMENTAIRE_INVALIDE')
       f.moments.unshift(moment)
@@ -845,7 +849,7 @@ export function createLocalBackend(): Backend {
       // une publication : un proche la commente ; un commentaire : parfois, on lui répond
       if (m.replyTo) {
         if (Math.random() < 0.5) repondre(fid, 'texte', m.replyTo)
-      } else if (!m.pollOptions) repondre(fid, m.audio ? 'vocal' : m.blob ? 'photo' : m.sticker ? 'sticker' : 'texte', moment.id)
+      } else if (!m.pollOptions) repondre(fid, m.video ? 'video' : m.audio ? 'vocal' : m.blob ? 'photo' : m.sticker ? 'sticker' : 'texte', moment.id)
       else {
         // un sondage : les proches de la démo votent, l'un après l'autre
         const votants = f.members.filter((x) => x.user_id && x.user_id !== db.userId)

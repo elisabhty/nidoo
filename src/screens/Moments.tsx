@@ -314,4 +314,4 @@ export function SondageCompose({ question0 = '', onClose, envoyer }: { question0
 
 /** Ce qu'on publie : du texte, un sticker, une photo (avec sa légende) ou un sondage. (Les vocaux ne s'enregistrent
  *  plus depuis le 27 novembre ; ceux déjà publiés s'écoutent toujours.) */
-export type NouvelEnvoi = { body?: string; sticker?: string; blob?: Blob; pollOptions?: string[]; audio?: { blob: Blob; duree: number; ondes: number[] } }
+export type NouvelEnvoi = { body?: string; sticker?: string; blob?: Blob; pollOptions?: string[]; audio?: { blob: Blob; duree: number; ondes: number[] }; video?: { blob: Blob; affiche: Blob | null; duree: number } }

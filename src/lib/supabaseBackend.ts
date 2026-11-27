@@ -20,14 +20,18 @@ import { emptyCounts, type WeeklyCounts } from './weekly'
 // Un commentaire est un moment qui répond à une publication (colonne reply_to, ajoutée par
 // supabase/migrations/20261127150000_commentaires.sql). Tant qu'elle n'est pas là, le fil marche sans commentaires ;
 // on regarde de nouveau, au plus une fois par minute, et dès qu'elle existe on ne regarde plus.
-let commentairesVus: { ok: boolean; at: number } | null = null
+// Même chose pour les vidéos du fil (colonnes video_path et poster_path, supabase/migrations/20261127210000_videos_fil.sql).
+const colonnesVues = new Map<string, { ok: boolean; at: number }>()
 let sbCommentaires: SupabaseClient | null = null
-async function commentairesEnBase() {
-  if (commentairesVus?.ok || (commentairesVus && Date.now() - commentairesVus.at < 60000) || !sbCommentaires) return commentairesVus?.ok ?? false
-  const { error } = await sbCommentaires.from('moments').select('reply_to').limit(1)
-  commentairesVus = { ok: !error, at: Date.now() }
-  return commentairesVus.ok
+async function colonneEnBase(colonne: 'reply_to' | 'video_path') {
+  const vu = colonnesVues.get(colonne)
+  if (vu?.ok || (vu && Date.now() - vu.at < 60000) || !sbCommentaires) return vu?.ok ?? false
+  const { error } = await sbCommentaires.from('moments').select(colonne).limit(1)
+  colonnesVues.set(colonne, { ok: !error, at: Date.now() })
+  return !error
 }
+const commentairesEnBase = () => colonneEnBase('reply_to')
+const videosEnBase = () => colonneEnBase('video_path')
 
 function check<T>(r: { data: T; error: { message: string } | null }): T {
   if (r.error) throw new Error(r.error.message)
@@ -345,12 +349,14 @@ export function createSupabaseBackend(): Backend {
       const moms = check(moments) as Moment[]
       const reponses = (check(answers) ?? []) as Answer[]
       // Photos du fil et de la question du jour : même espace privé, lisible par la famille.
-      const paths = [...moms.map((m) => m.image_path), ...moms.map((m) => m.audio_path), ...reponses.map((a) => a.photo_path)].filter((x): x is string => !!x)
+      const paths = [...moms.flatMap((m) => [m.image_path, m.audio_path, m.video_path, m.poster_path]), ...reponses.map((a) => a.photo_path)].filter((x): x is string => !!x)
       if (paths.length) {
         const byPath = await signedUrls('moments', paths)
         for (const m of moms) {
           m.image_url = m.image_path ? (byPath.get(m.image_path) ?? null) : null
           m.audio_url = m.audio_path ? (byPath.get(m.audio_path) ?? null) : null
+          m.video_url = m.video_path ? (byPath.get(m.video_path) ?? null) : null
+          m.poster_url = m.poster_path ? (byPath.get(m.poster_path) ?? null) : null
         }
         for (const a of reponses) a.photo_url = a.photo_path ? (byPath.get(a.photo_path) ?? null) : null
       }
@@ -426,6 +432,7 @@ export function createSupabaseBackend(): Backend {
         positions: (positions.data ?? []) as Position[],
         positionsReglables: reglagesEnBase === true,
         commentaires: await commentairesEnBase(),
+        videos: await videosEnBase(),
         ...(await nosEndroits(fid, adresses)),
       }
       return state
@@ -624,8 +631,9 @@ export function createSupabaseBackend(): Backend {
       try {
         const mes = (check(await sb.from('members').select('id').eq('user_id', userId)) as { id: string }[]).map((m) => m.id)
         if (mes.length) {
-          const mo = check(await sb.from('moments').select('image_path,audio_path').in('member_id', mes)) as { image_path: string | null; audio_path: string | null }[]
-          const fichiers = mo.flatMap((m) => [m.image_path, m.audio_path]).filter((x): x is string => !!x)
+          // « * » : les colonnes des vidéos peuvent ne pas exister encore
+          const mo = check(await sb.from('moments').select('*').in('member_id', mes)) as Moment[]
+          const fichiers = mo.flatMap((m) => [m.image_path, m.audio_path, m.video_path, m.poster_path]).filter((x): x is string => !!x)
           for (let i = 0; i < fichiers.length; i += 100) await sb.storage.from('moments').remove(fichiers.slice(i, i + 100))
           const dr = check(await sb.from('drawings').select('photo_path').in('from_member', mes)) as { photo_path: string | null }[]
           const photos = dr.map((d) => d.photo_path).filter((x): x is string => !!x)
@@ -657,14 +665,32 @@ export function createSupabaseBackend(): Backend {
         const up = await sb.storage.from('moments').upload(audio_path, m.audio.blob, { contentType: type })
         if (up.error) throw new Error(up.error.message)
       }
-      check(
-        await sb.from('moments').insert({
+      let video_path: string | null = null
+      let poster_path: string | null = null
+      if (m.video) {
+        const type = m.video.blob.type.split(';')[0] || 'video/mp4'
+        video_path = `${fid}/${uid()}.${type.includes('quicktime') ? 'mov' : type.includes('webm') ? 'webm' : 'mp4'}`
+        const up = await sb.storage.from('moments').upload(video_path, m.video.blob, { contentType: type })
+        if (up.error) throw new Error(up.error.message)
+        if (m.video.affiche) {
+          poster_path = `${fid}/${uid()}.jpg`
+          const ua = await sb.storage.from('moments').upload(poster_path, m.video.affiche, { contentType: 'image/jpeg' })
+          if (ua.error) poster_path = null
+        }
+      }
+      const r = await sb.from('moments').insert({
           family_id: fid, member_id: memberId, image_path, body: m.body?.trim() || null, challenge: m.challenge ?? null,
-          audio_path, duree: m.audio ? Math.max(1, Math.min(300, Math.round(m.audio.duree))) : null, ondes: m.audio ? m.audio.ondes.slice(0, 64) : null, sticker: m.sticker?.slice(0, 60) || null, poll_options: m.pollOptions ?? null,
-          // un commentaire : seulement quand on en écrit un (la colonne peut ne pas exister encore)
+          audio_path, duree: m.audio ? Math.max(1, Math.min(300, Math.round(m.audio.duree))) : m.video ? Math.max(1, Math.min(300, Math.round(m.video.duree))) : null, ondes: m.audio ? m.audio.ondes.slice(0, 64) : null, sticker: m.sticker?.slice(0, 60) || null, poll_options: m.pollOptions ?? null,
+          // un commentaire, une vidéo : seulement quand il y en a (les colonnes peuvent ne pas exister encore)
           ...(m.replyTo ? { reply_to: m.replyTo } : {}),
-        }),
-      )
+          ...(video_path ? { video_path, poster_path } : {}),
+        })
+      if (r.error) {
+        // la publication n'est pas partie : ses fichiers non plus
+        const envoyes = [image_path, audio_path, video_path, poster_path].filter((x): x is string => !!x)
+        if (envoyes.length) await sb.storage.from('moments').remove(envoyes).catch(() => undefined)
+        throw new Error(r.error.message)
+      }
     },
     async votePoll(moment, memberId, optionIndex) {
       if (!moment.poll_options || optionIndex < 0 || optionIndex >= moment.poll_options.length) throw new Error('SONDAGE_INVALIDE')
@@ -683,7 +709,7 @@ export function createSupabaseBackend(): Backend {
       return () => void ecrivains.get(fid)?.delete(f)
     },
     async deleteMoment(moment) {
-      const fichiers = [moment.image_path, moment.audio_path].filter((x): x is string => !!x)
+      const fichiers = [moment.image_path, moment.audio_path, moment.video_path, moment.poster_path].filter((x): x is string => !!x)
       if (fichiers.length) await sb.storage.from('moments').remove(fichiers)
       check(await sb.from('moments').delete().eq('id', moment.id))
     },

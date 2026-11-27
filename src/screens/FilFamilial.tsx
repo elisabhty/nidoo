@@ -2,7 +2,7 @@
 // souvenirs et le fil actuel »). En haut, « Quoi de neuf ? » pour publier (à toute la famille, ou dans un album) ;
 // puis les albums (les anciens Souvenirs) ; puis le fil : les publications, des plus récentes aux plus anciennes, avec
 // leurs réactions et leurs commentaires, et ce que chacun ajoute dans les albums qu'on partage avec lui.
-import { ArrowUp, BookOpen, BookmarkCheck, BookmarkPlus, ChartNoAxesColumn, ChevronDown, ChevronRight, Ellipsis, Heart, Images, Lock, MessageCircle, Plus, Search, Smile, Sparkles, UsersRound, X } from 'lucide-react'
+import { ArrowUp, BookOpen, Video, BookmarkCheck, BookmarkPlus, ChartNoAxesColumn, ChevronDown, ChevronRight, Ellipsis, Heart, Images, Lock, MessageCircle, Plus, Search, Smile, Sparkles, UsersRound, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { prendrePhoto } from '../components/appareil'
@@ -12,6 +12,8 @@ import { PhotoEditeur } from '../components/photoEditeur'
 import { StickerImg, StickerTray } from '../components/stickers'
 import { Art, Avatar, Btn, choisir, confirmer, Rond, Screen, SearchField, Sheet } from '../components/ui'
 import { QuiAReagi, ReactionImg, ToutesReactions } from '../components/reactions'
+import { ApercuVideo, useVideoAPreparer, VideoDuFil } from '../components/videos'
+import { VIDEO_FIL_MAX_S } from '../lib/video'
 import { lesPlusDonnees, motDe, RAPIDES, reaction, retenir } from '../lib/reactions'
 import { folderStats, membersOf, whoText } from '../lib/folders'
 import { select, success, tap } from '../lib/haptic'
@@ -59,7 +61,7 @@ export default function FilFamilial() {
 /** Ce que quelqu'un a mis dans un album, d'un coup (même personne, même album, à moins de 3 heures d'écart). */
 type Ajout = { id: string; folder: Folder; auteur: Member | undefined; items: FolderItem[]; at: string }
 type Entree = { k: 'post'; id: string; at: string; mo: Moment } | { k: 'album'; id: string; at: string; a: Ajout }
-type Filtre = 'tout' | 'photos' | 'vocaux' | 'sondages' | 'albums'
+type Filtre = 'tout' | 'photos' | 'videos' | 'vocaux' | 'sondages' | 'albums'
 
 function ajoutsAlbums(items: FolderItem[], folders: Folder[], members: Member[]): Ajout[] {
   const tries = [...items].sort((a, b) => b.created_at.localeCompare(a.created_at))
@@ -102,7 +104,7 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
   const [filtre, setFiltre] = useState<Filtre>('tout')
   const [chercher, setChercher] = useState(false)
   const [recherche, setRecherche] = useState('')
-  const [compose, setCompose] = useState<null | { fichier?: File }>(null)
+  const [compose, setCompose] = useState<null | { fichier?: File; video?: File }>(null)
   const [sondage, setSondage] = useState<string | null>(null)
   const [commentaires, setCommentaires] = useState<{ id: string; ecrire: boolean } | null>(null)
   const [plein, setPlein] = useState<string | null>(null)
@@ -113,6 +115,8 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
   // un nouvel album ; avec la photo d'une publication à y garder, quand on le crée depuis « Garder »
   const [nouvelAlbum, setNouvelAlbum] = useState<null | { garder?: Moment }>(null)
   const photoInput = useRef<HTMLInputElement>(null)
+  const videoInput = useRef<HTMLInputElement>(null)
+  const filmerInput = useRef<HTMLInputElement>(null)
 
   // les commentaires, sous leur publication (du plus ancien au plus récent)
   const coms = useMemo(() => {
@@ -130,8 +134,8 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
   const passe = (e: Entree, f: Filtre) =>
     f === 'tout' ||
     (e.k === 'post'
-      ? f === 'photos' ? !!e.mo.image_url : f === 'vocaux' ? !!e.mo.audio_path : f === 'sondages' ? !!e.mo.poll_options?.length : false
-      : f === 'albums' || (f === 'photos' && e.a.items.some((i) => i.kind === 'photo')) || (f === 'vocaux' && e.a.items.some((i) => i.kind === 'audio')))
+      ? f === 'photos' ? !!e.mo.image_url : f === 'videos' ? !!e.mo.video_path : f === 'vocaux' ? !!e.mo.audio_path : f === 'sondages' ? !!e.mo.poll_options?.length : false
+      : f === 'albums' || (f === 'photos' && e.a.items.some((i) => i.kind === 'photo')) || (f === 'videos' && e.a.items.some((i) => i.kind === 'video')) || (f === 'vocaux' && e.a.items.some((i) => i.kind === 'audio')))
   const q = sansAccents(recherche.trim())
   const nomDe = (id: string | null | undefined) => members.find((m) => m.id === id)?.display_name ?? ''
   const trouve = (e: Entree) => {
@@ -147,6 +151,7 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
   const filtres = ([
     ['tout', 'Tout'],
     ['photos', 'Photos'],
+    ['videos', 'Vidéos'],
     ['vocaux', 'Vocaux'],
     ['sondages', 'Sondages'],
     ['albums', 'Albums'],
@@ -194,6 +199,14 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
     else if (r === 'galerie' || r === 'natif') photoInput.current?.click()
   }
 
+  // ── une vidéo : la filmer (l'appareil de l'iPhone) ou la choisir ; elle est préparée pendant qu'on écrit
+  const ajouterVideo = async () => {
+    tap()
+    const i = await choisir({ title: 'Une vidéo', message: 'Une minute au plus : elle est allégée avant l’envoi.', actions: [{ label: 'Filmer une vidéo' }, { label: 'Choisir dans la photothèque' }] })
+    if (i === 0) filmerInput.current?.click()
+    else if (i === 1) videoInput.current?.click()
+  }
+
   const commentairesDe = commentaires ? moments.find((m) => m.id === commentaires.id && !m.reply_to) : undefined
 
   // les feuilles vont après l'écran, pas dedans : dans la zone qui défile, elles se décaleraient avec le fil
@@ -217,6 +230,21 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
             if (f) setCompose({ fichier: f })
           }}
         />
+        {[videoInput, filmerInput].map((ref, k) => (
+          <input
+            key={k}
+            ref={ref}
+            type="file"
+            accept="video/*"
+            {...(k ? { capture: 'environment' as const } : {})}
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              e.target.value = ''
+              if (f) setCompose({ video: f })
+            }}
+          />
+        ))}
         {chercher && <SearchField value={recherche} onChange={setRecherche} placeholder="Une publication, un album, un proche" label="Rechercher dans le fil" />}
 
         {/* publier : « Quoi de neuf ? », et les raccourcis */}
@@ -228,8 +256,9 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
                 <span className="truncate">Quoi de neuf, {me.display_name} ?</span>
               </button>
             </div>
-            <div className="mt-2.5 grid grid-cols-2 gap-1 border-t border-trait pt-2">
+            <div className={`mt-2.5 grid gap-1 border-t border-trait pt-2 ${state.videos ? 'grid-cols-3' : 'grid-cols-2'}`}>
               <Raccourci icone={<Images size={20} strokeWidth={2.2} className="text-vert-fonce" />} label="Photo" onClick={() => void ajouterPhoto()} />
+              {state.videos && <Raccourci icone={<Video size={21} strokeWidth={2.2} className="text-rouge" />} label="Vidéo" onClick={() => void ajouterVideo()} />}
               <Raccourci icone={<ChartNoAxesColumn size={19} strokeWidth={2.4} className="text-peche-fonce" />} label="Sondage" onClick={() => { tap(); setSondage('') }} />
             </div>
           </section>
@@ -300,6 +329,7 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
       {compose && (
         <NouvellePublication
           fichier={compose.fichier}
+          video={compose.video}
           onSondage={(question) => { setCompose(null); setSondage(question) }}
           onClose={(ok) => {
             setCompose(null)
@@ -329,10 +359,13 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
             const mo = nouvelAlbum.garder
             setNouvelAlbum(null)
             onAlbum(id)
-            if (!mo?.image_url) return
+            if (!mo?.image_url && !mo?.video_url) return
             const t = new Date().toISOString()
             const album: Folder = { id, family_id: state.family.id, parent_id: null, root_id: id, owner_id: me.id, name: '', cover_path: null, created_at: t, updated_at: t }
-            void run(async (api) => api.addFolderItem(album, me.id, { kind: 'photo', blob: await photoBlob(mo.image_url!), body: mo.body ?? undefined, sourceMomentId: mo.id }))
+            void run(async (api) => {
+              const g = await aGarder(mo)
+              if (g) await api.addFolderItem(album, me.id, g.kind === 'photo' ? { kind: 'photo', blob: g.blob, body: mo.body ?? undefined, sourceMomentId: mo.id } : { kind: 'video', blob: g.blob, title: mo.body?.slice(0, 80) || undefined, sourceMomentId: mo.id })
+            })
           }}
         />
       )}
@@ -432,6 +465,19 @@ function BandeAlbums({ onAlbum, onTout, onNouveau }: { onAlbum: (id: string) => 
 
 // ═════════════════════════ Une publication ═════════════════════════
 
+/** Ce qu'on garde d'une publication dans un album : sa photo, ou sa vidéo. */
+async function aGarder(mo: Moment): Promise<{ kind: 'photo' | 'video'; blob: Blob } | null> {
+  if (mo.image_url) return { kind: 'photo', blob: await photoBlob(mo.image_url) }
+  if (mo.video_url) {
+    const r = await fetch(mo.video_url)
+    if (!r.ok) throw new Error('VIDEO_INACCESSIBLE')
+    const b = await r.blob()
+    const type = b.type.startsWith('video/') ? b.type.split(';')[0] : mo.video_path?.endsWith('.mov') ? 'video/quicktime' : 'video/mp4'
+    return { kind: 'video', blob: b.type === type ? b : new Blob([b], { type }) }
+  }
+  return null
+}
+
 /** « Toi et 2 autres », « Léa et Papa », « Léa, Papa et 3 autres » */
 function quiAReagi(ids: string[], me: string, members: Member[]) {
   const noms = ids.filter((id) => id !== me).map((id) => members.find((m) => m.id === id)?.display_name).filter((x): x is string => !!x)
@@ -466,8 +512,10 @@ function Publication({ mo, coms, peutCommenter, onPhoto, onCommentaires, onNouve
   const sortes = lesPlusDonnees(rs.map((r) => r.emoji)).slice(0, 3)
   const gardee = folderItems.some((i) => i.source_moment_id === mo.id)
   const sondage = !!mo.poll_options?.length
-  const stickerSeul = !!mo.sticker && !mo.image_url && !mo.audio_path && !mo.body
-  const court = !!mo.body && !mo.image_url && !mo.audio_path && !sondage && mo.body.length <= 90 && !/https?:|www\./.test(mo.body)
+  const stickerSeul = !!mo.sticker && !mo.image_url && !mo.video_path && !mo.audio_path && !mo.body
+  const court = !!mo.body && !mo.image_url && !mo.video_path && !mo.audio_path && !sondage && mo.body.length <= 90 && !/https?:|www\./.test(mo.body)
+  // une photo ou une vidéo : on peut la garder dans un album
+  const gardable = !!mo.image_url || !!mo.video_url
   const [choix, setChoix] = useState(false)
   const reagirSur = useReagir()
   const reagir = (cle: string | null) => {
@@ -480,19 +528,26 @@ function Publication({ mo, coms, peutCommenter, onPhoto, onCommentaires, onNouve
     // les albums où elle n'est pas encore
     const albums = folders.filter((f) => !f.parent_id && !folderItems.some((x) => x.folder_id === f.id && x.source_moment_id === mo.id))
     if (!folders.some((f) => !f.parent_id)) return onNouvelAlbum()
-    const i = await choisir({ title: 'Garder la photo dans un album', message: gardee ? 'Elle est déjà gardée dans un album.' : undefined, actions: [...albums.map((f) => ({ label: f.name })), { label: 'Nouvel album' }] })
+    const i = await choisir({ title: mo.video_url ? 'Garder la vidéo dans un album' : 'Garder la photo dans un album', message: gardee ? 'Elle est déjà gardée dans un album.' : undefined, actions: [...albums.map((f) => ({ label: f.name })), { label: 'Nouvel album' }] })
     if (i === albums.length) return onNouvelAlbum()
     const album = albums[i]
-    if (!album || !mo.image_url) return
+    if (!album || !gardable) return
     // le bouton devient « Gardée » : pas besoin d'un message en plus
-    if (await run(async (api) => api.addFolderItem(album, me.id, { kind: 'photo', blob: await photoBlob(mo.image_url!), body: mo.body ?? undefined, sourceMomentId: mo.id }))) success()
+    if (
+      await run(async (api) => {
+        const g = await aGarder(mo)
+        if (!g) return
+        await api.addFolderItem(album, me.id, g.kind === 'photo' ? { kind: 'photo', blob: g.blob, body: mo.body ?? undefined, sourceMomentId: mo.id } : { kind: 'video', blob: g.blob, title: mo.body?.slice(0, 80) || undefined, sourceMomentId: mo.id })
+      })
+    )
+      success()
   }
 
   const options = async () => {
     tap()
     const actions: { label: string; destructive?: boolean; go: () => void }[] = [
       { label: 'Réagir', go: onToutes },
-      ...(mo.image_url ? [{ label: 'Garder dans un album', go: () => void garder() }] : []),
+      ...(gardable ? [{ label: 'Garder dans un album', go: () => void garder() }] : []),
       ...(mo.body && !sondage ? [{ label: 'Copier le texte', go: () => void navigator.clipboard?.writeText(mo.body!).then(() => toast('Texte copié')).catch(() => undefined) }] : []),
       ...(mien ? [{ label: 'Supprimer la publication', destructive: true, go: async () => {
         if (await confirmer({ title: 'Supprimer cette publication ?', message: coms.length ? 'Elle disparaît pour toute la famille, avec ses commentaires.' : 'Elle disparaît pour toute la famille.', confirm: 'Supprimer', destructive: true })) void run((api) => api.deleteMoment(mo))
@@ -540,6 +595,7 @@ function Publication({ mo, coms, peutCommenter, onPhoto, onCommentaires, onNouve
           <StickerImg cle={mo.sticker!} className="block h-[128px] w-[128px] object-contain" />
         </div>
       )}
+      {mo.video_path && <VideoDuFil mo={mo} />}
       {mo.image_url && (
         <button onClick={() => onPhoto(mo.image_url!)} className="mt-3 block w-full overflow-hidden bg-remplissage" aria-label="Voir la photo en grand">
           <img src={mo.image_url} alt={mo.body ?? `Photo de ${auteur.display_name}`} loading="lazy" className="block max-h-[540px] w-full object-cover" />
@@ -577,14 +633,14 @@ function Publication({ mo, coms, peutCommenter, onPhoto, onCommentaires, onNouve
       )}
 
       {/* réagir, commenter, garder */}
-      <div className={`relative mx-2 mt-2 grid border-t border-trait ${[true, peutCommenter, !!mo.image_url].filter(Boolean).length === 3 ? 'grid-cols-3' : [true, peutCommenter, !!mo.image_url].filter(Boolean).length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+      <div className={`relative mx-2 mt-2 grid border-t border-trait ${[true, peutCommenter, gardable].filter(Boolean).length === 3 ? 'grid-cols-3' : [true, peutCommenter, gardable].filter(Boolean).length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
         <BoutonReaction ma={ma} onTap={() => reagir(ma ? null : 'coeur')} onLong={() => { select(); setChoix(true) }} />
         {peutCommenter && (
           <button onClick={() => { tap(); onCommentaires(true) }} className="presse flex h-11 items-center justify-center gap-1.5 text-sous font-semibold text-brume">
             <MessageCircle size={19} strokeWidth={2.2} /> Commenter
           </button>
         )}
-        {mo.image_url && (
+        {gardable && (
           <button onClick={() => void garder()} className={`presse flex h-11 items-center justify-center gap-1.5 text-sous font-semibold ${gardee ? 'text-teinte-fonce' : 'text-brume'}`}>
             {gardee ? <BookmarkCheck size={19} strokeWidth={2.2} /> : <BookmarkPlus size={19} strokeWidth={2.2} />} {gardee ? 'Gardée' : 'Garder'}
           </button>
@@ -847,7 +903,14 @@ function FeuilleCommentaires({ post, ecrire, onPhoto, onClose }: { post: Moment;
             {post.body && <p className="mt-0.5 line-clamp-3 whitespace-pre-wrap break-words text-sous">{post.body}</p>}
             {!post.body && post.audio_path && <p className="mt-0.5 text-sous text-brume">Un vocal</p>}
             {!post.body && post.sticker && <p className="mt-0.5 text-sous text-brume">Un sticker</p>}
+            {!post.body && post.video_path && <p className="mt-0.5 text-sous text-brume">Une vidéo</p>}
           </div>
+          {!post.image_url && post.poster_url && (
+            <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-[12px] bg-black">
+              <img src={post.poster_url} alt="" className="h-full w-full object-cover" />
+              <Video size={16} className="absolute bottom-1 right-1 text-white drop-shadow" />
+            </span>
+          )}
           {post.image_url && (
             <button onClick={() => onPhoto(post.image_url!)} className="h-14 w-14 shrink-0 overflow-hidden rounded-[12px] bg-remplissage" aria-label="Voir la photo en grand">
               <img src={post.image_url} alt="" className="h-full w-full object-cover" />
@@ -930,7 +993,7 @@ function Commentaire({ c, aime, nbAime }: { c: Moment; aime: boolean; nbAime: nu
 
 // ═════════════════════════ Publier ═════════════════════════
 
-function NouvellePublication({ fichier, onSondage, onClose }: { fichier?: File; onSondage: (question: string) => void; onClose: (publie: boolean) => void }) {
+function NouvellePublication({ fichier, video: videoChoisie, onSondage, onClose }: { fichier?: File; video?: File; onSondage: (question: string) => void; onClose: (publie: boolean) => void }) {
   const { state, run, toast } = useHome()
   const { me, family, folders, folderMembers, members } = state
   const [texte, setTexte] = useState('')
@@ -942,9 +1005,16 @@ function NouvellePublication({ fichier, onSondage, onClose }: { fichier?: File; 
   const [decorer, setDecorer] = useState<File | null>(null)
   const [envoi, setEnvoi] = useState(false)
   const input = useRef<HTMLInputElement>(null)
+  const videoInput = useRef<HTMLInputElement>(null)
+  const filmerInput = useRef<HTMLInputElement>(null)
   const zone = useRef<HTMLTextAreaElement>(null)
   const albums = folders.filter((f) => !f.parent_id)
   const album = ou ? albums.find((f) => f.id === ou) ?? null : null
+  // une vidéo, préparée pendant qu'on écrit (1 minute au plus, comme dans le fil)
+  const vid = useVideoAPreparer(VIDEO_FIL_MAX_S, (m) => toast(m, 'err'), () => videoInput.current?.click())
+  const video = vid.video
+  // le fil sait-il garder une vidéo ? (la base à jour) ; un album, toujours
+  const videoPossible = !!album || !!state.videos
 
   const poserPhoto = async (f: File) => {
     try {
@@ -954,12 +1024,14 @@ function NouvellePublication({ fichier, onSondage, onClose }: { fichier?: File; 
         return { blob, url: URL.createObjectURL(blob) }
       })
       setSticker(null)
+      vid.retirer()
     } catch {
       toast('Cette photo ne s’ouvre pas. Essaie une autre.', 'err')
     }
   }
   useEffect(() => {
     if (fichier) void poserPhoto(fichier)
+    else if (videoChoisie) void poserVideo(videoChoisie)
     else window.setTimeout(() => zone.current?.focus(), 350)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => void (photo && URL.revokeObjectURL(photo.url)), [photo])
@@ -979,6 +1051,18 @@ function NouvellePublication({ fichier, onSondage, onClose }: { fichier?: File; 
     if (r instanceof File) void poserPhoto(r)
     else if (r === 'galerie' || r === 'natif') input.current?.click()
   }
+  const poserVideo = (f: File) => {
+    setPhoto(null)
+    setSticker(null)
+    setTiroir(false)
+    void vid.lancer(f)
+  }
+  const choisirVideo = async () => {
+    tap()
+    const i = await choisir({ title: 'Une vidéo', message: 'Une minute au plus : elle est allégée avant l’envoi.', actions: [{ label: 'Filmer une vidéo' }, { label: 'Choisir dans la photothèque' }] })
+    if (i === 0) filmerInput.current?.click()
+    else if (i === 1) videoInput.current?.click()
+  }
   const choisirOu = async () => {
     tap()
     const i = await choisir({
@@ -991,7 +1075,10 @@ function NouvellePublication({ fichier, onSondage, onClose }: { fichier?: File; 
     // un album garde des photos et des mots : pas de sticker seul
     if (id) setSticker(null)
   }
-  const pret = !!(texte.trim() || photo || sticker)
+  const videoPrete = video?.etat === 'pret' && !!video.prep
+  // une vidéo pour le fil alors que la base ne sait pas encore les garder : seulement dans un album
+  const videoBloquee = !!video && !videoPossible
+  const pret = !!(texte.trim() || photo || sticker || videoPrete) && !vid.enPreparation && !videoBloquee
   const publier = async () => {
     if (!pret || envoi) return
     setEnvoi(true)
@@ -1000,10 +1087,12 @@ function NouvellePublication({ fichier, onSondage, onClose }: { fichier?: File; 
     if (album) {
       ok = await run(async (api) => {
         if (photo) await api.addFolderItem(album, me.id, { kind: 'photo', blob: photo.blob, body: t || undefined })
+        else if (videoPrete) await api.addFolderItem(album, me.id, { kind: 'video', blob: video!.prep!.blob, title: t.slice(0, 80) || undefined })
         else await api.addFolderItem(album, me.id, { kind: 'message', body: t })
       })
     } else {
-      const m: NouvelEnvoi = { body: t || undefined, blob: photo?.blob, sticker: sticker ?? undefined }
+      const p = videoPrete ? video!.prep! : null
+      const m: NouvelEnvoi = { body: t || undefined, blob: photo?.blob, sticker: sticker ?? undefined, video: p ? { blob: p.blob, affiche: p.affiche, duree: p.duree } : undefined }
       ok = await run((api) => api.postMoment(family.id, me.id, m))
     }
     setEnvoi(false)
@@ -1013,7 +1102,8 @@ function NouvellePublication({ fichier, onSondage, onClose }: { fichier?: File; 
     }
   }
   const fermer = async () => {
-    if ((texte.trim() || photo) && !(await confirmer({ title: 'Abandonner cette publication ?', confirm: 'Abandonner', destructive: true }))) return
+    if ((texte.trim() || photo || video) && !(await confirmer({ title: 'Abandonner cette publication ?', confirm: 'Abandonner', destructive: true }))) return
+    vid.retirer()
     onClose(false)
   }
 
@@ -1027,7 +1117,7 @@ function NouvellePublication({ fichier, onSondage, onClose }: { fichier?: File; 
         onClose={() => void fermer()}
         footer={
           <Btn onClick={() => void publier()} disabled={!pret || envoi}>
-            {envoi ? 'Publication…' : album ? `Ajouter à l’album` : 'Publier'}
+            {envoi ? (videoPrete ? 'Envoi de la vidéo…' : 'Publication…') : vid.enPreparation ? `Préparation de la vidéo… ${Math.round((video?.progres ?? 0) * 100)} %` : album ? `Ajouter à l’album` : 'Publier'}
           </Btn>
         }
       >
@@ -1042,6 +1132,21 @@ function NouvellePublication({ fichier, onSondage, onClose }: { fichier?: File; 
             if (f) void poserPhoto(f)
           }}
         />
+        {[videoInput, filmerInput].map((ref, k) => (
+          <input
+            key={k}
+            ref={ref}
+            type="file"
+            accept="video/*"
+            {...(k ? { capture: 'environment' as const } : {})}
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              e.target.value = ''
+              if (f) poserVideo(f)
+            }}
+          />
+        ))}
         {/* qui publie, et pour qui */}
         <div className="flex items-center gap-3">
           <Avatar m={me} size={44} />
@@ -1061,12 +1166,14 @@ function NouvellePublication({ fichier, onSondage, onClose }: { fichier?: File; 
           value={texte}
           maxLength={1000}
           onChange={(e) => setTexte(e.target.value)}
-          placeholder={photo ? 'Dis quelques mots sur cette photo…' : `Quoi de neuf, ${me.display_name} ?`}
+          placeholder={photo ? 'Dis quelques mots sur cette photo…' : video ? 'Dis quelques mots sur cette vidéo…' : `Quoi de neuf, ${me.display_name} ?`}
           aria-label="Ta publication"
-          className={`mt-3 w-full resize-none bg-transparent text-encre outline-none placeholder:text-pale ${!photo && !sticker && texte.length <= 90 ? 'text-[22px] font-semibold leading-[29px]' : 'text-corps leading-[24px]'}`}
+          className={`mt-3 w-full resize-none bg-transparent text-encre outline-none placeholder:text-pale ${!photo && !video && !sticker && texte.length <= 90 ? 'text-[22px] font-semibold leading-[29px]' : 'text-corps leading-[24px]'}`}
         />
 
         {/* ce qu'on joint */}
+        {video && <ApercuVideo v={video} onRetirer={vid.retirer} />}
+        {videoBloquee && <p className="mt-2 rounded-[14px] bg-peche-doux px-3 py-2 text-note text-peche-fonce">Les vidéos arrivent bientôt dans le fil. En attendant, choisis un album pour la partager.</p>}
         {photo && (
           <div className="relative mt-2 overflow-hidden rounded-[20px] bg-remplissage">
             <img src={photo.url} alt="La photo de ta publication" className="block max-h-[360px] w-full object-cover" />
@@ -1096,6 +1203,7 @@ function NouvellePublication({ fichier, onSondage, onClose }: { fichier?: File; 
               onPick={(key, t, c) => {
                 setSticker((key === PERSO ? cleSticker({ i: PERSO, t, c }) : key).slice(0, 60))
                 setPhoto(null)
+                vid.retirer()
                 setTiroir(false)
               }}
               onClose={() => setTiroir(false)}
@@ -1106,14 +1214,9 @@ function NouvellePublication({ fichier, onSondage, onClose }: { fichier?: File; 
         {/* ajouter à la publication */}
         <div className="mt-4 rounded-[20px] bg-carte p-1.5 shadow-carte">
           <p className="px-2.5 pb-1 pt-1.5 text-note font-semibold text-brume">Ajouter à ta publication</p>
-          <div className={`grid gap-1 ${album ? 'grid-cols-1' : 'grid-cols-3'}`}>
-            {album ? (
-              <button onClick={() => void choisirPhoto()} aria-pressed={!!photo} className={`presse flex min-h-12 items-center justify-center gap-2 rounded-[16px] text-sous font-semibold ${photo ? 'bg-teinte-doux text-teinte-fonce' : 'text-encre'}`}>
-                <Images size={21} strokeWidth={2.2} className="text-vert-fonce" /> {photo ? 'Changer la photo' : 'Ajouter une photo'}
-              </button>
-            ) : (
-              <Ajouter icone={<Images size={21} strokeWidth={2.2} className="text-vert-fonce" />} label="Photo" actif={!!photo} onClick={() => void choisirPhoto()} />
-            )}
+          <div className={`grid gap-1 ${['p', videoPossible && 'v', !album && 's', !album && 'q'].filter(Boolean).length === 4 ? 'grid-cols-4' : ['p', videoPossible && 'v', !album && 's', !album && 'q'].filter(Boolean).length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            <Ajouter icone={<Images size={21} strokeWidth={2.2} className="text-vert-fonce" />} label="Photo" actif={!!photo} onClick={() => void choisirPhoto()} />
+            {videoPossible && <Ajouter icone={<Video size={22} strokeWidth={2.2} className="text-rouge" />} label="Vidéo" actif={!!video} onClick={() => void choisirVideo()} />}
             {!album && <Ajouter icone={<Smile size={21} strokeWidth={2.2} className="text-[#C28A00]" />} label="Sticker" actif={tiroir || !!sticker} onClick={() => { tap(); setTiroir(!tiroir) }} />}
             {!album && <Ajouter icone={<ChartNoAxesColumn size={20} strokeWidth={2.4} className="text-peche-fonce" />} label="Sondage" onClick={() => { tap(); onSondage(texte.trim()) }} />}
           </div>

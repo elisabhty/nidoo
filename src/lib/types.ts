@@ -75,6 +75,11 @@ export type Moment = {
   poll_options?: string[] | null
   /** Un commentaire : la publication à laquelle il répond (le fil façon Facebook, 27 novembre). Absent : une publication. */
   reply_to?: string | null
+  /** Une vidéo (préparée sur le téléphone : 720p, 1 minute au plus), sa durée dans `duree`, et une image pour l'afficher. */
+  video_path?: string | null
+  video_url?: string | null
+  poster_path?: string | null
+  poster_url?: string | null
 }
 
 export type PollVote = { moment_id: string; member_id: string; family_id: string; option_index: number }
@@ -324,6 +329,8 @@ export type FamilyState = {
   positionsReglables?: boolean
   /** La base sait garder les commentaires d'une publication (la colonne moments.reply_to). */
   commentaires?: boolean
+  /** Les vidéos du fil : la base sait les garder (colonne moments.video_path) ; sinon, pas de vidéo dans le fil. */
+  videos?: boolean
 }
 
 /** Un interrupteur à distance : allumé, et éventuellement borné dans le temps. */
@@ -359,7 +366,7 @@ export interface Backend {
   /** Efface mon compte : mes profils dans toutes mes maisons (messages, photos, vocaux…), puis le compte lui-même. */
   deleteAccount(): Promise<void>
   /** replyTo : un commentaire sous cette publication (seulement si la base les connaît : state.commentaires). */
-  postMoment(familyId: string, memberId: string, m: { blob?: Blob; body?: string; challenge?: string; audio?: { blob: Blob; duree: number; ondes: number[] }; sticker?: string; pollOptions?: string[]; replyTo?: string }): Promise<void>
+  postMoment(familyId: string, memberId: string, m: { blob?: Blob; body?: string; challenge?: string; audio?: { blob: Blob; duree: number; ondes: number[] }; video?: { blob: Blob; affiche: Blob | null; duree: number }; sticker?: string; pollOptions?: string[]; replyTo?: string }): Promise<void>
   /** Dire à la famille qu'on écrit (ou qu'on a arrêté : null), en direct, sans rien enregistrer. */
   ecrit(familyId: string, memberId: string, quoi: Ecrit | null): void
   onEcrit(familyId: string, me: string, cb: (e: { m: string; quoi: Ecrit | null }) => void): () => void
