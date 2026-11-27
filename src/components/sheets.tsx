@@ -286,23 +286,29 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
           )}
         </>
       ) : (
-        <div className="groupe">
-          <button
-            onClick={async () => {
-              // l'appareil photo de Nidoo (le défi posé sur l'image) ; la photothèque ou l'appareil du téléphone sinon
-              const r = await prendrePhoto({ titre: challenge ? 'Défi photo' : 'Photo surprise', consigne: challenge, galerie: true })
-              if (r instanceof File) void pick(r)
-              else if (r === 'galerie') gallery.current?.click()
-              else if (r === 'natif') camera.current?.click()
-            }}
-            className="presse-ligne flex h-[52px] w-full items-center gap-3 border-b border-trait px-4 text-corps text-teinte"
-          >
-            <Camera size={22} /> Prendre une photo
-          </button>
-          <button onClick={() => gallery.current?.click()} className="presse-ligne flex h-[52px] w-full items-center gap-3 px-4 text-corps text-teinte">
-            <Images size={22} /> Choisir dans la photothèque
-          </button>
-        </div>
+        <>
+          <div className="groupe">
+            <button
+              onClick={async () => {
+                // l'appareil photo de Nidoo (le défi posé sur l'image). Le défi se relève sur le moment : pas de
+                // photothèque (Elisa, 27 novembre : « ne pas pouvoir importer de photo dans le défi du jour »)
+                const r = await prendrePhoto({ titre: challenge ? 'Défi photo' : 'Photo surprise', consigne: challenge, galerie: !challenge })
+                if (r instanceof File) void pick(r)
+                else if (r === 'galerie' && !challenge) gallery.current?.click()
+                else if (r === 'natif') camera.current?.click()
+              }}
+              className={`presse-ligne flex h-[52px] w-full items-center gap-3 px-4 text-corps text-teinte ${challenge ? '' : 'border-b border-trait'}`}
+            >
+              <Camera size={22} /> Prendre une photo
+            </button>
+            {!challenge && (
+              <button onClick={() => gallery.current?.click()} className="presse-ligne flex h-[52px] w-full items-center gap-3 px-4 text-corps text-teinte">
+                <Images size={22} /> Choisir dans la photothèque
+              </button>
+            )}
+          </div>
+          {challenge && <p className="mt-2 px-1 text-note text-brume">Le défi se relève sur le moment : une photo prise maintenant, pas une déjà dans le téléphone.</p>}
+        </>
       )}
       <textarea
         className="champ mt-3 resize-none !bg-carte"

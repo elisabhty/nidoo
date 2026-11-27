@@ -392,7 +392,9 @@ export function nouveauSticker(key: string, W: number, H: number, deja: number, 
 
 export function FilterRow({ f, setF, vignettes, busy }: { f: FiltreKey; setF: (f: FiltreKey) => void; vignettes: Record<FiltreKey, string> | null; busy?: boolean }) {
   return (
-    <div className="no-bar -mx-5 flex gap-2.5 overflow-x-auto px-5 py-1" aria-busy={busy}>
+    // la même hauteur que la rangée des cadres (84 px) : passer de Filtres à Cadres ne fait plus bouger la feuille
+    // (Elisa, 27 novembre : « ça bouge quand on passe de filtres à cadres »)
+    <div className="no-bar -mx-5 flex h-[84px] items-center gap-2.5 overflow-x-auto px-5 py-1" aria-busy={busy}>
       {FILTRES.map((x) => {
         const on = f === x.key
         return (
@@ -445,7 +447,7 @@ export function CadreCanvas({ fr, W, H }: { fr?: string; W: number; H: number })
 
 export function CadreRow({ fr, setFr, vignettes }: { fr?: string; setFr: (k?: string) => void; vignettes: Record<string, string> | null }) {
   return (
-    <div className="no-bar -mx-5 flex gap-2.5 overflow-x-auto px-5 py-1">
+    <div className="no-bar -mx-5 flex h-[84px] items-center gap-2.5 overflow-x-auto px-5 py-1">
       {CADRES.map((x) => {
         const on = (fr ?? 'aucun') === x.key
         return (

@@ -1,10 +1,10 @@
 // L'appareil photo de Nidoo (Elisa, 27 novembre : « améliore l'UI UX en mode Nidoo quand on prend une photo ») :
 // plus l'écran noir de l'iPhone, mais un appareil aux couleurs de la maison. Le cadre arrondi et le défi du jour
-// posé sur l'image ; un déclencheur violet au cœur blanc ; le retardateur pour la photo de famille (le compte à
+// posé sur l'image ; un déclencheur violet ; le retardateur pour la photo de famille (le compte à
 // rebours s'affiche en grand) ; puis la photo qui se développe comme un Polaroid, avant de la garder ou de la reprendre.
 // L'image vient de la caméra du téléphone (getUserMedia : la coque iOS l'autorise déjà, rien de natif à changer).
 // Pas de caméra ici (ordinateur) ou pas d'autorisation : la photothèque, ou l'appareil de l'iPhone.
-import { Check, Heart, Images, RotateCcw, SwitchCamera, Timer, X } from 'lucide-react'
+import { Check, Images, RotateCcw, SwitchCamera, Timer, X } from 'lucide-react'
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { choc, select, success, tap, warn } from '../lib/haptic'
 
@@ -74,6 +74,13 @@ function Appareil({ demande, fin }: { demande: Demande; fin: (r: ReponseAppareil
   const [compte, setCompte] = useState<number | null>(null)
   const [eclair, setEclair] = useState(0)
   const [photo, setPhoto] = useState<{ blob: Blob; url: string } | null>(null)
+  // ce qu'on vient de régler, dit sur l'image un court instant (« Retardateur : 3 secondes »)
+  const [annonce, setAnnonce] = useState<{ n: number; texte: string } | null>(null)
+  useEffect(() => {
+    if (!annonce) return
+    const t = window.setTimeout(() => setAnnonce(null), 1500)
+    return () => window.clearTimeout(t)
+  }, [annonce])
   const minuteur = useRef<number | null>(null)
   // la caméra en cours, pour la rallumer au retour dans l'appli
   const faceRef = useRef<Face>(face)
@@ -268,23 +275,31 @@ function Appareil({ demande, fin }: { demande: Demande; fin: (r: ReponseAppareil
       style={{ paddingTop: 'var(--sat)', paddingBottom: 'var(--sab)', containerType: 'size', '--cadre': 'min(calc(100cqw - 32px), calc((100cqh - 232px) * 0.75))' } as CSSProperties}
     >
       {/* en haut : fermer, ce qu'on photographie, le retardateur */}
-      <div className="flex h-[56px] shrink-0 items-center justify-between gap-3 px-4">
+      {/* le titre est centré sur l'écran, quoi qu'il y ait sur les côtés : rien ne bouge quand le retardateur change
+          (Elisa, 27 novembre : « le texte bouge ») */}
+      <div className="relative flex h-[56px] shrink-0 items-center justify-between px-4">
         <button onClick={fermer} className="presse flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-carte text-encre shadow-carte" aria-label="Fermer l’appareil photo">
           <X size={20} strokeWidth={2.6} />
         </button>
-        <p className="min-w-0 flex-1 truncate text-center text-corps font-semibold">{photo ? 'Ta photo' : titre}</p>
+        <p className="pointer-events-none absolute inset-x-[72px] truncate text-center text-corps font-semibold">{photo ? 'Ta photo' : titre}</p>
         {!photo && etat === 'pret' ? (
+          // toujours un rond de 44 : l'horloge quand il est coupé, « 3 s » ou « 10 s » quand il est réglé ; pendant le
+          // compte à rebours, le toucher l'arrête
           <button
             onClick={() => {
+              if (compte !== null) {
+                select()
+                return annulerCompte()
+              }
               select()
-              setRetardateur((r) => RETARDATEURS[(RETARDATEURS.indexOf(r) + 1) % RETARDATEURS.length])
+              const suivant = RETARDATEURS[(RETARDATEURS.indexOf(retardateur) + 1) % RETARDATEURS.length]
+              setRetardateur(suivant)
+              setAnnonce({ n: Date.now(), texte: suivant ? `Retardateur : ${suivant} secondes` : 'Retardateur coupé' })
             }}
-            disabled={compte !== null}
-            className={`presse flex h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-full px-3 shadow-carte transition-colors ${retardateur ? 'bg-teinte text-white' : 'bg-carte text-encre'}`}
-            aria-label={retardateur ? `Retardateur : ${retardateur} secondes` : 'Retardateur : désactivé'}
+            className={`presse flex h-11 w-11 shrink-0 items-center justify-center rounded-full shadow-carte transition-colors ${retardateur ? 'bg-teinte text-white' : 'bg-carte text-encre'}`}
+            aria-label={compte !== null ? 'Arrêter le compte à rebours' : retardateur ? `Retardateur : ${retardateur} secondes. Toucher pour changer` : 'Retardateur : coupé. Toucher pour le régler'}
           >
-            <Timer size={19} strokeWidth={2.4} />
-            {tempsRetardateur && <span className="text-sous font-bold">{tempsRetardateur}</span>}
+            {tempsRetardateur ? <span className="text-note font-extrabold leading-none">{tempsRetardateur}</span> : <Timer size={20} strokeWidth={2.4} />}
           </button>
         ) : (
           <span className="w-11 shrink-0" aria-hidden="true" />
@@ -312,6 +327,12 @@ function Appareil({ demande, fin }: { demande: Demande; fin: (r: ReponseAppareil
             </p>
           )}
 
+          {annonce && etat === 'pret' && compte === null && (
+            <p key={annonce.n} role="status" className="appareil-annonce absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full bg-black/45 px-4 py-2 text-sous font-bold text-white backdrop-blur-md">
+              {annonce.texte}
+            </p>
+          )}
+
           {ilFautDeLaLumiere && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white">
               <img src="./art/stickers/panda-motive.webp" alt="" className="h-20 w-20 animate-pulse object-contain" />
@@ -327,15 +348,19 @@ function Appareil({ demande, fin }: { demande: Demande; fin: (r: ReponseAppareil
               </p>
               <p className="mt-1.5 text-sous text-white/80 [text-wrap:pretty]">
                 {etat === 'refuse'
-                  ? 'Autorise-le dans Réglages, puis Nidoo, puis Appareil photo. Ou choisis une photo déjà prise.'
+                  ? `Autorise-le dans Réglages, puis Nidoo, puis Appareil photo.${galerie ? ' Ou choisis une photo déjà prise.' : ''}`
                   : etat === 'absent'
-                    ? 'Choisis plutôt une photo déjà prise.'
+                    ? galerie
+                      ? 'Choisis plutôt une photo déjà prise.'
+                      : 'Cette photo se prend avec l’appareil photo du téléphone.'
                     : 'Réessaie dans un instant, ou passe par l’appareil photo du téléphone.'}
               </p>
+              {/* sans photothèque (le défi du jour se relève sur le moment), on ne propose que de réessayer ou
+                  l'appareil du téléphone */}
               <div className="mt-5 flex w-full max-w-[280px] flex-col gap-2.5">
-                {(galerie || etat !== 'erreur') && (
-                  <button onClick={() => (tap(), fin(galerie ? 'galerie' : 'natif'))} className="presse flex min-h-12 items-center justify-center gap-2 rounded-full bg-white px-4 text-sous font-bold text-teinte-fonce">
-                    <Images size={18} strokeWidth={2.4} /> {galerie ? 'Choisir dans la photothèque' : 'Choisir une photo'}
+                {galerie && etat !== 'erreur' && (
+                  <button onClick={() => (tap(), fin('galerie'))} className="presse flex min-h-12 items-center justify-center gap-2 rounded-full bg-white px-4 text-sous font-bold text-teinte-fonce">
+                    <Images size={18} strokeWidth={2.4} /> Choisir dans la photothèque
                   </button>
                 )}
                 {etat === 'erreur' && (
@@ -424,7 +449,7 @@ function Appareil({ demande, fin }: { demande: Demande; fin: (r: ReponseAppareil
               className="appareil-declencheur flex h-[84px] w-[84px] items-center justify-center rounded-full bg-carte shadow-[0_8px_22px_-8px_rgba(36,16,110,0.45)] disabled:opacity-50"
             >
               <span className="flex h-[66px] w-[66px] items-center justify-center rounded-full text-white transition-transform duration-150" style={{ background: 'linear-gradient(140deg, #8E6CF0 0%, #6646CC 100%)' }}>
-                {compte !== null ? <X size={28} strokeWidth={2.8} /> : <Heart size={27} strokeWidth={2.4} fill="currentColor" />}
+                {compte !== null && <X size={28} strokeWidth={2.8} />}
               </span>
             </button>
           </div>

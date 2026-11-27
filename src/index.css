@@ -775,3 +775,5 @@ html.kb-visible .ios-sheet.h-\[92\%\] { height: calc(100% - var(--sat) - 8px); }
 @keyframes polaroidPose { from { opacity: 0; transform: translateY(-18px) rotate(-7deg) scale(0.94); } to { opacity: 1; transform: rotate(-2deg); } }
 .polaroid-image { border-radius: 2px; animation: polaroidDeveloppe 1.3s ease-out both; }
 @keyframes polaroidDeveloppe { from { filter: brightness(1.85) saturate(0.1) contrast(0.75); } to { filter: none; } }
+.appareil-annonce { animation: appareilAnnonce 1.5s ease both; }
+@keyframes appareilAnnonce { 0% { opacity: 0; } 12% { opacity: 1; } 72% { opacity: 1; } 100% { opacity: 0; } }
