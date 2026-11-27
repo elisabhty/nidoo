@@ -11,7 +11,8 @@ import { photoBlob } from '../components/folderSouvenirs'
 import { PhotoEditeur } from '../components/photoEditeur'
 import { StickerImg, StickerTray } from '../components/stickers'
 import { Art, Avatar, Btn, choisir, confirmer, Rond, Screen, SearchField, Sheet } from '../components/ui'
-import { REACTIONS } from '../lib/data'
+import { QuiAReagi, ReactionImg, ToutesReactions } from '../components/reactions'
+import { lesPlusDonnees, motDe, RAPIDES, reaction, retenir } from '../lib/reactions'
 import { folderStats, membersOf, whoText } from '../lib/folders'
 import { select, success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
@@ -105,6 +106,10 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
   const [sondage, setSondage] = useState<string | null>(null)
   const [commentaires, setCommentaires] = useState<{ id: string; ecrire: boolean } | null>(null)
   const [plein, setPlein] = useState<string | null>(null)
+  // les feuilles des réactions (toutes les réactions, qui a réagi) : au niveau de l'écran, pas dans la carte
+  const [reactionsDe, setReactionsDe] = useState<string | null>(null)
+  const [quiDe, setQuiDe] = useState<string | null>(null)
+  const reagirSur = useReagir()
   // un nouvel album ; avec la photo d'une publication à y garder, quand on le crée depuis « Garder »
   const [nouvelAlbum, setNouvelAlbum] = useState<null | { garder?: Moment }>(null)
   const photoInput = useRef<HTMLInputElement>(null)
@@ -191,7 +196,9 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
 
   const commentairesDe = commentaires ? moments.find((m) => m.id === commentaires.id && !m.reply_to) : undefined
 
+  // les feuilles vont après l'écran, pas dedans : dans la zone qui défile, elles se décaleraient avec le fil
   return (
+    <>
     <Screen title="Le fil" trailing={<Rond label={chercher ? 'Fermer la recherche' : 'Rechercher dans le fil'} onClick={() => {
         tap()
         setChercher(!chercher)
@@ -279,6 +286,8 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
                   onPhoto={setPlein}
                   onCommentaires={(ecrire) => setCommentaires({ id: e.mo.id, ecrire })}
                   onNouvelAlbum={() => setNouvelAlbum({ garder: e.mo })}
+                  onToutes={() => setReactionsDe(e.mo.id)}
+                  onQui={() => setQuiDe(e.mo.id)}
                 />
               ) : (
                 <AjoutAlbum key={e.id} a={e.a} onAlbum={() => onAlbum(e.a.folder.id)} onPhoto={setPlein} />
@@ -287,6 +296,7 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
           </ParPaquets>
         </div>
       </div>
+    </Screen>
 
       {compose && (
         <NouvellePublication
@@ -328,8 +338,23 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
           }}
         />
       )}
+      {reactionsDe && (() => {
+        const mo = moments.find((m) => m.id === reactionsDe)
+        if (!mo) return null
+        return (
+          <ToutesReactions
+            ma={state.reactions.find((r) => r.moment_id === mo.id && r.member_id === me.id)?.emoji}
+            onChoix={(cle) => {
+              setReactionsDe(null)
+              reagirSur(mo, cle)
+            }}
+            onClose={() => setReactionsDe(null)}
+          />
+        )
+      })()}
+      {quiDe && <QuiAReagi momentId={quiDe} onClose={() => setQuiDe(null)} />}
       {plein && <PhotoEnGrand url={plein} onClose={() => setPlein(null)} />}
-    </Screen>
+    </>
   )
 }
 
@@ -409,8 +434,6 @@ function BandeAlbums({ onAlbum, onTout, onNouveau }: { onAlbum: (id: string) => 
 
 // ═════════════════════════ Une publication ═════════════════════════
 
-const artDe = (cle: string) => REACTIONS.find((r) => r.key === cle)
-
 /** « Toi et 2 autres », « Léa et Papa », « Léa, Papa et 3 autres » */
 function quiAReagi(ids: string[], me: string, members: Member[]) {
   const noms = ids.filter((id) => id !== me).map((id) => members.find((m) => m.id === id)?.display_name).filter((x): x is string => !!x)
@@ -420,28 +443,38 @@ function quiAReagi(ids: string[], me: string, members: Member[]) {
   return `${noms[0]}, ${noms[1]} et ${noms.length - 2} autre${noms.length > 3 ? 's' : ''}`
 }
 
-function Publication({ mo, coms, peutCommenter, onPhoto, onCommentaires, onNouvelAlbum }: { mo: Moment; coms: Moment[]; peutCommenter: boolean; onPhoto: (url: string) => void; onCommentaires: (ecrire: boolean) => void; onNouvelAlbum: () => void }) {
+/** Réagir à une publication (ou retirer sa réaction), tout de suite à l'écran. */
+function useReagir() {
+  const { state, run } = useHome()
+  return (mo: Moment, cle: string | null) => {
+    select()
+    if (cle) retenir(cle)
+    void run(
+      (api) => api.react(mo, state.me.id, cle),
+      undefined,
+      (st: FamilyState) => ({ ...st, reactions: [...st.reactions.filter((r) => !(r.moment_id === mo.id && r.member_id === st.me.id)), ...(cle ? [{ moment_id: mo.id, member_id: st.me.id, emoji: cle }] : [])] }),
+    )
+  }
+}
+
+function Publication({ mo, coms, peutCommenter, onPhoto, onCommentaires, onNouvelAlbum, onToutes, onQui }: { mo: Moment; coms: Moment[]; peutCommenter: boolean; onPhoto: (url: string) => void; onCommentaires: (ecrire: boolean) => void; onNouvelAlbum: () => void; onToutes: () => void; onQui: () => void }) {
   const { state, run, toast } = useHome()
   const { me, members, reactions, folders, folderItems } = state
   const auteur = members.find((m) => m.id === mo.member_id)
   const mien = mo.member_id === me.id
-  const rs = reactions.filter((r) => r.moment_id === mo.id)
+  // les réactions qu'on sait afficher (une version plus récente de Nidoo peut en avoir d'autres)
+  const rs = reactions.filter((r) => r.moment_id === mo.id && reaction(r.emoji))
   const ma = rs.find((r) => r.member_id === me.id)?.emoji
-  const sortes = REACTIONS.filter((r) => rs.some((x) => x.emoji === r.key)).slice(0, 3)
+  const sortes = lesPlusDonnees(rs.map((r) => r.emoji)).slice(0, 3)
   const gardee = folderItems.some((i) => i.source_moment_id === mo.id)
   const sondage = !!mo.poll_options?.length
   const stickerSeul = !!mo.sticker && !mo.image_url && !mo.audio_path && !mo.body
   const court = !!mo.body && !mo.image_url && !mo.audio_path && !sondage && mo.body.length <= 90 && !/https?:|www\./.test(mo.body)
   const [choix, setChoix] = useState(false)
-
+  const reagirSur = useReagir()
   const reagir = (cle: string | null) => {
-    select()
     setChoix(false)
-    void run(
-      (api) => api.react(mo, me.id, cle),
-      undefined,
-      (st: FamilyState) => ({ ...st, reactions: [...st.reactions.filter((r) => !(r.moment_id === mo.id && r.member_id === me.id)), ...(cle ? [{ moment_id: mo.id, member_id: me.id, emoji: cle }] : [])] }),
-    )
+    reagirSur(mo, cle)
   }
 
   const garder = async () => {
@@ -460,7 +493,7 @@ function Publication({ mo, coms, peutCommenter, onPhoto, onCommentaires, onNouve
   const options = async () => {
     tap()
     const actions: { label: string; destructive?: boolean; go: () => void }[] = [
-      { label: 'Réagir', go: () => setChoix(true) },
+      { label: 'Réagir', go: onToutes },
       ...(mo.image_url ? [{ label: 'Garder dans un album', go: () => void garder() }] : []),
       ...(mo.body && !sondage ? [{ label: 'Copier le texte', go: () => void navigator.clipboard?.writeText(mo.body!).then(() => toast('Texte copié')).catch(() => undefined) }] : []),
       ...(mien ? [{ label: 'Supprimer la publication', destructive: true, go: async () => {
@@ -524,16 +557,16 @@ function Publication({ mo, coms, peutCommenter, onPhoto, onCommentaires, onNouve
       {(rs.length > 0 || coms.length > 0) && (
         <div className="mx-4 mt-3 flex items-center justify-between gap-3 text-note text-brume">
           {rs.length > 0 ? (
-            <span className="flex min-w-0 items-center gap-1.5">
+            <button onClick={() => { tap(); onQui() }} className="presse cible flex min-w-0 items-center gap-1.5 text-left" aria-label={`Réactions : ${quiAReagi(rs.map((r) => r.member_id), me.id, members)}. Voir qui a réagi`}>
               <span className="flex shrink-0">
                 {sortes.map((r, k) => (
-                  <span key={r.key} className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-white shadow-[0_0_0_2px_#fff]" style={{ marginLeft: k ? -6 : 0, zIndex: 3 - k }}>
-                    <Art name={r.art} size={18} />
+                  <span key={r.cle} className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-white shadow-[0_0_0_2px_#fff]" style={{ marginLeft: k ? -6 : 0, zIndex: 3 - k }}>
+                    <ReactionImg r={r} size={18} />
                   </span>
                 ))}
               </span>
               <span className="truncate">{quiAReagi(rs.map((r) => r.member_id), me.id, members)}</span>
-            </span>
+            </button>
           ) : (
             <span />
           )}
@@ -558,7 +591,7 @@ function Publication({ mo, coms, peutCommenter, onPhoto, onCommentaires, onNouve
             {gardee ? <BookmarkCheck size={19} strokeWidth={2.2} /> : <BookmarkPlus size={19} strokeWidth={2.2} />} {gardee ? 'Gardée' : 'Garder'}
           </button>
         )}
-        {choix && <ChoixReaction ma={ma} onChoix={reagir} onClose={() => setChoix(false)} />}
+        {choix && <ChoixReaction ma={ma} onChoix={reagir} onPlus={() => { tap(); setChoix(false); onToutes() }} onClose={() => setChoix(false)} />}
       </div>
 
       {/* les derniers commentaires, et l'endroit pour en écrire un */}
@@ -595,7 +628,7 @@ const nomCourt = (members: Member[], id: string) => members.find((m) => m.id ===
 function BoutonReaction({ ma, onTap, onLong }: { ma?: string; onTap: () => void; onLong: () => void }) {
   const minuteur = useRef<number | null>(null)
   const long = useRef(false)
-  const r = ma ? artDe(ma) : null
+  const r = reaction(ma)
   const fin = () => {
     if (minuteur.current) window.clearTimeout(minuteur.current)
     minuteur.current = null
@@ -619,32 +652,46 @@ function BoutonReaction({ ma, onTap, onLong }: { ma?: string; onTap: () => void;
         if (long.current) return void (long.current = false)
         onTap()
       }}
-      aria-label={r ? `Ta réaction : ${r.label}. Toucher pour la retirer, appuyer longtemps pour en choisir une autre` : 'J’aime. Appuyer longtemps pour choisir une réaction'}
+      aria-label={r ? `Ta réaction : ${r.emoji ?? r.label}. Toucher pour la retirer, appuyer longtemps pour en choisir une autre` : 'J’aime. Appuyer longtemps pour choisir une réaction'}
       className={`presse flex h-11 select-none items-center justify-center gap-1.5 text-sous font-semibold [-webkit-touch-callout:none] ${r ? 'text-teinte-fonce' : 'text-brume'}`}
     >
-      {r ? <span key={r.key} className="anim-pop flex"><Art name={r.art} size={21} /></span> : <Heart size={19} strokeWidth={2.2} />}
-      {r ? r.label : 'J’aime'}
+      {r ? <span key={r.cle} className="anim-pop flex"><ReactionImg r={r} size={21} /></span> : <Heart size={19} strokeWidth={2.2} />}
+      <span className="max-w-[92px] truncate">{r ? motDe(r) : 'J’aime'}</span>
     </button>
   )
 }
 
-function ChoixReaction({ ma, onChoix, onClose }: { ma?: string; onChoix: (cle: string | null) => void; onClose: () => void }) {
+/** L'appui long sur J'aime : les cinq réactions du panda, la sienne si elle vient d'ailleurs, et « + » pour toutes les
+ *  autres. */
+function ChoixReaction({ ma, onChoix, onPlus, onClose }: { ma?: string; onChoix: (cle: string | null) => void; onPlus: () => void; onClose: () => void }) {
+  const mienne = reaction(ma)
+  const liste = mienne && !RAPIDES.some((r) => r.cle === mienne.cle) ? [...RAPIDES, mienne] : RAPIDES
   return (
     <>
       <button className="fixed inset-0 z-[60] cursor-default" aria-label="Fermer les réactions" onClick={onClose} />
       <div className="anim-pop absolute bottom-[calc(100%+6px)] left-1 z-[61] flex items-center gap-0.5 rounded-full bg-white p-1.5 shadow-[0_12px_32px_rgba(29,26,43,0.24)]" role="group" aria-label="Choisir une réaction">
-        {REACTIONS.map((r, i) => (
+        {liste.map((r, i) => (
           <button
-            key={r.key}
-            onClick={() => onChoix(ma === r.key ? null : r.key)}
-            aria-label={r.label}
-            aria-pressed={ma === r.key}
-            className={`reaction-choix flex h-11 w-11 items-center justify-center rounded-full ${ma === r.key ? 'bg-teinte-doux' : ''}`}
+            key={r.cle}
+            onClick={() => onChoix(ma === r.cle ? null : r.cle)}
+            aria-label={r.emoji ? `Réagir avec ${r.emoji}` : r.label}
+            aria-pressed={ma === r.cle}
+            className={`reaction-choix flex h-11 items-center justify-center rounded-full ${liste.length > 5 ? 'w-[42px]' : 'w-11'} ${ma === r.cle ? 'bg-teinte-doux' : ''}`}
             style={{ animationDelay: `${i * 0.035}s` } as CSSProperties}
           >
-            <Art name={r.art} size={32} />
+            <ReactionImg r={r} size={32} />
           </button>
         ))}
+        <button
+          onClick={onPlus}
+          aria-label="Plus de réactions"
+          className="reaction-choix ml-0.5 flex h-11 w-11 items-center justify-center rounded-full"
+          style={{ animationDelay: `${liste.length * 0.035}s` } as CSSProperties}
+        >
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-remplissage text-encre">
+            <Plus size={20} strokeWidth={2.6} />
+          </span>
+        </button>
       </div>
     </>
   )
