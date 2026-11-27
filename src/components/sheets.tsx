@@ -106,9 +106,7 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
   const [, setHistN] = useState(0)
   const [body, setBody] = useState('')
   const [busy, setBusy] = useState(false)
-  // le défi se relève en photo ; écrire un mot reste possible, mais c'est un second choix (Elisa, 27 novembre :
-  // « améliore l'ui ux de cette page »)
-  const [ecrire, setEcrire] = useState(false)
+  // le défi se relève en photo, et seulement en photo (Elisa, 27 novembre : « ne pas mettre le petit mot »)
   const duJour = challenge ? state.moments.filter((m) => !m.reply_to && m.challenge === challenge && isToday(m.created_at)) : []
   const dejaFait = duJour.some((m) => m.member_id === state.me.id)
   const ontReleve = [...new Set(duJour.map((m) => m.member_id).filter((id) => id !== state.me.id))]
@@ -327,8 +325,7 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
           )}
         </>
       ) : challenge ? (
-        ecrire ? null : (
-          <>
+        <>
             <Btn
               className="mt-4"
               onClick={async () => {
@@ -343,11 +340,7 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
                 <Camera size={21} strokeWidth={2.3} /> {dejaFait ? 'Prendre une autre photo' : 'Prendre la photo'}
               </span>
             </Btn>
-            <button onClick={() => { tap(); setEcrire(true) }} className="presse mt-1.5 min-h-11 w-full text-sous font-semibold text-teinte-fonce">
-              Pas d’appareil sous la main ? Écris un petit mot
-            </button>
-          </>
-        )
+        </>
       ) : (
         <>
           <div className="groupe">
@@ -372,26 +365,21 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
           </div>
         </>
       )}
-      {/* le mot : la légende de la photo, ou (pour le défi) le petit mot qu'on écrit à la place */}
-      {(!challenge || preview || ecrire) && (
+      {/* la légende de la photo, ou le petit mot (pas pour le défi : une photo, rien d'autre) */}
+      {(!challenge || preview) && (
         <>
           <textarea
             className="champ mt-3 resize-none !bg-carte"
             rows={preview ? 2 : 3}
             maxLength={280}
-            placeholder={preview ? (challenge ? 'Ajoute un petit mot (facultatif)' : 'Ajouter une légende') : challenge ? `Ton petit mot sur « ${challenge} »` : 'Ou écris juste un petit mot à toute la famille'}
+            placeholder={preview ? (challenge ? 'Ajoute une légende (facultatif)' : 'Ajouter une légende') : 'Ou écris juste un petit mot à toute la famille'}
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            autoFocus={startWith === 'mot' || (ecrire && !preview)}
+            autoFocus={startWith === 'mot'}
           />
-          <Btn className="mt-3" onClick={send} disabled={busy || (!orig && !body.trim())}>
+          <Btn className="mt-3" onClick={send} disabled={busy || (challenge ? !orig : !orig && !body.trim())}>
             {busy ? 'Envoi…' : challenge && preview && !dejaFait ? 'Relever le défi' : 'Envoyer à la famille'}
           </Btn>
-          {challenge && ecrire && !preview && (
-            <button onClick={() => { tap(); setEcrire(false) }} className="presse mt-1.5 min-h-11 w-full text-sous font-semibold text-teinte-fonce">
-              Prendre plutôt une photo
-            </button>
-          )}
         </>
       )}
     </Sheet>
