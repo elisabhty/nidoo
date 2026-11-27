@@ -42,7 +42,7 @@ export function contentLine(s: FolderStats): string {
     s.notes && plural(s.notes, 'note', 'notes'),
     s.audios && plural(s.audios, 'vocal', 'vocaux'),
     s.videos && plural(s.videos, 'vidéo', 'vidéos'),
-    s.subfolders && plural(s.subfolders, 'dossier', 'dossiers'),
+    s.subfolders && plural(s.subfolders, 'album', 'albums'),
   ].filter(Boolean)
   return parts.length ? parts.join(' · ') : 'Vide pour l’instant'
 }

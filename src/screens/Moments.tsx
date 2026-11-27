@@ -1,22 +1,16 @@
-import { Search, ArrowUp, ChartNoAxesColumn, Check, ImagePlus, Mic, Pause, Play, Plus, Smile, Trash2, X } from 'lucide-react'
+import { Check, Pause, Play, Plus, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
-import { PhotoEditeur } from '../components/photoEditeur'
-import { StickerImg, StickerTray } from '../components/stickers'
-import { Art, Avatar, choisir, confirmer, Sheet } from '../components/ui'
-import { prendrePhoto } from '../components/appareil'
-import { REACTIONS } from '../lib/data'
-import { select, success, tap } from '../lib/haptic'
-import { bulle } from '../lib/sons'
+import { Avatar, Sheet } from '../components/ui'
+import { select, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
-import { cleSticker, PERSO } from '../lib/stickers'
-import type { Ecrit, Member, Moment } from '../lib/types'
+import type { Moment } from '../lib/types'
 
-// Le fil de la famille, comme une discussion : des bulles avec des photos (qu'on peut annoter), du texte,
-// des liens, des vocaux et des stickers en feutrine. On voit en direct qui écrit, qui enregistre un vocal, qui choisit une photo.
+// Ce qui fait une publication du fil : le texte et ses liens, l'aperçu du premier lien, les vocaux, les sondages, la
+// photo ; et l'enregistreur de vocaux. Le fil lui-même (un fil d'actualité, façon Facebook, depuis le 27 novembre) est
+// dans FilFamilial.tsx ; il n'y a plus de bulles de discussion.
 
-const heure = (iso: string) => new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-const jour = (iso: string) => {
+export const heure = (iso: string) => new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+export const jour = (iso: string) => {
   const d = new Date(iso)
   const a = new Date()
   a.setHours(0, 0, 0, 0)
@@ -25,7 +19,7 @@ const jour = (iso: string) => {
   if (j === -1) return 'Hier'
   return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^./, (c) => c.toUpperCase())
 }
-const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
+export const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
 
 // ───────── Les liens ─────────
 
@@ -37,7 +31,7 @@ function youtube(u: URL) {
   return null
 }
 
-function Texte({ body, mine }: { body: string; mine: boolean }) {
+export function Texte({ body, mine, grand = false }: { body: string; mine: boolean; /** un texte court publié seul : en grand, comme sur Facebook */ grand?: boolean }) {
   const morceaux: (string | { url: string; txt: string })[] = []
   let i = 0
   for (const m of body.matchAll(LIEN)) {
@@ -47,7 +41,7 @@ function Texte({ body, mine }: { body: string; mine: boolean }) {
   }
   if (i < body.length) morceaux.push(body.slice(i))
   return (
-    <p className="whitespace-pre-wrap break-words text-appel">
+    <p className={`whitespace-pre-wrap break-words ${grand ? 'text-[22px] font-semibold leading-[29px] tracking-[-0.2px]' : 'text-appel'}`}>
       {morceaux.map((x, k) =>
         typeof x === 'string' ? (
           x.replace(/ ([?!:;»])/g, '\u00a0$1').replace(/« /g, '«\u00a0') // pas de « ? » tout seul en début de ligne
@@ -62,7 +56,7 @@ function Texte({ body, mine }: { body: string; mine: boolean }) {
 }
 
 /** L'aperçu du premier lien : la miniature d'une vidéo YouTube, sinon l'icône et le nom du site. */
-function Apercu({ body, mine }: { body: string; mine: boolean }) {
+export function Apercu({ body, mine }: { body: string; mine: boolean }) {
   const m = body.match(LIEN)
   const [icone, setIcone] = useState(true)
   if (!m) return null
@@ -108,7 +102,7 @@ function ondeDe(mo: Moment, n = 32) {
   return Array.from({ length: n }, (_, i) => src[Math.floor((i * src.length) / n)] ?? 30)
 }
 
-function Vocal({ mo, mine }: { mo: Moment; mine: boolean }) {
+export function Vocal({ mo, mine }: { mo: Moment; mine: boolean }) {
   const audio = useRef<HTMLAudioElement | null>(null)
   const [joue, setJoue] = useState(false)
   const [t, setT] = useState(0)
@@ -165,7 +159,7 @@ function Vocal({ mo, mine }: { mo: Moment; mine: boolean }) {
 
 /** Un sondage fait partie de la conversation, avec les résultats partagés en direct.
  *  Le vote s'affiche tout de suite (sans attendre le serveur) et les barres glissent : rien ne clignote. */
-function Sondage({ mo, mine, envoi }: { mo: Moment; mine: boolean; envoi?: boolean }) {
+export function Sondage({ mo, mine, envoi, pleine = false }: { mo: Moment; mine: boolean; envoi?: boolean; /** dans une publication : toute la largeur */ pleine?: boolean }) {
   const { state, run } = useHome()
   const options = mo.poll_options ?? []
   const moi = state.me.id
@@ -194,7 +188,7 @@ function Sondage({ mo, mine, envoi }: { mo: Moment; mine: boolean; envoi?: boole
   const vu = mien !== undefined
   return (
     // une largeur fixe : la bulle ne bouge pas quand les pourcentages et « Tu peux changer ton vote » apparaissent
-    <div className="sondage-bulle" style={{ width: 'min(62vw, 300px)' }} onClick={(e) => e.stopPropagation()}>
+    <div className="sondage-bulle" style={{ width: pleine ? '100%' : 'min(62vw, 300px)' }} onClick={(e) => e.stopPropagation()}>
       <p className={`mb-1 text-note font-bold ${mine ? 'text-white/80' : 'text-teinte-fonce'}`}>Sondage</p>
       <p className="mb-3 whitespace-pre-wrap break-words text-corps font-semibold">{mo.body}</p>
       <div className="space-y-2">
@@ -251,10 +245,8 @@ function Sondage({ mo, mine, envoi }: { mo: Moment; mine: boolean; envoi?: boole
   )
 }
 
-// ───────── Une bulle ─────────
-
 /** Garde l’aperçu visible jusqu’au décodage de la photo confirmée. */
-function PhotoDuFil({ src, alt, anim, onPhoto, releasePhoto }: { src: string; alt: string; anim: boolean; onPhoto: (url: string) => void; releasePhoto: (url: string) => void }) {
+export function PhotoDuFil({ src, alt, anim, onPhoto, releasePhoto }: { src: string; alt: string; anim: boolean; onPhoto: (url: string) => void; releasePhoto: (url: string) => void }) {
   const [visible, setVisible] = useState(src)
   useEffect(() => {
     if (src === visible) return
@@ -280,169 +272,9 @@ function PhotoDuFil({ src, alt, anim, onPhoto, releasePhoto }: { src: string; al
     className="block max-h-[340px] w-full min-w-[180px] rounded-[18px] object-cover"
   />
 }
-
-function Bulle({ mo, auteur, mine, premier, dernier, ouvert, onOuvrir, onPhoto, anim, envoi, envoye, pret, releasePhoto }: { releasePhoto: (url: string) => void; mo: Moment; auteur: Member; mine: boolean; premier: boolean; dernier: boolean; ouvert: boolean; onOuvrir: () => void; onPhoto: (url: string) => void; /** un nouveau message : il entre en bougeant */ anim: boolean; /** en cours d'envoi */ envoi?: boolean; /** le dernier message, le nôtre, est bien parti */ envoye?: boolean; /** le fil est affiché depuis un moment : les nouvelles réactions sautent */ pret: boolean }) {
-  const { state, run } = useHome()
-  const rs = state.reactions.filter((r) => r.moment_id === mo.id)
-  const maReaction = rs.find((r) => r.member_id === state.me.id)?.emoji
-  const groupes = REACTIONS.map((r) => ({ ...r, n: rs.filter((x) => x.emoji === r.key).length })).filter((r) => r.n > 0)
-  const photoSeule = !!mo.image_url && !mo.body && !mo.challenge
-  const stickerSeul = !!mo.sticker && !mo.image_url && !mo.audio_path && !mo.body
-  const coin = mine ? (dernier ? 'rounded-[22px] rounded-br-[8px]' : 'rounded-[22px] rounded-r-[10px]') : dernier ? 'rounded-[22px] rounded-bl-[8px]' : 'rounded-[22px] rounded-l-[10px]'
-
-  return (
-    <div className={`flex items-end gap-2 ${mine ? 'justify-end' : ''} ${dernier ? 'mb-2' : 'mb-[2px]'} ${groupes.length && !dernier ? 'pb-4' : ''}`}>
-      {!mine && <span className="w-8 shrink-0">{dernier && <Avatar m={auteur} size={32} />}</span>}
-      <div className={`relative flex max-w-[78%] flex-col ${mine ? 'items-end' : 'items-start'}`}>
-        {!mine && premier && <span className="mb-1 ml-3 text-note font-semibold text-brume">{auteur.display_name}</span>}
-        {ouvert && (
-          <div className={`anim-pop absolute bottom-full z-10 mb-1.5 flex items-center gap-1 rounded-full bg-white p-1 shadow-[0_8px_24px_rgba(29,26,43,0.18)] ${mine ? 'right-0' : 'left-0'}`}>
-            {REACTIONS.map((r) => (
-              <button
-                key={r.key}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  select()
-                  onOuvrir()
-                  void run((api) => api.react(mo, state.me.id, maReaction === r.key ? null : r.key))
-                }}
-                className={`presse flex h-10 w-10 items-center justify-center rounded-full ${maReaction === r.key ? 'bg-teinte-doux' : ''}`}
-                aria-label={r.label}
-              >
-                <Art name={r.art} size={26} />
-              </button>
-            ))}
-            {mine && (
-              <button
-                onClick={async (e) => {
-                  e.stopPropagation()
-                  onOuvrir()
-                  if (await confirmer({ title: 'Ce message sera supprimé pour toute la famille.', confirm: 'Supprimer', destructive: true })) void run((api) => api.deleteMoment(mo), 'Message supprimé')
-                }}
-                className="presse ml-0.5 flex h-10 w-10 items-center justify-center rounded-full text-[#E0604F]"
-                aria-label="Supprimer"
-              >
-                <Trash2 size={19} />
-              </button>
-            )}
-          </div>
-        )}
-        <div className="relative max-w-full">
-        {stickerSeul ? (
-          <div
-            role="button"
-            tabIndex={0}
-            onClick={() => {
-              if (envoi) return
-              tap()
-              onOuvrir()
-            }}
-            className={`presse flex h-[104px] w-[104px] items-center justify-center bg-transparent p-0 ${anim ? 'anim-colle' : ''}`}
-          >
-            <StickerImg cle={mo.sticker!} className="block h-full w-full object-contain" />
-          </div>
-        ) : (
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => {
-            if (envoi) return
-            tap()
-            onOuvrir()
-          }}
-          // un sondage : pas d'effet d'appui sur toute la bulle (toucher une réponse la faisait rétrécir d'un coup)
-          className={`${mo.poll_options?.length ? '' : 'presse '}relative overflow-hidden transition-opacity ${anim ? (mine ? (mo.image_url ? 'anim-photo-envoi' : 'anim-envoi reflet') : 'anim-arrive') : ''} ${envoi && !mo.image_url ? 'opacity-75' : ''} ${coin} ${photoSeule ? 'p-1' : mo.image_url ? 'p-1 pb-2' : 'px-3.5 py-2'} ${mine ? 'text-white' : 'bg-white text-encre shadow-carte'}`}
-          style={mine ? { background: 'linear-gradient(150deg, #8E6CF0, #6646CC)' } : undefined}
-        >
-          {mo.challenge && (
-            <p className={`mb-1 text-note font-semibold ${mo.image_url ? 'px-2.5 pt-1.5' : ''} ${mine ? 'text-white/85' : 'text-peche-fonce'}`}>📸 Défi photo · {mo.challenge}</p>
-          )}
-          {mo.image_url && (
-            <PhotoDuFil src={mo.image_url} alt={mo.body ?? `Photo de ${auteur.display_name}`} anim={anim} onPhoto={onPhoto} releasePhoto={releasePhoto} />
-          )}
-          {mo.audio_path && (mo.audio_url ? <Vocal mo={mo} mine={mine} /> : <p className="text-sous opacity-80">Vocal indisponible</p>)}
-          {mo.body && (
-            <div className={mo.image_url ? 'px-2.5 pt-2' : ''}>
-              {mo.poll_options?.length ? <Sondage mo={mo} mine={mine} envoi={envoi} /> : <><Texte body={mo.body} mine={mine} /><Apercu body={mo.body} mine={mine} /></>}
-            </div>
-          )}
-        </div>
-        )}
-        {groupes.length > 0 && (
-          <span className={`absolute -bottom-4 flex items-center gap-0.5 rounded-full bg-white px-1.5 py-0.5 shadow-carte ${mine ? 'right-2' : 'left-2'}`}>
-            {groupes.map((g) => (
-              <span key={g.key} className={`flex items-center ${pret ? 'anim-pop' : ''}`}>
-                <Art name={g.art} size={17} />
-                {g.n > 1 && <span className="pr-0.5 text-mini font-semibold text-brume">{g.n}</span>}
-              </span>
-            ))}
-          </span>
-        )}
-        </div>
-        {envoi ? (
-          <span className={`flex items-center gap-0.5 text-mini text-brume ${mine ? 'mr-1.5' : 'ml-3'} mt-1`}>
-            Envoi
-            {[0, 1, 2].map((k) => (
-              <span key={k} className="h-1 w-1 rounded-full bg-pale" style={{ animation: `points 1.2s ${k * 0.18}s ease-in-out infinite` }} />
-            ))}
-          </span>
-        ) : (
-          dernier && (
-            <span className={`text-mini text-brume ${mine ? 'mr-1.5' : 'ml-3'} ${groupes.length ? 'mt-5' : 'mt-1'}`}>
-              {heure(mo.created_at)}
-              {envoye && <span className="anim-fondu font-semibold text-teinte"> · Envoyé ✓</span>}
-            </span>
-          )
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ───────── Qui écrit ─────────
-
-const FAIT: Record<Ecrit, [string, string]> = {
-  texte: ['écrit…', 'écrivent…'],
-  vocal: ['enregistre un vocal…', 'enregistrent un vocal…'],
-  photo: ['choisit une photo…', 'choisissent une photo…'],
-  sticker: ['choisit un sticker…', 'choisissent un sticker…'],
-}
-
-function Ecrivent({ qui }: { qui: { m: Member; quoi: Ecrit }[] }) {
-  if (!qui.length) return null
-  const quoi = qui[0].quoi
-  const noms = qui.map((x) => x.m.display_name)
-  const texte = `${noms.length > 2 ? `${noms.slice(0, 2).join(', ')} et ${noms.length - 2} autre${noms.length > 3 ? 's' : ''}` : noms.join(' et ')} ${FAIT[quoi][noms.length > 1 ? 1 : 0]}`
-  return (
-    <div className="anim-pop mb-3 flex items-end gap-2" aria-live="polite">
-      <span className="flex w-8 shrink-0 justify-end">
-        <span className="flex -space-x-3">
-          {qui.slice(0, 3).map((x) => (
-            <span key={x.m.id} className="rounded-full ring-2 ring-fond">
-              <Avatar m={x.m} size={32} />
-            </span>
-          ))}
-        </span>
-      </span>
-      <div className={`flex flex-col items-start ${qui.length > 1 ? 'ml-3' : ''}`}>
-        <span className="flex h-10 items-center gap-1.5 rounded-[22px] rounded-bl-[8px] bg-white px-4 shadow-carte">
-          {quoi === 'vocal' && <Mic size={15} className="mr-0.5 text-[#E0604F]" style={{ animation: 'scintille 1.2s ease-in-out infinite' }} />}
-          {quoi === 'photo' && <ImagePlus size={15} className="mr-0.5 text-teinte" />}
-          {quoi === 'sticker' && <Smile size={15} className="mr-0.5 text-teinte" />}
-          {[0, 1, 2].map((k) => (
-            <span key={k} className="h-2 w-2 rounded-full bg-brume" style={{ animation: `points 1.2s ${k * 0.18}s ease-in-out infinite` }} />
-          ))}
-        </span>
-        <span className="ml-3 mt-1 text-mini text-brume">{texte}</span>
-      </div>
-    </div>
-  )
-}
-
-
 /** La composition d'un sondage reprend la feuille iOS de l'application. */
-function SondageCompose({ onClose, envoyer }: { onClose: () => void; envoyer: (m: NouvelEnvoi) => Promise<boolean> }) {
-  const [question, setQuestion] = useState('')
+export function SondageCompose({ question0 = '', onClose, envoyer }: { question0?: string; onClose: () => void; envoyer: (m: NouvelEnvoi) => Promise<boolean> }) {
+  const [question, setQuestion] = useState(question0.slice(0, 200))
   const [options, setOptions] = useState(['', ''])
   const [loading, setLoading] = useState(false)
   const cleaned = options.map((s) => s.trim()).filter(Boolean)
@@ -480,55 +312,55 @@ function SondageCompose({ onClose, envoyer }: { onClose: () => void; envoyer: (m
   )
 }
 
-// ───────── La barre d'envoi ─────────
+/** Ce qu'on publie : du texte, un sticker, une photo (avec sa légende), un vocal ou un sondage. */
+export type NouvelEnvoi = { body?: string; sticker?: string; blob?: Blob; pollOptions?: string[]; audio?: { blob: Blob; duree: number; ondes: number[] } }
+
+// ───────── Le vocal : le micro, une petite onde en direct, 2 minutes au plus ─────────
 
 type Enreg = { rec: MediaRecorder; stream: MediaStream; ctx: AudioContext; t0: number; niveaux: number[]; morceaux: Blob[]; timer: number }
+export type VocalPret = { blob: Blob; duree: number; ondes: number[] }
 
-function Saisie({ onPhoto, envoyer }: { onPhoto: (f: File) => void; envoyer: (m: NouvelEnvoi) => Promise<boolean> }) {
-  const { state, api, toast } = useHome()
-  const { family, me } = state
-  const [texte, setTexte] = useState('')
+/** L'enregistreur de vocaux : demarrer(), puis arreter(true) rend le vocal (ou null s'il est trop court ou annulé). */
+export function useEnregistreur(onErreur: (message: string) => void) {
   const [enreg, setEnreg] = useState<Enreg | null>(null)
-  const [tiroir, setTiroir] = useState(false)
-  const [sondage, setSondage] = useState(false)
   const [, tic] = useState(0)
-  const zone = useRef<HTMLTextAreaElement>(null)
-  const fichier = useRef<HTMLInputElement>(null)
-  const dernierSignal = useRef(0)
-
-  const signal = (quoi: Ecrit | null) => {
-    const t = Date.now()
-    if (quoi && t - dernierSignal.current < 2500) return
-    dernierSignal.current = quoi ? t : 0
-    api.ecrit(family.id, me.id, quoi)
-  }
-  useEffect(() => () => api.ecrit(family.id, me.id, null), []) // eslint-disable-line react-hooks/exhaustive-deps
-  // la zone de texte grandit avec le message (jusqu'à 5 lignes)
-  useEffect(() => {
-    const z = zone.current
-    if (!z) return
-    z.style.height = 'auto'
-    z.style.height = `${Math.min(z.scrollHeight, 22 * 5 + 22)}px`
-  }, [texte])
-
-  const envoyerTexte = async () => {
-    const t = texte.trim()
-    if (!t) return
-    signal(null)
-    setTexte('')
-    if (!(await envoyer({ body: t.slice(0, 1000) }))) setTexte((x) => x || t)
-  }
-
-  // ── le vocal : le micro, une petite onde en direct, 2 minutes au plus
+  const courant = useRef<Enreg | null>(null)
+  const arreter = useCallback(async (garder: boolean): Promise<VocalPret | null> => {
+    const e = courant.current
+    if (!e) return null
+    courant.current = null
+    window.clearInterval(e.timer)
+    setEnreg(null)
+    const fini = new Promise<void>((res) => {
+      e.rec.onstop = () => res()
+    })
+    if (e.rec.state !== 'inactive') e.rec.stop()
+    await fini
+    e.stream.getTracks().forEach((t) => t.stop())
+    void e.ctx.close()
+    const duree = (Date.now() - e.t0) / 1000
+    if (!garder || duree < 0.8) return null
+    const blob = new Blob(e.morceaux, { type: e.rec.mimeType || e.morceaux[0]?.type || 'audio/mp4' })
+    const n = 40
+    const ondes = Array.from({ length: n }, (_, i) => {
+      const a = Math.floor((i * e.niveaux.length) / n)
+      const b = Math.max(a + 1, Math.floor(((i + 1) * e.niveaux.length) / n))
+      const tranche = e.niveaux.slice(a, b)
+      return tranche.length ? Math.round(Math.max(...tranche)) : 10
+    })
+    return { blob, duree, ondes }
+  }, [])
+  // on s'en va en plein enregistrement : le micro s'éteint
+  useEffect(() => () => void arreter(false), [arreter])
   const demarrer = async () => {
     tap()
-    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') return toast('Les vocaux ne marchent pas sur ce navigateur.', 'err')
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') return onErreur('Les vocaux ne marchent pas sur ce navigateur.')
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       const type = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg'].find((x) => MediaRecorder.isTypeSupported?.(x))
       const rec = new MediaRecorder(stream, type ? { mimeType: type } : undefined)
       const morceaux: Blob[] = []
-      rec.ondataavailable = (e) => e.data.size && morceaux.push(e.data)
+      rec.ondataavailable = (ev) => ev.data.size && morceaux.push(ev.data)
       rec.start(250)
       const ctx = new AudioContext()
       const an = ctx.createAnalyser()
@@ -541,466 +373,14 @@ function Saisie({ onPhoto, envoyer }: { onPhoto: (f: File) => void; envoyer: (m:
         let s = 0
         for (const v of buf) s += ((v - 128) / 128) ** 2
         e.niveaux.push(Math.min(100, Math.round(Math.sqrt(s / buf.length) * 320)))
-        if (Date.now() - e.t0 > 120000) void arreter(e, true)
-        tic((n) => n + 1)
+        if (Date.now() - e.t0 > 120000) void arreter(true)
+        tic((x) => x + 1)
       }, 100)
+      courant.current = e
       setEnreg(e)
-      signal('vocal')
     } catch {
-      toast('Pour envoyer un vocal, autorise le micro : Réglages de l’iPhone › NIDOO › Micro.', 'err')
+      onErreur('Pour enregistrer un vocal, autorise le micro : Réglages de l’iPhone › NIDOO › Micro.')
     }
   }
-  const arreter = async (e: Enreg, garder: boolean) => {
-    window.clearInterval(e.timer)
-    setEnreg(null)
-    signal(null)
-    const fini = new Promise<void>((res) => {
-      e.rec.onstop = () => res()
-    })
-    if (e.rec.state !== 'inactive') e.rec.stop()
-    await fini
-    e.stream.getTracks().forEach((t) => t.stop())
-    void e.ctx.close()
-    const duree = (Date.now() - e.t0) / 1000
-    if (!garder || duree < 0.8) return
-    const blob = new Blob(e.morceaux, { type: e.rec.mimeType || e.morceaux[0]?.type || 'audio/mp4' })
-    const n = 40
-    const ondes = Array.from({ length: n }, (_, i) => {
-      const a = Math.floor((i * e.niveaux.length) / n)
-      const b = Math.max(a + 1, Math.floor(((i + 1) * e.niveaux.length) / n))
-      const tranche = e.niveaux.slice(a, b)
-      return tranche.length ? Math.round(Math.max(...tranche)) : 10
-    })
-    void envoyer({ audio: { blob, duree, ondes } })
-  }
-
-  const envoyerSticker = async (key: string, t?: string, c?: number) => {
-    const cle = key === PERSO ? cleSticker({ i: PERSO, t, c }) : key
-    signal(null)
-    await envoyer({ sticker: cle.slice(0, 60) })
-  }
-
-  const secondes = enreg ? (Date.now() - enreg.t0) / 1000 : 0
-  // La zone qui défile garde 120 px de marge en bas (pour la barre d'onglets) : la barre d'envoi se cale juste au-dessus des onglets.
-  return (
-    <div className="fil-saisie sticky z-10 -mx-3 mt-2 px-3 pb-2 pt-1" style={{ bottom: 'calc(var(--sab) - 40px)', marginBottom: 'calc(var(--sab) - 40px)' }}>
-      <input
-        ref={fichier}
-        type="file"
-        accept="image/*"
-        hidden
-        onChange={(e) => {
-          const f = e.target.files?.[0]
-          e.target.value = ''
-          if (f) onPhoto(f)
-          else signal(null)
-        }}
-      />
-      {sondage && createPortal(<div className="sondage-dialog fixed inset-0 z-[95]"><SondageCompose onClose={() => setSondage(false)} envoyer={envoyer} /></div>, document.body)}
-      {tiroir && !enreg && (
-        <div className="mb-2 [&>div]:!mt-0">
-          <StickerTray
-            start="emojis"
-            onPick={(key, t, c) => void envoyerSticker(key, t, c)}
-            onClose={() => {
-              setTiroir(false)
-              signal(null)
-            }}
-          />
-        </div>
-      )}
-      {enreg ? (
-        <div className="anim-pop flex h-[54px] items-center gap-2.5 rounded-full bg-white pl-2 pr-1.5 shadow-[0_8px_28px_rgba(29,26,43,0.16)]">
-          <button onClick={() => void arreter(enreg, false)} className="presse flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#E0604F]" aria-label="Annuler le vocal">
-            <Trash2 size={20} />
-          </button>
-          <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#E0604F]" style={{ animation: 'scintille 1s ease-in-out infinite' }} />
-          <span className="w-10 shrink-0 text-sous font-semibold tabular-nums text-encre">{mmss(secondes)}</span>
-          <span className="flex h-8 min-w-0 flex-1 items-center justify-end gap-[2px] overflow-hidden" aria-hidden="true">
-            {enreg.niveaux.slice(-34).map((v, i) => (
-              <span key={i} className="w-[3px] shrink-0 rounded-full bg-teinte" style={{ height: `${Math.max(3, v * 0.3)}px` }} />
-            ))}
-          </span>
-          <button onClick={() => void arreter(enreg, true)} className="presse ios-primary flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white" aria-label="Envoyer le vocal">
-            <ArrowUp size={22} strokeWidth={2.6} />
-          </button>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-end gap-1.5 rounded-[28px] bg-white p-1.5 shadow-[0_8px_28px_rgba(29,26,43,0.16)]">
-          <button
-            onClick={async () => {
-              tap()
-              signal('photo')
-              // prendre une photo (l'appareil de Nidoo) ou en choisir une : le choix d'abord, comme pour une attention
-              const i = await choisir({ title: 'Une photo pour le fil', actions: [{ label: 'Prendre une photo' }, { label: 'Choisir dans la photothèque' }] })
-              if (i === 1) return fichier.current?.click()
-              if (i !== 0) return signal(null)
-              const r = await prendrePhoto({ titre: 'Une photo pour le fil', galerie: true })
-              if (r instanceof File) onPhoto(r)
-              else if (r === 'galerie' || r === 'natif') fichier.current?.click()
-              else signal(null)
-            }}
-            className="presse flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-teinte-doux text-teinte-fonce"
-            aria-label="Envoyer une photo"
-          >
-            <ImagePlus size={20} />
-          </button>
-          {/* le sondage, sur la même ligne ; il s'efface quand on écrit pour laisser la place au texte */}
-          {!texte.trim() && (
-            <button
-              onClick={() => {
-                tap()
-                setTiroir(false)
-                signal(null)
-                setSondage(true)
-              }}
-              className="presse flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-teinte-doux text-teinte-fonce"
-              aria-label="Créer un sondage"
-              title="Créer un sondage"
-            >
-              <ChartNoAxesColumn size={20} strokeWidth={2.4} aria-hidden="true" />
-            </button>
-          )}
-          <textarea
-            ref={zone}
-            rows={1}
-            value={texte}
-            maxLength={1000}
-            onChange={(e) => {
-              setTexte(e.target.value)
-              signal(e.target.value.trim() ? 'texte' : null)
-            }}
-            onFocus={() => setTiroir(false)}
-            onBlur={() => signal(null)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey && !('ontouchstart' in window)) {
-                e.preventDefault()
-                void envoyerTexte()
-              }
-            }}
-            placeholder="Écris un message…"
-            aria-label="Ton message"
-            className="min-h-11 min-w-0 flex-1 resize-none bg-transparent px-1.5 py-[11px] text-corps leading-[22px] outline-none placeholder:text-pale"
-          />
-          {!texte.trim() && (
-            <button
-              onClick={() => {
-                tap()
-                const ouvrir = !tiroir
-                setTiroir(ouvrir)
-                signal(ouvrir ? 'sticker' : null)
-              }}
-              className={`presse flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${tiroir ? 'bg-teinte text-white' : 'text-brume'}`}
-              aria-pressed={tiroir}
-              aria-label="Envoyer un sticker"
-            >
-              <Smile size={22} />
-            </button>
-          )}
-          {texte.trim() ? (
-            <button onClick={() => void envoyerTexte()} className="presse ios-primary anim-pop flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white" aria-label="Envoyer">
-              <ArrowUp size={22} strokeWidth={2.6} />
-            </button>
-          ) : (
-            <button onClick={() => void demarrer()} className="presse flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-remplissage text-encre" aria-label="Enregistrer un vocal">
-              <Mic size={20} />
-            </button>
-          )}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ───────── L'envoi immédiat ─────────
-
-/** Ce qu'on envoie : du texte, un sticker, une photo (avec sa légende) ou un vocal. */
-type NouvelEnvoi = { body?: string; sticker?: string; blob?: Blob; pollOptions?: string[]; audio?: { blob: Blob; duree: number; ondes: number[] } }
-/** Un message affiché tout de suite, le temps qu'il parte ; le vrai le remplace sans bruit dès qu'il arrive. */
-type Envoi = { mo: Moment; cle: string; connus: Set<string> }
-const cleDe = (x: { body?: string | null; sticker?: string | null; image: boolean; audio: boolean; poll?: string[] | null }) =>
-  `${x.poll?.length ? 'sondage' : x.audio ? 'vocal' : x.image ? 'photo' : x.sticker ? 'sticker' : 'texte'}|${(x.body ?? '').trim()}|${x.sticker ?? ''}|${(x.poll ?? []).join('|')}`
-const cleMoment = (m: Moment) => cleDe({ body: m.body, sticker: m.sticker, image: !!(m.image_path || m.image_url), audio: !!m.audio_path, poll: m.poll_options })
-
-// ───────── Le fil ─────────
-
-export default function Fil(_: { onCompose?: () => void }) {
-  const { state, api, run } = useHome()
-  const { family, me, members, moments } = state
-  const [filtre, setFiltre] = useState('tout')
-  const [recherche, setRecherche] = useState('')
-  const [chercher, setChercher] = useState(false)
-  const [ouvert, setOuvert] = useState<string | null>(null)
-  const [photo, setPhoto] = useState<File | null>(null)
-  const [plein, setPlein] = useState<string | null>(null)
-  const [ecrivent, setEcrivent] = useState<Record<string, { quoi: Ecrit; at: number }>>({})
-  const fin = useRef<HTMLDivElement>(null)
-  const msgs = useMemo(() => [...moments].sort((a, b) => a.created_at.localeCompare(b.created_at)), [moments])
-  const msgsRef = useRef(msgs)
-  msgsRef.current = msgs
-
-  // les messages déjà là à l'ouverture restent sages ; seuls les nouveaux entrent en bougeant
-  const initiaux = useRef<Set<string> | null>(null)
-  if (!initiaux.current) initiaux.current = new Set(moments.map((m) => m.id))
-  // un message parti garde la place (et l'animation en cours) de sa bulle « en attente »
-  const alias = useRef(new Map<string, string>())
-  const [pret, setPret] = useState(false)
-  useEffect(() => {
-    const t = window.setTimeout(() => setPret(true), 900)
-    return () => window.clearTimeout(t)
-  }, [])
-
-  // ce qu'on vient d'envoyer s'affiche tout de suite ; le vrai message prend sa place dès qu'il arrive
-  const [envois, setEnvois] = useState<Envoi[]>([])
-  const enAttente: Envoi[] = []
-  const pris = new Set<string>()
-  const confirmes = new Set<string>()
-  for (const e of envois) {
-    const vrai = msgs.find((m) => m.member_id === me.id && !e.connus.has(m.id) && !pris.has(m.id) && (!alias.current.has(m.id) || alias.current.get(m.id) === e.mo.id) && cleMoment(m) === e.cle)
-    if (vrai) {
-      pris.add(vrai.id)
-      confirmes.add(e.mo.id)
-      alias.current.set(vrai.id, e.mo.id)
-    } else enAttente.push(e)
-  }
-  // Ne retire l’envoi provisoire qu’après un rendu où son identifiant définitif
-  // a été associé : même si React groupe la confirmation et le rechargement,
-  // la bulle et son image gardent leur identité et ne rejouent pas l’entrée.
-  useEffect(() => {
-    if (confirmes.size) setEnvois((current) => current.filter((e) => !confirmes.has(e.mo.id)))
-  }, [envois, msgs]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const photosLocales = useRef(new Set<string>())
-  const releasePhoto = useCallback((url: string) => {
-    // Seuls les aperçus créés ici nous appartiennent, pas les URL du cache partagé.
-    if (photosLocales.current.delete(url)) URL.revokeObjectURL(url)
-  }, [])
-  useEffect(() => {
-    const urls = photosLocales.current
-    return () => { urls.forEach((url) => URL.revokeObjectURL(url)); urls.clear() }
-  }, [])
-
-  const envoyer = async (m: NouvelEnvoi, onPreviewReady?: () => void) => {
-    setFiltre('tout')
-    setRecherche('')
-    const id = `envoi-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
-    const mo: Moment = {
-      id, family_id: family.id, member_id: me.id, image_path: null, image_url: m.blob ? URL.createObjectURL(m.blob) : null,
-      body: m.body?.trim() || null, challenge: null, created_at: new Date().toISOString(), sticker: m.sticker ?? null, poll_options: m.pollOptions ?? null,
-      audio_path: m.audio ? 'envoi' : null, audio_url: m.audio ? URL.createObjectURL(m.audio.blob) : null, duree: m.audio ? Math.round(m.audio.duree) : null, ondes: m.audio?.ondes ?? null,
-    }
-    if (mo.image_url) {
-      photosLocales.current.add(mo.image_url)
-      const preview = new Image()
-      preview.src = mo.image_url
-      try { await preview.decode() } catch { /* L’envoi reste possible si l’aperçu ne se décode pas. */ }
-    }
-    setEnvois((x) => [...x, { mo, cle: cleDe({ body: m.body, sticker: m.sticker, image: !!m.blob, audio: !!m.audio, poll: m.pollOptions }), connus: new Set(msgsRef.current.map((y) => y.id)) }])
-    onPreviewReady?.()
-    bulle('envoi')
-    const ok = await run((a) => a.postMoment(family.id, me.id, m))
-    if (ok) success()
-    // En cas d’échec seulement, on enlève immédiatement l’aperçu.
-    // Le succès est réconcilié après le rendu du message définitif ci-dessus.
-    if (!ok) setEnvois((x) => x.filter((y) => y.mo.id !== id))
-    window.setTimeout(() => {
-      if (mo.audio_url) URL.revokeObjectURL(mo.audio_url)
-    }, 5000)
-    return ok
-  }
-
-  // un message d'un proche arrive pendant qu'on regarde : petit « plop »
-  const nbAutres = msgs.filter((m) => m.member_id !== me.id).length
-  const nbAutresAvant = useRef(nbAutres)
-  useEffect(() => {
-    if (nbAutres > nbAutresAvant.current) bulle('arrive')
-    nbAutresAvant.current = nbAutres
-  }, [nbAutres])
-  const liste = [...msgs.map((mo) => ({ mo, envoi: false })), ...enAttente.map((e) => ({ mo: e.mo, envoi: true }))]
-    .filter(({ mo }) => (filtre === 'tout' || (filtre === 'photos' ? !!mo.image_url : filtre === 'vocaux' ? !!mo.audio_path : !!mo.poll_options?.length))
-      && (!recherche.trim() || (mo.body ?? '').toLocaleLowerCase().includes(recherche.trim().toLocaleLowerCase())))
-  const dernierMien = !enAttente.length && msgs.length > 0 && msgs[msgs.length - 1].member_id === me.id ? msgs[msgs.length - 1].id : null
-
-  // qui écrit, en direct (on oublie quelqu'un qui ne fait plus signe depuis 6 secondes)
-  useEffect(() => {
-    const off = api.onEcrit(family.id, me.id, ({ m, quoi }) =>
-      setEcrivent((x) => {
-        const y = { ...x }
-        if (quoi) y[m] = { quoi, at: Date.now() }
-        else delete y[m]
-        return y
-      }),
-    )
-    const t = window.setInterval(() => setEcrivent((x) => (Object.values(x).some((v) => Date.now() - v.at > 6000) ? Object.fromEntries(Object.entries(x).filter(([, v]) => Date.now() - v.at <= 6000)) : x)), 2000)
-    return () => {
-      off()
-      window.clearInterval(t)
-    }
-  }, [api, family.id, me.id])
-  // un message arrivé : son auteur n'écrit plus
-  const dernier = msgs[msgs.length - 1]
-  useEffect(() => {
-    if (dernier)
-      setEcrivent((x) => {
-        if (!x[dernier.member_id]) return x
-        const y = { ...x }
-        delete y[dernier.member_id]
-        return y
-      })
-  }, [dernier])
-
-  const qui = Object.entries(ecrivent)
-    .map(([id, v]) => ({ m: members.find((x) => x.id === id), quoi: v.quoi }))
-    .filter((x): x is { m: Member; quoi: Ecrit } => !!x.m)
-
-  // On atterrit toujours à la fin du fil : à l'ouverture, en revenant sur l'onglet, et quand une photo ou un sticker
-  // finit de charger. On y reste tant qu'on n'est pas remonté lire plus haut.
-  const racine = useRef<HTMLDivElement>(null)
-  const colle = useRef(true)
-  const boite = () => {
-    let box: HTMLElement | null = racine.current?.parentElement ?? null
-    while (box && !/(auto|scroll)/.test(getComputedStyle(box).overflowY)) box = box.parentElement
-    return box
-  }
-  const enBas = (doux = false) => {
-    const box = boite()
-    if (box) box.scrollTo({ top: box.scrollHeight, behavior: doux ? 'smooth' : 'auto' })
-  }
-  useEffect(() => {
-    const el = racine.current
-    const box = boite()
-    if (!el || !box) return
-    enBas()
-    const surScroll = () => {
-      if (box.clientHeight) colle.current = box.scrollHeight - box.scrollTop - box.clientHeight < 140
-    }
-    let h = el.getBoundingClientRect().height
-    const ro = new ResizeObserver(() => {
-      const nh = el.getBoundingClientRect().height
-      if (!nh) return void (h = 0) // onglet caché
-      if (!h) colle.current = true // l'onglet revient : on retourne à la fin
-      h = nh
-      if (colle.current) enBas()
-    })
-    ro.observe(el)
-    box.addEventListener('scroll', surScroll, { passive: true })
-    return () => {
-      ro.disconnect()
-      box.removeEventListener('scroll', surScroll)
-    }
-  }, [])
-  // un message ou quelqu'un qui écrit arrive : on suit si on était en bas, et toujours pour ce qu'on envoie soi-même
-  const nbAvant = useRef(msgs.length)
-  useEffect(() => {
-    const nouveauMien = msgs.length > nbAvant.current && dernier?.member_id === me.id
-    nbAvant.current = msgs.length
-    if (colle.current || nouveauMien || enAttente.length > 0) {
-      colle.current = true
-      enBas(true)
-    }
-  }, [msgs.length, qui.length, enAttente.length]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  let jourPrecedent = ''
-  return (
-    <div ref={racine} className="fil-colonne flex flex-col px-3" onClick={() => ouvert && setOuvert(null)}>
-      <div className="sticky top-0 z-10 -mx-3 mb-2 bg-fond/95 px-3 py-1 backdrop-blur-xl">
-        <div className="flex h-11 items-center rounded-full border border-white/80 bg-carte p-1 shadow-[0_2px_12px_rgba(40,26,90,0.045)]">
-          <div role="group" aria-label="Filtrer le fil" className="no-bar -my-1 flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto py-1">
-            {[['tout', 'Tout'], ['photos', 'Photos'], ['vocaux', 'Vocaux'], ['sondages', 'Sondages']].map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                aria-pressed={filtre === id}
-                onClick={() => { select(); colle.current = false; setFiltre(id); setOuvert(null) }}
-                className={`presse cible h-9 shrink-0 whitespace-nowrap rounded-full px-2.5 text-[13px] font-bold leading-none transition-colors ${filtre === id ? 'bg-teinte text-white' : 'text-brume hover:bg-remplissage'}`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <span aria-hidden="true" className="mx-1 h-5 w-px shrink-0 bg-encre/10" />
-          <button
-            type="button"
-            aria-label={chercher ? 'Fermer la recherche' : 'Rechercher dans le fil'}
-            aria-expanded={chercher}
-            onClick={() => { tap(); setChercher(!chercher); setRecherche('') }}
-            className={`presse cible grid h-9 w-9 shrink-0 place-items-center rounded-full transition-colors ${chercher ? 'bg-teinte text-white' : 'text-teinte-fonce hover:bg-remplissage'}`}
-          >
-            {chercher ? <X size={18} strokeWidth={2.2} /> : <Search size={18} strokeWidth={2.2} />}
-          </button>
-        </div>
-        {chercher && <input autoFocus type="search" aria-label="Rechercher dans le fil" placeholder="Rechercher un message ou un sondage" value={recherche} onChange={(e) => { colle.current = false; setRecherche(e.target.value) }} className="mt-2 h-11 w-full rounded-[14px] border border-encre/5 bg-carte px-4 text-[16px] outline-none focus:ring-2 focus:ring-teinte" />}
-      </div>
-      <div className="flex-1" />
-      {liste.length === 0 && (
-        <div className="flex flex-col items-center px-6 pb-6 pt-4 text-center">
-          <Art name="picto-bulle" size={64} className="anim-flotte" />
-          <p className="mt-2 font-rond text-titre3">{filtre !== 'tout' || recherche ? 'Aucun résultat' : 'Le fil est tout neuf'}</p>
-          <p className="mt-1 max-w-[290px] text-sous text-brume">{filtre !== 'tout' || recherche ? 'Essaie un autre mot ou sélectionne Tout pour retrouver la conversation.' : 'Un message, une photo, un vocal : toute la famille le voit.'}</p>
-        </div>
-      )}
-      {liste.map(({ mo, envoi }, i) => {
-        const auteur = members.find((m) => m.id === mo.member_id)
-        if (!auteur) return null
-        const avant = liste[i - 1]?.mo
-        const apres = liste[i + 1]?.mo
-        const j = jour(mo.created_at)
-        const sep = j !== jourPrecedent
-        jourPrecedent = j
-        const colle = (a?: Moment, b?: Moment) => !!a && !!b && a.member_id === b.member_id && Math.abs(new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) < 5 * 60000 && jour(a.created_at) === jour(b.created_at)
-        return (
-          <div key={alias.current.get(mo.id) ?? mo.id}>
-            {sep && (
-              <p className="my-3 text-center">
-                <span className="rounded-full bg-remplissage px-3 py-1 text-mini font-semibold text-brume">{j}</span>
-              </p>
-            )}
-            <Bulle
-              mo={mo}
-              auteur={auteur}
-              mine={mo.member_id === me.id}
-              premier={sep || !colle(avant, mo)}
-              dernier={!colle(mo, apres)}
-              ouvert={ouvert === mo.id}
-              onOuvrir={() => setOuvert((x) => (x === mo.id ? null : mo.id))}
-              onPhoto={setPlein}
-              releasePhoto={releasePhoto}
-              anim={!initiaux.current!.has(mo.id)}
-              envoi={envoi}
-              envoye={mo.id === dernierMien}
-              pret={pret}
-            />
-          </div>
-        )
-      })}
-      <Ecrivent qui={qui} />
-      <div ref={fin} />
-      <Saisie onPhoto={setPhoto} envoyer={envoyer} />
-      {photo && (
-        <PhotoEditeur
-          file={photo}
-          onClose={() => {
-            setPhoto(null)
-            api.ecrit(family.id, me.id, null)
-          }}
-          onSend={async (blob, mot) => {
-            api.ecrit(family.id, me.id, null)
-            await envoyer({ blob, body: mot || undefined }, () => setPhoto(null))
-          }}
-        />
-      )}
-      {plein &&
-        createPortal(
-          <button onClick={() => setPlein(null)} className="anim-fondu fixed inset-0 z-[90] flex items-center justify-center bg-black/90 p-3" aria-label="Fermer la photo">
-            <img src={plein} alt="" className="max-h-full max-w-full rounded-[14px] object-contain" />
-            <span className="absolute right-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white" style={{ top: 'calc(var(--sat) + 12px)' }}>
-              <X size={22} />
-            </span>
-          </button>,
-          document.body,
-        )}
-    </div>
-  )
+  return { enCours: !!enreg, secondes: enreg ? (Date.now() - enreg.t0) / 1000 : 0, niveaux: enreg?.niveaux ?? [], demarrer, arreter }
 }

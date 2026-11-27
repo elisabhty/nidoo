@@ -5,7 +5,7 @@ import { Art, Btn } from './ui'
 // Le tour de bienvenue : une fonctionnalité par écran, en une phrase.
 const STEPS: { art: string; title: string; text: string }[] = [
   { art: 'panda', title: 'Un petit chez-vous', text: 'Retrouve tes proches dans la Maison. Partage ton humeur quand tu en as envie, ou touche un proche pour lui envoyer un câlin.' },
-  { art: 'geste-calin', title: 'Un geste suffit', text: 'Une photo, un dessin, un petit mot : crée une attention et choisis à qui l’envoyer. Vos attentions et albums se retrouvent dans Souvenirs.' },
+  { art: 'geste-calin', title: 'Un geste suffit', text: 'Une photo, un dessin, un petit mot : crée une attention et choisis à qui l’envoyer. Pour toute la famille, publie-le dans le Fil, avec vos albums.' },
   { art: 'picto-agenda', title: 'À votre rythme', text: 'Organiser rassemble les rendez-vous, les courses et les choses à faire. Famille permet d’inviter tes proches et de personnaliser votre maison.' },
 ]
 

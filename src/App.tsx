@@ -1,4 +1,4 @@
-import { BookHeart, CalendarDays, House as HouseIcon, MessageCircleHeart, UsersRound, ChevronLeft } from 'lucide-react'
+import { CalendarDays, House as HouseIcon, MessageCircleHeart, UsersRound } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { DrawingBanner, useUnseenDrawings } from './components/drawing'
 import { LiveInvites } from './components/planche'
@@ -18,7 +18,6 @@ import { codeExpire, codeValable, resteAvantExpiration, voitLeCode } from './lib
 import { NATIF_IOS } from './lib/pont'
 import Family from './screens/Family'
 import Home from './screens/Home'
-import Dossiers from './screens/Folders'
 import FilFamilial from './screens/FilFamilial'
 import Onboarding from './screens/Onboarding'
 import Organize from './screens/Organize'
@@ -27,17 +26,19 @@ import Waiting from './screens/Waiting'
 const GUIDE = 'nidoo.guide.vu'
 const FIL_VU = 'nidoo.fil.vu'
 
-export type Tab = 'maison' | 'fil' | 'moments' | 'organiser' | 'famille'
+export type Tab = 'maison' | 'fil' | 'organiser' | 'famille'
 export type Go = Tab | 'recus'
 
-// Le fil (pour écrire à la famille) et les souvenirs (les albums) ont chacun leur onglet.
+// Le fil réunit, comme un fil Facebook, ce qu'on publie à la famille et les albums (les anciens Souvenirs : Elisa,
+// 27 novembre, « fusionner souvenirs et le fil actuel »).
 const TABS: { key: Tab; label: string; icon: typeof HouseIcon }[] = [
   { key: 'maison', label: 'Maison', icon: HouseIcon },
   { key: 'fil', label: 'Fil', icon: MessageCircleHeart },
-  { key: 'moments', label: 'Souvenirs', icon: BookHeart },
   { key: 'organiser', label: 'Organiser', icon: CalendarDays },
   { key: 'famille', label: 'Famille', icon: UsersRound },
 ]
+/** Les anciens chemins (un widget, un lien) : « moments » et « souvenirs » mènent au fil. */
+const ANCIENS: Record<string, Tab> = { moments: 'fil', souvenirs: 'fil' }
 
 function Splash({ children }: { children?: React.ReactNode }) {
   return (
@@ -63,7 +64,10 @@ export default function App() {
   }
   const navigate = (next: Tab) => {
     // le même onglet : on remonte en douceur ; un autre : il s'ouvre en haut, pas là où on l'avait laissé
-    if(next === tab) enHaut(next, true)
+    if(next === tab) {
+      enHaut(next, true)
+      window.dispatchEvent(new CustomEvent('nidoo:onglet', {detail: next}))
+    }
     else requestAnimationFrame(() => requestAnimationFrame(() => enHaut(next, false)))
     setVisited(current => current.includes(next) ? current : [...current, next])
     setTab(next)
@@ -130,7 +134,8 @@ export default function App() {
           // l'agenda (et la fiche de l'événement), les tâches ou les courses
           demanderOrganiser(demande)
           navigate('organiser')
-        } else if (TABS.some((t) => t.key === chemin)) navigate(chemin as Tab)
+        } else if (ANCIENS[chemin]) navigate(ANCIENS[chemin])
+        else if (TABS.some((t) => t.key === chemin)) navigate(chemin as Tab)
       }),
     [], // eslint-disable-line react-hooks/exhaustive-deps
   )
@@ -167,8 +172,12 @@ export default function App() {
     } catch {
       /* sans conséquence */
     }
-  }, [tab, state?.moments.length]) // eslint-disable-line react-hooks/exhaustive-deps
-  const filNonLus = state ? state.moments.filter((m) => m.member_id !== state.me.id && m.created_at > filVu).length : 0
+  }, [tab, state?.moments.length, state?.folderItems.length]) // eslint-disable-line react-hooks/exhaustive-deps
+  // les publications, les commentaires et ce qui arrive dans les albums, des autres, depuis la dernière visite
+  const filNonLus = state
+    ? state.moments.filter((m) => m.member_id !== state.me.id && m.created_at > filVu).length +
+      state.folderItems.filter((i) => i.author_id !== state.me.id && !i.source_moment_id && i.created_at > filVu).length
+    : 0
   const unseen = (state ? state.thoughts.filter((t) => t.to_member === state.me.id && !t.seen_at).length : 0) + drawingsUnseen
 
   return (
@@ -188,7 +197,6 @@ export default function App() {
             <div ref={panes} className="h-full" key={state.family.id}>
               <div id="nidoo-tab-maison" data-tab="maison" hidden={tab !== 'maison'} className="h-full"><Home go={go} active={tab === 'maison'} /></div>
               {visited.includes('fil') && <div id="nidoo-tab-fil" data-tab="fil" hidden={tab !== 'fil'} className="h-full"><FilFamilial /></div>}
-              {visited.includes('moments') && <div id="nidoo-tab-moments" data-tab="moments" hidden={tab !== 'moments'} className="h-full"><Dossiers /></div>}
               {visited.includes('organiser') && <div id="nidoo-tab-organiser" data-tab="organiser" hidden={tab !== 'organiser'} className="h-full"><Organize /></div>}
               {visited.includes('famille') && <div id="nidoo-tab-famille" data-tab="famille" hidden={tab !== 'famille'} className="h-full"><Family onGuide={() => setGuide(true)} /></div>}
             </div>
@@ -197,7 +205,7 @@ export default function App() {
             {/* clavier ouvert : la barre s'efface ; elle ne revient qu'une fois l'appli revenue à sa taille, en glissant
                 d'en bas (Elisa, 21 novembre : « quand on ajoute une tâche, la barre de nav remonte, redescend ») */}
             <nav className={`ios-tabbar absolute inset-x-5 z-30 flex h-[66px] items-center rounded-full p-1.5 ${keyboard ? 'barre-cachee' : ''}`} style={{ bottom: 'calc(var(--sab) + 8px)' }} aria-label="Navigation principale">
-              <span aria-hidden="true" className="ios-tab-selection" style={{transform:`translateX(${TABS.findIndex(t => t.key === tab) * 100}%)`}} />
+              <span aria-hidden="true" className="ios-tab-selection" style={{width:`calc((100% - 12px) / ${TABS.length})`,transform:`translateX(${TABS.findIndex(t => t.key === tab) * 100}%)`}} />
               {TABS.map((t) => {
                 const on = tab === t.key
                 return (

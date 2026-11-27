@@ -73,6 +73,8 @@ export type Moment = {
   sticker?: string | null
   /** Sondage intégré au message : 2 à 6 choix, un vote par proche. */
   poll_options?: string[] | null
+  /** Un commentaire : la publication à laquelle il répond (le fil façon Facebook, 27 novembre). Absent : une publication. */
+  reply_to?: string | null
 }
 
 export type PollVote = { moment_id: string; member_id: string; family_id: string; option_index: number }
@@ -320,6 +322,8 @@ export type FamilyState = {
   endroitsPartages: boolean
   /** La maison sait partager pour un temps, en approximatif, et « Bien arrivé ! » (base à jour). */
   positionsReglables?: boolean
+  /** La base sait garder les commentaires d'une publication (la colonne moments.reply_to). */
+  commentaires?: boolean
 }
 
 /** Un interrupteur à distance : allumé, et éventuellement borné dans le temps. */
@@ -354,7 +358,8 @@ export interface Backend {
   leave(memberId: string): Promise<void>
   /** Efface mon compte : mes profils dans toutes mes maisons (messages, photos, vocaux…), puis le compte lui-même. */
   deleteAccount(): Promise<void>
-  postMoment(familyId: string, memberId: string, m: { blob?: Blob; body?: string; challenge?: string; audio?: { blob: Blob; duree: number; ondes: number[] }; sticker?: string; pollOptions?: string[] }): Promise<void>
+  /** replyTo : un commentaire sous cette publication (seulement si la base les connaît : state.commentaires). */
+  postMoment(familyId: string, memberId: string, m: { blob?: Blob; body?: string; challenge?: string; audio?: { blob: Blob; duree: number; ondes: number[] }; sticker?: string; pollOptions?: string[]; replyTo?: string }): Promise<void>
   /** Dire à la famille qu'on écrit (ou qu'on a arrêté : null), en direct, sans rien enregistrer. */
   ecrit(familyId: string, memberId: string, quoi: Ecrit | null): void
   onEcrit(familyId: string, me: string, cb: (e: { m: string; quoi: Ecrit | null }) => void): () => void

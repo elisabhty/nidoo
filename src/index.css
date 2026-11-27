@@ -104,6 +104,10 @@ input[type='date'], input[type='time'] { -webkit-appearance: none; appearance: n
 .anim-hud { animation: hud 0.5s var(--ressort) both; }
 .anim-flotte { animation: flotte 5s ease-in-out infinite; }
 .anim-bat { animation: bat 1.6s ease-in-out infinite; }
+/* le choix d'une réaction (appui long sur J'aime) : les cinq arrivent l'une après l'autre, et grossissent sous le doigt */
+@keyframes reactionArrive { from { opacity: 0; transform: translateY(10px) scale(0.6); } to { opacity: 1; transform: none; } }
+.reaction-choix { animation: reactionArrive 0.32s var(--ressort) both; transition: transform 0.16s var(--ressort); }
+.reaction-choix:active { transform: scale(1.28) translateY(-4px); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }

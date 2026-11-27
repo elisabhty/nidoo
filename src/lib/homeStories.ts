@@ -76,7 +76,7 @@ export function homeStories(state: Sources, meId: string, next: NextEvent, now =
   }
 
   // Ce que les proches ont posté dans le fil cette semaine ; ses propres messages seulement s'il n'y a rien d'autre.
-  const semaine = state.moments.filter((m) => recent(m.created_at, now, 7)).sort((a, b) => b.created_at.localeCompare(a.created_at))
+  const semaine = state.moments.filter((m) => !m.reply_to && recent(m.created_at, now, 7)).sort((a, b) => b.created_at.localeCompare(a.created_at))
   const dAbord = (l: Moment[]) => [...l.filter((m) => m.member_id !== meId), ...l.filter((m) => m.member_id === meId)]
   const photo = dAbord(semaine.filter((m) => !!m.image_path || !!m.image_url))[0]
   if (photo) {

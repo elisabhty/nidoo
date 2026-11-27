@@ -13,21 +13,13 @@ import { useHome } from '../lib/store'
 import type { Folder, FolderItem } from '../lib/types'
 import { ago, compressImage, errorText } from '../lib/util'
 
-// Souvenirs : les dossiers (photos, notes, vocaux). Le fil familial a son propre onglet.
+// Les albums (photos, notes, vocaux, vidéos), avec les proches de son choix. Ils vivent dans le fil depuis que le fil
+// est devenu un fil d'actualité (Elisa, 27 novembre : « fusionner souvenirs et le fil ») : une bande d'albums en
+// haut du fil, ce qu'on y ajoute dans le fil, et cette liste complète derrière « Tout voir ».
 
-// ═════════════════════════ L'onglet ═════════════════════════
+// ═════════════════════════ Tous les albums ═════════════════════════
 
-export default function Dossiers() {
-  const { state } = useHome()
-  const [selected, setSelected] = useState<string | null>(null)
-  const current = selected && state.folders.some(f => f.id === selected) ? selected : null
-  if (current) return <FolderView key={current} id={current} onBack={() => setSelected(null)} />
-  return <Accueil onOpen={setSelected} />
-}
-
-// ═════════════════════════ Liste des dossiers ═════════════════════════
-
-function Accueil({ onOpen }: { onOpen: (id: string) => void }) {
+export function AlbumsListe({ onOpen, onBack }: { onOpen: (id: string) => void; onBack: () => void }) {
   const { state } = useHome()
   const [query, setQuery] = useState('')
   const [creating, setCreating] = useState(false)
@@ -44,21 +36,27 @@ function Accueil({ onOpen }: { onOpen: (id: string) => void }) {
   return (
     <>
       <Screen
-        title="Souvenirs"
-        trailing={<Rond label="Nouveau dossier" tint onClick={() => setCreating(true)}><FolderPlus size={19} /></Rond>}
+        title="Albums"
+        leading={
+          <button onClick={() => { tap(); onBack() }} className="presse verre flex h-11 items-center gap-0.5 rounded-full pl-1.5 pr-3.5 text-appel font-semibold" aria-label="Retour au fil">
+            <ChevronLeft size={22} strokeWidth={2.4} className="shrink-0" />
+            Le fil
+          </button>
+        }
+        trailing={<Rond label="Nouvel album" tint onClick={() => setCreating(true)}><FolderPlus size={19} /></Rond>}
       >
         <p className="-mt-1 mb-4 px-5 text-sous text-brume">Photos, notes, dessins, voix et vidéos, avec les proches de votre choix.</p>
 
         {total === 0 ? (
-          <Vide art="picto-cadeau" title="Votre premier souvenir commence ici" text="Un dossier rassemble les souvenirs que tu choisis, avec les proches de ton choix. Les autres ne le voient pas.">
-            <Btn onClick={() => setCreating(true)}>Créer un dossier</Btn>
+          <Vide art="picto-cadeau" title="Votre premier souvenir commence ici" text="Un album rassemble les souvenirs que tu choisis, avec les proches de ton choix. Les autres ne le voient pas.">
+            <Btn onClick={() => setCreating(true)}>Créer un album</Btn>
           </Vide>
         ) : (
           <>
-            <SearchField value={query} onChange={setQuery} placeholder="Rechercher un dossier" label="Rechercher un dossier" />
-            <div className="mx-5 mb-4 flex items-center justify-between"><h2 className="font-rond text-titre2">{query ? 'Résultats' : 'Votre collection'}</h2><span className="text-note text-brume">{roots.length} dossier{roots.length > 1 ? 's' : ''}</span></div>
+            <SearchField value={query} onChange={setQuery} placeholder="Rechercher un album" label="Rechercher un album" />
+            <div className="mx-5 mb-4 flex items-center justify-between"><h2 className="font-rond text-titre2">{query ? 'Résultats' : 'Votre collection'}</h2><span className="text-note text-brume">{roots.length} album{roots.length > 1 ? 's' : ''}</span></div>
             {roots.length === 0 ? (
-              <p className="px-8 py-10 text-center text-sous text-brume">Aucun dossier ne correspond à « {query.trim()} ».</p>
+              <p className="px-8 py-10 text-center text-sous text-brume">Aucun album ne correspond à « {query.trim()} ».</p>
             ) : (
               <ProgressiveList key={query} items={roots} size={6}>{(pageRoots) => <div className="space-y-3 px-4">
                 {pageRoots.map(({ f, s }) => (
@@ -120,7 +118,7 @@ type Open =
   | { k: 'photos' }
   | { k: 'media'; kind: 'audio' | 'video' }
 
-function FolderView({ id, onBack }: { id: string; onBack: () => void }) {
+export function FolderView({ id, onBack, retour = 'Le fil' }: { id: string; onBack: () => void; retour?: string }) {
   const { state, run, toast } = useHome()
   const { me, members, folders, folderItems, folderMembers } = state
   const folder = folders.find((f) => f.id === id)!
@@ -157,8 +155,8 @@ function FolderView({ id, onBack }: { id: string; onBack: () => void }) {
   }
   const removeItem = async (item: FolderItem) => {
     const image = item.kind === 'photo'
-    if (!(await confirmer({ title: image ? 'Retirer cette photo du dossier ?' : 'Retirer ce souvenir du dossier ?', message: image ? 'La photo et son message restent dans le fil familial. Seule la copie de ce dossier est retirée.' : 'Il sera retiré pour tous les membres de ce dossier.', confirm:'Retirer du dossier',destructive:true }))) return
-    await run(api => api.deleteFolderItem(item),'Souvenir retiré du dossier')
+    if (!(await confirmer({ title: image ? 'Retirer cette photo de l’album ?' : 'Retirer ce souvenir de l’album ?', message: image ? 'La photo et son message restent dans le fil familial. Seule la copie de cet album est retirée.' : 'Il sera retiré pour tous les membres de cet album.', confirm:'Retirer de l’album',destructive:true }))) return
+    await run(api => api.deleteFolderItem(item),'Souvenir retiré de l’album')
   }
   const add = async () => {
     const i = await choisir({ title:`Ajouter dans « ${folder.name} »`, actions:[{label:'Ajouter des photos'},{label:'Note écrite'},{label:'Note dessinée'},{label:'Souvenir vocal'},{label:'Vidéo souvenir'}] })
@@ -172,24 +170,24 @@ function FolderView({ id, onBack }: { id: string; onBack: () => void }) {
   const remove = async () => {
     const ok = await confirmer({
       title: `Supprimer « ${folder.name} » ?`,
-      message: 'Ce dossier et tout son contenu seront supprimés pour tous les membres.',
-      confirm: 'Supprimer le dossier',
+      message: 'Cet album et tout son contenu seront supprimés pour tous les membres.',
+      confirm: 'Supprimer l’album',
       destructive: true,
     })
-    if (ok && (await run((api) => api.deleteFolder(folder), 'Dossier supprimé'))) onBack()
+    if (ok && (await run((api) => api.deleteFolder(folder), 'Album supprimé'))) onBack()
   }
 
   const leave = async () => {
-    const ok = await confirmer({ title: `Quitter « ${root.name} » ?`, message: 'Tu ne le verras plus. Son créateur pourra te réinviter.', confirm: 'Quitter le dossier', destructive: true })
-    if (ok && (await run((api) => api.leaveFolder(root.id, me.id), 'Tu as quitté le dossier'))) onBack()
+    const ok = await confirmer({ title: `Quitter « ${root.name} » ?`, message: 'Tu ne le verras plus. Son créateur pourra te réinviter.', confirm: 'Quitter l’album', destructive: true })
+    if (ok && (await run((api) => api.leaveFolder(root.id, me.id), 'Tu as quitté l’album'))) onBack()
   }
 
   const changeCover = async () => {
-    const actions = [{ label: 'Choisir une photo' }, ...(stats.photos ? [{ label: 'Parmi les photos du dossier' }] : []), ...(folder.cover_path ? [{ label: 'Retirer la couverture', destructive: true }] : [])]
-    const i = await choisir({ title: 'Couverture du dossier', actions })
+    const actions = [{ label: 'Choisir une photo' }, ...(stats.photos ? [{ label: 'Parmi les photos de l’album' }] : []), ...(folder.cover_path ? [{ label: 'Retirer la couverture', destructive: true }] : [])]
+    const i = await choisir({ title: 'Couverture de l’album', actions })
     const label = actions[i]?.label
     if (label === 'Choisir une photo') coverInput.current?.click()
-    if (label === 'Parmi les photos du dossier') setSheet({ k: 'couverture' })
+    if (label === 'Parmi les photos de l’album') setSheet({ k: 'couverture' })
     if (label === 'Retirer la couverture') void run((api) => api.setFolderCover(folder, null), 'Couverture retirée')
   }
 
@@ -197,8 +195,8 @@ function FolderView({ id, onBack }: { id: string; onBack: () => void }) {
     const actions: { label: string; destructive?: boolean; go: () => void }[] = [
       ...(admin ? [{ label: 'Renommer', go: () => setSheet({ k: 'renommer' }) }, { label: 'Changer la couverture', go: changeCover }] : []),
       { label: rootAdmin ? 'Gérer les membres' : 'Voir les membres', go: () => setSheet({ k: 'membres' }) },
-      ...(!folder.parent_id && root.owner_id !== me.id ? [{ label: 'Quitter le dossier', destructive: true, go: leave }] : []),
-      ...(admin ? [{ label: 'Supprimer le dossier', destructive: true, go: remove }] : []),
+      ...(!folder.parent_id && root.owner_id !== me.id ? [{ label: 'Quitter l’album', destructive: true, go: leave }] : []),
+      ...(admin ? [{ label: 'Supprimer l’album', destructive: true, go: remove }] : []),
     ]
     const i = await choisir({ actions })
     if (i >= 0) actions[i].go()
@@ -263,14 +261,14 @@ function FolderView({ id, onBack }: { id: string; onBack: () => void }) {
                 onBack()
               }}
               className="presse verre flex h-11 max-w-[40%] items-center gap-0.5 rounded-full pl-1.5 pr-3.5 text-appel font-semibold"
-              aria-label="Retour à Souvenirs"
+              aria-label={`Retour : ${retour}`}
             >
               <ChevronLeft size={22} strokeWidth={2.4} className="shrink-0" />
-              <span className="truncate">Souvenirs</span>
+              <span className="truncate">{retour}</span>
             </button>
             <p className={`pointer-events-none absolute inset-x-[34%] truncate text-center text-corps font-semibold transition-opacity duration-200 ${scrolled ? 'opacity-100' : 'opacity-0'}`}>{folder.name}</p>
             <div className="flex items-center gap-2">
-              <Rond label="Options du dossier" onClick={menu}><Ellipsis size={20} /></Rond>
+              <Rond label="Options de l’album" onClick={menu}><Ellipsis size={20} /></Rond>
               <button onClick={add} className="presse glass-tinted flex min-h-11 items-center gap-1 rounded-full pl-2.5 pr-3.5 text-sous font-semibold text-white"><Plus size={19} />Ajouter</button>
             </div>
           </div>
@@ -292,14 +290,14 @@ function FolderView({ id, onBack }: { id: string; onBack: () => void }) {
           </div>
 
           <div className="relative -mt-5 rounded-t-[28px] bg-fond pb-4 pt-3">
-            <button onClick={() => { tap(); setSheet({ k: 'membres' }) }} className="presse mx-5 flex min-h-[52px] w-[calc(100%-2.5rem)] items-center gap-2.5 border-b border-trait pb-3 text-left" aria-label={`Accès au dossier : ${whoText(memberIds, me.id, members)}`}>
+            <button onClick={() => { tap(); setSheet({ k: 'membres' }) }} className="presse mx-5 flex min-h-[52px] w-[calc(100%-2.5rem)] items-center gap-2.5 border-b border-trait pb-3 text-left" aria-label={`Accès à l’album : ${whoText(memberIds, me.id, members)}`}>
               {memberIds.length <= 1 ? <Lock size={18} className="shrink-0 text-teinte" /> : <MemberStack ids={memberIds} size={28} max={3} />}
-              <span className="min-w-0 flex-1"><span className="block truncate text-sous font-semibold">{whoText(memberIds, me.id, members)}</span><span className="block text-note text-brume">{memberIds.length <= 1 ? 'Dossier privé' : 'Partagé avec ces proches uniquement'}</span></span>
+              <span className="min-w-0 flex-1"><span className="block truncate text-sous font-semibold">{whoText(memberIds, me.id, members)}</span><span className="block text-note text-brume">{memberIds.length <= 1 ? 'Album privé' : 'Partagé avec ces proches uniquement'}</span></span>
               <ChevronRight size={16} className="shrink-0 text-brume" />
             </button>
 
             {!empty && <>
-              <div className="mx-4 mt-4"><SearchField value={query} onChange={setQuery} placeholder="Rechercher dans ce dossier" /></div>
+              <div className="mx-4 mt-4"><SearchField value={query} onChange={setQuery} placeholder="Rechercher dans cet album" /></div>
               {/* les filtres : seulement ce que le dossier contient (le nombre est dit sous son nom, en haut), et
                   aucun s'il n'y a qu'une sorte de souvenirs */}
               {(filtres.length > 2 || filter !== 'tout') && (
@@ -314,7 +312,7 @@ function FolderView({ id, onBack }: { id: string; onBack: () => void }) {
             {!hasResults && (q || filter !== 'photos') && <div className="px-5 py-7 text-center">
               <Art name={filter === 'notes' ? 'picto-missions' : 'picto-photo'} size={64} className="mx-auto" />
               <h2 className="mt-3 font-rond text-titre2">{q ? 'Aucun résultat' : filter === 'notes' ? 'Ta première note' : filter === 'audio' ? 'Une histoire à écouter' : filter === 'video' ? 'Un moment à regarder' : filter === 'photos' ? 'Vos photos auront leur place ici' : 'Vos souvenirs commencent ici'}</h2>
-              <p className="mx-auto mt-2 max-w-[290px] text-sous text-brume">{q ? 'Essaie un autre mot ou retrouve tout le contenu du dossier.' : 'Photos du téléphone ou du fil, notes écrites ou dessinées, voix et vidéos : garde ici ce qui compte.'}</p>
+              <p className="mx-auto mt-2 max-w-[290px] text-sous text-brume">{q ? 'Essaie un autre mot ou retrouve tout le contenu de l’album.' : 'Photos du téléphone ou du fil, notes écrites ou dessinées, voix et vidéos : garde ici ce qui compte.'}</p>
               {q ? <button onClick={() => { setQuery(''); setFilter('tout') }} className="presse mt-4 min-h-11 text-sous font-semibold text-teinte-fonce">Effacer la recherche</button> : <Btn className="mt-5" onClick={addCurrent}>{filter === 'photos' ? 'Ajouter des photos' : filter === 'notes' ? 'Écrire une note' : filter === 'audio' ? 'Créer un souvenir vocal' : filter === 'video' ? 'Ajouter une vidéo' : 'Ajouter mon premier souvenir'}</Btn>}
             </div>}
 
@@ -324,7 +322,7 @@ function FolderView({ id, onBack }: { id: string; onBack: () => void }) {
               <ProgressiveList key={query + filter + id + 'photos'} items={visiblePhotos} size={12}>{(pagePhotos) => <div className="mx-4 grid grid-cols-3 gap-2">
                 {pagePhotos.map(p => <div key={p.id} className="relative aspect-square overflow-hidden rounded-[16px] bg-remplissage">
                   <button onClick={() => setViewer(photos.indexOf(p))} className="absolute inset-0 h-full w-full" aria-label={p.body ?? 'Ouvrir la photo'}>{p.image_url && <img src={p.image_url} alt="" loading="lazy" className="h-full w-full object-cover" />}</button>
-                  {(admin || p.author_id === me.id) && <button onClick={() => void removeItem(p)} className="presse absolute right-0 top-0 flex h-11 w-11 items-center justify-center" aria-label="Retirer cette photo du dossier"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/95 text-rouge shadow-carte"><Minus size={17} /></span></button>}
+                  {(admin || p.author_id === me.id) && <button onClick={() => void removeItem(p)} className="presse absolute right-0 top-0 flex h-11 w-11 items-center justify-center" aria-label="Retirer cette photo de l’album"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/95 text-rouge shadow-carte"><Minus size={17} /></span></button>}
                 </div>)}
                 {!q && !visiblePhotos.length && <button onClick={() => setSheet({k:'photos'})} className="presse flex aspect-square flex-col items-center justify-center gap-2 rounded-[16px] border-2 border-dashed border-teinte/30 bg-teinte-doux text-teinte-fonce" aria-label="Ajouter des photos"><Plus size={28} /><span className="text-note font-semibold">Ajouter</span></button>}
               </div>}</ProgressiveList>
@@ -359,7 +357,7 @@ function FolderView({ id, onBack }: { id: string; onBack: () => void }) {
       {drawingViewer && <PhotoViewer photos={[drawingViewer]} start={0} folder={folder} admin={admin} onClose={() => setDrawingViewer(null)} />}
       {sheet?.k === 'photos' && <PhotosDuFil folder={folder} onClose={() => setSheet(null)} onSaved={() => { setQuery(''); setFilter('photos') }} />}
       {sheet?.k === 'media' && <SouvenirMedia folder={folder} kind={sheet.kind} onClose={() => setSheet(null)} onSaved={() => { setQuery(''); if (sheet.k === 'media') setFilter(sheet.kind) }} />}
-      {editor && <PhotoEditeur file={editor.file} initialDrawing={editor.kind === 'dessin'} initialCaption="" title={editor.kind === 'dessin' ? 'Une note dessinée' : 'Décorer la photo'} confirmLabel="Enregistrer dans le dossier" onClose={() => setEditor(null)} onSend={async (blob, caption) => {
+      {editor && <PhotoEditeur file={editor.file} initialDrawing={editor.kind === 'dessin'} initialCaption="" title={editor.kind === 'dessin' ? 'Une note dessinée' : 'Décorer la photo'} confirmLabel="Enregistrer dans l’album" onClose={() => setEditor(null)} onSend={async (blob, caption) => {
         const ok = await run(api => api.addFolderItem(folder,me.id,{kind:'dessin',blob,title:caption || 'Note dessinée'}),'Souvenir enregistré')
         if (!ok) throw new Error('Ton image n’a pas été enregistrée. Réessaie.')
         setQuery(''); setFilter(editor.kind === 'dessin' ? 'notes' : 'photos'); setEditor(null)
@@ -372,7 +370,7 @@ function FolderView({ id, onBack }: { id: string; onBack: () => void }) {
   )
 }
 
-/** Une partie du dossier (Photos, Notes…) : son titre seul, le nombre est déjà sous le nom du dossier. */
+/** Une partie du dossier (Photos, Notes…) : son titre seul, le nombre est déjà sous le nom de l’album. */
 function Bloc({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="mt-6">
@@ -407,13 +405,13 @@ function PhotoViewer({ photos, start, admin, onClose }: { photos: FolderItem[]; 
   const mine = p.author_id === state.me.id
 
   const actions = async () => {
-    const list = mine || admin ? [{ label: 'Retirer du dossier', destructive: true }] : []
+    const list = mine || admin ? [{ label: 'Retirer de l’album', destructive: true }] : []
     if (!list.length) return
     const k = await choisir({ actions: list })
     const label = list[k]?.label
-    if (label === 'Retirer du dossier' && (await confirmer({ title: 'Retirer ce souvenir du dossier ?', message:'Le fil familial reste inchangé.', confirm: 'Retirer du dossier', destructive: true }))) {
+    if (label === 'Retirer de l’album' && (await confirmer({ title: 'Retirer ce souvenir de l’album ?', message:'Le fil familial reste inchangé.', confirm: 'Retirer de l’album', destructive: true }))) {
       if (photos.length === 1) onClose()
-      await run((api) => api.deleteFolderItem(p), 'Souvenir retiré du dossier')
+      await run((api) => api.deleteFolderItem(p), 'Souvenir retiré de l’album')
     }
   }
 
@@ -522,7 +520,7 @@ function NoteSheet({ folder, note, admin, onClose, onSaved }: { folder: Folder; 
           {by ? (by.id === state.me.id ? 'Créée par toi' : `Créée par ${by.display_name}`) : 'Note'} · modifiée {ago(note.updated_at)}
         </p>
       )}
-      <p className="px-2 pt-1 text-note text-brume">Tous les membres du dossier peuvent la lire et la modifier.</p>
+      <p className="px-2 pt-1 text-note text-brume">Tous les membres de l’album peuvent la lire et la modifier.</p>
       {note && (note.author_id === state.me.id || admin) && (
         <Btn
           kind="gris"
@@ -540,7 +538,7 @@ function NoteSheet({ folder, note, admin, onClose, onSaved }: { folder: Folder; 
 }
 
 /** Création d’un dossier indépendant. */
-function NewFolderSheet({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
+export function NewFolderSheet({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
   const { state, run, toast } = useHome()
   const { me, members, family } = state
   const [name, setName] = useState('')
@@ -574,7 +572,7 @@ function NewFolderSheet({ onClose, onCreated }: { onClose: () => void; onCreated
         const made: Folder = { id, family_id: family.id, parent_id: null, root_id: id, owner_id: me.id, name, cover_path: null, created_at: now, updated_at: now }
         await api.setFolderCover(made, { blob: cover })
       }
-    }, 'Dossier créé')
+    }, 'Album créé')
     setBusy(false)
     if (ok && id) {
       success()
@@ -584,7 +582,7 @@ function NewFolderSheet({ onClose, onCreated }: { onClose: () => void; onCreated
   }
 
   return (
-    <Sheet title={'Nouveau dossier'} onClose={onClose} tall footer={<Btn onClick={create} disabled={busy} manque={!name.trim() ? 'le nom du dossier' : null} onManque={() => document.querySelector<HTMLInputElement>('[role=dialog] input')?.focus()}>{busy ? 'Création…' : 'Créer le dossier'}</Btn>}>
+    <Sheet title={'Nouvel album'} onClose={onClose} tall footer={<Btn onClick={create} disabled={busy} manque={!name.trim() ? 'le nom de l’album' : null} onManque={() => document.querySelector<HTMLInputElement>('[role=dialog] input')?.focus()}>{busy ? 'Création…' : 'Créer l’album'}</Btn>}>
       <input
         ref={input}
         type="file"
@@ -602,7 +600,7 @@ function NewFolderSheet({ onClose, onCreated }: { onClose: () => void; onCreated
         }}
       />
 
-      <ChampRequis id={nameId} label="Nom du dossier" aide="Les proches avec qui tu le partages le verront." className="mb-5">
+      <ChampRequis id={nameId} label="Nom de l’album" aide="Les proches avec qui tu le partages le verront." className="mb-5">
         <input id={nameId} required aria-describedby={`${nameId}-aide`} className={CHAMP_REQUIS} placeholder="Ex. : Vacances en famille" maxLength={40} value={name} onChange={(e) => setName(e.target.value)} />
       </ChampRequis>
 
@@ -651,7 +649,7 @@ function NewFolderSheet({ onClose, onCreated }: { onClose: () => void; onCreated
           </div>
           <p className="flex items-start gap-1.5 px-2 pt-2.5 text-note text-brume">
             {who.size ? <UsersRound size={14} strokeWidth={2.4} className="mt-0.5 shrink-0" /> : <Lock size={14} strokeWidth={2.4} className="mt-0.5 shrink-0" />}
-            {who.size ? `${whoText([me.id, ...who], me.id, members)}. Les autres membres de la famille ne verront pas ce dossier.` : 'Toi seul verras ce dossier. Tu pourras inviter des proches plus tard.'}
+            {who.size ? `${whoText([me.id, ...who], me.id, members)}. Les autres membres de la famille ne verront pas cet album.` : 'Toi seul verras cet album. Tu pourras inviter des proches plus tard.'}
           </p>
         </>
       )}
@@ -672,11 +670,11 @@ function MembersSheet({ root, onClose, onLeft }: { root: Folder; onClose: () => 
   const people = admin ? members : members.filter((m) => current.includes(m.id))
   const removed = current.filter((id) => !sel.has(id)).map((id) => members.find((m) => m.id === id)?.display_name).filter(Boolean)
 
-  const role = (id: string) => (id === root.owner_id ? 'Créateur' : current.includes(id) || id === me.id ? 'Membre' : 'Pas dans ce dossier')
+  const role = (id: string) => (id === root.owner_id ? 'Créateur' : current.includes(id) || id === me.id ? 'Membre' : 'Pas dans cet album')
 
   return (
-    <Sheet title={admin ? 'Membres du dossier' : `Dans « ${root.name} »`} onClose={onClose}>
-      <p className="px-2 pb-3 text-center text-sous text-brume">Seules ces personnes voient le dossier, ses sous-dossiers et tous ses souvenirs : photos, notes, dessins, vocaux et vidéos.</p>
+    <Sheet title={admin ? 'Membres de l’album' : `Dans « ${root.name} »`} onClose={onClose}>
+      <p className="px-2 pb-3 text-center text-sous text-brume">Seules ces personnes voient l’album et tous ses souvenirs : photos, notes, dessins, vocaux et vidéos.</p>
       <div className="groupe">
         {people.map((m, i) => {
           const on = sel.has(m.id)
@@ -715,7 +713,7 @@ function MembersSheet({ root, onClose, onLeft }: { root: Folder; onClose: () => 
       </div>
       {admin ? (
         <>
-          {removed.length > 0 && <p className="px-2 pt-2.5 text-note text-rouge">{removed.join(', ')} n’{removed.length > 1 ? 'auront' : 'aura'} plus accès au dossier.</p>}
+          {removed.length > 0 && <p className="px-2 pt-2.5 text-note text-rouge">{removed.join(', ')} n’{removed.length > 1 ? 'auront' : 'aura'} plus accès à l’album.</p>}
           <Btn className="mt-4" disabled={!changed} onClick={async () => (await run((api) => api.setFolderMembers(root.id, [...sel]), 'Membres mis à jour')) && onClose()}>
             Enregistrer
           </Btn>
@@ -727,14 +725,14 @@ function MembersSheet({ root, onClose, onLeft }: { root: Folder; onClose: () => 
             kind="gris"
             className="mt-4 [&>button]:!text-rouge"
             onClick={async () => {
-              if (!(await confirmer({ title: `Quitter « ${root.name} » ?`, message: 'Tu ne le verras plus. Son créateur pourra te réinviter.', confirm: 'Quitter le dossier', destructive: true }))) return
-              if (await run((api) => api.leaveFolder(root.id, me.id), 'Tu as quitté le dossier')) {
+              if (!(await confirmer({ title: `Quitter « ${root.name} » ?`, message: 'Tu ne le verras plus. Son créateur pourra te réinviter.', confirm: 'Quitter l’album', destructive: true }))) return
+              if (await run((api) => api.leaveFolder(root.id, me.id), 'Tu as quitté l’album')) {
                 onClose()
                 onLeft()
               }
             }}
           >
-            Quitter le dossier
+            Quitter l’album
           </Btn>
         </>
       )}
@@ -747,10 +745,10 @@ function RenameSheet({ folder, onClose }: { folder: Folder; onClose: () => void 
   const [name, setName] = useState(folder.name)
   return (
     <Sheet title="Renommer" onClose={onClose}>
-      <ChampRequis id="renommer-dossier" label="Nom du dossier" aide="Les proches qui y ont accès verront le nouveau nom.">
+      <ChampRequis id="renommer-dossier" label="Nom de l’album" aide="Les proches qui y ont accès verront le nouveau nom.">
         <input id="renommer-dossier" required aria-describedby="renommer-dossier-aide" className={CHAMP_REQUIS} maxLength={40} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
       </ChampRequis>
-      <Btn className="mt-4" disabled={!name.trim() || name.trim() === folder.name} onClick={async () => (await run((api) => api.renameFolder(folder.id, name), 'Dossier renommé')) && onClose()}>
+      <Btn className="mt-4" disabled={!name.trim() || name.trim() === folder.name} onClick={async () => (await run((api) => api.renameFolder(folder.id, name), 'Album renommé')) && onClose()}>
         Enregistrer
       </Btn>
     </Sheet>

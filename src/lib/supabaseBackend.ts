@@ -16,6 +16,19 @@ const LIENS_JOURS = 7
 let liensTimer: number | undefined
 import { emptyCounts, type WeeklyCounts } from './weekly'
 
+// ───── Les commentaires du fil ─────
+// Un commentaire est un moment qui répond à une publication (colonne reply_to, ajoutée par
+// supabase/migrations/20261127150000_commentaires.sql). Tant qu'elle n'est pas là, le fil marche sans commentaires ;
+// on regarde de nouveau, au plus une fois par minute, et dès qu'elle existe on ne regarde plus.
+let commentairesVus: { ok: boolean; at: number } | null = null
+let sbCommentaires: SupabaseClient | null = null
+async function commentairesEnBase() {
+  if (commentairesVus?.ok || (commentairesVus && Date.now() - commentairesVus.at < 60000) || !sbCommentaires) return commentairesVus?.ok ?? false
+  const { error } = await sbCommentaires.from('moments').select('reply_to').limit(1)
+  commentairesVus = { ok: !error, at: Date.now() }
+  return commentairesVus.ok
+}
+
 function check<T>(r: { data: T; error: { message: string } | null }): T {
   if (r.error) throw new Error(r.error.message)
   return r.data
@@ -58,6 +71,7 @@ export function createSupabaseBackend(): Backend {
   const sb: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY, {
     auth: { persistSession: true, autoRefreshToken: true, storageKey: 'nidoo.auth' },
   })
+  sbCommentaires = sb
   // Les liens des photos durent 7 jours et sont gardés sur l'appareil (renouvelés au bout de 6) : une photo garde
   // la même adresse d'un lancement à l'autre, donc le téléphone la ressort de son cache au lieu de la retélécharger.
   const signedUrls = createSignedUrlCache(
@@ -288,7 +302,8 @@ export function createSupabaseBackend(): Backend {
         // Lisibles seulement par les responsables (RLS) : vide pour les autres.
         sb.from('join_requests').select('*').eq('family_id', fid).eq('status', 'attente').order('created_at'),
         sb.rpc('weekly_challenge', { p_family: fid }),
-        sb.from('moments').select('*').eq('family_id', fid).order('created_at', { ascending: false }).limit(120),
+        // les publications et leurs commentaires (le fil façon Facebook) : un peu plus qu'avant
+        sb.from('moments').select('*').eq('family_id', fid).order('created_at', { ascending: false }).limit(200),
         sb.from('poll_votes').select('moment_id, member_id, family_id, option_index').eq('family_id', fid),
         sb.from('folders').select('*').eq('family_id', fid).order('created_at'),
         sb.from('folder_members').select('folder_id, member_id').eq('family_id', fid),
@@ -410,6 +425,7 @@ export function createSupabaseBackend(): Backend {
         advent: (advent.data ?? []) as AdventDoor[],
         positions: (positions.data ?? []) as Position[],
         positionsReglables: reglagesEnBase === true,
+        commentaires: await commentairesEnBase(),
         ...(await nosEndroits(fid, adresses)),
       }
       return state
@@ -645,6 +661,8 @@ export function createSupabaseBackend(): Backend {
         await sb.from('moments').insert({
           family_id: fid, member_id: memberId, image_path, body: m.body?.trim() || null, challenge: m.challenge ?? null,
           audio_path, duree: m.audio ? Math.max(1, Math.min(300, Math.round(m.audio.duree))) : null, ondes: m.audio ? m.audio.ondes.slice(0, 64) : null, sticker: m.sticker?.slice(0, 60) || null, poll_options: m.pollOptions ?? null,
+          // un commentaire : seulement quand on en écrit un (la colonne peut ne pas exister encore)
+          ...(m.replyTo ? { reply_to: m.replyTo } : {}),
         }),
       )
     },

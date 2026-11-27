@@ -17,7 +17,7 @@ import { challenge, nextReward, WEEKLY, weekIndex, weekKey, weekStart, type Week
 
 type Raw = Omit<FamilyState, 'me' | 'weekly' | 'houseSince' | 'mot' | 'flags' | 'advent' | 'positions' | 'endroits' | 'endroitsPartages'> & { houseSince?: Record<string, string>; advent?: AdventDoor[] }
   & { positions?: (Position & { il?: number })[]; endroits?: Endroit[] }
-  & { caches?: Record<string, Cache>; motDemo?: MotDemo } & { dossiersDemo?: boolean; enfantsDemo?: boolean; weeklyClaims?: Record<string, string>; aventDemo?: number }
+  & { caches?: Record<string, Cache>; motDemo?: MotDemo } & { dossiersDemo?: boolean; enfantsDemo?: boolean; commentairesDemo?: boolean; weeklyClaims?: Record<string, string>; aventDemo?: number }
   & { jeuxDemo?: boolean; decks?: Record<string, { deck: number[]; pending: number | null }> }
   & { porte?: Record<string, Record<number, { e: number; t: number }>> }
 type Pending = MyRequest & { profile: { displayName: string; avatar: string; color: string } }
@@ -171,6 +171,26 @@ function migrate(f: Raw, userId: string) {
   }
   f.moments = keep
   if (!f.dossiersDemo) demoDossiers(f)
+  // Le fil devient un fil d'actualité : la démo a ses premiers commentaires et ses premières réactions.
+  if (!f.commentairesDemo) {
+    f.commentairesDemo = true
+    const par = (name: string) => f.members.find((m) => m.display_name === name && m.user_id !== userId)
+    const mamie = par('Mamie Jo'), papa = par('Papa'), lea = par('Léa')
+    const gateau = f.moments.find((m) => m.body?.startsWith('Devinez qui rentre'))
+    const neige = f.moments.find((m) => m.body?.startsWith('Le jardin est tout blanc'))
+    const dit = (m: Member | undefined, sous: Moment | undefined, body: string, minsApres: number) => {
+      if (!m || !sous) return
+      f.moments.unshift({ id: uid(), family_id: f.family.id, member_id: m.id, image_path: null, body, challenge: null, reply_to: sous.id, created_at: new Date(new Date(sous.created_at).getTime() + minsApres * 60000).toISOString() })
+    }
+    dit(mamie, gateau, 'Moi je sais ! Et je prépare le café 😉', 6)
+    dit(papa, gateau, 'Au chocolat, j’espère 🙏', 12)
+    dit(lea, neige, 'Trop beau ! Mets une photo 😍', 25)
+    const aime = (m: Member | undefined, sous: Moment | undefined, emoji: string) => m && sous && f.reactions.push({ moment_id: sous.id, member_id: m.id, emoji })
+    aime(mamie, gateau, 'amour')
+    aime(papa, gateau, 'rire')
+    aime(lea, neige, 'coeur')
+    aime(papa, neige, 'coeur')
+  }
   // Les proches fictifs passent des animaux aux personnages.
   // les proches de la démo prennent leur figurine (et les anciens personnages dessinés de la démo aussi)
   for (const m of f.members) if (DEMO_LOOKS[m.display_name] && m.user_id !== userId && !/\.k[1-9]/.test(m.avatar)) m.avatar = DEMO_LOOKS[m.display_name]
@@ -284,7 +304,8 @@ export function createLocalBackend(): Backend {
     photo: ['Trop belle cette photo ! 😍', 'Oh, j’adore. Tu me l’envoies en grand ?', 'C’est où ? On dirait des vacances !'],
     vocal: ['Ça fait du bien d’entendre ta voix 🥰', 'Haha, j’ai écouté deux fois !', 'Je te rappelle ce soir, promis.'],
   }
-  const repondre = (fid: string, quoi: 'texte' | 'photo' | 'vocal' | 'sticker') => {
+  // un proche répond : sous la publication, en commentaire (le fil façon Facebook)
+  const repondre = (fid: string, quoi: 'texte' | 'photo' | 'vocal' | 'sticker', sous?: string) => {
     const f = db.families[fid]
     const autres = f?.members.filter((x) => x.user_id && x.user_id !== db.userId) ?? []
     const qui = autres[Math.floor(Math.random() * autres.length)]
@@ -295,7 +316,12 @@ export function createLocalBackend(): Backend {
       const parSticker = quoi === 'sticker' || Math.random() < 0.3
       const textes = REPONSES[parSticker ? 'sticker' : quoi]
       const choix = textes[Math.floor(Math.random() * textes.length)]
-      f.moments.unshift({ id: uid(), family_id: fid, member_id: qui.id, image_path: null, body: parSticker ? null : choix, sticker: parSticker ? choix : null, challenge: null, created_at: new Date().toISOString() })
+      // en commentaire : du texte (un sticker seul n'est pas un commentaire)
+      if (sous) {
+        if (!f.moments.some((m) => m.id === sous)) return signale(qui.id, null)
+        const mots = REPONSES[quoi === 'sticker' ? 'texte' : quoi]
+        f.moments.unshift({ id: uid(), family_id: fid, member_id: qui.id, image_path: null, body: mots[Math.floor(Math.random() * mots.length)], challenge: null, created_at: new Date().toISOString(), reply_to: sous })
+      } else f.moments.unshift({ id: uid(), family_id: fid, member_id: qui.id, image_path: null, body: parSticker ? null : choix, sticker: parSticker ? choix : null, challenge: null, created_at: new Date().toISOString() })
       signale(qui.id, null)
       save()
     }, 3800)
@@ -749,6 +775,7 @@ export function createLocalBackend(): Backend {
         folderMembers: f.folderMembers.filter((x) => mine.has(x.folder_id)),
         folderItems: f.folderItems.filter((i) => mine.has(i.root_id)).map((i) => ({ ...i, image_url: i.image_path, media_url: i.media_path ?? null })),
         dossiersDemo: undefined,
+        commentairesDemo: undefined,
         decks: undefined,
         jeuxDemo: undefined,
         games: f.games
@@ -767,6 +794,7 @@ export function createLocalBackend(): Backend {
         // ne se voit plus (comme dans la base)
         positions: (f.positions ?? []).filter((p) => enCours(p)).map(({ il, ...p }) => (il != null ? { ...p, updated_at: iso(il) } : p)),
         positionsReglables: true,
+        commentaires: true,
         endroits: f.endroits ?? [],
         endroitsPartages: true,
       })
@@ -809,11 +837,15 @@ export function createLocalBackend(): Backend {
         id: uid(), family_id: fid, member_id: memberId, image_path: m.blob ? await blobToDataUrl(m.blob) : null,
         body: m.body?.trim() || null, challenge: m.challenge ?? null, created_at: new Date().toISOString(),
         audio_path: m.audio ? await blobToDataUrl(m.audio.blob) : null, duree: m.audio ? Math.round(m.audio.duree) : null, ondes: m.audio?.ondes ?? null,
-        sticker: m.sticker ?? null, poll_options: m.pollOptions ?? null,
+        sticker: m.sticker ?? null, poll_options: m.pollOptions ?? null, reply_to: m.replyTo ?? null,
       }
+      if (m.replyTo && !f.moments.some((x) => x.id === m.replyTo && !x.reply_to)) throw new Error('COMMENTAIRE_INVALIDE')
       f.moments.unshift(moment)
       award(f, memberId, 'moment', 3, 5)
-      if (!m.pollOptions) repondre(fid, m.audio ? 'vocal' : m.blob ? 'photo' : m.sticker ? 'sticker' : 'texte')
+      // une publication : un proche la commente ; un commentaire : parfois, on lui répond
+      if (m.replyTo) {
+        if (Math.random() < 0.5) repondre(fid, 'texte', m.replyTo)
+      } else if (!m.pollOptions) repondre(fid, m.audio ? 'vocal' : m.blob ? 'photo' : m.sticker ? 'sticker' : 'texte', moment.id)
       else {
         // un sondage : les proches de la démo votent, l'un après l'autre
         const votants = f.members.filter((x) => x.user_id && x.user_id !== db.userId)
@@ -827,7 +859,7 @@ export function createLocalBackend(): Backend {
       }
       // Un proche réagit à la photo, comme dans une vraie famille.
       const other = f.members.find((x) => x.user_id !== db.userId)
-      if (other && !m.sticker && !m.pollOptions) {
+      if (other && !m.sticker && !m.pollOptions && !m.replyTo) {
         window.setTimeout(() => {
           f.reactions.push({ moment_id: moment.id, member_id: other.id, emoji: 'amour' })
           save()
@@ -853,8 +885,10 @@ export function createLocalBackend(): Backend {
     },
     async deleteMoment(moment) {
       const f = fam(moment.family_id)
-      f.moments = f.moments.filter((m) => m.id !== moment.id)
-      f.reactions = f.reactions.filter((r) => r.moment_id !== moment.id)
+      // la publication part avec ses commentaires (comme dans la base : on delete cascade)
+      const partis = new Set([moment.id, ...f.moments.filter((m) => m.reply_to === moment.id).map((m) => m.id)])
+      f.moments = f.moments.filter((m) => !partis.has(m.id))
+      f.reactions = f.reactions.filter((r) => !partis.has(r.moment_id))
       f.pollVotes = f.pollVotes.filter((v) => v.moment_id !== moment.id)
       save()
     },
