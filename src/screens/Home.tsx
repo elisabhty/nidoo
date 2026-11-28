@@ -383,7 +383,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
                   <span className="w-full truncate text-sous font-semibold">{m.display_name}</span>
                   {/* la ligne d'humeur seulement si quelqu'un en a donné une aujourd'hui (sinon un grand vide sous les
                       prénoms : Elisa, 27 novembre, « pb d'espace ») ; vide chez les autres, pour rester alignés */}
-                  {humeursDuJour && <span className="w-full truncate text-note text-brume">{isToday(m.mood_at) && m.mood ? moodOf(m.mood)?.label ?? '\u00a0' : '\u00a0'}</span>}
+                  {humeursDuJour && <span className="line-clamp-2 w-full text-center text-legende leading-[15px] text-brume">{isToday(m.mood_at) && m.mood ? moodOf(m.mood)?.label ?? '\u00a0' : '\u00a0'}</span>}
                 </button>
               ))}
             </div>

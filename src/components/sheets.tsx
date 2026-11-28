@@ -53,8 +53,8 @@ export function MoodSheet({ onClose, member }: { onClose: () => void; member?: M
   }
 
   return (
-    <Sheet title={mine ? 'Mon humeur du jour' : `Humeur de ${who.display_name}`} onClose={onClose}>
-      <p className="text-center text-sous text-brume">{mine ? 'Ta famille la verra sur la maison. Aucune obligation, juste des nouvelles.' : `${who.display_name} n’a pas de téléphone : dis à la famille comment il ou elle va aujourd’hui.`}</p>
+    <Sheet title={mine ? 'Comment te sens-tu aujourd’hui\u00A0?' : `Humeur de ${who.display_name}`} onClose={onClose}>
+      <p className="text-center text-sous text-brume">{mine ? 'Partage ton humeur avec tes proches, même sans dire un mot.' : `${who.display_name} n’a pas de téléphone : dis à la famille comment il ou elle va aujourd’hui.`}</p>
       <div className="mt-4 grid grid-cols-4 gap-2">
         {MOODS.map((m) => {
           const on = mood === m.key
@@ -73,14 +73,14 @@ export function MoodSheet({ onClose, member }: { onClose: () => void; member?: M
               <span className="flex h-14 w-14 items-center justify-center">
                 <span data-smiley className="inline-flex"><Smiley mood={m.key} size={44} /></span>
               </span>
-              <span className={`text-legende ${on ? 'font-semibold text-teinte-fonce' : 'font-medium text-encre'}`}>{m.label}</span>
+              <span className={`flex min-h-[30px] items-center px-1 text-center text-legende leading-[15px] ${on ? 'font-semibold text-teinte-fonce' : 'font-medium text-encre'}`}>{m.label}</span>
             </button>
           )
         })}
       </div>
-      <input className="champ mt-4 !bg-carte" placeholder="Un petit mot pour aller avec (facultatif)" maxLength={80} value={note} onChange={(e) => setNote(e.target.value)} />
-      <Btn className="mt-4" onClick={save} disabled={busy || (!mood && !current)}>
-        {mood ? (mine ? 'Partager mon humeur' : 'Partager son humeur') : current ? 'Effacer l’humeur' : mine ? 'Choisis ton humeur' : 'Choisis son humeur'}
+      <input className="champ mt-4 !bg-carte" placeholder={'Envie d’en dire un peu plus\u00A0?'} maxLength={80} value={note} onChange={(e) => setNote(e.target.value)} />
+      <Btn className="mt-4" onClick={save} disabled={busy} manque={!mood && !current ? (mine ? 'ton humeur' : 'son humeur') : null}>
+        {!mood && current ? 'Effacer l’humeur' : mine ? 'Partager mon humeur' : 'Partager son humeur'}
       </Btn>
     </Sheet>
   )
