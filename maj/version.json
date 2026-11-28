@@ -1,0 +1,18 @@
+{
+  "version": 20261128124644,
+  "commit": "2ffa506",
+  "publiee": "2026-11-28T12:47:19.197Z",
+  "publier": true,
+  "retirer": false,
+  "natifMin": 20261126204441,
+  "plugins": [
+    "Nidoo",
+    "Haptics",
+    "Keyboard",
+    "LocalNotifications",
+    "Share",
+    "CapacitorUpdater"
+  ],
+  "fichiers": 1176,
+  "manifeste": "https://elisabhty.github.io/nidoo/maj/manifeste.json?v=20261128124644"
+}
