@@ -17,7 +17,7 @@ import { useLieux } from '../components/lieux'
 import { PetFigure } from '../components/pet'
 import { ComposeSheet, EventDetailSheet, MoodSheet, ThoughtSheet } from '../components/sheets'
 import { StarsSheet } from '../components/stars'
-import { Art, Avatar, choisir, Sheet } from '../components/ui'
+import { Art, Avatar, choisir, Sheet, montrerDans } from '../components/ui'
 import type { AventAction } from '../lib/avent'
 import { challengeOfDay, moodOf } from '../lib/data'
 import { feel, tap } from '../lib/haptic'
@@ -170,7 +170,7 @@ export default function Home({ go, active = true }: { go: (t: Go) => void; activ
       /* tant pis : la scène pourra se rejouer */
     }
     const r = houseRef.current?.getBoundingClientRect()
-    if (r && (r.top < 60 || r.bottom > window.innerHeight - 90)) houseRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    if (r && (r.top < 60 || r.bottom > window.innerHeight - 90)) montrerDans(houseRef.current, 'center')
     setScene({ id: t.id, from: t.from_member, to: t.to_member, kind: t.kind })
   }, [state.thoughts, sheet, scene, me.id, active])
   // Le geste se sent (et s'entend) au moment où il se fait, chez les deux.

@@ -26,7 +26,7 @@ import { estFerie, prochainsJoursSpeciaux } from '../lib/joursSpeciaux'
 import { anniversaireDe } from '../lib/naissance'
 import { IncomingDrawing, markDrawingsSeen, useUnseenDrawings } from './drawing'
 import { DrawSheet } from './planche'
-import { Art, Avatar, Btn, choisir, confirmer, Envol, Segments, Sheet, Switch, ChampRequis, CHAMP_REQUIS } from './ui'
+import { Art, Avatar, Btn, choisir, confirmer, Envol, Segments, Sheet, Switch, ChampRequis, CHAMP_REQUIS, montrerDans, Volet } from './ui'
 import { ChoixDate } from './choixDate'
 import { prendrePhoto } from './appareil'
 
@@ -848,7 +848,7 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
         // décaler : on revient sur les heures, qui font signe
         if (i === 0) window.setTimeout(() => {
           const h = document.querySelector('[aria-label="L’heure"]')
-          h?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          montrerDans(h, 'center')
           rebond(h, 0.6)
         }, 250)
         return
@@ -934,7 +934,7 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
   const montrerManque = () => {
     const el = document.getElementById(!title.trim() ? 'event-name' : 'event-fin')
     const cadre = el?.closest('.champ-evt') ?? el
-    el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    montrerDans(el, 'center')
     if (cadre instanceof HTMLElement) {
       cadre.classList.remove('a-remplir')
       void cadre.offsetWidth
@@ -1070,8 +1070,8 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
         ) : (
           <>
             <div className={`${ligne} mt-3 border-t border-trait/60 pt-3`}>Toute la journée<Switch on={journee} onChange={setJournee} label="Toute la journée" /></div>
-            {!journee && (
-              <div className="anim-entre mt-2 flex gap-1.5" role="group" aria-label="L’heure">
+            <Volet ouvert={!journee}>
+              <div className="flex gap-1.5 pt-2" role="group" aria-label="L’heure">
                 {HEURES.map((h) => (
                   <button key={h} type="button" aria-pressed={time === h} onClick={() => choisirHeure(h)} className={`${puce(time === h)} flex-1 !px-1`}>{heure(h)}</button>
                 ))}
@@ -1081,19 +1081,19 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
                   <input aria-label="Choisir une autre heure" type="time" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={time} onChange={e => e.target.value && choisirHeure(e.target.value)} />
                 </label>
               </div>
-            )}
-            {journee && (
+            </Volet>
+            <Volet ouvert={journee}>
               <div className={`${ligne} mt-2 border-t border-trait/60 pt-2`}>Sur plusieurs jours<Switch on={plusieurs} onChange={v => {setPlusieurs(v);if(v && !(fin > date)){const d=new Date(`${date}T12:00`);d.setDate(d.getDate()+1);setFin(iso(d))}}} label="Sur plusieurs jours" /></div>
-            )}
-            {journee && plusieurs && (
-              <div className={`${ligne} anim-entre mt-1`}>
+            </Volet>
+            <Volet ouvert={journee && plusieurs}>
+              <div className={`${ligne} mt-1`}>
                 Jusqu’au
                 <button id="event-fin" type="button" onClick={() => (tap(), setCalendrier('fin'))} aria-label={`Date de fin : ${fin ? dateCourte(fin) : 'à choisir'}`} className="champ-evt presse flex items-center gap-1 rounded-full bg-teinte-doux px-3 py-1.5 text-sous font-semibold text-teinte-fonce">
                   <span key={fin}>{fin ? dateCourte(fin) : 'Choisir'}</span>
                   <ChevronDown size={15} className="opacity-70" />
                 </button>
               </div>
-            )}
+            </Volet>
           </>
         )}
         {ko && <p role="alert" className="mt-2 px-0.5 text-note text-rouge">La fin doit être le même jour ou après le début.</p>}

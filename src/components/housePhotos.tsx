@@ -5,7 +5,7 @@ import { select, success, tap } from '../lib/haptic'
 import { housePhotoSlots, housePhotoSources } from '../lib/housePhotos'
 import { useHome } from '../lib/store'
 import { errorText } from '../lib/util'
-import { Btn, Sheet } from './ui'
+import { Btn, Sheet, apresClavier } from './ui'
 
 /** Un souvenir dans la maison (Elisa, 21 novembre : une petite fenêtre qui s'adapte au contenu, une seule action
  *  claire, puis un aperçu à recadrer avant d'accrocher). À une place précise de la corde (index : remplacer une
@@ -86,7 +86,7 @@ export function HousePhotosSheet({ mode, index, onClose }: { mode: 'add' | 'repl
         <Recadrer
           fichier={fichier}
           busy={busy}
-          onAutre={() => (tap(), input.current?.click())}
+          onAutre={() => (tap(), apresClavier(() => input.current?.click()))}
           onValider={(blob) => void upload(blob)}
           libelle={actuelle ? 'Remplacer' : 'Accrocher'}
         />
@@ -119,7 +119,7 @@ export function HousePhotosSheet({ mode, index, onClose }: { mode: 'add' | 'repl
           {full ? (
             <p className="mt-4 rounded-[18px] bg-doux p-4 text-sous text-brume">La corde est pleine : touche une photo de la maison pour la remplacer ou la décrocher.</p>
           ) : (
-            <button disabled={busy} onClick={() => (tap(), input.current?.click())} className="presse mt-3 flex w-full flex-col items-center gap-1 rounded-[22px] bg-teinte-doux px-4 py-5 disabled:opacity-50">
+            <button disabled={busy} onClick={() => (tap(), apresClavier(() => input.current?.click()))} className="presse mt-3 flex w-full flex-col items-center gap-1 rounded-[22px] bg-teinte-doux px-4 py-5 disabled:opacity-50">
               <ImagePlus size={30} strokeWidth={2} className="text-teinte" />
               <span className="mt-1 text-corps font-bold text-encre">Choisir une photo</span>
               <span className="text-note text-brume">Depuis ta galerie</span>

@@ -6,7 +6,7 @@ import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'rea
 import { PhotoEditeur } from '../components/photoEditeur'
 import { PhotosDuFil, SouvenirMedia } from '../components/folderSouvenirs'
 import { FolderCover, MemberStack } from '../components/folder'
-import { Art, Avatar, Btn, choisir, confirmer, Rond, Screen, SearchField, Sheet, Vide, ChampRequis, CHAMP_REQUIS } from '../components/ui'
+import { Art, Avatar, Btn, choisir, confirmer, Rond, Screen, SearchField, Sheet, Vide, ChampRequis, CHAMP_REQUIS, apresClavier } from '../components/ui'
 import { contentLine, folderStats, membersOf, subtreeIds, whoText } from '../lib/folders'
 import { select, success, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
@@ -626,7 +626,7 @@ export function NewFolderSheet({ onClose, onCreated }: { onClose: () => void; on
       </ChampRequis>
 
       {(
-        <button onClick={() => input.current?.click()} className="presse relative block aspect-[16/6] w-full overflow-hidden rounded-[22px] text-left shadow-carte">
+        <button onClick={() => apresClavier(() => input.current?.click())} className="presse relative block aspect-[16/6] w-full overflow-hidden rounded-[22px] text-left shadow-carte">
           {preview ? <img src={preview} alt="" className="absolute inset-0 h-full w-full object-cover" /> : <FolderCover folder={{ id: name || 'nouveau', name: name || '·' }} url={null} size="md" />}
           <span className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/45 to-transparent" />
           <span className="verre absolute bottom-3 left-3 flex h-9 items-center gap-1.5 rounded-full px-3.5 text-sous font-semibold text-encre">

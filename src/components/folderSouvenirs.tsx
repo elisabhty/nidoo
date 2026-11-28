@@ -6,7 +6,7 @@ import { useHome } from '../lib/store'
 import type { Folder } from '../lib/types'
 import { compressImage, errorText } from '../lib/util'
 import { PhotoEditeur } from './photoEditeur'
-import { Art, Avatar, Btn, Sheet } from './ui'
+import { Art, Avatar, Btn, Sheet, apresClavier } from './ui'
 import { ApercuVideo, CoupeVideo, useVideoAPreparer } from './videos'
 
 export async function photoBlob(url: string) {
@@ -64,7 +64,7 @@ export function PhotosDuFil({ folder, onClose, onSaved }: { folder: Folder; onCl
     {error && <p role="alert" className="mb-4 rounded-[16px] bg-rouge/10 p-3 text-sous text-rouge">{error}</p>}
     <input ref={input} type="file" accept="image/*" multiple hidden onChange={e => { const incoming = Array.from(e.target.files ?? []); e.target.value=''; setFiles(current => [...current,...incoming.map(file => ({id:crypto.randomUUID(),file}))]); setError('') }} />
     {source === 'phone' ? <>
-      <button onClick={() => input.current?.click()} disabled={busy} className="presse mb-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-teinte-doux px-4 text-sous font-semibold text-teinte-fonce"><Upload size={19} />Choisir dans la photothèque</button>
+      <button onClick={() => apresClavier(() => input.current?.click())} disabled={busy} className="presse mb-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-teinte-doux px-4 text-sous font-semibold text-teinte-fonce"><Upload size={19} />Choisir dans la photothèque</button>
       <div className="grid grid-cols-2 gap-3">{previews.map(f => <div key={f.id} className="relative overflow-hidden rounded-[18px] bg-carte shadow-carte"><img src={f.url} alt="Photo à ajouter" className="aspect-square w-full object-cover" /><button disabled={busy} onClick={() => setFiles(current => current.filter(x => x.id !== f.id))} aria-label="Retirer cette sélection" className="absolute right-1 top-1 flex h-11 w-11 items-center justify-center rounded-full bg-white/95 text-rouge"><X size={19} /></button><button disabled={busy} onClick={() => setEditing(f.id)} className="min-h-11 w-full px-2 text-note font-semibold text-teinte-fonce">Cadres, stickers et dessin</button></div>)}</div>
     </> : !photos.length ? <div className="py-8 text-center"><Art name="picto-photo" size={80} className="mx-auto" /><h3 className="mt-4 font-rond text-titre2">Le fil n’a pas encore de photo</h3><p className="mt-2 text-sous text-brume">Tu peux en ajouter depuis ton téléphone.</p><button onClick={() => setSource('phone')} className="mt-3 min-h-11 font-semibold text-teinte-fonce">Depuis le téléphone</button></div> : <div className="grid grid-cols-3 gap-2">{photos.map((p,index) => {
       const on = selected.includes(p.id), exists = already.has(p.id)
@@ -169,7 +169,7 @@ export function SouvenirMedia({ folder, kind, onClose, onSaved }: { folder: Fold
     {kind === 'video' && vid.video && <ApercuVideo v={vid.video} onRetirer={vid.retirer} onCouper={vid.recouper} />}
     {vid.coupe && <CoupeVideo {...vid.coupe} />}
     {preview && !recording && kind !== 'video' && <div className="mt-4 rounded-[20px] bg-white p-3 shadow-carte"><audio key={preview} src={preview} controls preload="metadata" className="w-full" /></div>}
-    {!recording && <button onClick={() => file.current?.click()} disabled={busy || starting} className="presse mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-teinte-doux px-4 text-sous font-semibold text-teinte-fonce">{kind === 'video' ? <Video size={19} /> : <Upload size={19} />}{kind === 'video' ? vid.video ? 'Changer de vidéo' : 'Choisir une vidéo' : 'Importer un audio'}</button>}
+    {!recording && <button onClick={() => apresClavier(() => file.current?.click())} disabled={busy || starting} className="presse mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-teinte-doux px-4 text-sous font-semibold text-teinte-fonce">{kind === 'video' ? <Video size={19} /> : <Upload size={19} />}{kind === 'video' ? vid.video ? 'Changer de vidéo' : 'Choisir une vidéo' : 'Importer un audio'}</button>}
     <p className="mt-2 text-center text-note text-brume">{kind === 'video' ? 'Elle est allégée avant l’envoi · 25 Mo au plus' : 'Audio · 10 Mo maximum'}</p>
     <label className="mb-2 mt-6 block text-sous font-semibold" htmlFor={`souvenir-${kind}`}>Nom du souvenir <span className="font-normal text-brume">(facultatif)</span></label>
     <input id={`souvenir-${kind}`} disabled={busy} value={title} onChange={e => setTitle(e.target.value)} maxLength={80} placeholder={kind === 'audio' ? 'Ex. : L’histoire de Mamie' : 'Ex. : Notre journée au lac'} className="champ" />

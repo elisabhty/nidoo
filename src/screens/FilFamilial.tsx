@@ -10,7 +10,7 @@ import { FolderCover } from '../components/folder'
 import { photoBlob } from '../components/folderSouvenirs'
 import { PhotoEditeur } from '../components/photoEditeur'
 import { StickerImg, StickerTray } from '../components/stickers'
-import { Art, Avatar, Btn, choisir, clavierRange, confirmer, Rond, Screen, SearchField, Sheet, useHauteurQuiTient } from '../components/ui'
+import { Art, Avatar, Btn, choisir, clavierRange, confirmer, Rond, Screen, SearchField, Sheet, useHauteurQuiTient, montrerDans } from '../components/ui'
 import { QuiAReagi, ReactionImg, ToutesReactions } from '../components/reactions'
 import { ApercuVideo, CoupeVideo, useVideoAPreparer, VideoDuFil } from '../components/videos'
 import { VIDEO_FIL_MAX_S } from '../lib/video'
@@ -932,7 +932,7 @@ function FeuilleCommentaires({ post, ecrire, onPhoto, onClose }: { post: Moment;
   const avant = useRef(liste.length)
   // un commentaire arrive (le sien, ou celui d'un proche) : on le montre
   useEffect(() => {
-    if (liste.length > avant.current) fin.current?.scrollIntoView({ block: 'end', behavior: 'smooth' })
+    if (liste.length > avant.current) montrerDans(fin.current, 'end')
     avant.current = liste.length
   }, [liste.length])
   useEffect(() => {

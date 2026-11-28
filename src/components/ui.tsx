@@ -212,13 +212,6 @@ export function Sheet({ title, onClose, children, tall = false, footer, cacherBa
   const panel = useRef<HTMLDivElement>(null)
   const close = useRef(onClose)
   close.current = onClose
-  // choisir une puce pendant qu'on écrit ne ferme pas le clavier (sinon la feuille change de taille sous le doigt)
-  const garderClavier = (e: React.PointerEvent | React.MouseEvent) => {
-    const champ = document.activeElement
-    if (!(champ instanceof HTMLElement) || !champ.matches('input, textarea')) return
-    if (!(e.target as Element).closest?.('button[aria-pressed], [role="switch"], [data-garde-clavier]')) return
-    e.preventDefault()
-  }
   useEffect(() => {
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
     const frame = requestAnimationFrame(() => panel.current?.focus({preventScroll:true}))
@@ -250,10 +243,6 @@ export function Sheet({ title, onClose, children, tall = false, footer, cacherBa
       role="dialog"
       aria-modal="true"
       aria-label={title}
-      // choisir une puce (Aujourd'hui, Demain, une heure, une humeur…) pendant qu'on écrit ne ferme plus le clavier :
-      // sinon la feuille se redimensionne sous le doigt et tout saute (Elisa, 28 nov. : « les badges, ça saute »)
-      onPointerDownCapture={garderClavier}
-      onMouseDownCapture={garderClavier}
     >
       <button className="anim-fondu absolute inset-0 bg-black/30" style={{ opacity: ferme ? 0 : Math.max(0.3, 1 - dy / 400), transition: ferme ? 'opacity 0.3s ease-out' : undefined }} onClick={onClose} aria-label="Fermer" />
       <div
@@ -533,10 +522,12 @@ let push: ((a: Ask) => void) | null = null
 
 /** Propose plusieurs actions dans une feuille iOS ; renvoie l'indice choisi, ou -1 si annulé. */
 export function choisir(o: Omit<Ask, 'resolve'>): Promise<number> {
-  return new Promise((resolve) => {
+  // une feuille d'actions ouverte pendant qu'on écrit : le clavier se range d'abord, puis elle monte (plus de flash
+  // où les deux bougent en même temps, partout dans l'appli)
+  return clavierRange().then(() => new Promise<number>((resolve) => {
     if (!push) return resolve(-1)
     push({ ...o, resolve })
-  })
+  }))
 }
 
 /** Demande une confirmation avec une feuille d'actions iOS. */
@@ -707,5 +698,51 @@ export function clavierRange(): Promise<void> {
   if (!(champ instanceof HTMLElement) || !champ.matches('input, textarea, [contenteditable="true"]')) return Promise.resolve()
   champ.blur()
   return new Promise((ok) => window.setTimeout(ok, 320))
+}
+
+/** Fait défiler la zone qui contient `el` (et elle seule) pour le montrer : `scrollIntoView` fait aussi défiler la
+ *  page entière sur iPhone, et toute l'appli saute (Elisa, 28 nov. : « vérifie les flashs sur toutes les pages »). */
+export function montrerDans(el: Element | null | undefined, ou: 'start' | 'center' | 'end' | 'nearest' = 'nearest', doux = true) {
+  if (!(el instanceof HTMLElement)) return
+  let boite = el.parentElement
+  while (boite && !/(auto|scroll)/.test(getComputedStyle(boite).overflowY)) boite = boite.parentElement
+  if (!boite) return
+  const r = el.getBoundingClientRect()
+  const b = boite.getBoundingClientRect()
+  const marge = 12
+  let delta = 0
+  if (ou === 'start') delta = r.top - b.top - marge
+  else if (ou === 'end') delta = r.bottom - b.bottom + marge
+  else if (ou === 'center') delta = r.top + r.height / 2 - (b.top + b.height / 2)
+  else delta = r.bottom > b.bottom - marge ? r.bottom - b.bottom + marge : r.top < b.top + marge ? r.top - b.top - marge : 0
+  if (!delta) return
+  const max = Math.max(0, boite.scrollHeight - boite.clientHeight)
+  boite.scrollTo({ top: Math.min(max, Math.max(0, boite.scrollTop + delta)), behavior: doux && !window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'smooth' : 'auto' })
+}
+
+/** Ouvre la photothèque (un champ fichier) : si on était en train d'écrire, le clavier se range d'abord, puis la
+ *  photothèque s'ouvre (sinon les deux bougent en même temps et l'écran clignote). */
+export function apresClavier(fn: () => void) {
+  const champ = document.activeElement
+  if (champ instanceof HTMLElement && champ.matches('input:not([type="file"]), textarea')) {
+    champ.blur()
+    window.setTimeout(fn, 320)
+  } else fn()
+}
+
+/** Une partie qui s'ouvre et se referme en glissant (sa hauteur suit), au lieu d'apparaître d'un coup et de pousser
+ *  tout le reste (Elisa, 28 nov. : « vérifie les sauts sur toutes les pages »). Fermée, elle ne se touche pas. */
+export function Volet({ ouvert, children, className = '' }: { ouvert: boolean; children: ReactNode; className?: string }) {
+  return (
+    <div
+      className={`grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${className}`}
+      style={{ gridTemplateRows: ouvert ? '1fr' : '0fr', opacity: ouvert ? 1 : 0 }}
+      aria-hidden={!ouvert || undefined}
+      // @ts-expect-error l'attribut inert est connu des navigateurs, pas encore des types de React 18
+      inert={ouvert ? undefined : ''}
+    >
+      <div className="min-h-0 overflow-hidden">{children}</div>
+    </div>
+  )
 }
 

@@ -10,7 +10,7 @@ import { useLieux } from './lieux'
 import { PetFigure } from './pet'
 import House from './House'
 import { StarsSheet } from './stars'
-import { Art, Btn, confirmerAchat, Page, Sheet } from './ui'
+import { Art, Btn, confirmerAchat, Page, Sheet, montrerDans } from './ui'
 
 // La boutique de la maison : une page à part, qui glisse par-dessus l'écran.
 // Les animaux et les plantes vivent avec la famille : avant de les installer,
@@ -29,7 +29,7 @@ export function DecorPage({ onClose, food: forFood = false }: { onClose: () => v
   const foodRef = useRef<HTMLDivElement>(null)
   const [glow, setGlow] = useState(forFood)
   const showFood = () => {
-    foodRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    montrerDans(foodRef.current, 'center')
     setGlow(true)
   }
   const care = useCare(showFood)
@@ -37,7 +37,7 @@ export function DecorPage({ onClose, food: forFood = false }: { onClose: () => v
   const petAnimal = usePet()
   useEffect(() => {
     if (!forFood) return
-    const t = window.setTimeout(() => foodRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 450)
+    const t = window.setTimeout(() => montrerDans(foodRef.current, 'center'), 450)
     return () => window.clearTimeout(t)
   }, [forFood])
   useEffect(() => {

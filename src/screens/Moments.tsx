@@ -1,6 +1,6 @@
 import { ChartNoAxesColumn, Check, ImagePlus, Pause, Play, Plus, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Avatar, Btn, choisir, clavierRange, Sheet, useHauteurQuiTient } from '../components/ui'
+import { Avatar, Btn, choisir, clavierRange, Sheet, useHauteurQuiTient, montrerDans } from '../components/ui'
 import { prendrePhoto } from '../components/appareil'
 import { compressImage } from '../lib/util'
 import { select, tap } from '../lib/haptic'
@@ -379,7 +379,7 @@ export function SondageCompose({ question0 = '', photo0, onClose, envoyer }: { q
     }
   }
   return (
-    <Sheet title="Nouveau sondage" onClose={() => onClose()} tall={!!photo} ferme={parti} footer={
+    <Sheet title="Nouveau sondage" onClose={() => onClose()} tall ferme={parti} footer={
       <Btn onClick={() => void publier()} disabled={loading} manque={manque} onManque={allerAuManque}>
         {parti ? 'Publié' : loading ? 'Publication…' : 'Publier le sondage'}
       </Btn>
@@ -439,7 +439,7 @@ export function SondageCompose({ question0 = '', photo0, onClose, envoyer }: { q
               maxLength={80}
               enterKeyHint={i === options.length - 1 && options.length >= 2 ? 'done' : 'next'}
               onChange={(e) => setOptions((x) => x.map((v, j) => (j === i ? e.target.value : v)))}
-              onFocus={(e) => { const el = e.currentTarget; window.setTimeout(() => el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 320) }}
+              onFocus={(e) => { const el = e.currentTarget; window.setTimeout(() => montrerDans(el, 'nearest'), 320) }}
               onKeyDown={(e) => {
                 if (e.key !== 'Enter') return
                 e.preventDefault()

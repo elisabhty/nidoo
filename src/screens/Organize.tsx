@@ -9,7 +9,7 @@ import { MemberStack } from '../components/folder'
 import { IconeArticle } from '../components/iconeArticle'
 import { LieuEvt } from '../components/iconeEndroit'
 import { EventDetailSheet, EventSheet, EventIcon } from '../components/sheets'
-import { Art, AuDessus, Avatar, Rond, Screen, Segments, Vide, Btn } from '../components/ui'
+import { Art, AuDessus, Avatar, Rond, Screen, Segments, Vide, Btn, montrerDans, Volet } from '../components/ui'
 import { choc, select, success, tap, warn } from '../lib/haptic'
 import { bravo, confettis } from '../lib/fete'
 import { useHome } from '../lib/store'
@@ -98,7 +98,7 @@ function Semaine({ onOpen, onAdd }: { onOpen: (o: Ouvert) => void; onAdd: (day: 
                 key={k}
                 onClick={() => {
                   tap()
-                  refs.current[k]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  montrerDans(refs.current[k], 'start')
                 }}
                 className="presse flex flex-col items-center gap-1 rounded-[14px] py-1.5"
                 aria-label={`${day.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}, ${byDay[i].length || 'aucun'} événement${byDay[i].length > 1 ? 's' : ''}`}
@@ -681,8 +681,10 @@ function Liste({ kind }: { kind: ListKind }) {
         {/* courses (Elisa, 21 novembre : « plus réfléchi ») : plus d'onglets dans l'onglet. Des tuiles à toucher, ce qui
             va avec la liste d'abord (« avec riz »), puis ce qu'on prend souvent ; « Recettes › » à part ; et une seule
             idée de repas, celle que la liste permet presque. Liste longue : une rangée de tuiles, la liste reste proche. */}
-        {!tache && !title.trim() && (
-          <div className="mt-3">
+        {/* pendant qu'on écrit, les suggestions se replient en glissant (la liste dessous ne saute plus) */}
+        {!tache && (
+          <Volet ouvert={!title.trim()}>
+          <div className="pt-3">
             <div className="mb-2 flex items-center justify-between gap-2 px-1">
               <p className="text-note font-bold text-brume">{tuiles.length ? 'Suggestions' : 'Envie d’un bon repas ?'}</p>
               <button type="button" onPointerDown={garderLeClavier} onClick={() => (select(), setToutesRecettes(true))} className="presse cible -my-1 flex min-h-9 items-center gap-1 rounded-full bg-peche-doux pl-3 pr-2 text-note font-bold text-peche-fonce">
@@ -712,6 +714,7 @@ function Liste({ kind }: { kind: ListKind }) {
               </button>
             )}
           </div>
+          </Volet>
         )}
         {tache && (
           <>

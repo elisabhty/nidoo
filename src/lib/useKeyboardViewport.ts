@@ -19,6 +19,24 @@ export function preparerClavier() {
   Keyboard.setAccessoryBarVisible({ isVisible: false }).catch(() => undefined)
 }
 
+/** Toucher un choix (une puce Aujourd'hui / Demain, une heure, une humeur, un interrupteur…) pendant qu'on écrit ne
+ *  ferme pas le clavier, partout dans l'appli : sinon l'écran change de taille sous le doigt et tout saute (Elisa,
+ *  28 novembre : « les badges, ça saute »). Un bouton qui doit ranger le clavier le fait lui-même (clavierRange). */
+export function garderClavierSurLesChoix(): () => void {
+  const garder = (e: Event) => {
+    const champ = document.activeElement
+    if (!(champ instanceof HTMLElement) || !champ.matches('input, textarea')) return
+    const t = e.target as Element | null
+    if (t?.closest?.('button[aria-pressed], [role="switch"], [role="tab"], [data-garde-clavier]')) e.preventDefault()
+  }
+  document.addEventListener('pointerdown', garder, true)
+  document.addEventListener('mousedown', garder, true)
+  return () => {
+    document.removeEventListener('pointerdown', garder, true)
+    document.removeEventListener('mousedown', garder, true)
+  }
+}
+
 /** Faire défiler (de haut en bas) ferme le clavier, comme dans Messages : plus besoin de bouton « OK ».
  *  Pas quand on glisse dans le champ lui-même (sélectionner du texte), ni pour un glissé de côté (les idées). */
 export function fermerClavierEnDefilant(): () => void {
@@ -121,6 +139,7 @@ export function useKeyboardViewport() {
   const [keyboard, setKeyboard] = useState(false)
   const [decale, setDecale] = useState(false)
   useEffect(() => fermerClavierEnDefilant(), [])
+  useEffect(() => garderClavierSurLesChoix(), [])
   // l'appli iPhone : le clavier s'annonce (sa hauteur), l'appli se cale au-dessus de lui
   useEffect(() => {
     if (!NATIF) return
