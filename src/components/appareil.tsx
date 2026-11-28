@@ -407,7 +407,7 @@ function Appareil({ demande, fin }: { demande: Demande; fin: (r: ReponseAppareil
           {eclair > 0 && <span key={eclair} className="appareil-eclair pointer-events-none absolute inset-0 bg-white" aria-hidden="true" />}
         </div>
 
-        {/* la photo prise : un Polaroid qui se pose et se développe */}
+        {/* la photo prise : un Polaroid qui se pose, net, avec l’éclair du déclic */}
         {photo && (
           <div className="absolute inset-0 flex items-center justify-center">
           <figure className="polaroid bg-white p-[10px] pb-0 shadow-[0_22px_48px_-18px_rgba(36,16,110,0.5)]" style={{ width: 'calc(var(--cadre) - 44px)' }}>

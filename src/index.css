@@ -774,17 +774,16 @@ html.kb-visible .ios-sheet.h-\[92\%\] { height: calc(100% - var(--sat) - 8px); }
 @media (prefers-reduced-motion: reduce) { .mois-glisse { animation: none; } }
 
 /* L'appareil photo de Nidoo (27 novembre) : l'éclair du déclic, le déclencheur qui s'enfonce, la caméra qui se
-   retourne, et la photo qui se pose comme un Polaroid puis se développe. */
+   retourne, et la photo qui se pose comme un Polaroid, nette, avec l’éclair du déclic. */
 .appareil-eclair { animation: appareilEclair 0.42s ease-out both; }
 @keyframes appareilEclair { from { opacity: 0.92; } to { opacity: 0; } }
 .appareil-declencheur > span { transition: transform 0.15s cubic-bezier(0.3, 0.7, 0.4, 1); }
 .appareil-declencheur:active:not(:disabled) > span { transform: scale(0.86); }
 .appareil-tourne { animation: appareilTourne 0.45s cubic-bezier(0.3, 0.7, 0.4, 1); }
 @keyframes appareilTourne { from { transform: rotate(-180deg); } to { transform: rotate(0); } }
-.polaroid { border-radius: 6px; transform: rotate(-2deg); animation: polaroidPose 0.55s cubic-bezier(0.25, 1.2, 0.4, 1) both; }
-@keyframes polaroidPose { from { opacity: 0; transform: translateY(-18px) rotate(-7deg) scale(0.94); } to { opacity: 1; transform: rotate(-2deg); } }
-.polaroid-image { border-radius: 2px; animation: polaroidDeveloppe 1.3s ease-out both; }
-@keyframes polaroidDeveloppe { from { filter: brightness(1.85) saturate(0.1) contrast(0.75); } to { filter: none; } }
+.polaroid { position: relative; border-radius: 6px; animation: declicPose 0.46s cubic-bezier(0.2, 1.25, 0.35, 1) both; }
+.polaroid::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: #fff; pointer-events: none; animation: declicFlash 0.5s ease-out both; }
+.polaroid-image { border-radius: 2px; }
 .appareil-annonce { animation: appareilAnnonce 1.5s ease both; }
 @keyframes appareilAnnonce { 0% { opacity: 0; } 12% { opacity: 1; } 72% { opacity: 1; } 100% { opacity: 0; } }
 
@@ -803,21 +802,15 @@ html.kb-visible .ios-sheet.h-\[92\%\] { height: calc(100% - var(--sat) - 8px); }
   .etincelle { display: none; }
 }
 
-/* Une photo qu'on vient de prendre ou de choisir, partout dans l'appli (Elisa, 28 nov.) : un tirage au cadre blanc qui
-   se pose d'en haut avec un léger tour, puis l'image se révèle, comme une photo instantanée qui se développe. */
-.tirage { background: #fff; padding: 8px; border-radius: 18px; box-shadow: 0 16px 34px -16px rgba(36, 16, 110, 0.42), 0 0 0 1px rgba(29, 26, 43, 0.05); animation: tirage-pose 0.62s cubic-bezier(0.2, 1.15, 0.3, 1) both; }
-.tirage-image { animation: tirage-revele 1.3s 0.12s ease-out both; }
-.tirage-pose { animation: tirage-pose 0.62s cubic-bezier(0.2, 1.15, 0.3, 1) both; }
-@keyframes tirage-pose {
-  0% { transform: translateY(-28px) rotate(-5deg) scale(0.9); opacity: 0; }
-  55% { transform: translateY(3px) rotate(1.2deg) scale(1.01); opacity: 1; }
-  100% { transform: none; opacity: 1; }
-}
-@keyframes tirage-revele {
-  0% { filter: brightness(1.8) saturate(0.1) contrast(0.75) blur(1.5px); }
-  100% { filter: none; }
-}
-@media (prefers-reduced-motion: reduce) { .tirage, .tirage-image, .tirage-pose { animation: none; } }
+/* Une photo qu'on vient de prendre ou de choisir, partout dans l'appli (Elisa, 28 nov.) : elle arrive dans son cadre
+   blanc d'un petit ressort, avec l'éclair blanc du déclic qui s'efface ; nette dès le départ (pas de flou, pas de
+   photo délavée). Le même geste que l'appareil photo de Nidoo. */
+.tirage { position: relative; background: #fff; padding: 8px; border-radius: 18px; box-shadow: 0 16px 34px -16px rgba(36, 16, 110, 0.42), 0 0 0 1px rgba(29, 26, 43, 0.05); animation: declicPose 0.46s cubic-bezier(0.2, 1.25, 0.35, 1) both; }
+.tirage::after, .tirage-pose::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: #fff; pointer-events: none; animation: declicFlash 0.5s ease-out both; }
+.tirage-pose { animation: declicPose 0.46s cubic-bezier(0.2, 1.25, 0.35, 1) both; }
+@keyframes declicPose { 0% { opacity: 0; transform: scale(0.9); } 35% { opacity: 1; } 100% { opacity: 1; transform: none; } }
+@keyframes declicFlash { 0% { opacity: 0.95; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .tirage, .tirage-pose, .polaroid, .tirage::after, .tirage-pose::after, .polaroid::after { animation: none; } .tirage::after, .tirage-pose::after, .polaroid::after { opacity: 0; } }
 
 /* La légende de l'éditeur photo suit le clavier, au même rythme que lui : la photo ne bouge plus d'un pixel. */
 .editeur-legende { transform: translateY(calc(-1 * var(--clavier, 0px))); transition: transform 0.26s cubic-bezier(0.38, 0.7, 0.125, 1), padding 0.26s; }
