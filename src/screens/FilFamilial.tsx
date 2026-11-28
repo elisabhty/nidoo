@@ -107,7 +107,8 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
   const [chercher, setChercher] = useState(false)
   const [recherche, setRecherche] = useState('')
   const [compose, setCompose] = useState<null | { fichier?: File; video?: File }>(null)
-  const [sondage, setSondage] = useState<{ question: string; photo?: Blob } | null>(null)
+  // depuis : ouvert depuis une nouvelle publication, qui attend dessous (fermer le sondage y ramène)
+  const [sondage, setSondage] = useState<{ question: string; photo?: Blob; depuis?: boolean } | null>(null)
   const [commentaires, setCommentaires] = useState<{ id: string; ecrire: boolean } | null>(null)
   const [plein, setPlein] = useState<string | null>(null)
   // les feuilles des réactions (toutes les réactions, qui a réagi) : au niveau de l'écran, pas dans la carte
@@ -333,15 +334,19 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
     </Screen>
 
       {compose && (
-        <NouvellePublication
-          fichier={compose.fichier}
-          video={compose.video}
-          onSondage={(q) => { setCompose(null); setSondage(q) }}
-          onClose={(ok) => {
-            setCompose(null)
-            if (ok) publie()
-          }}
-        />
+        // pendant le sondage, la publication reste là, cachée, avec son texte et sa photo : fermer le sondage
+        // y ramène (Elisa, 28 nov. : « on peut pas repartir en arrière pour annuler »)
+        <div className={sondage?.depuis ? 'hidden' : 'contents'}>
+          <NouvellePublication
+            fichier={compose.fichier}
+            video={compose.video}
+            onSondage={(q) => setSondage({ ...q, depuis: true })}
+            onClose={(ok) => {
+              setCompose(null)
+              if (ok) publie()
+            }}
+          />
+        </div>
       )}
       {sondage !== null && (
         <SondageCompose
@@ -352,6 +357,7 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
             const ok = await run((api) => api.postMoment(state.family.id, me.id, m))
             if (ok) {
               success()
+              if (sondage.depuis) setCompose(null)
               publie()
             }
             return ok

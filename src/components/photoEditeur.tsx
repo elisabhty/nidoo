@@ -63,12 +63,24 @@ export function PhotoEditeur({ file, onClose, onSend, confirmLabel = 'Envoyer la
     return () => URL.revokeObjectURL(url)
   }, [file])
 
-  // la photo tient dans la zone libre, sans être déformée
+  // la photo tient dans la zone libre, sans être déformée. Pendant qu'on écrit la légende (clavier ouvert, la zone
+  // rétrécit d'un coup), la photo garde sa taille et se réduit en douceur, au rythme du clavier (Elisa, 28 nov. :
+  // « saut au niveau de ajouter une légende »)
+  const enLegende = useRef(false)
+  const tailleRef = useRef(taille)
+  tailleRef.current = taille
+  const [echelle, setEchelle] = useState(1)
   useEffect(() => {
     if (!img || !zone.current) return
     const caler = () => {
       if (!zone.current) return
       const r = zone.current.getBoundingClientRect()
+      const t = tailleRef.current
+      if (enLegende.current && t.w) {
+        setEchelle(Math.min(1, r.width / t.w, r.height / t.h))
+        return
+      }
+      setEchelle(1)
       const s = Math.min(r.width / img.naturalWidth, r.height / img.naturalHeight)
       setTaille({ w: Math.round(img.naturalWidth * s), h: Math.round(img.naturalHeight * s) })
     }
@@ -281,7 +293,10 @@ export function PhotoEditeur({ file, onClose, onSend, confirmLabel = 'Envoyer la
       {/* la photo */}
       <div ref={zone} className="relative mx-3 min-h-0 flex-1" onPointerDown={() => setSel(null)}>
         {img && taille.w > 0 && (
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[18px]" style={{ width: taille.w, height: taille.h }}>
+          <div
+            className="absolute left-1/2 top-1/2 overflow-hidden rounded-[18px]"
+            style={{ width: taille.w, height: taille.h, transform: `translate(-50%, -50%) scale(${echelle})`, transition: 'transform 0.26s cubic-bezier(0.38, 0.7, 0.125, 1)' }}
+          >
             <img src={img.src} alt="" className="block h-full w-full select-none" draggable={false} />
             <canvas
               ref={toile}
@@ -386,6 +401,8 @@ export function PhotoEditeur({ file, onClose, onSend, confirmLabel = 'Envoyer la
         <input
           value={legende}
           onChange={(e) => setLegende(e.target.value)}
+          onFocus={() => (enLegende.current = true)}
+          onBlur={() => (enLegende.current = false)}
           maxLength={initialDrawing ? 80 : 500}
           placeholder={initialDrawing ? 'Nom du dessin (facultatif)…' : 'Ajoute une légende…'}
           aria-label={initialDrawing ? 'Nom du dessin' : 'Légende'}
