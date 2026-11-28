@@ -351,7 +351,8 @@ export function Lien({ children, onClick }: { children: ReactNode; onClick: () =
 }
 
 /** Search stays in context and can be cancelled without leaving its screen. */
-export function SearchField({value,onChange,placeholder='Rechercher',label=placeholder}: {value:string;onChange:(value:string)=>void;placeholder?:string;label?:string}) {
+/** `onAnnuler` : la recherche se ferme avec « Annuler » (toujours visible), au lieu de seulement se vider. */
+export function SearchField({value,onChange,placeholder='Rechercher',label=placeholder,onAnnuler}: {value:string;onChange:(value:string)=>void;placeholder?:string;label?:string;onAnnuler?:()=>void}) {
   const input = useRef<HTMLInputElement>(null)
   const [editing,setEditing] = useState(false)
   return <div className="ios-search mx-4 mb-5 flex items-center gap-3">
@@ -360,7 +361,7 @@ export function SearchField({value,onChange,placeholder='Rechercher',label=place
       <input ref={input} type="search" enterKeyHint="search" autoComplete="off" aria-label={label} placeholder={placeholder} value={value} onChange={e=>onChange(e.target.value)} onFocus={()=>setEditing(true)} onKeyDown={e=>{if(e.key==='Enter') input.current?.blur();if(e.key==='Escape'){e.preventDefault();e.stopPropagation();onChange('');setEditing(false);input.current?.blur()}}} className="min-w-0 flex-1 appearance-none bg-transparent py-3 text-corps text-encre outline-none placeholder:text-brume" />
       {value ? <button aria-label="Effacer la recherche" onPointerDown={e=>e.preventDefault()} onClick={()=>{onChange('');input.current?.focus()}} className="flex h-11 w-11 shrink-0 items-center justify-center text-brume"><span className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-brume text-white"><X size={12} strokeWidth={3} /></span></button> : <span className="w-3" />}
     </div>
-    {editing && <button onPointerDown={e=>e.preventDefault()} onClick={()=>{onChange('');setEditing(false);input.current?.blur()}} className="presse min-h-11 shrink-0 text-corps text-teinte-fonce">Annuler</button>}
+    {(editing || onAnnuler) && <button onPointerDown={e=>e.preventDefault()} onClick={()=>{onChange('');setEditing(false);input.current?.blur();onAnnuler?.()}} className="presse min-h-11 shrink-0 text-corps text-teinte-fonce">Annuler</button>}
   </div>
 }
 

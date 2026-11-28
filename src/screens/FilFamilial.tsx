@@ -214,12 +214,16 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
   // les feuilles vont après l'écran, pas dedans : dans la zone qui défile, elles se décaleraient avec le fil
   return (
     <>
-    <Screen title="Le fil" trailing={<Rond label={chercher ? 'Fermer la recherche' : 'Rechercher dans le fil'} onClick={() => {
+    <Screen title="Le fil" trailing={<Rond label="Rechercher dans le fil" onClick={() => {
+        // toujours la loupe (Elisa, 28 nov. : une croix en bas du fil donnait l'impression de tout remettre à zéro) :
+        // on remonte en haut et on place le curseur dans la recherche ; « Annuler » à côté du champ la ferme
         tap()
-        setChercher(!chercher)
-        setRecherche('')
-        if (!chercher) window.setTimeout(() => racine.current?.querySelector<HTMLInputElement>('input[type="search"]')?.focus(), 60)
-      }}>{chercher ? <X size={19} /> : <Search size={19} />}</Rond>}>
+        setChercher(true)
+        const boite = racine.current?.closest('.overflow-y-auto')
+        const loin = !!boite && boite.scrollTop > 8
+        boite?.scrollTo({ top: 0, behavior: 'smooth' })
+        window.setTimeout(() => racine.current?.querySelector<HTMLInputElement>('input[type="search"]')?.focus({ preventScroll: true }), loin ? 380 : 60)
+      }}><Search size={19} /></Rond>}>
       <div ref={racine}>
         <input
           ref={photoInput}
@@ -247,7 +251,7 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
             }}
           />
         ))}
-        {chercher && <SearchField value={recherche} onChange={setRecherche} placeholder="Une publication, un album, un proche" label="Rechercher dans le fil" />}
+        {chercher && <SearchField value={recherche} onChange={setRecherche} placeholder="Une publication, un album, un proche" label="Rechercher dans le fil" onAnnuler={() => setChercher(false)} />}
 
         {/* publier : « Quoi de neuf ? », et les raccourcis */}
         {!chercher && (
