@@ -131,18 +131,26 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
     const contenu = boite?.firstElementChild as HTMLElement | null
     if (!preview || !el || !boite || !contenu) return
     const ajuster = () => {
+      // pendant la légende (clavier ouvert), la photo garde sa taille : plus de « machine à laver »
+      const champ = document.activeElement
+      if (document.documentElement.classList.contains('kb-ouvert') || (champ instanceof HTMLElement && champ.matches('input, textarea') && boite.contains(champ))) return
       const cs = getComputedStyle(boite)
       const dispo = boite.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)
       const reste = contenu.offsetHeight - el.offsetHeight
       const largeur = boite.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
       const h = Math.floor(Math.max(tray ? 130 : 170, Math.min(dispo - reste, largeur / ratio)))
-      setHPhoto((x) => (x !== null && Math.abs(x - h) < 2 ? x : h))
+      setHPhoto((x) => (x !== null && Math.abs(x - h) < 3 ? x : h))
     }
     ajuster()
     const ro = new ResizeObserver(ajuster)
     ro.observe(boite)
     ro.observe(contenu)
-    return () => ro.disconnect()
+    const quitte = () => window.setTimeout(ajuster, 340)
+    boite.addEventListener('focusout', quitte)
+    return () => {
+      ro.disconnect()
+      boite.removeEventListener('focusout', quitte)
+    }
   }, [preview, ratio, tray])
 
   const pick = async (file: File | undefined) => {

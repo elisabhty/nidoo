@@ -663,7 +663,7 @@ export const CHAMP_REQUIS = 'h-[52px] w-full bg-transparent px-4 text-corps text
 
 /** Hauteur d'un média pour que toute la feuille tienne sans défiler : on mesure la place libre
  *  dans la zone qui défile et on donne au média ce qui reste (entre `min` et sa taille naturelle). */
-export function useHauteurQuiTient(actif: boolean, ratio: number, min = 160, deps: unknown[] = []) {
+export function useHauteurQuiTient(actif: boolean, ratio: number, min = 160, deps: unknown[] = [], bords = { x: 0, y: 0 }) {
   const ref = useRef<HTMLDivElement>(null)
   const [h, setH] = useState<number | null>(null)
   useLayoutEffect(() => {
@@ -672,18 +672,29 @@ export function useHauteurQuiTient(actif: boolean, ratio: number, min = 160, dep
     const contenu = boite?.firstElementChild as HTMLElement | null
     if (!actif || !el || !boite || !contenu) return setH(null)
     const ajuster = () => {
+      // pendant qu'on écrit (clavier ouvert, ou un champ de la feuille actif), la taille ne bouge plus : sinon la
+      // photo grandit et rapetisse à chaque lettre et pendant que le clavier monte (Elisa, 28 nov. : « comme une
+      // machine à laver ») ; elle se recalcule une fois le clavier rangé
+      const champ = document.activeElement
+      if (document.documentElement.classList.contains('kb-ouvert') || (champ instanceof HTMLElement && champ.matches('input, textarea') && boite.contains(champ))) return
       const cs = getComputedStyle(boite)
       const dispo = boite.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)
       const reste = contenu.offsetHeight - el.offsetHeight
-      const largeur = boite.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
-      const v = Math.floor(Math.max(min, Math.min(dispo - reste, largeur / ratio)))
-      setH((x) => (x !== null && Math.abs(x - v) < 2 ? x : v))
+      const largeur = boite.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - bords.x
+      const v = Math.floor(Math.max(min, Math.min(dispo - reste, largeur / ratio + bords.y)))
+      setH((x) => (x !== null && Math.abs(x - v) < 3 ? x : v))
     }
     ajuster()
     const ro = new ResizeObserver(ajuster)
     ro.observe(boite)
     ro.observe(contenu)
-    return () => ro.disconnect()
+    // le champ quitté (clavier rangé) : on recalcule
+    const quitte = () => window.setTimeout(ajuster, 340)
+    boite.addEventListener('focusout', quitte)
+    return () => {
+      ro.disconnect()
+      boite.removeEventListener('focusout', quitte)
+    }
   }, [actif, ratio, min, ...deps]) // eslint-disable-line react-hooks/exhaustive-deps
   return { ref, h }
 }

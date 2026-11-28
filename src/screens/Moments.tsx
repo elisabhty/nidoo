@@ -296,7 +296,7 @@ export function SondageCompose({ question0 = '', photo0, onClose, envoyer }: { q
   const zone = useRef<HTMLTextAreaElement>(null)
   const liste = useRef<HTMLDivElement>(null)
   const fichier = useRef<HTMLInputElement>(null)
-  const cadre = useHauteurQuiTient(!!photo, ratio, 64, [options.length])
+  const cadre = useHauteurQuiTient(!!photo, ratio, 64, [options.length], { x: 32 + 16, y: 16 })
   useEffect(() => () => void (photo && URL.revokeObjectURL(photo.url)), [photo])
   useEffect(() => {
     const z = zone.current

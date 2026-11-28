@@ -1133,12 +1133,12 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onDepart
   // avec une photo, une vidéo ou un sticker : texte plus court et barre d'ajout compacte, pour que tout tienne
   const joint = !!(photo || video || sticker)
   const [ratioPhoto, setRatioPhoto] = useState(4 / 3)
-  const cadre = useHauteurQuiTient(!!photo && !tiroir, ratioPhoto, 170, [joint, album?.id])
+  const cadre = useHauteurQuiTient(!!photo && !tiroir, ratioPhoto, 170, [joint, album?.id], { x: 48, y: 16 })
   useEffect(() => {
     const z = zone.current
     if (!z) return
     z.style.height = 'auto'
-    z.style.height = `${Math.max(joint ? 48 : 112, Math.min(z.scrollHeight, joint ? 120 : 260))}px`
+    z.style.height = `${Math.max(joint ? 0 : 112, Math.min(z.scrollHeight, joint ? 120 : 260))}px`
   }, [texte, joint])
 
   const choisirPhoto = async () => {
@@ -1304,7 +1304,8 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onDepart
             onChange={(e) => setTexte(e.target.value)}
             placeholder={photo ? 'Dis quelques mots sur cette photo…' : video ? 'Dis quelques mots sur cette vidéo…' : `Quoi de neuf, ${me.display_name}\u00A0?`}
             aria-label="Ta publication"
-            className={`block w-full resize-none bg-transparent px-4 pb-3 pt-2.5 text-encre outline-none transition-[font-size,line-height] duration-200 placeholder:text-pale ${tailleTexte}`}
+            rows={1}
+            className={`block w-full resize-none bg-transparent px-4 pb-3 pt-2.5 text-encre outline-none placeholder:text-pale ${tailleTexte}`}
           />
 
           {/* pas d'idée ? des débuts de phrase, à toucher */}
@@ -1328,12 +1329,12 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onDepart
           {video && <div className="px-3 pb-3"><ApercuVideo v={video} onRetirer={vid.retirer} onCouper={vid.recouper} /></div>}
           {videoBloquee && <p className="mx-4 mb-3 rounded-[14px] bg-peche-doux px-3 py-2 text-note text-peche-fonce">Les vidéos arrivent bientôt dans le fil. En attendant, choisis un album pour la partager.</p>}
           {photo && (
-            <div className="px-4 pb-4 pt-1">
+            <div className="px-4 pb-4">
               <div
                 ref={cadre.ref}
                 key={photo.url}
                 className="tirage relative mx-auto"
-                style={cadre.h ? { height: cadre.h, width: `min(100%, ${Math.round((cadre.h - 16) * ratioPhoto) + 16}px)` } : undefined}
+                style={cadre.h ? { height: cadre.h, width: `min(100%, ${Math.round((cadre.h - 16) * ratioPhoto) + 16}px)`, transition: 'height 0.28s cubic-bezier(0.32, 0.72, 0, 1), width 0.28s cubic-bezier(0.32, 0.72, 0, 1)' } : undefined}
               >
                 <img
                   src={photo.url}
