@@ -1024,11 +1024,20 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
       {/* Date et horaire */}
       <CarteEvt>
         <TitreCarte icone={CalendarDays} titre={birthday ? 'Date' : 'Date et horaire'} extra={birthday ? undefined : (
-          // « Autre date » en haut, avec une petite flèche qui fait signe (Elisa, 21 novembre)
-          <button type="button" onClick={() => (tap(), setCalendrier('date'))} className="presse cible -my-1 flex min-h-9 items-center gap-0.5 rounded-full bg-teinte-doux py-1 pl-3 pr-2 text-note font-bold text-teinte-fonce">
-            Autre date
-            <ChevronRight size={16} strokeWidth={2.8} className="fleche-signe" />
-          </button>
+          // « Autre date » en haut, avec une petite flèche qui fait signe (Elisa, 21 novembre) ; une date choisie au
+          // calendrier s'écrit à sa place, en violet : rien d'autre ne bouge dans la fiche (Elisa, 28 nov.)
+          surRaccourci ? (
+            <button type="button" onClick={() => (tap(), setCalendrier('date'))} className="presse cible -my-1 flex min-h-9 items-center gap-0.5 rounded-full bg-teinte-doux py-1 pl-3 pr-2 text-note font-bold text-teinte-fonce">
+              Autre date
+              <ChevronRight size={16} strokeWidth={2.8} className="fleche-signe" />
+            </button>
+          ) : (
+            <button key={date} type="button" onClick={() => (tap(), setCalendrier('date'))} aria-label={`Changer la date : ${dateCourte(date)}`} className="presse cible choix-pop -my-1 flex min-h-9 items-center gap-1.5 rounded-full bg-teinte py-1 pl-2.5 pr-2 text-note font-bold text-white" data-on="true">
+              <CalendarDays size={14} strokeWidth={2.5} />
+              {dateCourte(date)}
+              <ChevronRight size={15} strokeWidth={2.8} />
+            </button>
+          )
         )} />
         {birthday ? (
           <button type="button" onClick={() => (tap(), setCalendrier('date'))} aria-label={`Le jour de l’anniversaire : ${dateDe(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}`} className="champ-evt presse flex h-12 w-full items-center gap-2.5 rounded-[14px] bg-doux px-3.5 text-left text-corps font-semibold">
@@ -1038,7 +1047,7 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
           </button>
         ) : (
           // tous les raccourcis se voient en entier (Noël, le réveillon…), sur deux lignes s'il le faut ;
-          // une autre date choisie vient au bout, en violet : les raccourcis ne bougent jamais sous le doigt
+          // (une autre date choisie s'écrit en haut, à la place de « Autre date » : les puces ne bougent jamais)
           <div className="flex flex-wrap gap-2" role="group" aria-label="Raccourcis de date">
             {jours.map((j) => (
               <button key={j.v} type="button" aria-pressed={date === j.v} onClick={() => choisirJour(j)} className={puce(date === j.v)}>
@@ -1046,12 +1055,6 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
                 {j.detail && <span className={`ml-1.5 font-medium ${date === j.v ? 'text-white/80' : 'text-brume'}`}>{j.detail}</span>}
               </button>
             ))}
-            {!surRaccourci && (
-              <button key={date} type="button" onClick={() => (tap(), setCalendrier('date'))} aria-label={`Changer la date : ${dateCourte(date)}`} className={`${puce(true)} flex items-center gap-1.5`} data-on="true">
-                <CalendarDays size={15} strokeWidth={2.4} />
-                {dateCourte(date)}
-              </button>
-            )}
           </div>
         )}
         {birthday ? (

@@ -823,3 +823,9 @@ html.kb-visible .ios-sheet.h-\[92\%\] { height: calc(100% - var(--sat) - 8px); }
 .editeur-legende { transform: translateY(calc(-1 * var(--clavier, 0px))); transition: transform 0.26s cubic-bezier(0.38, 0.7, 0.125, 1), padding 0.26s; }
 html.kb-visible .editeur-legende { padding-bottom: 10px !important; }
 
+/* Le jour choisi dans le calendrier s'allume d'un petit rebond, avec un anneau qui s'étend. */
+.jour-choisi { animation: jourChoisi 0.5s cubic-bezier(0.2, 1.3, 0.4, 1), jourAnneau 1s ease-out; }
+@keyframes jourChoisi { 0% { transform: scale(0.7); } 60% { transform: scale(1.12); } 100% { transform: none; } }
+@keyframes jourAnneau { 0% { box-shadow: 0 0 0 0 rgba(112, 80, 213, 0.45); } 100% { box-shadow: 0 0 0 12px rgba(112, 80, 213, 0); } }
+@media (prefers-reduced-motion: reduce) { .jour-choisi { animation: none; } }
+

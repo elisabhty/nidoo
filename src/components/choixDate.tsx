@@ -2,7 +2,7 @@
 // travers) et restait parfois à l'écran après « valider », parce que le champ qui l'avait ouvert était redessiné
 // entre-temps (Elisa, 25 novembre : « quand on appuie sur la date et qu'on fait valider, le calendrier reste en fond »).
 // Ici : une carte blanche et opaque, on touche un jour, c'est choisi et la carte se ferme.
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { select, tap } from '../lib/haptic'
 import { decalerMois, grilleDuMois, isoDe, moisDe } from '../lib/moisGrille'
@@ -53,21 +53,33 @@ export function ChoixDate({ titre, value, min, sansAnnee = false, onChoisir, onC
     setSens(d)
     setVue((v) => decalerMois(v, d, sansAnnee))
   }
+  // le jour choisi s'allume et se dit en toutes lettres ; le calendrier reste deux secondes pour qu'on le voie
+  // (ou « OK » tout de suite), puis il s'efface en douceur (Elisa, 28 nov. : « ça part direct »)
+  const [confirme, setConfirme] = useState(false)
+  const [sortie, setSortie] = useState(false)
+  const minuteur = useRef(0)
+  useEffect(() => () => window.clearTimeout(minuteur.current), [])
+  const partir = () => {
+    window.clearTimeout(minuteur.current)
+    setSortie(true)
+    minuteur.current = window.setTimeout(() => fermer.current(), 220)
+  }
   const choisir = (iso: string) => {
     select()
     setChoisi(iso)
     onChoisir(iso)
-    // le temps de voir le jour s'allumer
-    window.setTimeout(() => fermer.current(), 160)
+    setConfirme(true)
+    window.clearTimeout(minuteur.current)
+    minuteur.current = window.setTimeout(partir, 2000)
   }
   const nomDuMois = new Date(vue.a, vue.m, 1).toLocaleDateString('fr-FR', sansAnnee ? { month: 'long' } : { month: 'long', year: 'numeric' })
   const rond = 'presse flex h-10 w-10 items-center justify-center rounded-full bg-doux text-teinte-fonce'
 
   return (
     <AuDessus>
-      <div className="absolute inset-0 z-[70] flex items-center justify-center px-5" role="dialog" aria-modal="true" aria-label={titre}>
-        <button className="anim-fondu absolute inset-0 bg-black/40" onClick={onClose} tabIndex={-1} aria-label="Fermer le calendrier" />
-        <div ref={carte} tabIndex={-1} className="anim-pop relative w-full max-w-[352px] rounded-[28px] bg-carte px-3.5 pb-3 pt-4 text-encre shadow-[0_24px_60px_-18px_rgba(29,26,43,0.5)] outline-none">
+      <div className="absolute inset-0 z-[70] flex items-center justify-center px-5 transition-opacity duration-200" style={{ opacity: sortie ? 0 : 1 }} role="dialog" aria-modal="true" aria-label={titre}>
+        <button className="anim-fondu absolute inset-0 bg-black/40" onClick={() => (confirme ? partir() : onClose())} tabIndex={-1} aria-label="Fermer le calendrier" />
+        <div ref={carte} tabIndex={-1} style={{ transform: sortie ? 'scale(0.94)' : undefined, transition: 'transform 0.22s ease-in' }} className="anim-pop relative w-full max-w-[352px] rounded-[28px] bg-carte px-3.5 pb-3 pt-4 text-encre shadow-[0_24px_60px_-18px_rgba(29,26,43,0.5)] outline-none">
           <p className="px-2 text-note font-semibold text-brume">{titre}</p>
           <div className="mt-0.5 flex items-center justify-between pl-2">
             <p key={`${vue.a}-${vue.m}`} className="anim-entre font-rond text-titre3 first-letter:uppercase" aria-live="polite">{nomDuMois}</p>
@@ -108,17 +120,27 @@ export function ChoixDate({ titre, value, min, sansAnnee = false, onChoisir, onC
                   onClick={() => choisir(iso)}
                   className="group flex h-11 items-center justify-center disabled:opacity-30"
                 >
-                  <span className={`flex h-10 w-10 items-center justify-center rounded-full text-corps tabular-nums transition-transform duration-150 group-active:scale-90 ${on ? 'bg-teinte font-bold text-white shadow-[0_4px_10px_-3px_rgba(112,80,213,0.6)]' : jour ? 'bg-teinte-doux font-bold text-teinte-fonce' : 'font-medium'}`}>
+                  <span key={on && confirme ? `c${choisi}` : 'j'} className={`flex h-10 w-10 items-center justify-center rounded-full text-corps tabular-nums transition-transform duration-150 group-active:scale-90 ${on ? 'bg-teinte font-bold text-white shadow-[0_4px_10px_-3px_rgba(112,80,213,0.6)]' : jour ? 'bg-teinte-doux font-bold text-teinte-fonce' : 'font-medium'} ${on && confirme ? 'jour-choisi' : ''}`}>
                     {Number(iso.slice(8))}
                   </span>
                 </button>
               )
             })}
           </div>
-          <div className="mt-2 flex items-center justify-between border-t border-trait/70 pt-2">
-            <button type="button" disabled={!!min && aujourdhui < min} onClick={() => choisir(aujourdhui)} className="presse min-h-11 rounded-full px-3 text-sous font-bold text-teinte-fonce disabled:opacity-40">Aujourd’hui</button>
-            <button type="button" onClick={onClose} className="presse min-h-11 rounded-full px-3 text-sous font-semibold text-brume">Annuler</button>
-          </div>
+          {confirme ? (
+            <div key={choisi} className="anim-entre mt-2 flex items-center justify-between gap-2 border-t border-trait/70 pt-2">
+              <p className="flex min-w-0 items-center gap-2 pl-2 text-sous font-bold text-teinte-fonce" role="status">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teinte text-white"><Check size={14} strokeWidth={3.2} /></span>
+                <span className="truncate first-letter:uppercase">{new Date(`${choisi}T12:00`).toLocaleDateString('fr-FR', sansAnnee ? { weekday: 'long', day: 'numeric', month: 'long' } : { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+              </p>
+              <button type="button" onClick={partir} className="presse min-h-11 shrink-0 rounded-full bg-teinte px-4 text-sous font-bold text-white">OK</button>
+            </div>
+          ) : (
+            <div className="mt-2 flex items-center justify-between border-t border-trait/70 pt-2">
+              <button type="button" disabled={!!min && aujourdhui < min} onClick={() => choisir(aujourdhui)} className="presse min-h-11 rounded-full px-3 text-sous font-bold text-teinte-fonce disabled:opacity-40">Aujourd’hui</button>
+              <button type="button" onClick={onClose} className="presse min-h-11 rounded-full px-3 text-sous font-semibold text-brume">Annuler</button>
+            </div>
+          )}
         </div>
       </div>
     </AuDessus>
