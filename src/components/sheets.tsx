@@ -222,11 +222,11 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
       }
     >
       {challenge && !preview && (
-        <div className="relative overflow-hidden rounded-[26px] bg-gradient-to-br from-[#FFE9DC] via-[#FFE2E4] to-[#F1E4FF] px-5 pb-5 pt-4 text-center">
+        <div className="relative overflow-hidden rounded-[26px] bg-gradient-to-br from-[#F6F2FF] via-[#EFE9FF] to-[#E7DEFF] px-5 pb-5 pt-4 text-center">
           <div className="flex items-center justify-between">
-            <span className="rounded-full bg-white/75 px-2.5 py-1 text-note font-bold uppercase tracking-[0.04em] text-peche-fonce">Défi du jour</span>
+            <span className="rounded-full bg-white/75 px-2.5 py-1 text-note font-bold uppercase tracking-[0.04em] text-teinte-fonce">Défi du jour</span>
             {dejaFait ? (
-              <span className="flex items-center gap-1 rounded-full bg-vert px-2.5 py-1 text-note font-bold text-white">
+              <span className="flex items-center gap-1 rounded-full bg-teinte px-2.5 py-1 text-note font-bold text-white">
                 <Check size={14} strokeWidth={3} /> Relevé
               </span>
             ) : (
@@ -255,7 +255,7 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
         </div>
       )}
       {challenge && preview && !tray && (
-        <div className="mb-2.5 flex items-center gap-2 rounded-full bg-peche-doux py-1 pl-1 pr-4">
+        <div className="mb-2.5 flex items-center gap-2 rounded-full bg-teinte-doux py-1 pl-1 pr-4">
           <Art name="picto-photo" size={28} />
           <p className="min-w-0 flex-1 truncate text-sous font-semibold">{challenge}</p>
         </div>

@@ -259,9 +259,9 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
               </button>
             </div>
             <div className={`mt-2.5 grid gap-1 border-t border-trait pt-2 ${state.videos ? 'grid-cols-3' : 'grid-cols-2'}`}>
-              <Raccourci icone={<Images size={20} strokeWidth={2.2} className="text-vert-fonce" />} label="Photo" onClick={() => void ajouterPhoto()} />
-              {state.videos && <Raccourci icone={<Video size={21} strokeWidth={2.2} className="text-rouge" />} label="Vidéo" onClick={() => void ajouterVideo()} />}
-              <Raccourci icone={<ChartNoAxesColumn size={19} strokeWidth={2.4} className="text-peche-fonce" />} label="Sondage" onClick={() => { tap(); setSondage('') }} />
+              <Raccourci icone={<Images size={20} strokeWidth={2.2} className="text-teinte" />} label="Photo" onClick={() => void ajouterPhoto()} />
+              {state.videos && <Raccourci icone={<Video size={21} strokeWidth={2.2} className="text-teinte" />} label="Vidéo" onClick={() => void ajouterVideo()} />}
+              <Raccourci icone={<ChartNoAxesColumn size={19} strokeWidth={2.4} className="text-teinte" />} label="Sondage" onClick={() => { tap(); setSondage('') }} />
             </div>
           </section>
         )}
@@ -586,7 +586,7 @@ function Publication({ mo, coms, peutCommenter, onPhoto, onCommentaires, onNouve
 
       {/* ce qu'on publie */}
       {mo.challenge && (
-        <p className="mx-4 mt-2.5 inline-flex max-w-[calc(100%-2rem)] items-center gap-1.5 rounded-full bg-peche-doux px-3 py-1 text-note font-semibold text-peche-fonce">
+        <p className="mx-4 mt-2.5 inline-flex max-w-[calc(100%-2rem)] items-center gap-1.5 rounded-full bg-teinte-doux px-3 py-1 text-note font-semibold text-teinte-fonce">
           <Sparkles size={13} strokeWidth={2.6} className="shrink-0" /> <span className="truncate">Défi photo · {mo.challenge}</span>
         </p>
       )}
@@ -1243,10 +1243,10 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onClose 
         <div className={`rounded-[20px] bg-carte p-1.5 shadow-carte ${joint ? 'mt-3' : 'mt-4'}`}>
           {!joint && <p className="px-2.5 pb-1 pt-1.5 text-note font-semibold text-brume">Ajouter à ta publication</p>}
           <div className={`grid gap-1 ${['p', videoPossible && 'v', !album && 's', !album && 'q'].filter(Boolean).length === 4 ? 'grid-cols-4' : ['p', videoPossible && 'v', !album && 's', !album && 'q'].filter(Boolean).length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
-            <Ajouter icone={<Images size={21} strokeWidth={2.2} className="text-vert-fonce" />} label="Photo" actif={!!photo} onClick={() => void choisirPhoto()} />
-            {videoPossible && <Ajouter icone={<Video size={22} strokeWidth={2.2} className="text-rouge" />} label="Vidéo" actif={!!video} onClick={() => void choisirVideo()} />}
-            {!album && <Ajouter icone={<Smile size={21} strokeWidth={2.2} className="text-[#C28A00]" />} label="Sticker" actif={tiroir || !!sticker} onClick={() => { tap(); setTiroir(!tiroir) }} />}
-            {!album && <Ajouter icone={<ChartNoAxesColumn size={20} strokeWidth={2.4} className="text-peche-fonce" />} label="Sondage" onClick={() => { tap(); onSondage(texte.trim()) }} />}
+            <Ajouter icone={<Images size={21} strokeWidth={2.2} className="text-teinte" />} label="Photo" actif={!!photo} onClick={() => void choisirPhoto()} />
+            {videoPossible && <Ajouter icone={<Video size={22} strokeWidth={2.2} className="text-teinte" />} label="Vidéo" actif={!!video} onClick={() => void choisirVideo()} />}
+            {!album && <Ajouter icone={<Smile size={21} strokeWidth={2.2} className="text-teinte" />} label="Sticker" actif={tiroir || !!sticker} onClick={() => { tap(); setTiroir(!tiroir) }} />}
+            {!album && <Ajouter icone={<ChartNoAxesColumn size={20} strokeWidth={2.4} className="text-teinte" />} label="Sondage" onClick={() => { tap(); onSondage(texte.trim()) }} />}
           </div>
         </div>
       </Sheet>
