@@ -2,8 +2,8 @@
 // souvenirs et le fil actuel »). En haut, « Quoi de neuf ? » pour publier (à toute la famille, ou dans un album) ;
 // puis les albums (les anciens Souvenirs) ; puis le fil : les publications, des plus récentes aux plus anciennes, avec
 // leurs réactions et leurs commentaires, et ce que chacun ajoute dans les albums qu'on partage avec lui.
-import { ArrowUp, BookOpen, Video, BookmarkCheck, BookmarkPlus, ChartNoAxesColumn, ChevronDown, ChevronRight, Ellipsis, Heart, Images, Lock, MessageCircle, Plus, PartyPopper, Search, Smile, SmilePlus, Sparkles, Sun, UsersRound, UtensilsCrossed, X } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { ArrowUp, BookOpen, Video, BookmarkCheck, BookmarkPlus, ChartNoAxesColumn, Check, ChevronDown, ChevronRight, Ellipsis, Heart, Images, Lock, MessageCircle, Plus, PartyPopper, Search, Smile, SmilePlus, Sparkles, Sun, UsersRound, UtensilsCrossed, X } from 'lucide-react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { prendrePhoto } from '../components/appareil'
 import { FolderCover } from '../components/folder'
@@ -14,7 +14,6 @@ import { Art, Avatar, Btn, choisir, clavierRange, confirmer, Rond, Screen, Searc
 import { QuiAReagi, ReactionImg, ToutesReactions } from '../components/reactions'
 import { ApercuVideo, CoupeVideo, useVideoAPreparer, VideoDuFil } from '../components/videos'
 import { VIDEO_FIL_MAX_S } from '../lib/video'
-import { envoler } from '../lib/envol'
 import { lesPlusDonnees, motDe, RAPIDES, reaction, retenir } from '../lib/reactions'
 import { folderStats, membersOf, whoText } from '../lib/folders'
 import { select, success, tap } from '../lib/haptic'
@@ -173,6 +172,7 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
       if (mienne) {
         attendue.current = 0
         setArrivee(mienne.id)
+        setMasquee(mienne.id)
       }
     }
     const neuves = entrees.filter((e) => !connues.current!.has(e.id) && (e.k === 'post' ? e.mo.member_id !== me.id : e.a.auteur?.id !== me.id))
@@ -201,18 +201,18 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
     else window.setTimeout(() => boite()?.scrollTo({ top: 0, behavior: 'smooth' }), 80)
   }
   // la publication qu'on vient d'envoyer : on la reconnaît à son arrivée, pour qu'elle se pose avec un halo
+  // elle reste cachée tant que la feuille est ouverte, puis se déplie en haut du fil une fois la feuille redescendue
   const attendue = useRef(0)
   const [arrivee, setArrivee] = useState<string | null>(null)
+  const [masquee, setMasquee] = useState<string | null>(null)
   useEffect(() => {
-    if (!arrivee) return
-    const t = window.setTimeout(() => setArrivee(null), 2600)
+    if (!arrivee || masquee) return
+    const t = window.setTimeout(() => setArrivee(null), 3000)
     return () => window.clearTimeout(t)
-  }, [arrivee])
-  const listeFil = useRef<HTMLDivElement>(null)
-  // là où se pose la publication : en haut de la liste, à la largeur d'une carte
-  const cibleEnvol = () => {
-    const r = listeFil.current?.getBoundingClientRect()
-    return r ? { left: r.left + 12, top: r.top, width: r.width - 24 } : null
+  }, [arrivee, masquee])
+  const devoiler = () => {
+    setMasquee(null)
+    publie()
   }
 
   // ── une photo : la prendre (l'appareil de Nidoo) ou la choisir, puis l'écrire
@@ -318,7 +318,7 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
         )}
 
         {/* le fil */}
-        <div ref={listeFil} className="mt-3 space-y-3">
+        <div className="mt-3 space-y-3">
           {visibles.length === 0 &&
             (entrees.length === 0 ? (
               <div className="flex flex-col items-center px-8 pb-6 pt-8 text-center">
@@ -334,7 +334,7 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
                 <button onClick={() => { setFiltre('tout'); setRecherche('') }} className="presse mt-3 min-h-11 text-sous font-semibold text-teinte-fonce">Tout afficher</button>
               </div>
             ))}
-          <ParPaquets items={visibles} cle={filtre + q}>
+          <ParPaquets items={masquee ? visibles.filter((e) => e.id !== masquee) : visibles} cle={filtre + q}>
             {(e) =>
               e.k === 'post' ? (
                 <Publication
@@ -367,12 +367,9 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
             video={compose.video}
             onSondage={(q) => setSondage({ ...q, depuis: true })}
             onDepart={() => (attendue.current = Date.now())}
-            onClose={(ok, carte) => {
-              if (ok) {
-                publie(!!carte)
-                envoler(carte, cibleEnvol)
-              }
+            onClose={(ok) => {
               setCompose(null)
+              if (ok) devoiler()
             }}
           />
         </div>
@@ -381,15 +378,15 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
         <SondageCompose
           question0={sondage.question}
           photo0={sondage.photo}
-          onClose={() => setSondage(null)}
+          onClose={(publie) => {
+            if (publie && sondage.depuis) setCompose(null)
+            setSondage(null)
+            if (publie) devoiler()
+          }}
           envoyer={async (m: NouvelEnvoi) => {
             attendue.current = Date.now()
             const ok = await run((api) => api.postMoment(state.family.id, me.id, m))
-            if (ok) {
-              success()
-              if (sondage.depuis) setCompose(null)
-              publie()
-            }
+            if (ok) success()
             return ok
           }}
         />
@@ -540,6 +537,49 @@ function useReagir() {
 }
 
 function Publication({ mo, coms, peutCommenter, onPhoto, onCommentaires, onNouvelAlbum, onToutes, onQui, arrivee = false }: { mo: Moment; coms: Moment[]; peutCommenter: boolean; arrivee?: boolean; onPhoto: (url: string) => void; onCommentaires: (ecrire: boolean) => void; onNouvelAlbum: () => void; onToutes: () => void; onQui: () => void }) {
+  // la publication qu'on vient de publier : elle se déplie en haut du fil (sa photo d'abord chargée, pour qu'elle
+  // ne saute pas ensuite), puis un halo violet et des étincelles (Elisa, 28 nov. : « je veux un truc mieux »)
+  const art = useRef<HTMLElement>(null)
+  const [pose, setPose] = useState(false)
+  useLayoutEffect(() => {
+    const el = art.current
+    if (!arrivee || !el) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return void setPose(true)
+    let fini = false
+    el.style.height = '0px'
+    el.style.opacity = '0'
+    el.style.overflow = 'hidden'
+    const imgs = [...el.querySelectorAll('img')]
+    imgs.forEach((i) => (i.loading = 'eager'))
+    const enAttente = imgs.filter((i) => !i.complete)
+    void Promise.race([
+      Promise.all(enAttente.map((i) => new Promise((ok) => { i.addEventListener('load', ok, { once: true }); i.addEventListener('error', ok, { once: true }) }))),
+      new Promise((ok) => window.setTimeout(ok, 1600)),
+    ]).then(() => {
+      if (fini) return
+      el.style.height = ''
+      el.style.opacity = ''
+      const h = el.offsetHeight
+      const a = el.animate(
+        [
+          { height: '0px', opacity: 0, transform: 'scale(0.94) translateY(-6px)' },
+          { height: `${h}px`, opacity: 1, transform: 'scale(1) translateY(0)', offset: 0.75 },
+          { height: `${h}px`, opacity: 1, transform: 'scale(1)' },
+        ],
+        { duration: 560, easing: 'cubic-bezier(0.32, 0.72, 0, 1)' },
+      )
+      a.onfinish = () => {
+        el.style.overflow = ''
+        setPose(true)
+      }
+    })
+    return () => {
+      fini = true
+      el.style.height = ''
+      el.style.opacity = ''
+      el.style.overflow = ''
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const { state, run, toast } = useHome()
   const { me, members, reactions, folders, folderItems } = state
   const auteur = members.find((m) => m.id === mo.member_id)
@@ -606,8 +646,8 @@ function Publication({ mo, coms, peutCommenter, onPhoto, onCommentaires, onNouve
   if (!auteur) return null
   const derniers = coms.slice(-2)
   return (
-    <article className={`relative mx-3 rounded-[24px] bg-carte shadow-carte ${arrivee ? 'anim-atterrit' : ''}`} aria-label={`Publication de ${auteur.display_name}`}>
-      {arrivee && <Etincelles />}
+    <article ref={art} className={`relative mx-3 rounded-[24px] bg-carte shadow-carte ${pose ? 'anim-halo' : ''}`} aria-label={`Publication de ${auteur.display_name}`}>
+      {pose && <Etincelles />}
       {/* qui, quand */}
       <header className="flex items-center gap-3 pl-4 pr-1.5 pt-3.5">
         <Avatar m={auteur} size={42} />
@@ -739,7 +779,7 @@ function Publication({ mo, coms, peutCommenter, onPhoto, onCommentaires, onNouve
 const ETINCELLES = Array.from({ length: 14 }, (_, i) => {
   const angle = (i / 14) * Math.PI * 2 + (i % 2 ? 0.2 : -0.1)
   const d = 70 + (i % 3) * 30
-  return { dx: Math.cos(angle) * d * 1.6, dy: Math.sin(angle) * d * 0.75 - 6, r: (i % 2 ? 1 : -1) * (40 + i * 9), coeur: i % 3 === 0, couleur: ['#7A5AE0', '#F0609C', '#F5B700', '#9B85E8'][i % 4], t: 0.64 + (i % 4) * 0.04, taille: 16 + (i % 3) * 5 }
+  return { dx: Math.cos(angle) * d * 1.6, dy: Math.sin(angle) * d * 0.75 - 6, r: (i % 2 ? 1 : -1) * (40 + i * 9), coeur: i % 3 === 0, couleur: ['#7A5AE0', '#F0609C', '#F5B700', '#9B85E8'][i % 4], t: (i % 4) * 0.04, taille: 16 + (i % 3) * 5 }
 })
 function Etincelles() {
   return (
@@ -1046,7 +1086,7 @@ function Commentaire({ c, aime, nbAime }: { c: Moment; aime: boolean; nbAime: nu
 
 // ═════════════════════════ Publier ═════════════════════════
 
-function NouvellePublication({ fichier, video: videoChoisie, onSondage, onDepart, onClose }: { fichier?: File; video?: File; onSondage: (q: { question: string; photo?: Blob }) => void; onDepart?: () => void; onClose: (publie: boolean, carte?: HTMLElement | null) => void }) {
+function NouvellePublication({ fichier, video: videoChoisie, onSondage, onDepart, onClose }: { fichier?: File; video?: File; onSondage: (q: { question: string; photo?: Blob }) => void; onDepart?: () => void; onClose: (publie: boolean) => void }) {
   const { state, run, toast } = useHome()
   const { me, family, folders, folderMembers, members } = state
   const [texte, setTexte] = useState('')
@@ -1055,11 +1095,13 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onDepart
   const [tiroir, setTiroir] = useState(false)
   const [decorer, setDecorer] = useState<File | null>(null)
   const [envoi, setEnvoi] = useState(false)
+  // publiée : le bouton le dit, la feuille redescend, puis la publication se déplie dans le fil
+  const [partie, setPartie] = useState(false)
   const input = useRef<HTMLInputElement>(null)
   const videoInput = useRef<HTMLInputElement>(null)
   const filmerInput = useRef<HTMLInputElement>(null)
   const zone = useRef<HTMLTextAreaElement>(null)
-  // la carte qu'on écrit est la publication telle que la famille la verra ; c'est elle qui s'envole dans le fil
+  // la carte qu'on écrit est la publication telle que la famille la verra
   const carte = useRef<HTMLDivElement>(null)
   // tout le monde dans la famille voit tout (Elisa, 28 nov.) : une publication va toujours dans le fil
   const album = null as Folder | null
@@ -1144,11 +1186,13 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onDepart
       onDepart?.()
       ok = await run((api) => api.postMoment(family.id, me.id, m))
     }
-    setEnvoi(false)
     if (ok) {
       success()
-      onClose(true, album ? null : carte.current)
-    }
+      void clavierRange().then(() => {
+        setPartie(true)
+        window.setTimeout(() => onClose(true), 340)
+      })
+    } else setEnvoi(false)
   }
   const fermer = async () => {
     if ((texte.trim() || photo || video) && !(await confirmer({ title: 'Abandonner cette publication ?', confirm: 'Abandonner', destructive: true }))) return
@@ -1183,6 +1227,7 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onDepart
       <Sheet
         title="Nouvelle publication"
         tall={!!(photo || video || tiroir)}
+        ferme={partie}
         onClose={() => void fermer()}
         footer={
           <div>
@@ -1202,7 +1247,7 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onDepart
               ))}
             </div>
             <Btn onClick={() => void publier()} disabled={!pret || envoi} className={pret && !envoi ? 'reflet overflow-hidden rounded-full' : ''}>
-              {envoi ? (videoPrete ? 'Envoi de la vidéo…' : 'Publication…') : vid.enPreparation ? `Préparation de la vidéo… ${Math.round((video?.progres ?? 0) * 100)} %` : album ? `Ajouter à l’album` : 'Publier'}
+              {partie ? <><Check size={20} strokeWidth={3} className="anim-pop" /> Publié</> : envoi ? (videoPrete ? 'Envoi de la vidéo…' : 'Publication…') : vid.enPreparation ? `Préparation de la vidéo… ${Math.round((video?.progres ?? 0) * 100)} %` : album ? `Ajouter à l’album` : 'Publier'}
             </Btn>
           </div>
         }
@@ -1365,9 +1410,9 @@ function PhotoEnGrand({ url, onClose }: { url: string; onClose: () => void }) {
     return () => window.removeEventListener('keydown', k)
   }, [onClose])
   return createPortal(
-    <button onClick={onClose} className="anim-fondu fixed inset-0 z-[90] flex items-center justify-center bg-black/90 p-3" aria-label="Fermer la photo">
+    <button onClick={onClose} className="anim-fondu fixed inset-0 z-[90] flex items-center justify-center bg-[#0B0A10] px-3" style={{ paddingTop: 'calc(var(--sat) + 68px)', paddingBottom: 'calc(var(--sab) + 24px)' }} aria-label="Fermer la photo">
       <img src={url} alt="" className="max-h-full max-w-full rounded-[14px] object-contain" />
-      <span className="absolute right-4 flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white" style={{ top: 'calc(var(--sat) + 12px)' }}>
+      <span className="absolute right-4 flex h-11 w-11 items-center justify-center rounded-full bg-black/55 text-white shadow-[0_4px_14px_rgba(0,0,0,0.35)] ring-1 ring-white/30 backdrop-blur-md" style={{ top: 'calc(var(--sat) + 12px)' }}>
         <X size={22} />
       </span>
     </button>,

@@ -180,9 +180,11 @@ export function Page({ title, back = 'Retour', onClose, trailing, children, scro
 }
 
 /** Feuille modale iOS : poignée, glisser vers le bas pour fermer. */
-export function Sheet({ title, onClose, children, tall = false, footer, cacherBasAuClavier = false }: { title: string; onClose: () => void; children: ReactNode; tall?: boolean; footer?: ReactNode
+export function Sheet({ title, onClose, children, tall = false, footer, cacherBasAuClavier = false, ferme = false }: { title: string; onClose: () => void; children: ReactNode; tall?: boolean; footer?: ReactNode
   /** Le bouton du bas se cache quand le clavier est ouvert (une fiche à remplir : il ne masque plus le champ). */
-  cacherBasAuClavier?: boolean }) {
+  cacherBasAuClavier?: boolean
+  /** La feuille redescend en douceur (après un envoi réussi), avant d'être retirée par son parent. */
+  ferme?: boolean }) {
   const [dy, setDy] = useState(0)
   const [contentScrolled, setContentScrolled] = useState(false)
   // il reste de quoi lire sous le bouton du bas : un trait léger le dit
@@ -235,13 +237,13 @@ export function Sheet({ title, onClose, children, tall = false, footer, cacherBa
     setDy(0)
   }
   return (
-    <div ref={root} className="absolute inset-0 z-40 flex flex-col justify-end" role="dialog" aria-modal="true" aria-label={title}>
-      <button className="anim-fondu absolute inset-0 bg-black/30" style={{ opacity: Math.max(0.3, 1 - dy / 400) }} onClick={onClose} aria-label="Fermer" />
+    <div ref={root} className={`absolute inset-0 z-40 flex flex-col justify-end ${ferme ? 'pointer-events-none' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
+      <button className="anim-fondu absolute inset-0 bg-black/30" style={{ opacity: ferme ? 0 : Math.max(0.3, 1 - dy / 400), transition: ferme ? 'opacity 0.3s ease-out' : undefined }} onClick={onClose} aria-label="Fermer" />
       <div
         ref={panel}
         tabIndex={-1}
         className={`ios-sheet anim-monte relative outline-none flex flex-col rounded-t-feuille bg-fond text-encre ${tall ? 'h-[92%]' : 'max-h-[92%]'}`}
-        style={{ paddingBottom: 'calc(var(--sab) + 14px)', transform: dy ? `translateY(${dy}px)` : undefined, transition: start.current === null ? 'transform 0.35s var(--ressort), padding-bottom 0.26s cubic-bezier(0.38, 0.7, 0.125, 1), height 0.26s cubic-bezier(0.38, 0.7, 0.125, 1), max-height 0.26s cubic-bezier(0.38, 0.7, 0.125, 1)' : 'none' }}
+        style={{ paddingBottom: 'calc(var(--sab) + 14px)', transform: ferme ? 'translateY(105%)' : dy ? `translateY(${dy}px)` : undefined, transition: ferme ? 'transform 0.32s cubic-bezier(0.32, 0.72, 0, 1)' : start.current === null ? 'transform 0.35s var(--ressort), padding-bottom 0.26s cubic-bezier(0.38, 0.7, 0.125, 1), height 0.26s cubic-bezier(0.38, 0.7, 0.125, 1), max-height 0.26s cubic-bezier(0.38, 0.7, 0.125, 1)' : 'none' }}
       >
         <div
           className={`sheet-header touch-none shrink-0 rounded-t-feuille ${contentScrolled ? 'sheet-header-scrolled' : ''}`}

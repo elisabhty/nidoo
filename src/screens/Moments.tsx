@@ -284,13 +284,15 @@ export const insecable = (t?: string | null) => (t ?? '').replace(/ ([?!:;»])/g
 
 /** Nouveau sondage (refait le 28 nov.) : la question et les réponses comme elles apparaîtront dans le fil, une photo
  *  si on veut (« pouvoir mettre un sondage au sein d'une photo »), et tout tient dans la feuille. */
-export function SondageCompose({ question0 = '', photo0, onClose, envoyer }: { question0?: string; photo0?: Blob; onClose: () => void; envoyer: (m: NouvelEnvoi) => Promise<boolean> }) {
+export function SondageCompose({ question0 = '', photo0, onClose, envoyer }: { question0?: string; photo0?: Blob; onClose: (publie?: boolean) => void; envoyer: (m: NouvelEnvoi) => Promise<boolean> }) {
   const { toast } = useHome()
   const [question, setQuestion] = useState(question0.slice(0, 200))
   const [options, setOptions] = useState(['', ''])
   const [photo, setPhoto] = useState<{ blob: Blob; url: string } | null>(() => (photo0 ? { blob: photo0, url: URL.createObjectURL(photo0) } : null))
   const [ratio, setRatio] = useState(4 / 3)
   const [loading, setLoading] = useState(false)
+  // publié : la feuille redescend, puis le sondage se déplie en haut du fil
+  const [parti, setParti] = useState(false)
   const zone = useRef<HTMLTextAreaElement>(null)
   const liste = useRef<HTMLDivElement>(null)
   const fichier = useRef<HTMLInputElement>(null)
@@ -365,15 +367,21 @@ export function SondageCompose({ question0 = '', photo0, onClose, envoyer }: { q
     if (manque || loading) return
     setLoading(true)
     try {
-      if (await envoyer({ body: question.trim().slice(0, 200), pollOptions: cleaned, blob: photo?.blob })) onClose()
-    } finally {
+      if (await envoyer({ body: question.trim().slice(0, 200), pollOptions: cleaned, blob: photo?.blob })) {
+        await clavierRange()
+        setParti(true)
+        window.setTimeout(() => onClose(true), 340)
+        return
+      }
+      setLoading(false)
+    } catch {
       setLoading(false)
     }
   }
   return (
-    <Sheet title="Nouveau sondage" onClose={onClose} tall={!!photo} footer={
+    <Sheet title="Nouveau sondage" onClose={() => onClose()} tall={!!photo} ferme={parti} footer={
       <Btn onClick={() => void publier()} disabled={loading} manque={manque} onManque={allerAuManque}>
-        {loading ? 'Publication…' : 'Publier le sondage'}
+        {parti ? 'Publié' : loading ? 'Publication…' : 'Publier le sondage'}
       </Btn>
     }>
       <input ref={fichier} type="file" accept="image/*" hidden onChange={(e) => void poserPhoto(e.target.files?.[0]).then(() => (e.target.value = ''))} />
