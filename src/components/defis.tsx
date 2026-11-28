@@ -153,8 +153,8 @@ export function QuestionSheet({ onClose }: { onClose: () => void }) {
           {/* la réponse : une carte blanche, le mot et (si on veut) une photo ; plus de bloc gris (Elisa, 27 novembre) */}
           <div className="overflow-hidden rounded-[20px] bg-carte shadow-carte transition-shadow focus-within:shadow-[0_0_0_2px_#9B85E8,0_6px_18px_-10px_rgba(102,70,204,0.35)]">
             {pic && (
-              <div className="relative overflow-hidden">
-                <img src={pic.url} alt="Ta photo" className="block max-h-[220px] w-full object-cover" />
+              <div key={pic.url} className="tirage relative m-3 mb-0">
+                <img src={pic.url} alt="Ta photo" className="tirage-image block max-h-[220px] w-full rounded-[12px] object-cover" />
                 <button
                   type="button"
                   onClick={() => {

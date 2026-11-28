@@ -135,6 +135,8 @@ export function useKeyboardViewport() {
       zone = zoneDe(document.activeElement)
       root.classList.add('kb-ouvert', 'kb-visible')
       root.style.setProperty('--app-height', `${window.innerHeight - Math.max(0, Math.round(keyboardHeight))}px`)
+      // la hauteur du clavier, pour ce qui doit monter avec lui sans que rien d'autre ne bouge (la légende d'une photo)
+      root.style.setProperty('--clavier', `${Math.max(0, Math.round(keyboardHeight))}px`)
       setKeyboard(true)
       // le champ, bien visible au-dessus du clavier, une fois l'appli calée ; puis on vérifie que la zone n'est pas
       // restée défilée au-delà du bas (le clavier change parfois de hauteur : barre de suggestions, émojis…)
@@ -146,6 +148,7 @@ export function useKeyboardViewport() {
       // tout de suite (pas 0,3 s après) : le bouton du bas revient en même temps que le clavier descend
       root.classList.remove('kb-visible')
       root.style.setProperty('--app-height', `${window.innerHeight}px`)
+      root.style.setProperty('--clavier', '0px')
       setKeyboard(false)
       const box = zone
       fin = window.setTimeout(() => {
@@ -198,6 +201,7 @@ export function useKeyboardViewport() {
         setKeyboard(open)
         setDecale(open || coince)
         document.documentElement.style.setProperty('--app-height', open || coince ? `${viewport.height}px` : '100%')
+        document.documentElement.style.setProperty('--clavier', open ? `${Math.max(0, Math.round(window.innerHeight - viewport.height - viewport.offsetTop))}px` : '0px')
         // Safari décale aussi la zone visible vers le bas (offsetTop) pour montrer le champ :
         // on suit ce décalage, sinon on voit le bas de l'appli puis un grand vide gris.
         document.documentElement.style.setProperty('--app-top', open || coince ? `${Math.max(0, viewport.offsetTop)}px` : '0px')

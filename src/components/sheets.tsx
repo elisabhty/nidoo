@@ -115,6 +115,8 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
   const camera = useRef<HTMLInputElement>(null)
   const gallery = useRef<HTMLInputElement>(null)
   const preview = useMemo(() => (shown ? URL.createObjectURL(shown) : null), [shown])
+  // une nouvelle photo (pas un filtre) : elle se pose et se révèle
+  const cleOrig = useMemo(() => Math.random().toString(36).slice(2), [orig])
   useEffect(() => () => void (preview && URL.revokeObjectURL(preview)), [preview])
   // la feuille des stickers : 1000 de large, la hauteur suit la photo
   const SW = 1000
@@ -267,14 +269,15 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
         <>
           <div
             ref={cadrePhoto}
-            className="relative mx-auto overflow-hidden rounded-groupe bg-remplissage"
+            key={cleOrig}
+            className="tirage-pose relative mx-auto overflow-hidden rounded-groupe bg-remplissage shadow-[0_0_0_6px_#fff,0_16px_34px_-16px_rgba(36,16,110,0.42)]"
             style={hPhoto ? { height: hPhoto, width: Math.round(hPhoto * ratio) } : { aspectRatio: `${ratio}`, width: `min(100%, calc(40vh * ${ratio}))` }}
             onPointerDown={() => {
               setSel(null)
               setTray(false)
             }}
           >
-            <img src={preview} alt="Aperçu de la photo" className="absolute inset-0 h-full w-full object-cover" />
+            <img src={preview} alt="Aperçu de la photo" className="tirage-image absolute inset-0 h-full w-full object-cover" />
             <CadreCanvas fr={fr} W={SW} H={SH} />
             <StickerStage
               W={SW}

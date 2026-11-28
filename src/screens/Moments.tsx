@@ -407,15 +407,15 @@ export function SondageCompose({ question0 = '', photo0, onClose, envoyer }: { q
           // la place qui reste décide : grande photo, ou (petit écran) une vignette, pour que tout tienne
           <div ref={cadre.ref} className="mt-3">
             {cadre.h && !vignette ? (
-              <div className="relative mx-auto overflow-hidden rounded-[16px] bg-remplissage" style={{ height: cadre.h, width: `min(100%, ${Math.round(cadre.h * ratio)}px)` }}>
-                <img src={photo.url} alt="La photo du sondage" onLoad={(e) => { const i = e.currentTarget; if (i.naturalWidth && i.naturalHeight) setRatio(i.naturalWidth / i.naturalHeight) }} className="block h-full w-full object-cover" />
+              <div key={photo.url} className="tirage relative mx-auto" style={{ height: cadre.h, width: `min(100%, ${Math.round((cadre.h - 16) * ratio) + 16}px)` }}>
+                <img src={photo.url} alt="La photo du sondage" onLoad={(e) => { const i = e.currentTarget; if (i.naturalWidth && i.naturalHeight) setRatio(i.naturalWidth / i.naturalHeight) }} className="tirage-image block h-full w-full rounded-[12px] object-cover" />
                 <button onClick={() => { tap(); setPhoto(null) }} aria-label="Retirer la photo" className="presse verre absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full text-encre">
                   <X size={17} strokeWidth={2.6} />
                 </button>
               </div>
             ) : (
               <div className="flex h-16 items-center gap-3">
-                <img src={photo.url} alt="La photo du sondage" onLoad={(e) => { const i = e.currentTarget; if (i.naturalWidth && i.naturalHeight) setRatio(i.naturalWidth / i.naturalHeight) }} className="h-16 w-16 shrink-0 rounded-[12px] object-cover" />
+                <span key={photo.url} className="tirage shrink-0 !rounded-[12px] !p-1"><img src={photo.url} alt="La photo du sondage" onLoad={(e) => { const i = e.currentTarget; if (i.naturalWidth && i.naturalHeight) setRatio(i.naturalWidth / i.naturalHeight) }} className="tirage-image block h-14 w-14 rounded-[9px] object-cover" /></span>
                 <p className="min-w-0 flex-1 text-sous font-semibold text-encre">Ta photo</p>
                 <button onClick={() => { tap(); setPhoto(null) }} className="presse min-h-11 shrink-0 px-2 text-sous font-semibold text-teinte-fonce">Retirer</button>
               </div>

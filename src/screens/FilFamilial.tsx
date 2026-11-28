@@ -1134,7 +1134,6 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onDepart
   const joint = !!(photo || video || sticker)
   const [ratioPhoto, setRatioPhoto] = useState(4 / 3)
   const cadre = useHauteurQuiTient(!!photo && !tiroir, ratioPhoto, 170, [joint, album?.id])
-  const etroite = !!cadre.h && cadre.h * ratioPhoto < 240
   useEffect(() => {
     const z = zone.current
     if (!z) return
@@ -1208,7 +1207,16 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onDepart
   const outils = [
     { cle: 'photo', label: 'Photo', icone: <Images size={21} strokeWidth={2.2} />, actif: !!photo, go: () => void choisirPhoto() },
     ...(videoPossible ? [{ cle: 'video', label: 'Vidéo', icone: <Video size={22} strokeWidth={2.2} />, actif: !!video, go: () => void choisirVideo() }] : []),
-    ...(!album ? [{ cle: 'sticker', label: 'Sticker', icone: <Smile size={21} strokeWidth={2.2} />, actif: tiroir || !!sticker, go: () => { tap(); void clavierRange().then(() => setTiroir((t) => !t)) } }] : []),
+    ...(!album ? [{ cle: 'sticker', label: 'Sticker', icone: <Smile size={21} strokeWidth={2.2} />, actif: tiroir || !!sticker, go: () => {
+      tap()
+      void clavierRange().then(() => {
+        setTiroir((t) => !t)
+        window.setTimeout(() => {
+          const boite = zone.current?.closest('.overflow-y-auto')
+          boite?.scrollTo({ top: boite.scrollHeight, behavior: 'smooth' })
+        }, 60)
+      })
+    } }] : []),
     ...(!album && !video ? [{ cle: 'sondage', label: 'Sondage', icone: <ChartNoAxesColumn size={20} strokeWidth={2.4} />, actif: false, go: () => { tap(); void clavierRange().then(() => onSondage({ question: texte.trim(), photo: photo?.blob })) } }] : []),
   ]
   const idee = (debut: string) => {
@@ -1226,7 +1234,7 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onDepart
     <>
       <Sheet
         title="Nouvelle publication"
-        tall={!!(photo || video || tiroir)}
+        tall
         ferme={partie}
         onClose={() => void fermer()}
         footer={
@@ -1320,33 +1328,35 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onDepart
           {video && <div className="px-3 pb-3"><ApercuVideo v={video} onRetirer={vid.retirer} onCouper={vid.recouper} /></div>}
           {videoBloquee && <p className="mx-4 mb-3 rounded-[14px] bg-peche-doux px-3 py-2 text-note text-peche-fonce">Les vidéos arrivent bientôt dans le fil. En attendant, choisis un album pour la partager.</p>}
           {photo && (
-            <div
-              ref={cadre.ref}
-              className="anim-pop relative mx-auto overflow-hidden bg-remplissage"
-              style={cadre.h ? { height: cadre.h, width: `min(100%, ${Math.round(cadre.h * ratioPhoto)}px)` } : undefined}
-            >
-              <img
-                src={photo.url}
-                alt="La photo de ta publication"
-                onLoad={(e) => {
-                  const i = e.currentTarget
-                  if (i.naturalWidth && i.naturalHeight) setRatioPhoto(i.naturalWidth / i.naturalHeight)
-                }}
-                className={`block w-full object-cover ${cadre.h ? 'h-full' : 'max-h-[360px]'}`}
-              />
-              <div data-pas-envol className="absolute right-2 top-2 flex gap-2">
-                <button onClick={() => { tap(); setDecorer(new File([photo.blob], 'photo.jpg', { type: 'image/jpeg' })) }} aria-label="Décorer la photo" className={`presse verre flex h-11 items-center justify-center gap-1.5 rounded-full text-sous font-semibold text-encre ${etroite ? 'w-11' : 'px-3.5'}`}>
-                  <Sparkles size={16} strokeWidth={2.4} /> {!etroite && 'Décorer'}
+            <div className="px-4 pb-4 pt-1">
+              <div
+                ref={cadre.ref}
+                key={photo.url}
+                className="tirage relative mx-auto"
+                style={cadre.h ? { height: cadre.h, width: `min(100%, ${Math.round((cadre.h - 16) * ratioPhoto) + 16}px)` } : undefined}
+              >
+                <img
+                  src={photo.url}
+                  alt="La photo de ta publication"
+                  onLoad={(e) => {
+                    const i = e.currentTarget
+                    if (i.naturalWidth && i.naturalHeight) setRatioPhoto(i.naturalWidth / i.naturalHeight)
+                  }}
+                  className={`tirage-image block w-full rounded-[12px] object-cover ${cadre.h ? 'h-full' : 'max-h-[340px]'}`}
+                />
+                {/* « Décorer », toujours écrit en entier : on comprend tout de suite ce que c'est */}
+                <button onClick={() => { tap(); setDecorer(new File([photo.blob], 'photo.jpg', { type: 'image/jpeg' })) }} className="presse verre absolute bottom-4 left-4 flex h-10 items-center gap-1.5 rounded-full pl-3 pr-3.5 text-sous font-semibold text-encre">
+                  <Sparkles size={16} strokeWidth={2.4} className="text-teinte" /> Décorer
                 </button>
-                <button onClick={() => { tap(); setPhoto(null) }} className="presse verre flex h-11 w-11 items-center justify-center rounded-full text-encre" aria-label="Retirer la photo">
-                  <X size={19} />
+                <button onClick={() => { tap(); setPhoto(null) }} className="presse verre absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full text-encre" aria-label="Retirer la photo">
+                  <X size={18} />
                 </button>
               </div>
             </div>
           )}
           {sticker && (
             <div className="px-4 pb-4">
-              <div className="anim-pop relative inline-block">
+              <div key={sticker} className="anim-colle relative inline-block">
                 <StickerImg cle={sticker} className="block h-[120px] w-[120px] object-contain" />
                 <button data-pas-envol onClick={() => { tap(); setSticker(null) }} className="presse absolute -right-2 -top-2 flex h-9 w-9 items-center justify-center rounded-full bg-carte text-encre shadow-carte" aria-label="Retirer le sticker">
                   <X size={16} />

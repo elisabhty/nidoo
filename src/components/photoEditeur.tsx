@@ -63,24 +63,18 @@ export function PhotoEditeur({ file, onClose, onSend, confirmLabel = 'Envoyer la
     return () => URL.revokeObjectURL(url)
   }, [file])
 
-  // la photo tient dans la zone libre, sans être déformée. Pendant qu'on écrit la légende (clavier ouvert, la zone
-  // rétrécit d'un coup), la photo garde sa taille et se réduit en douceur, au rythme du clavier (Elisa, 28 nov. :
-  // « saut au niveau de ajouter une légende »)
+  // la photo tient dans la zone libre, sans être déformée ; pendant la légende, l'éditeur garde toute sa hauteur
+  // (seule la barre de la légende monte avec le clavier) : la photo ne bouge pas (Elisa, 28 nov.)
   const enLegende = useRef(false)
   const tailleRef = useRef(taille)
   tailleRef.current = taille
-  const [echelle, setEchelle] = useState(1)
   useEffect(() => {
     if (!img || !zone.current) return
     const caler = () => {
       if (!zone.current) return
       const r = zone.current.getBoundingClientRect()
       const t = tailleRef.current
-      if (enLegende.current && t.w) {
-        setEchelle(Math.min(1, r.width / t.w, r.height / t.h))
-        return
-      }
-      setEchelle(1)
+      if (enLegende.current && t.w) return
       const s = Math.min(r.width / img.naturalWidth, r.height / img.naturalHeight)
       setTaille({ w: Math.round(img.naturalWidth * s), h: Math.round(img.naturalHeight * s) })
     }
@@ -217,7 +211,7 @@ export function PhotoEditeur({ file, onClose, onSend, confirmLabel = 'Envoyer la
   return createPortal(
     <div
       className="anim-fondu fixed inset-x-0 top-0 z-[80] flex flex-col bg-[#0E0C16] text-white"
-      style={{ height: 'var(--app-height, 100%)', transform: 'translateY(var(--app-top, 0px))', paddingTop: 'var(--sat)', pointerEvents: envoi ? 'none' : undefined }}
+      style={{ height: '100%', bottom: 0, paddingTop: 'var(--sat)', pointerEvents: envoi ? 'none' : undefined }}
       role="dialog"
       aria-busy={envoi}
       aria-label={title}
@@ -295,7 +289,7 @@ export function PhotoEditeur({ file, onClose, onSend, confirmLabel = 'Envoyer la
         {img && taille.w > 0 && (
           <div
             className="absolute left-1/2 top-1/2 overflow-hidden rounded-[18px]"
-            style={{ width: taille.w, height: taille.h, transform: `translate(-50%, -50%) scale(${echelle})`, transition: 'transform 0.26s cubic-bezier(0.38, 0.7, 0.125, 1)' }}
+            style={{ width: taille.w, height: taille.h, transform: 'translate(-50%, -50%)' }}
           >
             <img src={img.src} alt="" className="block h-full w-full select-none" draggable={false} />
             <canvas
@@ -397,7 +391,7 @@ export function PhotoEditeur({ file, onClose, onSend, confirmLabel = 'Envoyer la
       )}
 
       {/* légende + envoi */}
-      <div className="flex items-end gap-2 px-3 pt-3" style={{ paddingBottom: 'calc(var(--sab) + 10px)' }}>
+      <div className="editeur-legende relative z-[5] flex items-end gap-2 bg-[#0E0C16]/85 px-3 pt-3 backdrop-blur-md" style={{ paddingBottom: 'calc(var(--sab) + 10px)' }}>
         <input
           value={legende}
           onChange={(e) => setLegende(e.target.value)}

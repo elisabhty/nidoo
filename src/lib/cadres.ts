@@ -198,8 +198,9 @@ function dessiner(ctx: CanvasRenderingContext2D, key: CadreKey, W: number, H: nu
   switch (key) {
     case 'polaroid':
     case 'scotch': {
-      const t = m * 0.055
-      const b = m * 0.19
+      // le Polaroid a son bas plus large ; le scotché, la même marge tout autour (Elisa, 28 nov.)
+      const t = key === 'scotch' ? m * 0.06 : m * 0.055
+      const b = key === 'scotch' ? t : m * 0.19
       ctx.fillStyle = '#FFFDF7'
       bande(ctx, W, H, t, t, b, t)
       ctx.strokeStyle = 'rgba(29,26,43,0.14)'
