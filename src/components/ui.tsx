@@ -669,3 +669,13 @@ export function useHauteurQuiTient(actif: boolean, ratio: number, min = 160, dep
   return { ref, h }
 }
 
+/** Avant d'ouvrir un choix (photo, vidéo, album…), on laisse d'abord le clavier se ranger, en douceur : sinon il se
+ *  ferme en même temps que le choix s'ouvre et tout l'écran clignote (Elisa, 28 nov. : « flash au niveau de ajouter
+ *  une photo »). */
+export function clavierRange(): Promise<void> {
+  const champ = document.activeElement
+  if (!(champ instanceof HTMLElement) || !champ.matches('input, textarea, [contenteditable="true"]')) return Promise.resolve()
+  champ.blur()
+  return new Promise((ok) => window.setTimeout(ok, 320))
+}
+

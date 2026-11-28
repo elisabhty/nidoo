@@ -787,3 +787,21 @@ html.kb-visible .ios-sheet.h-\[92\%\] { height: calc(100% - var(--sat) - 8px); }
 @keyframes polaroidDeveloppe { from { filter: brightness(1.85) saturate(0.1) contrast(0.75); } to { filter: none; } }
 .appareil-annonce { animation: appareilAnnonce 1.5s ease both; }
 @keyframes appareilAnnonce { 0% { opacity: 0; } 12% { opacity: 1; } 72% { opacity: 1; } 100% { opacity: 0; } }
+
+/* La publication qu'on vient de publier se pose dans le fil (après son envol) : elle apparaît, un halo violet
+   s'étend autour d'elle, et des étincelles s'échappent. */
+@keyframes atterrit { 0% { opacity: 0; transform: translateY(-8px) scale(0.97); } 100% { opacity: 1; transform: none; } }
+@keyframes halo-fil { 0% { box-shadow: 0 0 0 0 rgba(122, 90, 224, 0.5); } 100% { box-shadow: 0 0 0 16px rgba(122, 90, 224, 0); } }
+.anim-atterrit { animation: atterrit 0.32s 0.6s var(--ressort) both; }
+.anim-atterrit::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; animation: halo-fil 1.2s 0.72s ease-out both; }
+@keyframes etincelle {
+  0% { transform: translate(-50%, -50%) scale(0.2) rotate(0deg); opacity: 0; }
+  18% { opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1) rotate(var(--r)); opacity: 0; }
+}
+.etincelle { position: absolute; left: 50%; top: 40%; filter: drop-shadow(0 2px 4px rgba(122, 90, 224, 0.25)); animation: etincelle 0.95s var(--t, 0.7s) cubic-bezier(0.2, 0.8, 0.2, 1) both; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) {
+  .anim-atterrit, .anim-atterrit::after, .etincelle { animation: none; }
+  .etincelle { display: none; }
+}
+

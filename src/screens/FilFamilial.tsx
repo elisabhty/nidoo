@@ -2,7 +2,7 @@
 // souvenirs et le fil actuel »). En haut, « Quoi de neuf ? » pour publier (à toute la famille, ou dans un album) ;
 // puis les albums (les anciens Souvenirs) ; puis le fil : les publications, des plus récentes aux plus anciennes, avec
 // leurs réactions et leurs commentaires, et ce que chacun ajoute dans les albums qu'on partage avec lui.
-import { ArrowUp, BookOpen, Video, BookmarkCheck, BookmarkPlus, ChartNoAxesColumn, ChevronDown, ChevronRight, Ellipsis, Heart, Images, Lock, MessageCircle, Plus, Search, Smile, SmilePlus, Sparkles, UsersRound, X } from 'lucide-react'
+import { ArrowUp, BookOpen, Video, BookmarkCheck, BookmarkPlus, ChartNoAxesColumn, ChevronDown, ChevronRight, Ellipsis, Heart, Images, Lock, MessageCircle, Plus, PartyPopper, Search, Smile, SmilePlus, Sparkles, Sun, UsersRound, UtensilsCrossed, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { prendrePhoto } from '../components/appareil'
@@ -10,10 +10,11 @@ import { FolderCover } from '../components/folder'
 import { photoBlob } from '../components/folderSouvenirs'
 import { PhotoEditeur } from '../components/photoEditeur'
 import { StickerImg, StickerTray } from '../components/stickers'
-import { Art, Avatar, Btn, choisir, confirmer, Rond, Screen, SearchField, Sheet, useHauteurQuiTient } from '../components/ui'
+import { Art, Avatar, Btn, choisir, clavierRange, confirmer, Rond, Screen, SearchField, Sheet, useHauteurQuiTient } from '../components/ui'
 import { QuiAReagi, ReactionImg, ToutesReactions } from '../components/reactions'
 import { ApercuVideo, CoupeVideo, useVideoAPreparer, VideoDuFil } from '../components/videos'
 import { VIDEO_FIL_MAX_S } from '../lib/video'
+import { envoler } from '../lib/envol'
 import { lesPlusDonnees, motDe, RAPIDES, reaction, retenir } from '../lib/reactions'
 import { folderStats, membersOf, whoText } from '../lib/folders'
 import { select, success, tap } from '../lib/haptic'
@@ -167,6 +168,13 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
   const [nouvelles, setNouvelles] = useState(0)
   const boite = () => racine.current?.closest('.overflow-y-auto') as HTMLElement | null
   useEffect(() => {
+    if (attendue.current && Date.now() - attendue.current < 20000) {
+      const mienne = entrees.find((e) => e.k === 'post' && e.mo.member_id === me.id && !connues.current!.has(e.id))
+      if (mienne) {
+        attendue.current = 0
+        setArrivee(mienne.id)
+      }
+    }
     const neuves = entrees.filter((e) => !connues.current!.has(e.id) && (e.k === 'post' ? e.mo.member_id !== me.id : e.a.auteur?.id !== me.id))
     entrees.forEach((e) => connues.current!.add(e.id))
     if (!neuves.length) return
@@ -185,10 +193,26 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
     boite()?.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
   }
   // ce qu'on vient de publier : on remonte le voir
-  const publie = () => {
+  const publie = (tout_de_suite = false) => {
     setFiltre('tout')
     setRecherche('')
-    window.setTimeout(() => boite()?.scrollTo({ top: 0, behavior: 'smooth' }), 80)
+    setChercher(false)
+    if (tout_de_suite) boite()?.scrollTo({ top: 0, behavior: 'auto' })
+    else window.setTimeout(() => boite()?.scrollTo({ top: 0, behavior: 'smooth' }), 80)
+  }
+  // la publication qu'on vient d'envoyer : on la reconnaît à son arrivée, pour qu'elle se pose avec un halo
+  const attendue = useRef(0)
+  const [arrivee, setArrivee] = useState<string | null>(null)
+  useEffect(() => {
+    if (!arrivee) return
+    const t = window.setTimeout(() => setArrivee(null), 2600)
+    return () => window.clearTimeout(t)
+  }, [arrivee])
+  const listeFil = useRef<HTMLDivElement>(null)
+  // là où se pose la publication : en haut de la liste, à la largeur d'une carte
+  const cibleEnvol = () => {
+    const r = listeFil.current?.getBoundingClientRect()
+    return r ? { left: r.left + 12, top: r.top, width: r.width - 24 } : null
   }
 
   // ── une photo : la prendre (l'appareil de Nidoo) ou la choisir, puis l'écrire
@@ -294,7 +318,7 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
         )}
 
         {/* le fil */}
-        <div className="mt-3 space-y-3">
+        <div ref={listeFil} className="mt-3 space-y-3">
           {visibles.length === 0 &&
             (entrees.length === 0 ? (
               <div className="flex flex-col items-center px-8 pb-6 pt-8 text-center">
@@ -315,6 +339,7 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
               e.k === 'post' ? (
                 <Publication
                   key={e.id}
+                  arrivee={arrivee === e.id}
                   mo={e.mo}
                   coms={coms.get(e.mo.id) ?? []}
                   peutCommenter={peutCommenter}
@@ -341,9 +366,13 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
             fichier={compose.fichier}
             video={compose.video}
             onSondage={(q) => setSondage({ ...q, depuis: true })}
-            onClose={(ok) => {
+            onDepart={() => (attendue.current = Date.now())}
+            onClose={(ok, carte) => {
+              if (ok) {
+                publie(!!carte)
+                envoler(carte, cibleEnvol)
+              }
               setCompose(null)
-              if (ok) publie()
             }}
           />
         </div>
@@ -354,6 +383,7 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
           photo0={sondage.photo}
           onClose={() => setSondage(null)}
           envoyer={async (m: NouvelEnvoi) => {
+            attendue.current = Date.now()
             const ok = await run((api) => api.postMoment(state.family.id, me.id, m))
             if (ok) {
               success()
@@ -514,7 +544,7 @@ function useReagir() {
   }
 }
 
-function Publication({ mo, coms, peutCommenter, onPhoto, onCommentaires, onNouvelAlbum, onToutes, onQui }: { mo: Moment; coms: Moment[]; peutCommenter: boolean; onPhoto: (url: string) => void; onCommentaires: (ecrire: boolean) => void; onNouvelAlbum: () => void; onToutes: () => void; onQui: () => void }) {
+function Publication({ mo, coms, peutCommenter, onPhoto, onCommentaires, onNouvelAlbum, onToutes, onQui, arrivee = false }: { mo: Moment; coms: Moment[]; peutCommenter: boolean; arrivee?: boolean; onPhoto: (url: string) => void; onCommentaires: (ecrire: boolean) => void; onNouvelAlbum: () => void; onToutes: () => void; onQui: () => void }) {
   const { state, run, toast } = useHome()
   const { me, members, reactions, folders, folderItems } = state
   const auteur = members.find((m) => m.id === mo.member_id)
@@ -581,7 +611,8 @@ function Publication({ mo, coms, peutCommenter, onPhoto, onCommentaires, onNouve
   if (!auteur) return null
   const derniers = coms.slice(-2)
   return (
-    <article className="relative mx-3 rounded-[24px] bg-carte shadow-carte" aria-label={`Publication de ${auteur.display_name}`}>
+    <article className={`relative mx-3 rounded-[24px] bg-carte shadow-carte ${arrivee ? 'anim-atterrit' : ''}`} aria-label={`Publication de ${auteur.display_name}`}>
+      {arrivee && <Etincelles />}
       {/* qui, quand */}
       <header className="flex items-center gap-3 pl-4 pr-1.5 pt-3.5">
         <Avatar m={auteur} size={42} />
@@ -706,6 +737,24 @@ function Publication({ mo, coms, peutCommenter, onPhoto, onCommentaires, onNouve
       )}
       {!peutCommenter && <div className="h-1.5" />}
     </article>
+  )
+}
+
+/** Les étincelles qui s'échappent de la publication qui vient de se poser : petits cœurs et éclats, en couronne. */
+const ETINCELLES = Array.from({ length: 14 }, (_, i) => {
+  const angle = (i / 14) * Math.PI * 2 + (i % 2 ? 0.2 : -0.1)
+  const d = 70 + (i % 3) * 30
+  return { dx: Math.cos(angle) * d * 1.6, dy: Math.sin(angle) * d * 0.75 - 6, r: (i % 2 ? 1 : -1) * (40 + i * 9), coeur: i % 3 === 0, couleur: ['#7A5AE0', '#F0609C', '#F5B700', '#9B85E8'][i % 4], t: 0.64 + (i % 4) * 0.04, taille: 16 + (i % 3) * 5 }
+})
+function Etincelles() {
+  return (
+    <span aria-hidden="true" className="pointer-events-none absolute inset-0 z-10 overflow-visible">
+      {ETINCELLES.map((e, i) => (
+        <span key={i} className="etincelle" style={{ '--dx': `${e.dx}px`, '--dy': `${e.dy}px`, '--r': `${e.r}deg`, '--t': `${e.t}s` } as CSSProperties}>
+          {e.coeur ? <Heart size={e.taille} fill={e.couleur} strokeWidth={0} /> : <Sparkles size={e.taille} fill={e.couleur} color={e.couleur} strokeWidth={1.5} />}
+        </span>
+      ))}
+    </span>
   )
 }
 
@@ -1006,7 +1055,7 @@ function Commentaire({ c, aime, nbAime }: { c: Moment; aime: boolean; nbAime: nu
 
 // ═════════════════════════ Publier ═════════════════════════
 
-function NouvellePublication({ fichier, video: videoChoisie, onSondage, onClose }: { fichier?: File; video?: File; onSondage: (q: { question: string; photo?: Blob }) => void; onClose: (publie: boolean) => void }) {
+function NouvellePublication({ fichier, video: videoChoisie, onSondage, onDepart, onClose }: { fichier?: File; video?: File; onSondage: (q: { question: string; photo?: Blob }) => void; onDepart?: () => void; onClose: (publie: boolean, carte?: HTMLElement | null) => void }) {
   const { state, run, toast } = useHome()
   const { me, family, folders, folderMembers, members } = state
   const [texte, setTexte] = useState('')
@@ -1021,6 +1070,8 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onClose 
   const videoInput = useRef<HTMLInputElement>(null)
   const filmerInput = useRef<HTMLInputElement>(null)
   const zone = useRef<HTMLTextAreaElement>(null)
+  // la carte qu'on écrit est la publication telle que la famille la verra ; c'est elle qui s'envole dans le fil
+  const carte = useRef<HTMLDivElement>(null)
   const albums = folders.filter((f) => !f.parent_id)
   const album = ou ? albums.find((f) => f.id === ou) ?? null : null
   // une vidéo, préparée pendant qu'on écrit (1 minute au plus, comme dans le fil)
@@ -1057,11 +1108,12 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onClose 
     const z = zone.current
     if (!z) return
     z.style.height = 'auto'
-    z.style.height = `${Math.max(joint ? 52 : 96, Math.min(z.scrollHeight, joint ? 120 : 240))}px`
+    z.style.height = `${Math.max(joint ? 48 : 112, Math.min(z.scrollHeight, joint ? 120 : 260))}px`
   }, [texte, joint])
 
   const choisirPhoto = async () => {
     tap()
+    await clavierRange()
     const i = await choisir({ title: 'Une photo', actions: [{ label: 'Prendre une photo' }, { label: 'Choisir dans la photothèque' }] })
     if (i === 1) return input.current?.click()
     if (i !== 0) return
@@ -1077,12 +1129,14 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onClose 
   }
   const choisirVideo = async () => {
     tap()
+    await clavierRange()
     const i = await choisir({ title: 'Une vidéo', message: 'Une minute au plus : tu choisis le passage à garder.', actions: [{ label: 'Filmer une vidéo' }, { label: 'Choisir dans la photothèque' }] })
     if (i === 0) filmerInput.current?.click()
     else if (i === 1) videoInput.current?.click()
   }
   const choisirOu = async () => {
     tap()
+    await clavierRange()
     const i = await choisir({
       title: 'Qui le verra ?',
       actions: [{ label: 'Toute la famille' }, ...albums.map((f) => ({ label: `Album « ${f.name} »` }))],
@@ -1111,12 +1165,13 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onClose 
     } else {
       const p = videoPrete ? video!.prep! : null
       const m: NouvelEnvoi = { body: t || undefined, blob: photo?.blob, sticker: sticker ?? undefined, video: p ? { blob: p.blob, affiche: p.affiche, duree: p.duree } : undefined }
+      onDepart?.()
       ok = await run((api) => api.postMoment(family.id, me.id, m))
     }
     setEnvoi(false)
     if (ok) {
       success()
-      onClose(true)
+      onClose(true, album ? null : carte.current)
     }
   }
   const fermer = async () => {
@@ -1127,16 +1182,54 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onClose 
 
   const idsAlbum = album ? membersOf(folderMembers, album.id) : []
 
+  const seul = !photo && !video && !sticker
+  // le texte grandit quand il est court, comme dans le fil : on voit tout de suite à quoi ressemblera la publication
+  // (les mêmes tailles que dans le fil : ce qu'on écrit est exactement ce que la famille verra)
+  const tailleTexte = seul && texte.length <= 90 && !/https?:|www\./.test(texte) ? 'text-[22px] font-semibold leading-[29px] tracking-[-0.2px]' : 'text-appel leading-[23px]'
+  const outils = [
+    { cle: 'photo', label: 'Photo', icone: <Images size={21} strokeWidth={2.2} />, actif: !!photo, go: () => void choisirPhoto() },
+    ...(videoPossible ? [{ cle: 'video', label: 'Vidéo', icone: <Video size={22} strokeWidth={2.2} />, actif: !!video, go: () => void choisirVideo() }] : []),
+    ...(!album ? [{ cle: 'sticker', label: 'Sticker', icone: <Smile size={21} strokeWidth={2.2} />, actif: tiroir || !!sticker, go: () => { tap(); void clavierRange().then(() => setTiroir((t) => !t)) } }] : []),
+    ...(!album && !video ? [{ cle: 'sondage', label: 'Sondage', icone: <ChartNoAxesColumn size={20} strokeWidth={2.4} />, actif: false, go: () => { tap(); void clavierRange().then(() => onSondage({ question: texte.trim(), photo: photo?.blob })) } }] : []),
+  ]
+  const idee = (debut: string) => {
+    select()
+    setTexte(debut)
+    requestAnimationFrame(() => {
+      const z = zone.current
+      if (!z) return
+      z.focus({ preventScroll: true })
+      z.setSelectionRange(debut.length, debut.length)
+    })
+  }
+
   return (
     <>
       <Sheet
         title="Nouvelle publication"
-        tall
+        tall={!!(photo || video || tiroir)}
         onClose={() => void fermer()}
         footer={
-          <Btn onClick={() => void publier()} disabled={!pret || envoi}>
-            {envoi ? (videoPrete ? 'Envoi de la vidéo…' : 'Publication…') : vid.enPreparation ? `Préparation de la vidéo… ${Math.round((video?.progres ?? 0) * 100)} %` : album ? `Ajouter à l’album` : 'Publier'}
-          </Btn>
+          <div>
+            {/* de quoi enrichir la publication, toujours à portée de pouce (au-dessus du clavier aussi) */}
+            <div className={`mb-3 grid gap-1.5 ${outils.length === 4 ? 'grid-cols-4' : outils.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+              {outils.map((o) => (
+                <button
+                  key={o.cle}
+                  onPointerDown={(e) => e.preventDefault()}
+                  onClick={o.go}
+                  aria-pressed={o.actif}
+                  className={`presse flex h-[54px] flex-col items-center justify-center gap-0.5 rounded-[16px] text-legende font-semibold transition-colors duration-200 ${o.actif ? 'bg-teinte-doux text-teinte-fonce' : 'bg-carte text-encre shadow-carte'}`}
+                >
+                  <span className={o.actif ? 'text-teinte-fonce' : 'text-teinte'}>{o.icone}</span>
+                  {o.label}
+                </button>
+              ))}
+            </div>
+            <Btn onClick={() => void publier()} disabled={!pret || envoi} className={pret && !envoi ? 'reflet overflow-hidden rounded-full' : ''}>
+              {envoi ? (videoPrete ? 'Envoi de la vidéo…' : 'Publication…') : vid.enPreparation ? `Préparation de la vidéo… ${Math.round((video?.progres ?? 0) * 100)} %` : album ? `Ajouter à l’album` : 'Publier'}
+            </Btn>
+          </div>
         }
       >
         <input
@@ -1165,66 +1258,91 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onClose 
             }}
           />
         ))}
-        {/* qui publie, et pour qui */}
-        <div className="flex items-center gap-3">
-          <Avatar m={me} size={44} />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-corps font-bold">{me.display_name}</p>
-            <button onClick={() => void choisirOu()} className="presse mt-0.5 flex h-8 max-w-full items-center gap-1 rounded-full bg-teinte-doux pl-2.5 pr-2 text-note font-bold text-teinte-fonce" aria-label={`Qui le verra : ${album ? album.name : 'toute la famille'}. Toucher pour changer`}>
-              {album ? <Lock size={13} strokeWidth={2.7} className="shrink-0" /> : <UsersRound size={14} strokeWidth={2.5} className="shrink-0" />}
-              <span className="truncate">{album ? album.name : 'Toute la famille'}</span>
-              <ChevronDown size={15} strokeWidth={2.6} className="shrink-0" />
-            </button>
-          </div>
-        </div>
-        {album && <p className="mt-2 text-note text-brume">Seulement dans l’album : {whoText(idsAlbum, me.id, members)}.</p>}
 
-        <textarea
-          ref={zone}
-          value={texte}
-          maxLength={1000}
-          onChange={(e) => setTexte(e.target.value)}
-          placeholder={photo ? 'Dis quelques mots sur cette photo…' : video ? 'Dis quelques mots sur cette vidéo…' : `Quoi de neuf, ${me.display_name} ?`}
-          aria-label="Ta publication"
-          className={`mt-3 w-full resize-none bg-transparent text-encre outline-none placeholder:text-pale ${!photo && !video && !sticker && texte.length <= 90 ? 'text-[22px] font-semibold leading-[29px]' : 'text-corps leading-[24px]'}`}
-        />
-
-        {/* ce qu'on joint */}
-        {video && <ApercuVideo v={video} onRetirer={vid.retirer} onCouper={vid.recouper} />}
-        {videoBloquee && <p className="mt-2 rounded-[14px] bg-peche-doux px-3 py-2 text-note text-peche-fonce">Les vidéos arrivent bientôt dans le fil. En attendant, choisis un album pour la partager.</p>}
-        {photo && (
-          <div
-            ref={cadre.ref}
-            className="relative mx-auto mt-2 overflow-hidden rounded-[20px] bg-remplissage"
-            style={cadre.h ? { height: cadre.h, width: `min(100%, ${Math.round(cadre.h * ratioPhoto)}px)` } : undefined}
-          >
-            <img
-              src={photo.url}
-              alt="La photo de ta publication"
-              onLoad={(e) => {
-                const i = e.currentTarget
-                if (i.naturalWidth && i.naturalHeight) setRatioPhoto(i.naturalWidth / i.naturalHeight)
-              }}
-              className={`block w-full object-cover ${cadre.h ? 'h-full' : 'max-h-[360px]'}`}
-            />
-            <div className="absolute right-2 top-2 flex gap-2">
-              <button onClick={() => { tap(); setDecorer(new File([photo.blob], 'photo.jpg', { type: 'image/jpeg' })) }} aria-label="Décorer la photo" className={`presse verre flex h-11 items-center justify-center gap-1.5 rounded-full text-sous font-semibold text-encre ${etroite ? 'w-11' : 'px-3.5'}`}>
-                <Sparkles size={16} strokeWidth={2.4} /> {!etroite && 'Décorer'}
-              </button>
-              <button onClick={() => { tap(); setPhoto(null) }} className="presse verre flex h-11 w-11 items-center justify-center rounded-full text-encre" aria-label="Retirer la photo">
-                <X size={19} />
-              </button>
+        {/* la publication, telle que la famille la verra dans le fil : on écrit directement dedans */}
+        <div ref={carte} className="overflow-hidden rounded-[24px] bg-carte shadow-carte">
+          <div className="flex items-center gap-3 px-4 pt-4">
+            <Avatar m={me} size={44} />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-corps font-bold">{me.display_name}</p>
+              <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+                <span className="shrink-0 text-note text-brume">à l’instant ·</span>
+                <button data-pas-envol onClick={() => void choisirOu()} className="presse flex h-7 min-w-0 items-center gap-1 rounded-full bg-teinte-doux pl-2 pr-1.5 text-note font-bold text-teinte-fonce" aria-label={`Qui le verra : ${album ? album.name : 'toute la famille'}. Toucher pour changer`}>
+                  {album ? <Lock size={12} strokeWidth={2.7} className="shrink-0" /> : <UsersRound size={13} strokeWidth={2.5} className="shrink-0" />}
+                  <span className="truncate">{album ? album.name : 'Toute la famille'}</span>
+                  <ChevronDown size={14} strokeWidth={2.6} className="shrink-0" />
+                </button>
+              </div>
             </div>
           </div>
-        )}
-        {sticker && (
-          <div className="relative mt-2 inline-block">
-            <StickerImg cle={sticker} className="block h-[120px] w-[120px] object-contain" />
-            <button onClick={() => { tap(); setSticker(null) }} className="presse absolute -right-2 -top-2 flex h-9 w-9 items-center justify-center rounded-full bg-carte text-encre shadow-carte" aria-label="Retirer le sticker">
-              <X size={16} />
-            </button>
-          </div>
-        )}
+          {album && <p className="px-4 pt-2 text-note text-brume">Seulement dans l’album : {whoText(idsAlbum, me.id, members)}.</p>}
+
+          <textarea
+            ref={zone}
+            value={texte}
+            maxLength={1000}
+            onChange={(e) => setTexte(e.target.value)}
+            placeholder={photo ? 'Dis quelques mots sur cette photo…' : video ? 'Dis quelques mots sur cette vidéo…' : `Quoi de neuf, ${me.display_name}\u00A0?`}
+            aria-label="Ta publication"
+            className={`block w-full resize-none bg-transparent px-4 pb-3 pt-2.5 text-encre outline-none transition-[font-size,line-height] duration-200 placeholder:text-pale ${tailleTexte}`}
+          />
+
+          {/* pas d'idée ? des débuts de phrase, à toucher */}
+          {!texte && seul && !tiroir && (
+            <div data-pas-envol className="no-bar -mt-1 flex gap-2 overflow-x-auto px-4 pb-4">
+              {IDEES.map((i, k) => (
+                <button
+                  key={i.label}
+                  onPointerDown={(e) => e.preventDefault()}
+                  onClick={() => idee(i.debut)}
+                  className="presse anim-pop flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-teinte-doux px-3 text-note font-semibold text-teinte-fonce"
+                  style={{ animationDelay: `${0.12 + k * 0.06}s` }}
+                >
+                  {i.icone} {i.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* ce qu'on joint */}
+          {video && <div className="px-3 pb-3"><ApercuVideo v={video} onRetirer={vid.retirer} onCouper={vid.recouper} /></div>}
+          {videoBloquee && <p className="mx-4 mb-3 rounded-[14px] bg-peche-doux px-3 py-2 text-note text-peche-fonce">Les vidéos arrivent bientôt dans le fil. En attendant, choisis un album pour la partager.</p>}
+          {photo && (
+            <div
+              ref={cadre.ref}
+              className="anim-pop relative mx-auto overflow-hidden bg-remplissage"
+              style={cadre.h ? { height: cadre.h, width: `min(100%, ${Math.round(cadre.h * ratioPhoto)}px)` } : undefined}
+            >
+              <img
+                src={photo.url}
+                alt="La photo de ta publication"
+                onLoad={(e) => {
+                  const i = e.currentTarget
+                  if (i.naturalWidth && i.naturalHeight) setRatioPhoto(i.naturalWidth / i.naturalHeight)
+                }}
+                className={`block w-full object-cover ${cadre.h ? 'h-full' : 'max-h-[360px]'}`}
+              />
+              <div data-pas-envol className="absolute right-2 top-2 flex gap-2">
+                <button onClick={() => { tap(); setDecorer(new File([photo.blob], 'photo.jpg', { type: 'image/jpeg' })) }} aria-label="Décorer la photo" className={`presse verre flex h-11 items-center justify-center gap-1.5 rounded-full text-sous font-semibold text-encre ${etroite ? 'w-11' : 'px-3.5'}`}>
+                  <Sparkles size={16} strokeWidth={2.4} /> {!etroite && 'Décorer'}
+                </button>
+                <button onClick={() => { tap(); setPhoto(null) }} className="presse verre flex h-11 w-11 items-center justify-center rounded-full text-encre" aria-label="Retirer la photo">
+                  <X size={19} />
+                </button>
+              </div>
+            </div>
+          )}
+          {sticker && (
+            <div className="px-4 pb-4">
+              <div className="anim-pop relative inline-block">
+                <StickerImg cle={sticker} className="block h-[120px] w-[120px] object-contain" />
+                <button data-pas-envol onClick={() => { tap(); setSticker(null) }} className="presse absolute -right-2 -top-2 flex h-9 w-9 items-center justify-center rounded-full bg-carte text-encre shadow-carte" aria-label="Retirer le sticker">
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {tiroir && !album && (
           <div className="mt-3 [&>div]:!mt-0">
@@ -1240,17 +1358,6 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onClose 
             />
           </div>
         )}
-
-        {/* ajouter à la publication */}
-        <div className={`rounded-[20px] bg-carte p-1.5 shadow-carte ${joint ? 'mt-3' : 'mt-4'}`}>
-          {!joint && <p className="px-2.5 pb-1 pt-1.5 text-note font-semibold text-brume">Ajouter à ta publication</p>}
-          <div className={`grid gap-1 ${['p', videoPossible && 'v', !album && 's', !album && 'q'].filter(Boolean).length === 4 ? 'grid-cols-4' : ['p', videoPossible && 'v', !album && 's', !album && 'q'].filter(Boolean).length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
-            <Ajouter icone={<Images size={21} strokeWidth={2.2} className="text-teinte" />} label="Photo" actif={!!photo} onClick={() => void choisirPhoto()} />
-            {videoPossible && <Ajouter icone={<Video size={22} strokeWidth={2.2} className="text-teinte" />} label="Vidéo" actif={!!video} onClick={() => void choisirVideo()} />}
-            {!album && <Ajouter icone={<Smile size={21} strokeWidth={2.2} className="text-teinte" />} label="Sticker" actif={tiroir || !!sticker} onClick={() => { tap(); setTiroir(!tiroir) }} />}
-            {!album && !video && <Ajouter icone={<ChartNoAxesColumn size={20} strokeWidth={2.4} className="text-teinte" />} label="Sondage" onClick={() => { tap(); onSondage({ question: texte.trim(), photo: photo?.blob }) }} />}
-          </div>
-        </div>
       </Sheet>
       {vid.coupe && <CoupeVideo {...vid.coupe} />}
       {decorer && (
@@ -1274,14 +1381,13 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onClose 
   )
 }
 
-function Ajouter({ icone, label, actif = false, onClick }: { icone: ReactNode; label: string; actif?: boolean; onClick: () => void }) {
-  return (
-    <button onClick={onClick} aria-pressed={actif} className={`presse flex min-h-[54px] flex-col items-center justify-center gap-1 rounded-[16px] text-note font-semibold ${actif ? 'bg-teinte-doux text-teinte-fonce' : 'text-encre'}`}>
-      {icone}
-      {label}
-    </button>
-  )
-}
+/** Des débuts de phrase pour se lancer, quand la page est blanche. */
+const IDEES: { label: string; debut: string; icone: ReactNode }[] = [
+  { label: 'Notre journée', debut: 'Aujourd’hui, ', icone: <Sun size={15} strokeWidth={2.4} /> },
+  { label: 'Au menu', debut: 'Au menu ce soir : ', icone: <UtensilsCrossed size={14} strokeWidth={2.4} /> },
+  { label: 'Bonne nouvelle', debut: 'Bonne nouvelle : ', icone: <PartyPopper size={15} strokeWidth={2.4} /> },
+  { label: 'Un merci', debut: 'Merci à ', icone: <Heart size={14} strokeWidth={2.4} /> },
+]
 
 // ═════════════════════════ Une photo en grand ═════════════════════════
 

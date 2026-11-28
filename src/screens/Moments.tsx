@@ -1,6 +1,7 @@
 import { ChartNoAxesColumn, Check, ImagePlus, Pause, Play, Plus, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Avatar, Btn, Sheet, useHauteurQuiTient } from '../components/ui'
+import { Avatar, Btn, choisir, clavierRange, Sheet, useHauteurQuiTient } from '../components/ui'
+import { prendrePhoto } from '../components/appareil'
 import { compressImage } from '../lib/util'
 import { select, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
@@ -349,6 +350,17 @@ export function SondageCompose({ question0 = '', photo0, onClose, envoyer }: { q
       toast('Cette photo ne s’ouvre pas. Essaie une autre.', 'err')
     }
   }
+  // comme dans une publication : le clavier se range d'abord (plus de flash), puis l'appareil ou la photothèque
+  const ajouterPhoto = async () => {
+    tap()
+    await clavierRange()
+    const i = await choisir({ title: 'Une photo', actions: [{ label: 'Prendre une photo' }, { label: 'Choisir dans la photothèque' }] })
+    if (i === 1) return fichier.current?.click()
+    if (i !== 0) return
+    const r = await prendrePhoto({ titre: 'Une photo pour le sondage', galerie: true })
+    if (r instanceof File) void poserPhoto(r)
+    else if (r === 'galerie' || r === 'natif') fichier.current?.click()
+  }
   const publier = async () => {
     if (manque || loading) return
     setLoading(true)
@@ -402,7 +414,7 @@ export function SondageCompose({ question0 = '', photo0, onClose, envoyer }: { q
             )}
           </div>
         ) : (
-          <button onClick={() => { tap(); fichier.current?.click() }} className="presse mt-3 flex min-h-11 items-center gap-2 rounded-full bg-teinte-doux py-2 pl-3 pr-4 text-sous font-semibold text-teinte-fonce">
+          <button onPointerDown={(e) => e.preventDefault()} onClick={() => void ajouterPhoto()} className="presse mt-3 flex min-h-11 items-center gap-2 rounded-full bg-teinte-doux py-2 pl-3 pr-4 text-sous font-semibold text-teinte-fonce">
             <ImagePlus size={18} strokeWidth={2.4} /> Ajouter une photo
           </button>
         )}
