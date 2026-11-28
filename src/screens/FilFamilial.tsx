@@ -10,7 +10,7 @@ import { FolderCover } from '../components/folder'
 import { photoBlob } from '../components/folderSouvenirs'
 import { PhotoEditeur } from '../components/photoEditeur'
 import { StickerImg, StickerTray } from '../components/stickers'
-import { Art, Avatar, Btn, choisir, confirmer, Rond, Screen, SearchField, Sheet } from '../components/ui'
+import { Art, Avatar, Btn, choisir, confirmer, Rond, Screen, SearchField, Sheet, useHauteurQuiTient } from '../components/ui'
 import { QuiAReagi, ReactionImg, ToutesReactions } from '../components/reactions'
 import { ApercuVideo, CoupeVideo, useVideoAPreparer, VideoDuFil } from '../components/videos'
 import { VIDEO_FIL_MAX_S } from '../lib/video'
@@ -1046,12 +1046,17 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onClose 
     else window.setTimeout(() => zone.current?.focus(), 350)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => void (photo && URL.revokeObjectURL(photo.url)), [photo])
+  // avec une photo, une vidéo ou un sticker : texte plus court et barre d'ajout compacte, pour que tout tienne
+  const joint = !!(photo || video || sticker)
+  const [ratioPhoto, setRatioPhoto] = useState(4 / 3)
+  const cadre = useHauteurQuiTient(!!photo && !tiroir, ratioPhoto, 170, [joint, album?.id])
+  const etroite = !!cadre.h && cadre.h * ratioPhoto < 240
   useEffect(() => {
     const z = zone.current
     if (!z) return
     z.style.height = 'auto'
-    z.style.height = `${Math.max(96, Math.min(z.scrollHeight, 240))}px`
-  }, [texte])
+    z.style.height = `${Math.max(joint ? 52 : 96, Math.min(z.scrollHeight, joint ? 120 : 240))}px`
+  }, [texte, joint])
 
   const choisirPhoto = async () => {
     tap()
@@ -1186,11 +1191,23 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onClose 
         {video && <ApercuVideo v={video} onRetirer={vid.retirer} onCouper={vid.recouper} />}
         {videoBloquee && <p className="mt-2 rounded-[14px] bg-peche-doux px-3 py-2 text-note text-peche-fonce">Les vidéos arrivent bientôt dans le fil. En attendant, choisis un album pour la partager.</p>}
         {photo && (
-          <div className="relative mt-2 overflow-hidden rounded-[20px] bg-remplissage">
-            <img src={photo.url} alt="La photo de ta publication" className="block max-h-[360px] w-full object-cover" />
+          <div
+            ref={cadre.ref}
+            className="relative mx-auto mt-2 overflow-hidden rounded-[20px] bg-remplissage"
+            style={cadre.h ? { height: cadre.h, width: `min(100%, ${Math.round(cadre.h * ratioPhoto)}px)` } : undefined}
+          >
+            <img
+              src={photo.url}
+              alt="La photo de ta publication"
+              onLoad={(e) => {
+                const i = e.currentTarget
+                if (i.naturalWidth && i.naturalHeight) setRatioPhoto(i.naturalWidth / i.naturalHeight)
+              }}
+              className={`block w-full object-cover ${cadre.h ? 'h-full' : 'max-h-[360px]'}`}
+            />
             <div className="absolute right-2 top-2 flex gap-2">
-              <button onClick={() => { tap(); setDecorer(new File([photo.blob], 'photo.jpg', { type: 'image/jpeg' })) }} className="presse verre flex h-11 items-center gap-1.5 rounded-full px-3.5 text-sous font-semibold text-encre">
-                <Sparkles size={16} strokeWidth={2.4} /> Décorer
+              <button onClick={() => { tap(); setDecorer(new File([photo.blob], 'photo.jpg', { type: 'image/jpeg' })) }} aria-label="Décorer la photo" className={`presse verre flex h-11 items-center justify-center gap-1.5 rounded-full text-sous font-semibold text-encre ${etroite ? 'w-11' : 'px-3.5'}`}>
+                <Sparkles size={16} strokeWidth={2.4} /> {!etroite && 'Décorer'}
               </button>
               <button onClick={() => { tap(); setPhoto(null) }} className="presse verre flex h-11 w-11 items-center justify-center rounded-full text-encre" aria-label="Retirer la photo">
                 <X size={19} />
@@ -1223,8 +1240,8 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onClose 
         )}
 
         {/* ajouter à la publication */}
-        <div className="mt-4 rounded-[20px] bg-carte p-1.5 shadow-carte">
-          <p className="px-2.5 pb-1 pt-1.5 text-note font-semibold text-brume">Ajouter à ta publication</p>
+        <div className={`rounded-[20px] bg-carte p-1.5 shadow-carte ${joint ? 'mt-3' : 'mt-4'}`}>
+          {!joint && <p className="px-2.5 pb-1 pt-1.5 text-note font-semibold text-brume">Ajouter à ta publication</p>}
           <div className={`grid gap-1 ${['p', videoPossible && 'v', !album && 's', !album && 'q'].filter(Boolean).length === 4 ? 'grid-cols-4' : ['p', videoPossible && 'v', !album && 's', !album && 'q'].filter(Boolean).length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
             <Ajouter icone={<Images size={21} strokeWidth={2.2} className="text-vert-fonce" />} label="Photo" actif={!!photo} onClick={() => void choisirPhoto()} />
             {videoPossible && <Ajouter icone={<Video size={22} strokeWidth={2.2} className="text-rouge" />} label="Vidéo" actif={!!video} onClick={() => void choisirVideo()} />}
@@ -1257,7 +1274,7 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onClose 
 
 function Ajouter({ icone, label, actif = false, onClick }: { icone: ReactNode; label: string; actif?: boolean; onClick: () => void }) {
   return (
-    <button onClick={onClick} aria-pressed={actif} className={`presse flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-[16px] text-note font-semibold ${actif ? 'bg-teinte-doux text-teinte-fonce' : 'text-encre'}`}>
+    <button onClick={onClick} aria-pressed={actif} className={`presse flex min-h-[54px] flex-col items-center justify-center gap-1 rounded-[16px] text-note font-semibold ${actif ? 'bg-teinte-doux text-teinte-fonce' : 'text-encre'}`}>
       {icone}
       {label}
     </button>

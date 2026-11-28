@@ -640,3 +640,31 @@ export function ChampRequis({ id, label, aide, children, className = '', compact
 }
 /** Le style du champ texte dans un ChampRequis. */
 export const CHAMP_REQUIS = 'h-[52px] w-full bg-transparent px-4 text-corps text-encre outline-none placeholder:text-brume'
+
+/** Hauteur d'un média pour que toute la feuille tienne sans défiler : on mesure la place libre
+ *  dans la zone qui défile et on donne au média ce qui reste (entre `min` et sa taille naturelle). */
+export function useHauteurQuiTient(actif: boolean, ratio: number, min = 160, deps: unknown[] = []) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [h, setH] = useState<number | null>(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    const boite = el?.closest('.overflow-y-auto') as HTMLElement | null
+    const contenu = boite?.firstElementChild as HTMLElement | null
+    if (!actif || !el || !boite || !contenu) return setH(null)
+    const ajuster = () => {
+      const cs = getComputedStyle(boite)
+      const dispo = boite.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)
+      const reste = contenu.offsetHeight - el.offsetHeight
+      const largeur = boite.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
+      const v = Math.floor(Math.max(min, Math.min(dispo - reste, largeur / ratio)))
+      setH((x) => (x !== null && Math.abs(x - v) < 2 ? x : v))
+    }
+    ajuster()
+    const ro = new ResizeObserver(ajuster)
+    ro.observe(boite)
+    ro.observe(contenu)
+    return () => ro.disconnect()
+  }, [actif, ratio, min, ...deps]) // eslint-disable-line react-hooks/exhaustive-deps
+  return { ref, h }
+}
+

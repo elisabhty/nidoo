@@ -1,5 +1,5 @@
-import { AlignLeft, Cake, CalendarClock, CalendarDays, CalendarPlus, Camera, Check, Plus, ChevronDown, ChevronRight, Clock, X, Images, MapPin, Navigation, PenLine, Repeat, Share, Sticker as StickerIcon, Timer, Trash2, Undo2, Users } from 'lucide-react'
-import { forwardRef, memo, useEffect, useMemo, useRef, useState } from 'react'
+import { AlignLeft, Cake, CalendarClock, CalendarDays, CalendarPlus, Camera, Check, Plus, ChevronDown, ChevronRight, Clock, X, Frame, Images, MapPin, Navigation, PenLine, Repeat, Share, SlidersHorizontal, Sticker as StickerIcon, Timer, Trash2, Undo2, Users } from 'lucide-react'
+import { forwardRef, memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { rebond } from '../lib/rebond'
 import { moodOf, MOODS, THOUGHTS, thoughtOf } from '../lib/data'
 import { Smiley } from './Smiley'
@@ -119,6 +119,29 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
   // la feuille des stickers : 1000 de large, la hauteur suit la photo
   const SW = 1000
   const SH = Math.round(SW / ratio)
+  // Tout tient dans la feuille, sans défiler (Elisa, 28 novembre : « tout doit tenir dans une page ») : la photo prend la
+  // hauteur qui reste une fois placés le défi, les outils et la légende ; le bouton d'envoi reste en bas de la feuille.
+  const cadrePhoto = useRef<HTMLDivElement>(null)
+  const [hPhoto, setHPhoto] = useState<number | null>(null)
+  useLayoutEffect(() => {
+    const el = cadrePhoto.current
+    const boite = el?.closest('.overflow-y-auto') as HTMLElement | null
+    const contenu = boite?.firstElementChild as HTMLElement | null
+    if (!preview || !el || !boite || !contenu) return
+    const ajuster = () => {
+      const cs = getComputedStyle(boite)
+      const dispo = boite.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)
+      const reste = contenu.offsetHeight - el.offsetHeight
+      const largeur = boite.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
+      const h = Math.floor(Math.max(tray ? 130 : 170, Math.min(dispo - reste, largeur / ratio)))
+      setHPhoto((x) => (x !== null && Math.abs(x - h) < 2 ? x : h))
+    }
+    ajuster()
+    const ro = new ResizeObserver(ajuster)
+    ro.observe(boite)
+    ro.observe(contenu)
+    return () => ro.disconnect()
+  }, [preview, ratio, tray])
 
   const pick = async (file: File | undefined) => {
     if (!file) return
@@ -186,7 +209,18 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
   }
 
   return (
-    <Sheet title={challenge ? 'Défi photo' : startWith === 'mot' ? 'Petit mot' : 'Photo surprise'} onClose={onClose}>
+    <Sheet
+      title={challenge ? 'Défi photo' : startWith === 'mot' ? 'Petit mot' : 'Photo surprise'}
+      onClose={onClose}
+      tall={!!preview}
+      footer={
+        preview ? (
+          <Btn onClick={send} disabled={busy || !orig}>
+            {busy ? 'Envoi…' : challenge && !dejaFait ? 'Relever le défi' : 'Envoyer à la famille'}
+          </Btn>
+        ) : undefined
+      }
+    >
       {challenge && !preview && (
         <div className="relative overflow-hidden rounded-[26px] bg-gradient-to-br from-[#FFE9DC] via-[#FFE2E4] to-[#F1E4FF] px-5 pb-5 pt-4 text-center">
           <div className="flex items-center justify-between">
@@ -220,9 +254,9 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
           )}
         </div>
       )}
-      {challenge && preview && (
-        <div className="mb-3 flex items-center gap-2 rounded-full bg-peche-doux py-1.5 pl-1.5 pr-4">
-          <Art name="picto-photo" size={30} />
+      {challenge && preview && !tray && (
+        <div className="mb-2.5 flex items-center gap-2 rounded-full bg-peche-doux py-1 pl-1 pr-4">
+          <Art name="picto-photo" size={28} />
           <p className="min-w-0 flex-1 truncate text-sous font-semibold">{challenge}</p>
         </div>
       )}
@@ -232,8 +266,9 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
       {preview ? (
         <>
           <div
+            ref={cadrePhoto}
             className="relative mx-auto overflow-hidden rounded-groupe bg-remplissage"
-            style={{ aspectRatio: `${ratio}`, width: `min(100%, calc(46vh * ${ratio}))` }}
+            style={hPhoto ? { height: hPhoto, width: Math.round(hPhoto * ratio) } : { aspectRatio: `${ratio}`, width: `min(100%, calc(40vh * ${ratio}))` }}
             onPointerDown={() => {
               setSel(null)
               setTray(false)
@@ -270,18 +305,36 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
               <Trash2 size={17} />
             </button>
           </div>
-          <div className="mt-3 flex items-center gap-2">
-            <button
-              onClick={() => {
-                select()
-                setTray(!tray)
-                setSel(null)
-              }}
-              aria-pressed={tray}
-              className={`presse flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full text-sous font-semibold shadow-carte transition-colors ${tray ? 'bg-teinte text-white' : 'bg-carte text-teinte'}`}
-            >
-              <StickerIcon size={17} strokeWidth={2.3} /> Ajouter des stickers
-            </button>
+          {/* les outils, sur une seule rangée : filtres, cadres, stickers ; puis leurs choix */}
+          <div className="mt-2.5 flex items-center gap-1.5" role="group" aria-label="Décorer la photo">
+            {(
+              [
+                ['filtres', 'Filtres', <SlidersHorizontal key="f" size={16} strokeWidth={2.4} />],
+                ['cadres', 'Cadres', <Frame key="c" size={16} strokeWidth={2.4} />],
+                ['stickers', 'Stickers', <StickerIcon key="s" size={16} strokeWidth={2.4} />],
+              ] as const
+            ).map(([k, label, icone]) => {
+              const on = k === 'stickers' ? tray : !tray && onglet === k
+              return (
+                <button
+                  key={k}
+                  onClick={() => {
+                    select()
+                    setSel(null)
+                    if (k === 'stickers') setTray(!tray)
+                    else {
+                      setTray(false)
+                      setOnglet(k)
+                    }
+                  }}
+                  aria-pressed={on}
+                  className={`presse flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full text-sous font-semibold transition-colors ${on ? 'bg-teinte text-white' : 'bg-carte text-encre shadow-carte'}`}
+                >
+                  {icone}
+                  <span className="truncate">{label}</span>
+                </button>
+              )
+            })}
             <button
               onClick={() => {
                 const h = hist.current.pop()
@@ -290,39 +343,34 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
                 setHistN(hist.current.length)
               }}
               disabled={!hist.current.length}
-              className="presse flex h-10 w-10 items-center justify-center rounded-full bg-carte text-encre shadow-carte disabled:opacity-35"
-              aria-label="Annuler"
+              className="presse flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-carte text-encre shadow-carte disabled:opacity-35"
+              aria-label="Annuler le dernier sticker"
             >
               <Undo2 size={17} strokeWidth={2.4} />
             </button>
           </div>
           {tray ? (
-            <StickerTray onPick={addSticker} onClose={() => setTray(false)} />
+            <StickerTray onPick={addSticker} onClose={() => setTray(false)} hauteurGrille={124} />
+          ) : onglet === 'filtres' ? (
+            <FilterRow f={f} setF={(k) => void filtrer(k)} vignettes={vignettes} />
           ) : (
-            <div className="mt-3">
-              <div className="mb-1.5 flex gap-1.5 px-1">
-                {(
-                  [
-                    ['filtres', 'Filtres'],
-                    ['cadres', 'Cadres'],
-                  ] as const
-                ).map(([k, label]) => (
-                  <button
-                    key={k}
-                    onClick={() => {
-                      select()
-                      setOnglet(k)
-                    }}
-                    aria-pressed={onglet === k}
-                    className={`min-h-11 rounded-full px-3.5 text-note font-semibold transition-colors ${onglet === k ? 'bg-teinte text-white' : 'bg-remplissage text-encre'}`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              {onglet === 'filtres' ? <FilterRow f={f} setF={(k) => void filtrer(k)} vignettes={vignettes} /> : <CadreRow fr={fr} setFr={setFr} vignettes={vCadres} />}
-            </div>
+            <CadreRow fr={fr} setFr={setFr} vignettes={vCadres} />
           )}
+          {/* la légende s'efface le temps de choisir des stickers : la photo garde sa place */}
+          {!tray && <input
+            className="champ mt-1.5 !py-[11px]"
+            maxLength={280}
+            placeholder={challenge ? 'Ajoute une légende (facultatif)' : 'Ajoute une légende'}
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            enterKeyHint="done"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                e.currentTarget.blur()
+              }
+            }}
+          />}
         </>
       ) : challenge ? (
         <>
@@ -366,19 +414,19 @@ export function ComposeSheet({ onClose, challenge, startWith = 'photo' }: { onCl
         </>
       )}
       {/* la légende de la photo, ou le petit mot (pas pour le défi : une photo, rien d'autre) */}
-      {(!challenge || preview) && (
+      {!challenge && !preview && (
         <>
           <textarea
-            className="champ mt-3 resize-none !bg-carte"
-            rows={preview ? 2 : 3}
+            className="champ mt-3 resize-none"
+            rows={3}
             maxLength={280}
-            placeholder={preview ? (challenge ? 'Ajoute une légende (facultatif)' : 'Ajouter une légende') : 'Ou écris juste un petit mot à toute la famille'}
+            placeholder="Ou écris juste un petit mot à toute la famille"
             value={body}
             onChange={(e) => setBody(e.target.value)}
             autoFocus={startWith === 'mot'}
           />
-          <Btn className="mt-3" onClick={send} disabled={busy || (challenge ? !orig : !orig && !body.trim())}>
-            {busy ? 'Envoi…' : challenge && preview && !dejaFait ? 'Relever le défi' : 'Envoyer à la famille'}
+          <Btn className="mt-3" onClick={send} disabled={busy || !body.trim()}>
+            {busy ? 'Envoi…' : 'Envoyer à la famille'}
           </Btn>
         </>
       )}

@@ -244,7 +244,7 @@ export function StickerImg({ cle, className, style }: { cle: string; className?:
 
 // ═════════════════════════ La planche de stickers ═════════════════════════
 
-export function StickerTray({ onPick, onClose, start }: { onPick: (key: string, t?: string, c?: number) => void; onClose: () => void; start?: string }) {
+export function StickerTray({ onPick, onClose, start, hauteurGrille = 200 }: { onPick: (key: string, t?: string, c?: number) => void; onClose: () => void; start?: string; /** la hauteur des stickers (ils défilent dedans) : plus petite là où tout doit tenir dans l'écran */ hauteurGrille?: number }) {
   const [cat, setCat] = useState(start ?? CATS[0].key)
   const [, bump] = useState(0)
   const piles = useRef<HTMLDivElement>(null)
@@ -352,7 +352,7 @@ export function StickerTray({ onPick, onClose, start }: { onPick: (key: string, 
           )}
         </div>
       )}
-      <div className={`mt-2 grid ${mots ? 'grid-cols-3' : 'grid-cols-5'} max-h-[200px] gap-1.5 overflow-y-auto`}>
+      <div className={`no-bar mt-2 grid ${mots ? 'grid-cols-3' : 'grid-cols-5'} gap-1.5 overflow-y-auto`} style={{ maxHeight: hauteurGrille }}>
         {items.map((key) => {
           const url = stickerImgUrl(key)
           if (!url) stickerSrc(key, () => bump((n) => n + 1))
