@@ -316,12 +316,30 @@ export function SondageCompose({ question0 = '', photo0, onClose, envoyer }: { q
     liste.current?.querySelectorAll<HTMLInputElement>('input')[i]?.focus()
   }
   const reponse = (i: number) => liste.current?.querySelectorAll<HTMLInputElement>('input')[i]
+  // la zone qui défile de la feuille : après « Ajouter une réponse », on descend tout en bas pour voir la nouvelle ligne
+  const enBas = () => {
+    const boite = liste.current?.closest('.overflow-y-auto')
+    boite?.scrollTo({ top: boite.scrollHeight, behavior: 'smooth' })
+  }
   const ajouter = () => {
     if (options.length >= 6) return
     tap()
+    const n = options.length
     setOptions((x) => [...x, ''])
-    window.setTimeout(() => reponse(options.length)?.focus(), 30)
+    // le clavier reste ouvert (pas de flash) : on passe le curseur à la nouvelle réponse sans laisser iOS faire défiler
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      reponse(n)?.focus({ preventScroll: true })
+      enBas()
+    }))
   }
+  // la photo passe en vignette quand la place manque (clavier ouvert, petit écran) ; un peu de marge avant de
+  // repasser en grand, pour qu'elle ne saute pas d'une taille à l'autre à chaque réponse ajoutée
+  const [vignette, setVignette] = useState(false)
+  useEffect(() => {
+    if (cadre.h == null) return
+    if (cadre.h < 130) setVignette(true)
+    else if (cadre.h >= 170) setVignette(false)
+  }, [cadre.h])
   const poserPhoto = async (f?: File) => {
     if (!f) return
     try {
@@ -368,7 +386,7 @@ export function SondageCompose({ question0 = '', photo0, onClose, envoyer }: { q
         {photo ? (
           // la place qui reste décide : grande photo, ou (petit écran) une vignette, pour que tout tienne
           <div ref={cadre.ref} className="mt-3">
-            {cadre.h && cadre.h >= 130 ? (
+            {cadre.h && !vignette ? (
               <div className="relative mx-auto overflow-hidden rounded-[16px] bg-remplissage" style={{ height: cadre.h, width: `min(100%, ${Math.round(cadre.h * ratio)}px)` }}>
                 <img src={photo.url} alt="La photo du sondage" onLoad={(e) => { const i = e.currentTarget; if (i.naturalWidth && i.naturalHeight) setRatio(i.naturalWidth / i.naturalHeight) }} className="block h-full w-full object-cover" />
                 <button onClick={() => { tap(); setPhoto(null) }} aria-label="Retirer la photo" className="presse verre absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full text-encre">
@@ -401,6 +419,7 @@ export function SondageCompose({ question0 = '', photo0, onClose, envoyer }: { q
               maxLength={80}
               enterKeyHint={i === options.length - 1 && options.length >= 2 ? 'done' : 'next'}
               onChange={(e) => setOptions((x) => x.map((v, j) => (j === i ? e.target.value : v)))}
+              onFocus={(e) => { const el = e.currentTarget; window.setTimeout(() => el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 320) }}
               onKeyDown={(e) => {
                 if (e.key !== 'Enter') return
                 e.preventDefault()
@@ -411,20 +430,20 @@ export function SondageCompose({ question0 = '', photo0, onClose, envoyer }: { q
               className="min-h-[50px] min-w-0 flex-1 bg-transparent text-corps text-encre outline-none placeholder:text-brume/80"
             />
             {options.length > 2 && (
-              <button aria-label={`Retirer la réponse ${i + 1}`} onClick={() => { tap(); setOptions((x) => x.filter((_, j) => j !== i)) }} className="presse flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-brume">
+              <button aria-label={`Retirer la réponse ${i + 1}`} onPointerDown={(e) => e.preventDefault()} onClick={() => { tap(); setOptions((x) => x.filter((_, j) => j !== i)) }} className="presse flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-brume">
                 <X size={18} />
               </button>
             )}
           </div>
         ))}
         {options.length < 6 && (
-          <button onClick={ajouter} className="presse flex min-h-[50px] w-full items-center gap-3 rounded-[16px] border-[1.5px] border-dashed border-teinte/30 pl-[15px] text-corps font-semibold text-teinte-fonce">
+          <button onPointerDown={(e) => e.preventDefault()} onClick={ajouter} className="presse flex min-h-[50px] w-full items-center gap-3 rounded-[16px] border-[1.5px] border-dashed border-teinte/30 pl-[15px] text-corps font-semibold text-teinte-fonce">
             <Plus size={19} strokeWidth={2.6} /> Ajouter une réponse
           </button>
         )}
       </div>
       {/* la petite aide s'efface quand la place manque (petit écran avec une photo) */}
-      {(doublon || !photo || (cadre.h ?? 0) >= 130) && (
+      {(doublon || !photo || (!!cadre.h && !vignette)) && (
         <p className={`mt-3 text-center text-note ${doublon ? 'font-semibold text-teinte-fonce' : 'text-brume'}`}>
           {doublon ? 'Deux réponses sont identiques.' : 'Chacun vote une fois et peut changer d’avis.'}
         </p>
