@@ -1035,20 +1035,20 @@ export function EventSheet({ onClose, day, kind: kind0 = 'evenement', event }: {
           </button>
         ) : (
           // tous les raccourcis se voient en entier (Noël, le réveillon…), sur deux lignes s'il le faut ;
-          // une autre date choisie vient en tête, en violet
+          // une autre date choisie vient au bout, en violet : les raccourcis ne bougent jamais sous le doigt
           <div className="flex flex-wrap gap-2" role="group" aria-label="Raccourcis de date">
-            {!surRaccourci && (
-              <button key={date} type="button" onClick={() => (tap(), setCalendrier('date'))} aria-label={`Changer la date : ${dateCourte(date)}`} className={`${puce(true)} flex items-center gap-1.5`} data-on="true">
-                <CalendarDays size={15} strokeWidth={2.4} />
-                {dateCourte(date)}
-              </button>
-            )}
             {jours.map((j) => (
               <button key={j.v} type="button" aria-pressed={date === j.v} onClick={() => choisirJour(j)} className={puce(date === j.v)}>
                 {j.label}
                 {j.detail && <span className={`ml-1.5 font-medium ${date === j.v ? 'text-white/80' : 'text-brume'}`}>{j.detail}</span>}
               </button>
             ))}
+            {!surRaccourci && (
+              <button key={date} type="button" onClick={() => (tap(), setCalendrier('date'))} aria-label={`Changer la date : ${dateCourte(date)}`} className={`${puce(true)} flex items-center gap-1.5`} data-on="true">
+                <CalendarDays size={15} strokeWidth={2.4} />
+                {dateCourte(date)}
+              </button>
+            )}
           </div>
         )}
         {birthday ? (

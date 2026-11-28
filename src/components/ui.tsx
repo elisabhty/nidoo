@@ -237,7 +237,20 @@ export function Sheet({ title, onClose, children, tall = false, footer, cacherBa
     setDy(0)
   }
   return (
-    <div ref={root} className={`absolute inset-0 z-40 flex flex-col justify-end ${ferme ? 'pointer-events-none' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
+    <div
+      ref={root}
+      className={`absolute inset-0 z-40 flex flex-col justify-end ${ferme ? 'pointer-events-none' : ''}`}
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      // choisir une puce (Aujourd'hui, Demain, une heure, une humeur…) pendant qu'on écrit ne ferme plus le clavier :
+      // sinon la feuille se redimensionne sous le doigt et tout saute (Elisa, 28 nov. : « les badges, ça saute »)
+      onPointerDownCapture={(e) => {
+        const champ = document.activeElement
+        if (!(champ instanceof HTMLElement) || !champ.matches('input, textarea')) return
+        if ((e.target as Element).closest?.('button[aria-pressed], [role="switch"], [data-garde-clavier]')) e.preventDefault()
+      }}
+    >
       <button className="anim-fondu absolute inset-0 bg-black/30" style={{ opacity: ferme ? 0 : Math.max(0.3, 1 - dy / 400), transition: ferme ? 'opacity 0.3s ease-out' : undefined }} onClick={onClose} aria-label="Fermer" />
       <div
         ref={panel}
