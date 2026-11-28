@@ -95,6 +95,10 @@ const MOVES: Record<string, string> = {
   nostalgique: 'oscille 6s ease-in-out infinite',
   stresse: 'oscille 0.9s ease-in-out infinite',
   triste: 'respire 5s ease-in-out infinite',
+  chagrin: 'respire 5s ease-in-out infinite',
+  malade: 'oscille 5s ease-in-out infinite',
+  bof: 'respire 4s ease-in-out infinite',
+  agace: 'oscille 1.2s ease-in-out infinite',
 }
 
 const LEAVES = ['#E8833A', '#D9572B', '#F2B33D', '#B5532A', '#E9A23B']

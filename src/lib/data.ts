@@ -4,13 +4,19 @@ import type { HouseType, ThoughtKind } from './types'
 export const MOODS: { key: string; label: string; color: string }[] = [
   { key: 'heureux', label: 'Au top', color: '#F5B700' },
   { key: 'serein', label: 'Zen', color: '#12A594' },
-  { key: 'motive', label: 'Plein d’énergie', color: '#F76B15' },
+  { key: 'motive', label: 'Enthousiaste', color: '#F76B15' },
   { key: 'fete', label: 'En joie', color: '#D6409F' },
-  { key: 'fatigue', label: 'Fatigue', color: '#8E8AA6' },
-  { key: 'stresse', label: 'Stress', color: '#E5484D' },
   { key: 'nostalgique', label: 'Un brin nostalgique', color: '#6E56CF' },
+  { key: 'bof', label: 'Bof', color: '#9A94A8' },
+  { key: 'fatigue', label: 'Fatigue', color: '#8E8AA6' },
+  { key: 'malade', label: 'Pas en forme', color: '#6FA36B' },
+  { key: 'stresse', label: 'Stress', color: '#E5484D' },
+  { key: 'agace', label: 'Agacé', color: '#EF7D3C' },
   { key: 'triste', label: 'Coup de mou', color: '#3E9BE9' },
+  { key: 'chagrin', label: 'Triste', color: '#4F7BD9' },
 ]
+/** Pour la figurine de la maison, qui n'a que les huit premiers visages : la plus proche des nouvelles humeurs. */
+export const VISAGE_PROCHE: Record<string, string> = { malade: 'fatigue', agace: 'stresse', chagrin: 'triste' }
 export const moodOf = (key: string | null) => MOODS.find((m) => m.key === key) ?? null
 
 export const AVATARS: { key: string; label: string }[] = [

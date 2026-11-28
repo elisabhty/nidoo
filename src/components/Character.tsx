@@ -1,3 +1,4 @@
+import { VISAGE_PROCHE } from '../lib/data'
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
 import { ACCESSORIES, echelleCarrure, encodeLook, EYES, HAIR_COLORS, HAIRSTYLES, porteA, SKINS, TOPS, type Look } from '../lib/look'
 import { COULEURS_MONTURE, FORMES_LUNETTES, LUNETTES_IMG } from '../lib/lunettes'
@@ -392,7 +393,8 @@ export function Character(props: Props) {
   )
 }
 
-function Figurine({ look, mood = null, bust = false, extras = false, className = '', pose, blush = false, recul = 1, onPret }: Props & { onPret?: () => void }) {
+function Figurine({ look, mood: humeur = null, bust = false, extras = false, className = '', pose, blush = false, recul = 1, onPret }: Props & { onPret?: () => void }) {
+  const mood = humeur ? VISAGE_PROCHE[humeur] ?? humeur : humeur
   attente = 0
   const p = persoOf(look)
   const src0 = usePersoSrc(p, look)
@@ -753,7 +755,7 @@ function body(age: number, top: string, skin: string, pose?: 'calin') {
 }
 
 export function CharacterSvg({
-  look, mood = null, bust = false, extras = false, size, className = '', blinkDelay = 0, still = false, pose, blush = false,
+  look, mood: humeur = null, bust = false, extras = false, size, className = '', blinkDelay = 0, still = false, pose, blush = false,
 }: {
   look: Look
   mood?: string | null
@@ -771,6 +773,7 @@ export function CharacterSvg({
   /** joues toutes roses (après un bisou) */
   blush?: boolean
 }) {
+  const mood = humeur ? VISAGE_PROCHE[humeur] ?? humeur : humeur
   const id = useId().replace(/:/g, '')
   const skin = SKINS[look.s]
   const skinD = shade(skin, -0.16)

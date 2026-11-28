@@ -2,7 +2,7 @@
 // (Elisa, 21 novembre : « remplace les emoji par ça »). Il se lit d'un coup d'œil dans la bulle au-dessus de chacun,
 // sur les pastilles et en grand pour choisir son humeur. Un smiley dessiné reste pour une humeur inconnue.
 
-const PANDAS = new Set(['heureux', 'serein', 'motive', 'fete', 'fatigue', 'stresse', 'nostalgique', 'triste'])
+const PANDAS = new Set(['heureux', 'serein', 'motive', 'fete', 'fatigue', 'stresse', 'nostalgique', 'triste', 'malade', 'bof', 'agace', 'chagrin'])
 
 const INK = '#5B3A1E'
 const MOUTH = '#7A3B1E'
