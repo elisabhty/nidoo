@@ -1,5 +1,5 @@
 // Les réactions du fil (Elisa, 27 novembre : « pouvoir mettre d'autres réactions »).
-// Cinq réactions du panda à portée de pouce (appui long sur J'aime), puis toutes les autres : d'autres têtes du panda,
+// Cinq réactions du panda à portée de pouce (bouton « Réagir »), puis toutes les autres : d'autres têtes du panda,
 // les émojis en feutrine de Nidoo, et n'importe quel émoji du clavier.
 // En base, une réaction tient en 8 caractères au plus (reactions.emoji) : les nôtres ont une clé courte, un émoji du
 // clavier est gardé tel quel.

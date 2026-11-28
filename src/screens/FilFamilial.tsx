@@ -2,7 +2,7 @@
 // souvenirs et le fil actuel »). En haut, « Quoi de neuf ? » pour publier (à toute la famille, ou dans un album) ;
 // puis les albums (les anciens Souvenirs) ; puis le fil : les publications, des plus récentes aux plus anciennes, avec
 // leurs réactions et leurs commentaires, et ce que chacun ajoute dans les albums qu'on partage avec lui.
-import { ArrowUp, BookOpen, Video, BookmarkCheck, BookmarkPlus, ChartNoAxesColumn, ChevronDown, ChevronRight, Ellipsis, Heart, Images, Lock, MessageCircle, Plus, Search, Smile, Sparkles, UsersRound, X } from 'lucide-react'
+import { ArrowUp, BookOpen, Video, BookmarkCheck, BookmarkPlus, ChartNoAxesColumn, ChevronDown, ChevronRight, Ellipsis, Heart, Images, Lock, MessageCircle, Plus, Search, Smile, SmilePlus, Sparkles, UsersRound, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { prendrePhoto } from '../components/appareil'
@@ -552,7 +552,6 @@ function Publication({ mo, coms, peutCommenter, onPhoto, onCommentaires, onNouve
   const options = async () => {
     tap()
     const actions: { label: string; destructive?: boolean; go: () => void }[] = [
-      { label: 'Réagir', go: onToutes },
       ...(gardable ? [{ label: 'Garder dans un album', go: () => void garder() }] : []),
       ...(mo.body && !sondage ? [{ label: 'Copier le texte', go: () => void navigator.clipboard?.writeText(mo.body!).then(() => toast('Texte copié')).catch(() => undefined) }] : []),
       ...(mien ? [{ label: 'Supprimer la publication', destructive: true, go: async () => {
@@ -649,7 +648,7 @@ function Publication({ mo, coms, peutCommenter, onPhoto, onCommentaires, onNouve
 
       {/* réagir, commenter, garder */}
       <div className={`relative mx-2 mt-2 grid border-t border-trait ${[true, peutCommenter, gardable].filter(Boolean).length === 3 ? 'grid-cols-3' : [true, peutCommenter, gardable].filter(Boolean).length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-        <BoutonReaction ma={ma} onTap={() => reagir(ma ? null : 'coeur')} onLong={() => { select(); setChoix(true) }} />
+        <BoutonReaction ma={ma} onOuvrir={() => { select(); setChoix(true) }} />
         {peutCommenter && (
           <button onClick={() => { tap(); onCommentaires(true) }} className="presse flex h-11 items-center justify-center gap-1.5 text-sous font-semibold text-brume">
             <MessageCircle size={19} strokeWidth={2.2} /> Commenter
@@ -693,44 +692,24 @@ function Publication({ mo, coms, peutCommenter, onPhoto, onCommentaires, onNouve
 
 const nomCourt = (members: Member[], id: string) => members.find((m) => m.id === id)?.display_name ?? 'Un proche'
 
-/** Toucher : J'aime (ou retirer sa réaction). Appuyer longtemps : choisir sa réaction (comme sur Facebook). */
-function BoutonReaction({ ma, onTap, onLong }: { ma?: string; onTap: () => void; onLong: () => void }) {
-  const minuteur = useRef<number | null>(null)
-  const long = useRef(false)
+/** « Réagir » en bas de la publication (Elisa, 28 nov.) : toucher ouvre les réactions, plus besoin de deviner
+ *  l'appui long. Une fois qu'on a réagi, le bouton montre sa réaction ; le retoucher permet d'en changer ou de la retirer. */
+function BoutonReaction({ ma, onOuvrir }: { ma?: string; onOuvrir: () => void }) {
   const r = reaction(ma)
-  const fin = () => {
-    if (minuteur.current) window.clearTimeout(minuteur.current)
-    minuteur.current = null
-  }
   return (
     <button
-      onPointerDown={() => {
-        long.current = false
-        fin()
-        minuteur.current = window.setTimeout(() => {
-          long.current = true
-          minuteur.current = null
-          onLong()
-        }, 430)
-      }}
-      onPointerUp={fin}
-      onPointerLeave={fin}
-      onPointerCancel={fin}
-      onContextMenu={(e) => e.preventDefault()}
-      onClick={() => {
-        if (long.current) return void (long.current = false)
-        onTap()
-      }}
-      aria-label={r ? `Ta réaction : ${r.emoji ?? r.label}. Toucher pour la retirer, appuyer longtemps pour en choisir une autre` : 'J’aime. Appuyer longtemps pour choisir une réaction'}
-      className={`presse flex h-11 select-none items-center justify-center gap-1.5 text-sous font-semibold [-webkit-touch-callout:none] ${r ? 'text-teinte-fonce' : 'text-brume'}`}
+      onClick={onOuvrir}
+      aria-haspopup="true"
+      aria-label={r ? `Ta réaction : ${r.emoji ?? r.label}. Toucher pour en changer ou la retirer` : 'Réagir'}
+      className={`presse flex h-11 select-none items-center justify-center gap-1.5 text-sous font-semibold ${r ? 'text-teinte-fonce' : 'text-brume'}`}
     >
-      {r ? <span key={r.cle} className="anim-pop flex"><ReactionImg r={r} size={21} /></span> : <Heart size={19} strokeWidth={2.2} />}
-      <span className="max-w-[92px] truncate">{r ? motDe(r) : 'J’aime'}</span>
+      {r ? <span key={r.cle} className="anim-pop flex"><ReactionImg r={r} size={21} /></span> : <SmilePlus size={19} strokeWidth={2.2} />}
+      <span className="max-w-[92px] truncate">{r ? motDe(r) : 'Réagir'}</span>
     </button>
   )
 }
 
-/** L'appui long sur J'aime : les cinq réactions du panda, la sienne si elle vient d'ailleurs, et « + » pour toutes les
+/** Ce qu'ouvre « Réagir » : les cinq réactions du panda, la sienne si elle vient d'ailleurs, et « + » pour toutes les
  *  autres. */
 function ChoixReaction({ ma, onChoix, onPlus, onClose }: { ma?: string; onChoix: (cle: string | null) => void; onPlus: () => void; onClose: () => void }) {
   const mienne = reaction(ma)
