@@ -488,15 +488,10 @@ function BandeAlbums({ onAlbum, onTout, onNouveau }: { onAlbum: (id: string) => 
           <span className="text-note font-bold leading-tight">{albums.length ? 'Nouvel album' : 'Créer un premier album'}</span>
         </button>
         {albums.map(({ f, s }) => {
-          const ids = membersOf(folderMembers, f.id)
           return (
-            <button key={f.id} onClick={() => { tap(); onAlbum(f.id) }} className="presse relative h-[156px] w-[118px] shrink-0 overflow-hidden rounded-[20px] text-left shadow-carte" aria-label={`${f.name}, ${whoText(ids, me.id, members)}`}>
+            <button key={f.id} onClick={() => { tap(); onAlbum(f.id) }} className="presse relative h-[156px] w-[118px] shrink-0 overflow-hidden rounded-[20px] text-left shadow-carte" aria-label={f.name}>
               <FolderCover folder={f} url={s.cover} size="md" />
               <span className={`absolute inset-x-0 bottom-0 h-[62%] ${s.cover ? 'bg-gradient-to-t from-black/65 via-black/25 to-transparent' : ''}`} />
-              <span className="verre absolute left-2 top-2 flex h-6 items-center gap-1 rounded-full px-2 text-mini font-bold text-encre">
-                {ids.length <= 1 ? <Lock size={11} strokeWidth={2.8} /> : <UsersRound size={12} strokeWidth={2.6} />}
-                {ids.length <= 1 ? 'Toi' : ids.length}
-              </span>
               <span className={`absolute inset-x-2.5 bottom-2.5 line-clamp-2 font-rond text-sous font-bold leading-tight ${s.cover ? 'text-white [text-shadow:0_1px_8px_rgba(0,0,0,0.3)]' : 'text-encre'}`}>{f.name}</span>
             </button>
           )
@@ -817,8 +812,7 @@ function ChoixReaction({ ma, onChoix, onPlus, onClose }: { ma?: string; onChoix:
 
 function AjoutAlbum({ a, onAlbum, onPhoto }: { a: Ajout; onAlbum: () => void; onPhoto: (url: string) => void }) {
   const { state } = useHome()
-  const { me, members, folderMembers } = state
-  const ids = membersOf(folderMembers, a.folder.root_id)
+  const { me } = state
   const photos = a.items.filter((i) => (i.kind === 'photo' || i.kind === 'dessin') && i.image_url)
   const autres = a.items.filter((i) => !(i.kind === 'photo' || i.kind === 'dessin'))
   const premier = autres[0]
@@ -832,10 +826,7 @@ function AjoutAlbum({ a, onAlbum, onPhoto }: { a: Ajout; onAlbum: () => void; on
           <p className="text-sous leading-snug">
             <b className="font-bold">{qui}</b> {phrase} <b className="font-bold">{a.folder.name}</b>
           </p>
-          <p className="mt-0.5 flex items-center gap-1 text-note text-brume">
-            {ago(a.at)} · {ids.length <= 1 ? <Lock size={12} strokeWidth={2.6} className="shrink-0" /> : <UsersRound size={13} strokeWidth={2.4} className="shrink-0" />}
-            <span className="truncate">{whoText(ids, me.id, members)}</span>
-          </p>
+          <p className="mt-0.5 text-note text-brume">{ago(a.at)}</p>
         </div>
       </header>
 
@@ -1059,8 +1050,6 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onDepart
   const { state, run, toast } = useHome()
   const { me, family, folders, folderMembers, members } = state
   const [texte, setTexte] = useState('')
-  // où : toute la famille (null), ou un album (et seulement ses membres)
-  const [ou, setOu] = useState<string | null>(null)
   const [photo, setPhoto] = useState<{ blob: Blob; url: string } | null>(null)
   const [sticker, setSticker] = useState<string | null>(null)
   const [tiroir, setTiroir] = useState(false)
@@ -1072,8 +1061,8 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onDepart
   const zone = useRef<HTMLTextAreaElement>(null)
   // la carte qu'on écrit est la publication telle que la famille la verra ; c'est elle qui s'envole dans le fil
   const carte = useRef<HTMLDivElement>(null)
-  const albums = folders.filter((f) => !f.parent_id)
-  const album = ou ? albums.find((f) => f.id === ou) ?? null : null
+  // tout le monde dans la famille voit tout (Elisa, 28 nov.) : une publication va toujours dans le fil
+  const album = null as Folder | null
   // une vidéo, préparée pendant qu'on écrit (1 minute au plus, comme dans le fil)
   const vid = useVideoAPreparer(VIDEO_FIL_MAX_S, (m) => toast(m, 'err'))
   const video = vid.video
@@ -1134,19 +1123,6 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onDepart
     if (i === 0) filmerInput.current?.click()
     else if (i === 1) videoInput.current?.click()
   }
-  const choisirOu = async () => {
-    tap()
-    await clavierRange()
-    const i = await choisir({
-      title: 'Qui le verra ?',
-      actions: [{ label: 'Toute la famille' }, ...albums.map((f) => ({ label: `Album « ${f.name} »` }))],
-    })
-    if (i < 0) return
-    const id = i === 0 ? null : albums[i - 1].id
-    setOu(id)
-    // un album garde des photos et des mots : pas de sticker seul
-    if (id) setSticker(null)
-  }
   const videoPrete = video?.etat === 'pret' && !!video.prep
   // une vidéo pour le fil alors que la base ne sait pas encore les garder : seulement dans un album
   const videoBloquee = !!video && !videoPossible
@@ -1180,7 +1156,6 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onDepart
     onClose(false)
   }
 
-  const idsAlbum = album ? membersOf(folderMembers, album.id) : []
 
   const seul = !photo && !video && !sticker
   // le texte grandit quand il est court, comme dans le fil : on voit tout de suite à quoi ressemblera la publication
@@ -1265,17 +1240,9 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onDepart
             <Avatar m={me} size={44} />
             <div className="min-w-0 flex-1">
               <p className="truncate text-corps font-bold">{me.display_name}</p>
-              <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
-                <span className="shrink-0 text-note text-brume">à l’instant ·</span>
-                <button data-pas-envol onClick={() => void choisirOu()} className="presse flex h-7 min-w-0 items-center gap-1 rounded-full bg-teinte-doux pl-2 pr-1.5 text-note font-bold text-teinte-fonce" aria-label={`Qui le verra : ${album ? album.name : 'toute la famille'}. Toucher pour changer`}>
-                  {album ? <Lock size={12} strokeWidth={2.7} className="shrink-0" /> : <UsersRound size={13} strokeWidth={2.5} className="shrink-0" />}
-                  <span className="truncate">{album ? album.name : 'Toute la famille'}</span>
-                  <ChevronDown size={14} strokeWidth={2.6} className="shrink-0" />
-                </button>
-              </div>
+              <p className="mt-0.5 text-note text-brume">à l’instant</p>
             </div>
           </div>
-          {album && <p className="px-4 pt-2 text-note text-brume">Seulement dans l’album : {whoText(idsAlbum, me.id, members)}.</p>}
 
           <textarea
             ref={zone}

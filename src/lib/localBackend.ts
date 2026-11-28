@@ -759,7 +759,8 @@ export function createLocalBackend(): Backend {
         d.parent_id = null; d.root_id = d.id
         for (const item of f.folderItems.filter(i => i.folder_id === d.id)) item.root_id = d.id
       }
-      const mine = new Set(f.folderMembers.filter((x) => x.member_id === me.id).map((x) => x.folder_id))
+      // tout le monde dans la famille voit tous les albums (Elisa, 28 nov.)
+      const mine = { has: (_id: string) => true }
       // la corbeille : ce que j'ai supprimé il y a moins de 30 jours (au-delà, c'est effacé)
       const TRENTE = 30 * 86400000
       const perime = (x: { deleted_at?: string | null }) => !!x.deleted_at && Date.now() - Date.parse(x.deleted_at) > TRENTE

@@ -90,9 +90,6 @@ export function AlbumsListe({ onOpen, onBack, onCorbeille }: { onOpen: (id: stri
 }
 
 function FolderCard({ folder, cover, line, last, onOpen }: { folder: Folder; cover: string | null; line: string; last: number; onOpen: () => void }) {
-  const { state } = useHome()
-  const ids = membersOf(state.folderMembers, folder.id)
-  const solo = ids.length <= 1
   return (
     <button
       onClick={() => {
@@ -103,17 +100,6 @@ function FolderCard({ folder, cover, line, last, onOpen }: { folder: Folder; cov
     >
       <FolderCover folder={folder} url={cover} size="wide" />
       {cover && <span className="absolute inset-x-0 bottom-0 h-[62%] bg-gradient-to-t from-black/60 via-black/20 to-transparent" />}
-      <span className="absolute left-2.5 top-2.5">
-        {solo ? (
-          <span className="verre flex h-7 items-center gap-1 rounded-full px-2.5 text-legende font-semibold text-encre">
-            <Lock size={12} strokeWidth={2.6} /> Juste toi
-          </span>
-        ) : (
-          <span className="verre flex h-8 items-center rounded-full py-1 pl-1 pr-1">
-            <MemberStack ids={ids} size={24} max={3} ring="rgba(255,255,255,0.9)" />
-          </span>
-        )}
-      </span>
       <span className={`absolute left-4 right-[40%] bottom-4 ${cover ? 'text-white' : 'text-encre'}`}>
         <span className="line-clamp-2 font-rond text-titre2" style={cover ? { textShadow: '0 1px 8px rgba(0,0,0,0.25)' } : undefined}>{folder.name}</span>
         <span className={`block truncate text-legende ${cover ? 'text-white/85' : 'text-encre/65'}`}>{line}</span>
@@ -161,7 +147,6 @@ export function FolderView({ id, onBack, retour = 'Le fil' }: { id: string; onBa
   const { me, members, folders, folderItems, folderMembers } = state
   const folder = folders.find((f) => f.id === id)!
   const root = folders.find((f) => f.id === folder.root_id) ?? folder
-  const memberIds = membersOf(folderMembers, root.id)
   const rootAdmin = !root.owner_id || root.owner_id === me.id
   const admin = rootAdmin || folder.owner_id === me.id
   const stats = folderStats(folders, folderItems, folder)
@@ -193,7 +178,7 @@ export function FolderView({ id, onBack, retour = 'Le fil' }: { id: string; onBa
   }
   const removeItem = async (item: FolderItem) => {
     const image = item.kind === 'photo'
-    if (!(await confirmer({ title: image ? 'Retirer cette photo de l’album ?' : 'Retirer ce souvenir de l’album ?', message: (image ? 'La photo et son message restent dans le fil familial. Seule la copie de cet album est retirée.' : 'Il sera retiré pour tous les membres de cet album.') + apres, confirm:'Retirer de l’album',destructive:true }))) return
+    if (!(await confirmer({ title: image ? 'Retirer cette photo de l’album ?' : 'Retirer ce souvenir de l’album ?', message: (image ? 'La photo et son message restent dans le fil familial. Seule la copie de cet album est retirée.' : 'Il sera retiré pour toute la famille.') + apres, confirm:'Retirer de l’album',destructive:true }))) return
     await retirer(item, 'Souvenir retiré de l’album')
   }
   const add = async () => {
@@ -245,7 +230,6 @@ export function FolderView({ id, onBack, retour = 'Le fil' }: { id: string; onBa
   const menu = async () => {
     const actions: { label: string; destructive?: boolean; go: () => void }[] = [
       ...(admin ? [{ label: 'Renommer', go: () => setSheet({ k: 'renommer' }) }, { label: 'Changer la couverture', go: changeCover }] : []),
-      { label: rootAdmin ? 'Gérer les membres' : 'Voir les membres', go: () => setSheet({ k: 'membres' }) },
       ...(!folder.parent_id && root.owner_id !== me.id ? [{ label: 'Quitter l’album', destructive: true, go: leave }] : []),
       ...(admin ? [{ label: 'Supprimer l’album', destructive: true, go: remove }] : []),
     ]
@@ -342,11 +326,6 @@ export function FolderView({ id, onBack, retour = 'Le fil' }: { id: string; onBa
           </div>
 
           <div className="relative -mt-5 rounded-t-[28px] bg-fond pb-4 pt-3">
-            <button onClick={() => { tap(); setSheet({ k: 'membres' }) }} className="presse mx-5 flex min-h-[52px] w-[calc(100%-2.5rem)] items-center gap-2.5 border-b border-trait pb-3 text-left" aria-label={`Accès à l’album : ${whoText(memberIds, me.id, members)}`}>
-              {memberIds.length <= 1 ? <Lock size={18} className="shrink-0 text-teinte" /> : <MemberStack ids={memberIds} size={28} max={3} />}
-              <span className="min-w-0 flex-1"><span className="block truncate text-sous font-semibold">{whoText(memberIds, me.id, members)}</span><span className="block text-note text-brume">{memberIds.length <= 1 ? 'Album privé' : 'Partagé avec ces proches uniquement'}</span></span>
-              <ChevronRight size={16} className="shrink-0 text-brume" />
-            </button>
 
             {!empty && <>
               <div className="mx-4 mt-4"><SearchField value={query} onChange={setQuery} placeholder="Rechercher dans cet album" /></div>
@@ -415,7 +394,6 @@ export function FolderView({ id, onBack, retour = 'Le fil' }: { id: string; onBa
         setQuery(''); setFilter(editor.kind === 'dessin' ? 'notes' : 'photos'); setEditor(null)
       }} />}
       {sheet?.k === 'note' && <NoteSheet folder={folder} note={sheet.note} admin={admin} onClose={() => setSheet(null)} onSaved={() => { setQuery(''); setFilter('notes') }} />}
-      {sheet?.k === 'membres' && <MembersSheet root={root} onClose={() => setSheet(null)} onLeft={onBack} />}
       {sheet?.k === 'renommer' && <RenameSheet folder={folder} onClose={() => setSheet(null)} />}
       {sheet?.k === 'couverture' && <CoverPicker folder={folder} onClose={() => setSheet(null)} />}
     </>
@@ -574,7 +552,7 @@ function NoteSheet({ folder, note, admin, onClose, onSaved }: { folder: Folder; 
           {by ? (by.id === state.me.id ? 'Créée par toi' : `Créée par ${by.display_name}`) : 'Note'} · modifiée {ago(note.updated_at)}
         </p>
       )}
-      <p className="px-2 pt-1 text-note text-brume">Tous les membres de l’album peuvent la lire et la modifier.</p>
+      <p className="px-2 pt-1 text-note text-brume">Toute la famille peut la lire et la modifier.</p>
       {note && (note.author_id === state.me.id || admin) && (
         <Btn
           kind="gris"
@@ -597,7 +575,6 @@ export function NewFolderSheet({ onClose, onCreated }: { onClose: () => void; on
   const { me, members, family } = state
   const [name, setName] = useState('')
   const nameId = useId()
-  const [who, setWho] = useState<Set<string>>(new Set())
   const [cover, setCover] = useState<Blob | null>(null)
   const [busy, setBusy] = useState(false)
   const input = useRef<HTMLInputElement>(null)
@@ -605,28 +582,18 @@ export function NewFolderSheet({ onClose, onCreated }: { onClose: () => void; on
   useEffect(() => () => void (preview && URL.revokeObjectURL(preview)), [preview])
   const others = members.filter((m) => m.id !== me.id)
 
-  const toggle = (id: string) => {
-    select()
-    setWho((s) => {
-      const n = new Set(s)
-      if (n.has(id)) n.delete(id)
-      else n.add(id)
-      return n
-    })
-  }
-
   const create = async () => {
     if (busy || !name.trim()) return
     setBusy(true)
     let id = ''
     const ok = await run(async (api) => {
-      id = await api.createFolder(family.id, { name: name.trim(), parentId: null, memberIds: [...who] })
+      id = await api.createFolder(family.id, { name: name.trim(), parentId: null, memberIds: others.map((m) => m.id) })
       if (cover) {
         const now = new Date().toISOString()
         const made: Folder = { id, family_id: family.id, parent_id: null, root_id: id, owner_id: me.id, name, cover_path: null, created_at: now, updated_at: now }
         await api.setFolderCover(made, { blob: cover })
       }
-    }, 'Album créé')
+    })
     setBusy(false)
     if (ok && id) {
       success()
@@ -636,7 +603,7 @@ export function NewFolderSheet({ onClose, onCreated }: { onClose: () => void; on
   }
 
   return (
-    <Sheet title={'Nouvel album'} onClose={onClose} tall footer={<Btn onClick={create} disabled={busy} manque={!name.trim() ? 'le nom de l’album' : null} onManque={() => document.querySelector<HTMLInputElement>('[role=dialog] input')?.focus()}>{busy ? 'Création…' : 'Créer l’album'}</Btn>}>
+    <Sheet title={'Nouvel album'} onClose={onClose} footer={<Btn onClick={create} disabled={busy} manque={!name.trim() ? 'le nom de l’album' : null} onManque={() => document.querySelector<HTMLInputElement>('[role=dialog] input')?.focus()}>{busy ? 'Création…' : 'Créer l’album'}</Btn>}>
       <input
         ref={input}
         type="file"
@@ -654,7 +621,7 @@ export function NewFolderSheet({ onClose, onCreated }: { onClose: () => void; on
         }}
       />
 
-      <ChampRequis id={nameId} label="Nom de l’album" aide="Les proches avec qui tu le partages le verront." className="mb-5">
+      <ChampRequis id={nameId} label="Nom de l’album" aide="Toute la famille le verra et pourra y ajouter des souvenirs." className="mb-5">
         <input id={nameId} required aria-describedby={`${nameId}-aide`} className={CHAMP_REQUIS} placeholder="Ex. : Vacances en famille" maxLength={40} value={name} onChange={(e) => setName(e.target.value)} />
       </ChampRequis>
 
@@ -668,128 +635,6 @@ export function NewFolderSheet({ onClose, onCreated }: { onClose: () => void; on
         </button>
       )}
 
-      {(
-        <>
-          <div className="mt-6 flex items-end justify-between px-2 pb-2">
-            <p className="text-note font-semibold uppercase tracking-[0.02em] text-brume">Qui peut y entrer ?</p>
-            {others.length > 0 && (
-              <button onClick={() => (select(), setWho(who.size === others.length ? new Set() : new Set(others.map((m) => m.id))))} className="text-sous font-semibold text-teinte">
-                {who.size === others.length ? 'Juste moi' : 'Toute la famille'}
-              </button>
-            )}
-          </div>
-          <div className="groupe">
-            <div className="flex items-center gap-3 pl-3.5">
-              <Avatar m={me} size={38} />
-              <span className="flex min-h-[54px] flex-1 items-center border-b border-trait pr-4">
-                <span className="flex-1 text-corps">Toi <span className="text-brume">· créateur</span></span>
-                <span className="flex h-[26px] w-[26px] items-center justify-center rounded-full bg-teinte/40 text-white"><Check size={15} strokeWidth={3.2} /></span>
-              </span>
-            </div>
-            {others.map((m, i) => {
-              const on = who.has(m.id)
-              return (
-                <button key={m.id} onClick={() => toggle(m.id)} className="presse-ligne flex w-full items-center gap-3 pl-3.5 text-left" aria-pressed={on}>
-                  <Avatar m={m} size={38} />
-                  <span className={`flex min-h-[54px] flex-1 items-center pr-4 ${i < others.length - 1 ? 'border-b border-trait' : ''}`}>
-                    <span className="flex-1 truncate text-corps">{m.display_name}</span>
-                    <span className={`flex h-[26px] w-[26px] items-center justify-center rounded-full transition-colors ${on ? 'bg-teinte text-white' : 'border-[1.5px] border-pale'}`}>
-                      {on && <Check size={15} strokeWidth={3.2} />}
-                    </span>
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-          <p className="flex items-start gap-1.5 px-2 pt-2.5 text-note text-brume">
-            {who.size ? <UsersRound size={14} strokeWidth={2.4} className="mt-0.5 shrink-0" /> : <Lock size={14} strokeWidth={2.4} className="mt-0.5 shrink-0" />}
-            {who.size ? `${whoText([me.id, ...who], me.id, members)}. Les autres membres de la famille ne verront pas cet album.` : 'Toi seul verras cet album. Tu pourras inviter des proches plus tard.'}
-          </p>
-        </>
-      )}
-
-    </Sheet>
-  )
-}
-
-function MembersSheet({ root, onClose, onLeft }: { root: Folder; onClose: () => void; onLeft: () => void }) {
-  const { state, run } = useHome()
-  const { me, members, folderMembers } = state
-  const current = membersOf(folderMembers, root.id)
-  const admin = !root.owner_id || root.owner_id === me.id
-  const [sel, setSel] = useState<Set<string>>(new Set(current))
-  const owner = members.find((m) => m.id === root.owner_id)
-  const fixed = (id: string) => id === root.owner_id || id === me.id
-  const changed = sel.size !== current.length || current.some((id) => !sel.has(id))
-  const people = admin ? members : members.filter((m) => current.includes(m.id))
-  const removed = current.filter((id) => !sel.has(id)).map((id) => members.find((m) => m.id === id)?.display_name).filter(Boolean)
-
-  const role = (id: string) => (id === root.owner_id ? 'Créateur' : current.includes(id) || id === me.id ? 'Membre' : 'Pas dans cet album')
-
-  return (
-    <Sheet title={admin ? 'Membres de l’album' : `Dans « ${root.name} »`} onClose={onClose}>
-      <p className="px-2 pb-3 text-center text-sous text-brume">Seules ces personnes voient l’album et tous ses souvenirs : photos, notes, dessins, vocaux et vidéos.</p>
-      <div className="groupe">
-        {people.map((m, i) => {
-          const on = sel.has(m.id)
-          const locked = !admin || fixed(m.id)
-          return (
-            <button
-              key={m.id}
-              disabled={locked}
-              onClick={() => {
-                select()
-                setSel((s) => {
-                  const n = new Set(s)
-                  if (n.has(m.id)) n.delete(m.id)
-                  else n.add(m.id)
-                  return n
-                })
-              }}
-              className={`flex w-full items-center gap-3 pl-3.5 text-left ${locked ? '' : 'presse-ligne'}`}
-              aria-pressed={on}
-            >
-              <Avatar m={m} size={40} mood />
-              <span className={`flex min-h-[58px] flex-1 items-center gap-2 pr-4 ${i < people.length - 1 ? 'border-b border-trait' : ''}`}>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-corps">{m.display_name}{m.id === me.id && m.id !== root.owner_id ? <span className="text-brume"> (toi)</span> : ''}</span>
-                  <span className="block truncate text-note text-brume">{role(m.id)}</span>
-                </span>
-                {admin && (
-                  <span className={`flex h-[26px] w-[26px] items-center justify-center rounded-full transition-colors ${on ? (fixed(m.id) ? 'bg-teinte/40 text-white' : 'bg-teinte text-white') : 'border-[1.5px] border-pale'}`}>
-                    {on && <Check size={15} strokeWidth={3.2} />}
-                  </span>
-                )}
-              </span>
-            </button>
-          )
-        })}
-      </div>
-      {admin ? (
-        <>
-          {removed.length > 0 && <p className="px-2 pt-2.5 text-note text-rouge">{removed.join(', ')} n’{removed.length > 1 ? 'auront' : 'aura'} plus accès à l’album.</p>}
-          <Btn className="mt-4" disabled={!changed} onClick={async () => (await run((api) => api.setFolderMembers(root.id, [...sel]), 'Membres mis à jour')) && onClose()}>
-            Enregistrer
-          </Btn>
-        </>
-      ) : (
-        <>
-          <p className="px-2 pt-2.5 text-note text-brume">Seul{owner ? ` ${owner.display_name}` : ' le créateur'} peut ajouter ou retirer des membres.</p>
-          <Btn
-            kind="gris"
-            className="mt-4 [&>button]:!text-rouge"
-            onClick={async () => {
-              if (!(await confirmer({ title: `Quitter « ${root.name} » ?`, message: 'Tu ne le verras plus. Son créateur pourra te réinviter.', confirm: 'Quitter l’album', destructive: true }))) return
-              if (await run((api) => api.leaveFolder(root.id, me.id), 'Tu as quitté l’album')) {
-                onClose()
-                onLeft()
-              }
-            }}
-          >
-            Quitter l’album
-          </Btn>
-        </>
-      )}
     </Sheet>
   )
 }
