@@ -1,6 +1,7 @@
-import { Check, Pause, Play, Plus, X } from 'lucide-react'
+import { ChartNoAxesColumn, Check, ImagePlus, Pause, Play, Plus, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Avatar, Sheet } from '../components/ui'
+import { Avatar, Btn, Sheet, useHauteurQuiTient } from '../components/ui'
+import { compressImage } from '../lib/util'
 import { select, tap } from '../lib/haptic'
 import { useHome } from '../lib/store'
 import type { Moment } from '../lib/types'
@@ -159,7 +160,7 @@ export function Vocal({ mo, mine }: { mo: Moment; mine: boolean }) {
 
 /** Un sondage fait partie de la conversation, avec les résultats partagés en direct.
  *  Le vote s'affiche tout de suite (sans attendre le serveur) et les barres glissent : rien ne clignote. */
-export function Sondage({ mo, mine, envoi, pleine = false }: { mo: Moment; mine: boolean; envoi?: boolean; /** dans une publication : toute la largeur */ pleine?: boolean }) {
+export function Sondage({ mo, mine, envoi, pleine = false, sansQuestion = false }: { mo: Moment; mine: boolean; envoi?: boolean; /** dans une publication : toute la largeur */ pleine?: boolean; /** la question est déjà écrite au-dessus de la photo */ sansQuestion?: boolean }) {
   const { state, run } = useHome()
   const options = mo.poll_options ?? []
   const moi = state.me.id
@@ -189,8 +190,12 @@ export function Sondage({ mo, mine, envoi, pleine = false }: { mo: Moment; mine:
   return (
     // une largeur fixe : la bulle ne bouge pas quand les pourcentages et « Tu peux changer ton vote » apparaissent
     <div className="sondage-bulle" style={{ width: pleine ? '100%' : 'min(62vw, 300px)' }} onClick={(e) => e.stopPropagation()}>
-      <p className={`mb-1 text-note font-bold ${mine ? 'text-white/80' : 'text-teinte-fonce'}`}>Sondage</p>
-      <p className="mb-3 whitespace-pre-wrap break-words text-corps font-semibold">{mo.body}</p>
+      {!sansQuestion && (
+        <>
+          <p className={`mb-1 text-note font-bold ${mine ? 'text-white/80' : 'text-teinte-fonce'}`}>Sondage</p>
+          <p className="mb-3 whitespace-pre-wrap break-words text-corps font-semibold">{insecable(mo.body)}</p>
+        </>
+      )}
       <div className="space-y-2">
         {options.map((option, index) => {
           const nb = votes.filter((v) => v.option_index === index).length
@@ -272,42 +277,158 @@ export function PhotoDuFil({ src, alt, anim, onPhoto, releasePhoto }: { src: str
     className="block max-h-[340px] w-full min-w-[180px] rounded-[18px] object-cover"
   />
 }
-/** La composition d'un sondage reprend la feuille iOS de l'application. */
-export function SondageCompose({ question0 = '', onClose, envoyer }: { question0?: string; onClose: () => void; envoyer: (m: NouvelEnvoi) => Promise<boolean> }) {
+const EXEMPLES_REPONSE = ['Ex. : Chez Mamie', 'Ex. : Au parc']
+/** « Léa ? » ne se coupe pas avant le point d'interrogation. */
+export const insecable = (t?: string | null) => (t ?? '').replace(/ ([?!:;»])/g, '\u00A0$1').replace(/« /g, '«\u00A0')
+
+/** Nouveau sondage (refait le 28 nov.) : la question et les réponses comme elles apparaîtront dans le fil, une photo
+ *  si on veut (« pouvoir mettre un sondage au sein d'une photo »), et tout tient dans la feuille. */
+export function SondageCompose({ question0 = '', photo0, onClose, envoyer }: { question0?: string; photo0?: Blob; onClose: () => void; envoyer: (m: NouvelEnvoi) => Promise<boolean> }) {
+  const { toast } = useHome()
   const [question, setQuestion] = useState(question0.slice(0, 200))
   const [options, setOptions] = useState(['', ''])
+  const [photo, setPhoto] = useState<{ blob: Blob; url: string } | null>(() => (photo0 ? { blob: photo0, url: URL.createObjectURL(photo0) } : null))
+  const [ratio, setRatio] = useState(4 / 3)
   const [loading, setLoading] = useState(false)
-  const cleaned = options.map((s) => s.trim()).filter(Boolean)
-  const valid = question.trim().length > 0 && cleaned.length >= 2 && cleaned.length === options.length && new Set(cleaned.map((s) => s.toLowerCase())).size === cleaned.length
+  const zone = useRef<HTMLTextAreaElement>(null)
+  const liste = useRef<HTMLDivElement>(null)
+  const fichier = useRef<HTMLInputElement>(null)
+  const cadre = useHauteurQuiTient(!!photo, ratio, 64, [options.length])
+  useEffect(() => () => void (photo && URL.revokeObjectURL(photo.url)), [photo])
+  useEffect(() => {
+    const z = zone.current
+    if (!z) return
+    z.style.height = 'auto'
+    z.style.height = `${Math.min(z.scrollHeight, 120)}px`
+  }, [question])
+  useEffect(() => {
+    if (!question0) window.setTimeout(() => zone.current?.focus(), 350)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const remplies = options.map((s) => s.trim())
+  const cleaned = remplies.filter(Boolean)
+  const doublon = new Set(cleaned.map((s) => s.toLowerCase())).size !== cleaned.length
+  const vide = remplies.findIndex((s) => !s)
+  const manque = !question.trim() ? 'ta question' : vide >= 0 ? (cleaned.length < 2 ? 'au moins deux réponses' : `la réponse ${vide + 1}`) : doublon ? 'des réponses différentes' : null
+  const allerAuManque = () => {
+    if (!question.trim()) return zone.current?.focus()
+    const i = vide >= 0 ? vide : 0
+    liste.current?.querySelectorAll<HTMLInputElement>('input')[i]?.focus()
+  }
+  const reponse = (i: number) => liste.current?.querySelectorAll<HTMLInputElement>('input')[i]
+  const ajouter = () => {
+    if (options.length >= 6) return
+    tap()
+    setOptions((x) => [...x, ''])
+    window.setTimeout(() => reponse(options.length)?.focus(), 30)
+  }
+  const poserPhoto = async (f?: File) => {
+    if (!f) return
+    try {
+      const blob = await compressImage(f, 1600, 0.86)
+      setPhoto({ blob, url: URL.createObjectURL(blob) })
+    } catch {
+      toast('Cette photo ne s’ouvre pas. Essaie une autre.', 'err')
+    }
+  }
   const publier = async () => {
-    if (!valid || loading) return
+    if (manque || loading) return
     setLoading(true)
     try {
-      if (await envoyer({ body: question.trim().slice(0, 200), pollOptions: cleaned })) onClose()
+      if (await envoyer({ body: question.trim().slice(0, 200), pollOptions: cleaned, blob: photo?.blob })) onClose()
     } finally {
       setLoading(false)
     }
   }
   return (
-    <Sheet title="Nouveau sondage" onClose={onClose} footer={
-      <button disabled={!valid || loading} onClick={() => void publier()} className="presse ios-primary btn-desactive flex min-h-[52px] w-full items-center justify-center rounded-full font-bold text-white">
+    <Sheet title="Nouveau sondage" onClose={onClose} tall={!!photo} footer={
+      <Btn onClick={() => void publier()} disabled={loading} manque={manque} onManque={allerAuManque}>
         {loading ? 'Publication…' : 'Publier le sondage'}
-      </button>
+      </Btn>
     }>
-      <p className="mb-4 text-sous text-brume">Pose une question à toute la famille. Chacun pourra voter une fois, et modifier son choix.</p>
-      <label className="mb-1 block text-sous font-semibold">Question</label>
-      <textarea aria-label="Question du sondage" value={question} onChange={(e) => setQuestion(e.target.value.slice(0, 200))} maxLength={200} rows={2} placeholder="On se retrouve où dimanche ?" className="mb-5 w-full resize-none rounded-[16px] bg-white px-4 py-3 text-corps outline-none focus:ring-2 focus:ring-teinte" />
-      <p className="mb-2 text-sous font-semibold">Réponses possibles</p>
-      <div className="space-y-2">
+      <input ref={fichier} type="file" accept="image/*" hidden onChange={(e) => void poserPhoto(e.target.files?.[0]).then(() => (e.target.value = ''))} />
+      {/* la question, et la photo si on en met une */}
+      <div className="rounded-[22px] bg-carte p-4 shadow-carte">
+        <div className="flex items-center justify-between gap-2">
+          <p className="flex items-center gap-1.5 text-note font-bold text-teinte-fonce"><ChartNoAxesColumn size={15} strokeWidth={2.6} /> Ta question</p>
+          {question.length > 150 && <p className="text-note tabular-nums text-brume">{question.length}/200</p>}
+        </div>
+        <textarea
+          ref={zone}
+          aria-label="Question du sondage"
+          value={question}
+          onChange={(e) => setQuestion(e.target.value.replace(/\n/g, ' ').slice(0, 200))}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); reponse(0)?.focus() } }}
+          enterKeyHint="next"
+          maxLength={200}
+          rows={1}
+          placeholder={insecable('Ex. : On se retrouve où dimanche ?')}
+          className="mt-1.5 block w-full resize-none bg-transparent text-titre3 font-semibold text-encre outline-none placeholder:font-medium placeholder:text-brume/80"
+        />
+        {photo ? (
+          // la place qui reste décide : grande photo, ou (petit écran) une vignette, pour que tout tienne
+          <div ref={cadre.ref} className="mt-3">
+            {cadre.h && cadre.h >= 130 ? (
+              <div className="relative mx-auto overflow-hidden rounded-[16px] bg-remplissage" style={{ height: cadre.h, width: `min(100%, ${Math.round(cadre.h * ratio)}px)` }}>
+                <img src={photo.url} alt="La photo du sondage" onLoad={(e) => { const i = e.currentTarget; if (i.naturalWidth && i.naturalHeight) setRatio(i.naturalWidth / i.naturalHeight) }} className="block h-full w-full object-cover" />
+                <button onClick={() => { tap(); setPhoto(null) }} aria-label="Retirer la photo" className="presse verre absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full text-encre">
+                  <X size={17} strokeWidth={2.6} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex h-16 items-center gap-3">
+                <img src={photo.url} alt="La photo du sondage" onLoad={(e) => { const i = e.currentTarget; if (i.naturalWidth && i.naturalHeight) setRatio(i.naturalWidth / i.naturalHeight) }} className="h-16 w-16 shrink-0 rounded-[12px] object-cover" />
+                <p className="min-w-0 flex-1 text-sous font-semibold text-encre">Ta photo</p>
+                <button onClick={() => { tap(); setPhoto(null) }} className="presse min-h-11 shrink-0 px-2 text-sous font-semibold text-teinte-fonce">Retirer</button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <button onClick={() => { tap(); fichier.current?.click() }} className="presse mt-3 flex min-h-11 items-center gap-2 rounded-full bg-teinte-doux py-2 pl-3 pr-4 text-sous font-semibold text-teinte-fonce">
+            <ImagePlus size={18} strokeWidth={2.4} /> Ajouter une photo
+          </button>
+        )}
+      </div>
+
+      {/* les réponses, comme on les verra dans le fil */}
+      <div ref={liste} className="mt-3 space-y-2">
         {options.map((option, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <input aria-label={`Réponse ${i + 1}`} value={option} maxLength={80} onChange={(e) => setOptions((x) => x.map((v, j) => j === i ? e.target.value : v))} placeholder={`Choix ${i + 1}`} className="min-h-[48px] min-w-0 flex-1 rounded-[14px] bg-white px-4 text-corps outline-none focus:ring-2 focus:ring-teinte" />
-            {options.length > 2 && <button aria-label={`Retirer la réponse ${i + 1}`} onClick={() => setOptions((x) => x.filter((_, j) => j !== i))} className="presse flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-brume"><X size={18} /></button>}
+          <div key={i} className="flex min-h-[50px] items-center gap-3 rounded-[16px] bg-carte pl-4 pr-1 shadow-carte focus-within:ring-2 focus-within:ring-teinte/40">
+            <span className="h-[18px] w-[18px] shrink-0 rounded-full border-2 border-teinte/35" aria-hidden="true" />
+            <input
+              aria-label={`Réponse ${i + 1}`}
+              value={option}
+              maxLength={80}
+              enterKeyHint={i === options.length - 1 && options.length >= 2 ? 'done' : 'next'}
+              onChange={(e) => setOptions((x) => x.map((v, j) => (j === i ? e.target.value : v)))}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter') return
+                e.preventDefault()
+                if (i < options.length - 1) reponse(i + 1)?.focus()
+                else e.currentTarget.blur()
+              }}
+              placeholder={insecable(EXEMPLES_REPONSE[i]) || `Réponse ${i + 1}`}
+              className="min-h-[50px] min-w-0 flex-1 bg-transparent text-corps text-encre outline-none placeholder:text-brume/80"
+            />
+            {options.length > 2 && (
+              <button aria-label={`Retirer la réponse ${i + 1}`} onClick={() => { tap(); setOptions((x) => x.filter((_, j) => j !== i)) }} className="presse flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-brume">
+                <X size={18} />
+              </button>
+            )}
           </div>
         ))}
+        {options.length < 6 && (
+          <button onClick={ajouter} className="presse flex min-h-[50px] w-full items-center gap-3 rounded-[16px] border-[1.5px] border-dashed border-teinte/30 pl-[15px] text-corps font-semibold text-teinte-fonce">
+            <Plus size={19} strokeWidth={2.6} /> Ajouter une réponse
+          </button>
+        )}
       </div>
-      {options.length < 6 && <button onClick={() => setOptions((x) => [...x, ''])} className="presse mt-3 flex min-h-[44px] items-center gap-2 font-semibold text-teinte-fonce"><Plus size={18} /> Ajouter une réponse</button>}
-      <p className="mt-3 text-note text-brume">De 2 à 6 réponses · Une seule réponse par personne</p>
+      {/* la petite aide s'efface quand la place manque (petit écran avec une photo) */}
+      {(doublon || !photo || (cadre.h ?? 0) >= 130) && (
+        <p className={`mt-3 text-center text-note ${doublon ? 'font-semibold text-teinte-fonce' : 'text-brume'}`}>
+          {doublon ? 'Deux réponses sont identiques.' : 'Chacun vote une fois et peut changer d’avis.'}
+        </p>
+      )}
     </Sheet>
   )
 }

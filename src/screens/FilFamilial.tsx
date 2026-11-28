@@ -23,7 +23,7 @@ import type { FamilyState, Folder, FolderItem, Member, Moment } from '../lib/typ
 import { ago, compressImage } from '../lib/util'
 import { Corbeille } from './Corbeille'
 import { AlbumsListe, FolderView, NewFolderSheet } from './Folders'
-import { Apercu, Sondage, SondageCompose, Texte, Vocal, type NouvelEnvoi } from './Moments'
+import { Apercu, insecable, Sondage, SondageCompose, Texte, Vocal, type NouvelEnvoi } from './Moments'
 
 // ═════════════════════════ L'onglet : le fil, la liste des albums, un album ═════════════════════════
 
@@ -107,7 +107,7 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
   const [chercher, setChercher] = useState(false)
   const [recherche, setRecherche] = useState('')
   const [compose, setCompose] = useState<null | { fichier?: File; video?: File }>(null)
-  const [sondage, setSondage] = useState<string | null>(null)
+  const [sondage, setSondage] = useState<{ question: string; photo?: Blob } | null>(null)
   const [commentaires, setCommentaires] = useState<{ id: string; ecrire: boolean } | null>(null)
   const [plein, setPlein] = useState<string | null>(null)
   // les feuilles des réactions (toutes les réactions, qui a réagi) : au niveau de l'écran, pas dans la carte
@@ -265,7 +265,7 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
             <div className={`mt-2.5 grid gap-1 border-t border-trait pt-2 ${state.videos ? 'grid-cols-3' : 'grid-cols-2'}`}>
               <Raccourci icone={<Images size={20} strokeWidth={2.2} className="text-teinte" />} label="Photo" onClick={() => void ajouterPhoto()} />
               {state.videos && <Raccourci icone={<Video size={21} strokeWidth={2.2} className="text-teinte" />} label="Vidéo" onClick={() => void ajouterVideo()} />}
-              <Raccourci icone={<ChartNoAxesColumn size={19} strokeWidth={2.4} className="text-teinte" />} label="Sondage" onClick={() => { tap(); setSondage('') }} />
+              <Raccourci icone={<ChartNoAxesColumn size={19} strokeWidth={2.4} className="text-teinte" />} label="Sondage" onClick={() => { tap(); setSondage({ question: '' }) }} />
             </div>
           </section>
         )}
@@ -336,7 +336,7 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
         <NouvellePublication
           fichier={compose.fichier}
           video={compose.video}
-          onSondage={(question) => { setCompose(null); setSondage(question) }}
+          onSondage={(q) => { setCompose(null); setSondage(q) }}
           onClose={(ok) => {
             setCompose(null)
             if (ok) publie()
@@ -345,7 +345,8 @@ function Fil({ onAlbum, onAlbums }: { onAlbum: (id: string) => void; onAlbums: (
       )}
       {sondage !== null && (
         <SondageCompose
-          question0={sondage}
+          question0={sondage.question}
+          photo0={sondage.photo}
           onClose={() => setSondage(null)}
           envoyer={async (m: NouvelEnvoi) => {
             const ok = await run((api) => api.postMoment(state.family.id, me.id, m))
@@ -599,9 +600,16 @@ function Publication({ mo, coms, peutCommenter, onPhoto, onCommentaires, onNouve
           <Apercu body={mo.body} mine={false} />
         </div>
       )}
-      {sondage && (
+      {sondage && !mo.image_url && (
         <div className="px-4 pt-2.5">
           <Sondage mo={mo} mine={false} pleine />
+        </div>
+      )}
+      {/* un sondage sur une photo : la question, la photo, puis les réponses */}
+      {sondage && mo.image_url && (
+        <div className="px-4 pt-2">
+          <p className="text-note font-bold text-teinte-fonce">Sondage</p>
+          <p className="whitespace-pre-wrap break-words text-titre3 font-semibold">{insecable(mo.body)}</p>
         </div>
       )}
       {stickerSeul && (
@@ -612,8 +620,13 @@ function Publication({ mo, coms, peutCommenter, onPhoto, onCommentaires, onNouve
       {mo.video_path && <VideoDuFil mo={mo} />}
       {mo.image_url && (
         <button onClick={() => onPhoto(mo.image_url!)} className="mt-3 block w-full overflow-hidden bg-remplissage" aria-label="Voir la photo en grand">
-          <img src={mo.image_url} alt={mo.body ?? `Photo de ${auteur.display_name}`} loading="lazy" className="block max-h-[540px] w-full object-cover" />
+          <img src={mo.image_url} alt={mo.body ?? `Photo de ${auteur.display_name}`} loading="lazy" className={`block w-full object-cover ${sondage ? 'max-h-[380px]' : 'max-h-[540px]'}`} />
         </button>
+      )}
+      {sondage && mo.image_url && (
+        <div className="px-4 pt-3">
+          <Sondage mo={mo} mine={false} pleine sansQuestion />
+        </div>
       )}
       {mo.audio_path && (
         <div className="mx-4 mt-3 rounded-[18px] bg-teinte-doux px-3 py-1.5">
@@ -987,7 +1000,7 @@ function Commentaire({ c, aime, nbAime }: { c: Moment; aime: boolean; nbAime: nu
 
 // ═════════════════════════ Publier ═════════════════════════
 
-function NouvellePublication({ fichier, video: videoChoisie, onSondage, onClose }: { fichier?: File; video?: File; onSondage: (question: string) => void; onClose: (publie: boolean) => void }) {
+function NouvellePublication({ fichier, video: videoChoisie, onSondage, onClose }: { fichier?: File; video?: File; onSondage: (q: { question: string; photo?: Blob }) => void; onClose: (publie: boolean) => void }) {
   const { state, run, toast } = useHome()
   const { me, family, folders, folderMembers, members } = state
   const [texte, setTexte] = useState('')
@@ -1229,7 +1242,7 @@ function NouvellePublication({ fichier, video: videoChoisie, onSondage, onClose 
             <Ajouter icone={<Images size={21} strokeWidth={2.2} className="text-teinte" />} label="Photo" actif={!!photo} onClick={() => void choisirPhoto()} />
             {videoPossible && <Ajouter icone={<Video size={22} strokeWidth={2.2} className="text-teinte" />} label="Vidéo" actif={!!video} onClick={() => void choisirVideo()} />}
             {!album && <Ajouter icone={<Smile size={21} strokeWidth={2.2} className="text-teinte" />} label="Sticker" actif={tiroir || !!sticker} onClick={() => { tap(); setTiroir(!tiroir) }} />}
-            {!album && <Ajouter icone={<ChartNoAxesColumn size={20} strokeWidth={2.4} className="text-teinte" />} label="Sondage" onClick={() => { tap(); onSondage(texte.trim()) }} />}
+            {!album && !video && <Ajouter icone={<ChartNoAxesColumn size={20} strokeWidth={2.4} className="text-teinte" />} label="Sondage" onClick={() => { tap(); onSondage({ question: texte.trim(), photo: photo?.blob }) }} />}
           </div>
         </div>
       </Sheet>
